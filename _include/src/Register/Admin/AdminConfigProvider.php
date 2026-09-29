@@ -21,6 +21,7 @@ use Register\Content\Admin\ContentRevisionService;
 use Register\Content\ContentSchema;
 use Register\Content\ContentTagSchema;
 use Register\Content\ContentType;
+use Register\Content\Tag;
 use Register\Content\TagRepository;
 use Register\Live\LiveUpdateRepository;
 use Register\Url\ContentSlugService;
@@ -861,14 +862,15 @@ class AdminConfigProvider implements StatefulServiceInterface
                 label: $this->translator->trans('Tags'),
                 hint: $this->translator->trans('Tags help'),
                 type: new VirtualFieldType((function (): string {
-                    $column     = match ($this->dbType) {
-                        'pgsql' => "STRING_AGG(t.name, ', ' ORDER BY pt.id)",
-                        'sqlite' => "GROUP_CONCAT(t.name, ', ')", // seems like SQLite does not support ORDER BY
-                        default => 'GROUP_CONCAT(t.name ORDER BY pt.id SEPARATOR ", ")',
-                    };
                     $tableName  = $this->dbPrefix . 'tags';
                     $tableName2 = $this->dbPrefix . ContentTagSchema::TABLE_NAME;
-                    return "SELECT $column FROM $tableName AS t JOIN $tableName2 AS pt ON t.id = pt.tag_id WHERE pt.content_type = '" . ContentType::PAGE->value . "' AND pt.content_id = entity.id";
+                    $tagQuery = "FROM $tableName AS t JOIN $tableName2 AS pt ON t.id = pt.tag_id WHERE pt.content_type = '" . ContentType::PAGE->value . "' AND pt.content_id = entity.id";
+                    return match ($this->dbType) {
+                        'pgsql' => "SELECT STRING_AGG(t.name, ', ' ORDER BY pt.id) $tagQuery",
+                        // Sort the aggregate input explicitly, including on older SQLite versions.
+                        'sqlite' => "SELECT GROUP_CONCAT(name, ', ') FROM (SELECT t.name $tagQuery ORDER BY pt.id)",
+                        default => 'SELECT GROUP_CONCAT(t.name ORDER BY pt.id SEPARATOR ", ") ' . $tagQuery,
+                    };
                 })()),
                 control: 'input',
                 validators: [
@@ -1125,6 +1127,10 @@ class AdminConfigProvider implements StatefulServiceInterface
                     return;
                 }
 
+                $editableFieldTypes = $articleEntity->getFieldDataTypes(FieldConfig::ACTION_EDIT);
+                unset($editableFieldTypes['revision']);
+                $event->data = $this->normalizePageEditorFields($event->data, $oldData, $editableFieldTypes);
+
                 if ($this->adminCut->get()) {
                     $textParts = preg_split('#(<cut\\s*/?>|<p><cut /></p>)#', $event->data['body'], 2);
                     if ($textParts === false) {
@@ -1151,10 +1157,16 @@ class AdminConfigProvider implements StatefulServiceInterface
                     return;
                 }
 
+                $contentId = ContentId::page($articleId);
+                $storedTags = $this->tagRepository->findForContent([$contentId]);
+                $oldData['column_tags'] = array_map(
+                    static fn(Tag $tag): string => mb_strtolower($tag->name),
+                    $storedTags[(string)$contentId],
+                );
                 $revision = $this->contentRevisionService->resolve(
-                    $event->data,
+                    [...$event->data, 'tags' => $this->normalizePageTags((string)$event->data['tags'])],
                     $oldData,
-                    ['body', 'title', 'slug', 'excerpt', 'meta_keywords', 'meta_description', 'social_image', 'published', 'scheduled_at'],
+                    ['tags', ...array_keys($editableFieldTypes)],
                 );
                 if (!$revision instanceof ContentRevision) {
                     $event->errorMessages[] = $this->translator->trans('Outdated version');
@@ -1878,6 +1890,44 @@ class AdminConfigProvider implements StatefulServiceInterface
     private function buildTagDisplayName(array $row): string
     {
         return \trim((string)($row['column_name'] ?? ''));
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     * @param array<string, mixed> $storedData
+     * @param array<string, string> $fieldTypes
+     * @return array<string, mixed>
+     */
+    private function normalizePageEditorFields(array $data, array $storedData, array $fieldTypes): array
+    {
+        foreach ($fieldTypes as $field => $type) {
+            // An unselected author is submitted as an empty string and stored as NULL.
+            if ($type === FieldConfig::DATA_TYPE_INT && $data[$field] === '') {
+                $data[$field] = null;
+            }
+
+            if ($type !== FieldConfig::DATA_TYPE_UNIXTIME) {
+                continue;
+            }
+
+            $submittedDate = $data[$field];
+            $storedDate = $storedData['column_' . $field];
+            // Datetime controls display minutes. Preserve hidden seconds on an unchanged date.
+            if ($submittedDate instanceof \DateTimeImmutable && $storedDate instanceof \DateTimeImmutable
+                && $submittedDate->format('Y-m-d\TH:i') === $storedDate->format('Y-m-d\TH:i')) {
+                $data[$field] = $storedDate;
+            }
+        }
+
+        return $data;
+    }
+
+    /** @return list<string> */
+    private function normalizePageTags(string $tags): array
+    {
+        // Match tag persistence: whitespace, duplicate names and letter case are insignificant.
+        $names = array_map(static fn(string $name): string => mb_strtolower(trim($name)), explode(',', $tags));
+        return array_values(array_unique(array_filter($names, static fn(string $name): bool => $name !== '')));
     }
 
     #[\Override]

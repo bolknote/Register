@@ -25,7 +25,17 @@ final readonly class ContentRevisionService
                 throw new \LogicException(sprintf('Revision field "%s" is missing.', $field));
             }
 
-            if ($submittedData[$field] !== $storedData[$storedField]) {
+            $submittedValue = $submittedData[$field];
+            $storedValue = $storedData[$storedField];
+            if ($submittedValue instanceof \DateTimeInterface) {
+                $submittedValue = $submittedValue->getTimestamp();
+            }
+
+            if ($storedValue instanceof \DateTimeInterface) {
+                $storedValue = $storedValue->getTimestamp();
+            }
+
+            if ($submittedValue !== $storedValue) {
                 $contentChanged = true;
             }
         }

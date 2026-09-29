@@ -49,6 +49,36 @@ final class ContentRevisionServiceTest extends Unit
         ));
     }
 
+    public function testComparesDatesByTheirStoredTimestamp(): void
+    {
+        $revision = $this->service()->resolve(
+            ['scheduled_at' => new \DateTimeImmutable('2030-01-02T15:34:00+03:00'), 'revision' => '1'],
+            ['column_scheduled_at' => new \DateTimeImmutable('2030-01-02T12:34:00+00:00'), 'column_revision' => '4'],
+            ['scheduled_at'],
+        );
+
+        self::assertNotNull($revision);
+        self::assertFalse($revision->contentChanged);
+        self::assertSame('4', $revision->value);
+    }
+
+    public function testChangedOrClearedDatesRequireTheCurrentRevision(): void
+    {
+        $stored = ['column_scheduled_at' => new \DateTimeImmutable('2030-01-02T12:34:00+00:00'), 'column_revision' => '4'];
+        foreach ([new \DateTimeImmutable('2030-01-02T12:34:01+00:00'), null] as $date) {
+            self::assertNull($this->service()->resolve(
+                ['scheduled_at' => $date, 'revision' => '3'], $stored, ['scheduled_at'],
+            ));
+
+            $revision = $this->service()->resolve(
+                ['scheduled_at' => $date, 'revision' => '4'], $stored, ['scheduled_at'],
+            );
+            self::assertNotNull($revision);
+            self::assertTrue($revision->contentChanged);
+            self::assertSame('5', $revision->value);
+        }
+    }
+
     public function testRejectsMissingTrackedField(): void
     {
         $this->expectException(\LogicException::class);
