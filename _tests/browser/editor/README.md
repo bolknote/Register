@@ -291,6 +291,14 @@ navigation and nested folders, and reload the current source or destination.
 Moving the entire file list, network failures, rejected renames and moves, and
 partially completed moves also leave the library usable with current file URLs.
 
+Four filtered-selection scenarios exercise Shift ranges in both directions with
+text and type filters. Counts, deletion confirmations, delete requests and file
+moves exclude hidden files. Two keyboard scenarios check all arrow directions,
+Control/Shift modifiers and Space across hidden rows and at list boundaries.
+Three focus scenarios clear hidden or detached keyboard targets after filtering
+and refreshing; empty views ignore Rename and Delete, and clearing a filter
+restores keyboard navigation and renaming.
+
 Sixteen deletion and folder-creation scenarios exercise the real confirmation
 dialog, cancellation, deletion of all files, refreshes and navigation during
 pending deletes, and recovery after server or network failures. Folder creation

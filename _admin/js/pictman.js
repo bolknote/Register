@@ -264,6 +264,9 @@ $(function () {
             }
         });
         var counts = filterMediaFiles(nodes, searchInput?.value || '', typeInput?.value || 'all', function (node) {
+            if (node.querySelector('a.jstree-hovered')) {
+                fileTree.jstree('dehover_node');
+            }
             if (node.querySelector('a.jstree-clicked')) {
                 fileTree.jstree('deselect_node', node);
             }
@@ -285,6 +288,7 @@ $(function () {
         // Files from the previous path must not remain actionable while the
         // new list is pending or if that request fails.
         if (fileTree) {
+            fileTree.jstree('dehover_node');
             fileTree.jstree('deselect_all');
             fileTree.children('ul').empty();
         }
@@ -665,6 +669,23 @@ $(function () {
         fileTree.jstree('refresh', -1);
     };
 
+    // jsTree's default keyboard navigation walks hidden siblings too.
+    const fileNavigationKeys = {};
+    for (const [key, step] of [['up', -1], ['left', -1], ['down', 1], ['right', 1]]) {
+        for (const modifier of ['', 'ctrl+', 'shift+']) {
+            fileNavigationKeys[modifier + key] = function () {
+                const files = this.get_container().find('li[data-fname]').filter(function () {
+                    return !this.hidden;
+                });
+                const current = this.data.ui.hovered || this.data.ui.last_selected;
+                const index = current ? files.index(current) : -1;
+                const next = index < 0 ? (step > 0 ? 0 : files.length - 1) : index + step;
+                if (next >= 0 && next < files.length) this.hover_node(files.eq(next));
+                return false;
+            };
+        }
+    }
+
     var fileTree = $('#files')
         .bind('loaded.jstree load_node.jstree refresh.jstree', function () {
             filesLoading = false;
@@ -681,10 +702,10 @@ $(function () {
             selectedFiles.each(function () {
                 names.push(fileTree.jstree('get_text', this));
             });
-            if (names.length === 0) {
-                return;
-            }
             e.stopImmediatePropagation();
+            if (names.length === 0) {
+                return false;
+            }
             window.AdminConfirm.ask({
                 title: register_lang.delete_title,
                 message: str_replace('%s', names.join(', '), register_lang.delete_file),
@@ -706,7 +727,14 @@ $(function () {
                 fileTree.jstree('rename', e.target);
             }
         })
-        .bind('select_node.jstree', function () {
+        .bind('select_node.jstree', function (e, data) {
+            // A Shift range includes all DOM siblings, even filtered-out ones.
+            // Remove them from the actual selection before any file action.
+            data.rslt.obj.filter(function () {
+                return this.hidden;
+            }).each(function () {
+                fileTree.jstree('deselect_node', this);
+            });
             fileTree.jstree('set_focus');
             updateFileSelection();
         })
@@ -770,6 +798,7 @@ $(function () {
                 select_limit: -1
             },
             hotkeys: {
+                ...fileNavigationKeys,
                 'del': function () {
                     fileTree.jstree('remove');
                 },
@@ -782,7 +811,11 @@ $(function () {
                     return false;
                 },
                 'f2': function () {
-                    this.rename(this.data.ui.last_selected || this.data.ui.hovered);
+                    var target = this.data.ui.last_selected;
+                    if (!target?.length) target = this.data.ui.hovered;
+                    if (target?.length && !target[0].hidden && $.contains(fileTree[0], target[0])) {
+                        this.rename(target);
+                    }
                     return false;
                 }
             },

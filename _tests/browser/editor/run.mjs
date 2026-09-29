@@ -31,6 +31,7 @@ import {runMediaLibraryUploadRegressions, runMediaLibraryFailureRegressions, run
     runMediaLibraryFolderRegressions, runMediaLibraryFolderMutationRegressions, runMediaLibraryFolderFailureRegressions,
     runMediaLibraryFileSelectionRegressions, runMediaLibraryFileRenameRegressions, runMediaLibraryFileMoveRegressions,
     runMediaLibraryFileDeleteRegressions, runMediaLibraryFolderCreateRegressions,
+    runMediaLibraryFilteredSelectionRegressions, runMediaLibraryFilteredKeyboardRegressions, runMediaLibraryHiddenFocusRegressions,
     runMediaLibraryFolderRollbackRegressions, runMediaLibraryLiteralNameRegressions} from './media-library-tests.mjs';
 
 async function runAuthorWorkflowRegressions(browser, origin) {
@@ -477,6 +478,9 @@ try {
             await runMediaLibraryFolderFailureRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runMediaLibraryLiteralNameRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runMediaLibraryFileSelectionRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runMediaLibraryFilteredSelectionRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runMediaLibraryFilteredKeyboardRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runMediaLibraryHiddenFocusRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runMediaLibraryFileRenameRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runMediaLibraryFileMoveRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runMediaLibraryFileDeleteRegressions(browser, `http://127.0.0.1:${server.address().port}`);

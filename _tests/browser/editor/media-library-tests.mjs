@@ -4,13 +4,15 @@ import {formData, holdRequests} from './save-tests.mjs';
 
 const markup = `<!doctype html><html lang="en"><meta charset="utf-8"><title>Media library</title>
 <section data-picture-manager data-ajax-url="/library-api?" data-picture-prefix="/pictures"
-    data-max-file-size="1048576" data-empty-directory="Empty directory" data-file-count="{{ visible }}/{{ total }}">
+    data-max-file-size="1048576" data-empty-directory="Empty directory" data-file-count="{{ visible }}/{{ total }}"
+    data-selected-count="Selected: {{ count }}">
     <form id="uploadForm"><div id="loading_pict"></div><span id="fold_name"></span>
         <input type="file" name="pictures[]" multiple><span data-media-upload-selection></span>
         <input type="hidden" name="dir"><input type="hidden" name="csrf_token">
     </form>
     <div id="folders"></div><span data-media-folder-path></span><button type="button" data-media-refresh>Refresh</button>
-    <input type="search" data-media-search><select data-media-type><option value="all">All</option></select>
+    <input type="search" data-media-search><select data-media-type><option value="all">All</option>
+        <option value="image">Images</option><option value="audio">Audio</option></select>
     <span data-media-count></span><div data-media-selection-bar hidden><span data-media-selected-count></span>
         <button type="button" data-media-delete>Delete files</button></div>
     <div id="brd"><div id="files"></div><div id="loadstatus"></div>
@@ -430,6 +432,146 @@ export async function runMediaLibraryFileSelectionRegressions(browser, origin) {
         assert.deepEqual(library.errors, []);
     } finally { await page.close(); }
     console.log('media library: reducing multiple selections to one restores that file’s details and insertion action');
+}
+
+export async function runMediaLibraryFilteredSelectionRegressions(browser, origin) {
+    const visible = ['1-photo.png', '3-photo.png'];
+    for (const [filter, reverse, action] of [
+        ['search', false, 'delete'], ['search', true, 'move'],
+        ['type', false, 'move'], ['type', true, 'delete'],
+    ]) {
+        const page = await browser.newPage();
+        try {
+            const library = await openLibrary(page, origin, [
+                {data: 'target', attr: {'data-path': '/target', 'data-csrf-token': 'target-token'}},
+            ]);
+            library.files.splice(0, library.files.length, visible[0], '2-notes.txt', visible[1]);
+            await page.getByRole('button', {name: 'Refresh', exact: true}).click();
+            await page.waitForFunction(() => document.querySelectorAll('#files li[data-fname]').length === 3);
+            if (filter === 'search') await page.locator('[data-media-search]').fill('photo');
+            else await page.locator('[data-media-type]').selectOption('image');
+            assert.equal(await page.locator('[data-media-count]').textContent(), '2/3');
+            const [first, last] = reverse ? [...visible].reverse() : visible;
+            await page.locator(`#files [data-fname="${first}"] > a`).click();
+            await page.locator(`#files [data-fname="${last}"] > a`).click({modifiers: ['Shift']});
+            const selected = await page.locator('#files a.jstree-clicked').evaluateAll(links => links.map(link => link.parentElement.dataset.fname));
+            const selectionCount = await page.locator('[data-media-selected-count]').textContent();
+            const mutations = holdRequests(page, `**/library-api?action=${action}_files&*`);
+            await mutations.installed;
+            let confirmation;
+            if (action === 'delete') {
+                await page.getByRole('button', {name: 'Delete files', exact: true}).click();
+                confirmation = await page.locator('[data-admin-confirm-message]').textContent();
+                await page.locator('[data-admin-confirm-submit]').click();
+            } else {
+                // Use the same selected nodes and tree operation as a drag.
+                await page.evaluate(() => jQuery('#folders').jstree('move_node',
+                    jQuery('#files').jstree('get_selected'), jQuery('#folders [data-path="/target"]'), 'last'));
+            }
+            const request = await mutations.next();
+            const params = new URL(request.request().url()).searchParams;
+            assert.deepEqual(params.getAll('fname[]').sort(), visible,
+                `${filter}/${action}: a range operation must never send filtered-out filenames`);
+            assert.deepEqual(selected, visible, 'The selection itself must exclude hidden files');
+            assert.equal(selectionCount, 'Selected: 2');
+            if (confirmation) assert.ok(!confirmation.includes('2-notes.txt'), 'Deletion confirms only visible files');
+            library.files.splice(0, library.files.length, '2-notes.txt');
+            const done = page.waitForResponse(response => response.url() === request.request().url()).then(response => response.finished());
+            await request.fulfill({json: {success: true}});
+            await done;
+            await nextTask(page);
+            await page.waitForFunction(() => jQuery.active === 0 && document.querySelectorAll('#files li[data-fname]').length === 1);
+            assert.equal(await page.locator('#files li[data-fname]').getAttribute('data-fname'), '2-notes.txt');
+            assert.equal(await page.locator('[data-media-count]').textContent(), '0/1');
+            assert.equal(await page.locator('[data-media-no-matches]').evaluate(element => element.hidden), false);
+            assert.deepEqual(library.errors, []);
+        } catch (error) {
+            throw new Error(`media filtered selection ${filter}/${reverse}/${action}: ${error.message}`, {cause: error});
+        } finally { await page.close(); }
+    }
+    console.log('media library: filtered range selections delete and move only visible files in either direction');
+}
+
+export async function runMediaLibraryFilteredKeyboardRegressions(browser, origin) {
+    for (const filter of ['search', 'type']) {
+        const page = await browser.newPage();
+        try {
+            const library = await openLibrary(page, origin);
+            library.files.splice(0, library.files.length, '1-photo.png', '2-notes.txt', '3-photo.png');
+            await page.getByRole('button', {name: 'Refresh', exact: true}).click();
+            await page.waitForFunction(() => document.querySelectorAll('#files li[data-fname]').length === 3);
+            if (filter === 'search') await page.locator('[data-media-search]').fill('photo');
+            else await page.locator('[data-media-type]').selectOption('image');
+            for (const [key, start, end] of [
+                ['ArrowDown', '1-photo.png', '3-photo.png'], ['ArrowRight', '1-photo.png', '3-photo.png'],
+                ['ArrowUp', '3-photo.png', '1-photo.png'], ['ArrowLeft', '3-photo.png', '1-photo.png'],
+            ]) {
+                for (const modifier of ['', 'Control+', 'Shift+']) {
+                    await page.locator(`#files [data-fname="${start}"] > a`).click();
+                    await page.mouse.move(0, 0);
+                    await page.keyboard.press(modifier + key);
+                    assert.deepEqual(await page.locator('#files a.jstree-hovered').evaluateAll(links => links.map(link => link.parentElement.dataset.fname)),
+                        [end], `${filter}/${modifier}${key}: navigation must skip hidden files`);
+                    await page.keyboard.press('Space');
+                    assert.deepEqual(await page.locator('#files a.jstree-clicked').evaluateAll(links => links.map(link => link.parentElement.dataset.fname)), [end]);
+                    assert.equal(new URL(await page.locator('#finfo a').getAttribute('href'), origin).pathname, '/pictures/' + end);
+                    await page.keyboard.press(modifier + key);
+                    assert.deepEqual(await page.locator('#files a.jstree-hovered').evaluateAll(links => links.map(link => link.parentElement.dataset.fname)),
+                        [end], 'Navigation at the visible boundary retains the current file');
+                }
+            }
+            assert.deepEqual(library.errors, []);
+        } finally { await page.close(); }
+    }
+    console.log('media library: arrow navigation and Space select visible files with text and type filters');
+}
+
+export async function runMediaLibraryHiddenFocusRegressions(browser, origin) {
+    for (const next of ['filter', 'no-matches', 'empty-folder']) {
+        const page = await browser.newPage();
+        try {
+            const library = await openLibrary(page, origin);
+            await page.locator('#files [data-fname="image2.png"] > a').click();
+            await page.mouse.move(0, 0);
+            await page.keyboard.press('ArrowDown');
+            const deletes = holdRequests(page, '**/library-api?action=delete_files&*');
+            await deletes.installed;
+            if (next === 'empty-folder') {
+                library.files.length = 0;
+                await page.getByRole('button', {name: 'Refresh', exact: true}).click();
+                await page.waitForFunction(() => jQuery.active === 0 && document.querySelectorAll('#files li[data-fname]').length === 0);
+            } else {
+                // Keep keyboard hover intact until the filter changes; pointer
+                // movement would clear it through jsTree's mouseleave handler.
+                await page.locator('[data-media-search]').fill(next === 'filter' ? 'image2' : 'missing');
+            }
+            assert.equal(await page.locator('#files li[hidden] a.jstree-hovered').count(), 0,
+                `${next}: filtering must clear keyboard hover on a hidden file`);
+            if (next === 'filter') {
+                await page.locator('[data-media-search]').fill('missing');
+            }
+            await page.locator('[data-media-count]').click();
+            for (const key of ['ArrowDown', 'ArrowUp', 'Space', 'F2', 'Delete']) await page.keyboard.press(key);
+            await nextTask(page);
+            assert.equal(await page.locator('#files .jstree-clicked, #files .jstree-hovered, #files input').count(), 0,
+                'An empty view must have no selected, hovered or renamed files');
+            assert.equal(await page.locator('[data-admin-confirm-dialog][open]').count(), 0);
+            assert.equal(deletes.count, 0, 'Delete without a selection must not send a mutation');
+            if (next !== 'empty-folder') {
+                await page.locator('[data-media-search]').fill('');
+                await page.locator('[data-media-count]').click();
+                await page.keyboard.press('ArrowDown');
+                await page.keyboard.press('F2');
+                assert.equal(await page.locator('#files input').inputValue(), 'image2.png',
+                    'Clearing the filter restores keyboard navigation and renaming');
+                await page.keyboard.press('Escape');
+            }
+            assert.deepEqual(library.errors, []);
+        } catch (error) {
+            throw new Error(`media hidden focus ${next}: ${error.message}`, {cause: error});
+        } finally { await page.close(); }
+    }
+    console.log('media library: filtering and refreshing clear stale keyboard targets and empty views ignore file actions');
 }
 
 export async function runMediaLibraryFileRenameRegressions(browser, origin) {
