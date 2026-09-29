@@ -1,12 +1,12 @@
 /** Source ranges for editor operations, without reserializing the author's HTML. */
 
-export function* htmlTags(source) {
+export function* htmlTags(source, {comments = false} = {}) {
     const pattern = /<!--[\s\S]*?(?:-->|$)|<\/?([a-z][a-z0-9:_-]*)(?=[\s/>])(?:[^"'<>]|"[^"]*"|'[^']*')*>/gi;
     let match;
     while ((match = pattern.exec(source)) !== null) {
-        if (!match[1]) continue;
+        if (!match[1] && !comments) continue;
         const tag = {
-            name: match[1].toLowerCase(),
+            name: (match[1] || '').toLowerCase(),
             closing: match[0].startsWith('</'),
             start: match.index,
             end: pattern.lastIndex,
@@ -59,6 +59,32 @@ export function paragraphBlocks(source) {
     return blocks;
 }
 
+export function formatParagraphOpeningTag(source, open) {
+    if (!source) return open;
+    const name = htmlTags(open).next().value.name;
+    let result = source.replace(/^<[a-z][a-z0-9:_-]*/i, '<' + name);
+    const alignment = htmlAttribute(open, 'align');
+    // Keep authored attributes, dropping only attributes specific to a block
+    // type and the alignment explicitly reset by the plain paragraph action.
+    const remove = [
+        ...(!/^(?:p|h[2-4])$/.test(name) || (name === 'p' && !alignment) ? ['align'] : []),
+        ...(name !== 'blockquote' ? ['cite'] : []),
+        ...(name !== 'pre' ? ['width'] : []),
+    ];
+    for (const attributeName of remove) {
+        const attribute = htmlAttribute(result, attributeName);
+        if (attribute) result = result.slice(0, attribute.start).trimEnd() + result.slice(attribute.end);
+    }
+    if (alignment) {
+        const attribute = htmlAttribute(result, 'align');
+        const replacement = open.slice(alignment.start, alignment.end);
+        result = attribute
+            ? result.slice(0, attribute.start) + replacement + result.slice(attribute.end)
+            : result.replace(/(\s*\/?>)$/, ' ' + replacement + '$1');
+    }
+    return result;
+}
+
 export function formatParagraph(source, open, close) {
     const outer = [];
     for (const block of paragraphBlocks(source).sort((a, b) => a.start - b.start)) {
@@ -74,7 +100,9 @@ export function formatParagraph(source, open, close) {
         let result = '';
         end = 0;
         for (const block of outer) {
-            result += source.slice(end, block.start) + open + source.slice(block.contentStart, block.contentEnd) + close;
+            result += source.slice(end, block.start)
+                + formatParagraphOpeningTag(source.slice(block.start, block.contentStart), open)
+                + source.slice(block.contentStart, block.contentEnd) + close;
             end = block.end;
         }
         return result + source.slice(end);

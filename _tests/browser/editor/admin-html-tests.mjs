@@ -90,7 +90,7 @@ export async function runAdminHtmlRegressions(browser, origin) {
         ['same line', '<p>one</p><p>two</p>', 'two', '<p>one</p><h2>two</h2>'],
         ['blank separator', '<p>one</p>\n\n<p>two</p>', 'two', '<p>one</p>\n\n<h2>two</h2>'],
         ['nested blocks', '<blockquote><p>one</p><p title="x > y">two</p></blockquote>\n<h3>next</h3>',
-            'two', '<blockquote><p>one</p><h2>two</h2></blockquote>\n<h3>next</h3>'],
+            'two', '<blockquote><p>one</p><h2 title="x > y">two</h2></blockquote>\n<h3>next</h3>'],
         ['untagged between blocks', '<p>one</p>\ntwo\n<p>three</p>', 'two', '<p>one</p>\n<h2>two</h2>\n<p>three</p>'],
         ['plain multiline text', 'one\ntwo', 'two', '<h2>one\ntwo</h2>'],
         ['empty line inside a block', '<p>one\n\ntwo</p>\n<p>three</p>', '\n\n', '<h2>one\n\ntwo</h2>\n<p>three</p>'],
@@ -148,7 +148,7 @@ export async function runAdminHtmlRegressions(browser, origin) {
         ['<p>one</p>\n<pre>two</pre>', '<h2>one</h2>\n<h2>two</h2>'],
         ['<picture><img src="/example.png" alt="Existing"></picture>', '<h2><picture><img src="/example.png" alt="Existing"></picture></h2>'],
         ['<progress value="1">Progress</progress>', '<h2><progress value="1">Progress</progress></h2>'],
-        ['<P title="x > y">one</P>', '<h2>one</h2>'],
+        ['<P title="x > y">one</P>', '<h2 title="x > y">one</h2>'],
     ]) {
         await withPage(original, async page => {
             await page.evaluate(() => {

@@ -216,6 +216,15 @@ follows the current cursor; each image retains its result and retry action.
 Three scroll scenarios cover multiline opening/closing tags, attributes, comments
 and void elements, checking actual paragraphs in both scroll directions.
 
+Twelve native formatting scenarios exercise Ctrl+B/K/O with both CodeMirror
+platform maps and caret or reversed selection. Formatting runs once, before any
+platform editing command, and native undo/redo, recovery and saving retain all
+source. Six smart-paragraph scenarios preserve multiline tags, quoted attribute
+values and comments without inserting breaks into markup. Eighteen paragraph
+conversion scenarios retain anchors and compatible attributes with a caret,
+complete blocks and disjoint selections; explicit alignment still replaces or
+clears the old value. Each case checks undo/redo, recovery and submitted HTML.
+
 Twenty-seven media-insertion scenarios retain existing images and their pending
 descriptions when splitting paragraphs, including nested formatting, repeated
 images, manual overrides and undo/redo. Block anchors survive splitting without

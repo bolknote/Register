@@ -6,7 +6,7 @@
  * @package   Register
  */
 import {smartParagraphs} from './text/paragraphs.js';
-import {htmlTags, htmlAttribute, paragraphBlocks, formatParagraph} from './text/html.js';
+import {htmlTags, htmlAttribute, paragraphBlocks, formatParagraph, formatParagraphOpeningTag} from './text/html.js';
 import {htmlToPlainText, normalizePlainText} from './text/plain.js';
 import {editorDeps} from './deps.js';
 import {escapeHtml} from './utils/escape.js';
@@ -647,11 +647,12 @@ const register_codemirror = (function () {
                         block = {start, end, contentStart: start, contentEnd: end};
                     }
                     const content = source.slice(block.contentStart, block.contentEnd);
+                    const open = formatParagraphOpeningTag(source.slice(block.start, block.contentStart), sOpenTag);
                     const offset = Math.max(0, Math.min(content.length, position - block.contentStart));
                     instance.operation(function () {
-                        instance.replaceRange(sOpenTag + content + sCloseTag,
+                        instance.replaceRange(open + content + sCloseTag,
                             doc.posFromIndex(block.start), doc.posFromIndex(block.end), 'editor-format');
-                        instance.setCursor(doc.posFromIndex(block.start + sOpenTag.length + offset));
+                        instance.setCursor(doc.posFromIndex(block.start + open.length + offset));
                     });
                 }
             }

@@ -11,7 +11,11 @@ import {htmlTags} from './html.js';
 function protectedBlocks(source) {
     const blocks = [];
     const stack = [];
-    for (const tag of htmlTags(source)) {
+    for (const tag of htmlTags(source, {comments: true})) {
+        if (tag.name === '') {
+            if (stack.length === 0) blocks.push(tag);
+            continue;
+        }
         if (!/^(?:pre|script|style|textarea|title|ol|ul|li|cut)$/u.test(tag.name)) continue;
         if (tag.name === 'cut') {
             if (stack.length === 0) blocks.push(tag);
@@ -43,8 +47,22 @@ export function smartParagraphs(source) {
         end = block.end;
     }
     masked += source.slice(end);
-    return formatParagraphs(masked).replace(new RegExp('<pre>' + prefix + '(\\d+)</pre>', 'g'),
-        (match, index) => originals[Number(index)]);
+    // A line break inside a tag or quoted attribute is HTML source, not a
+    // prose boundary. Hide it from paragraph splitting, trimming and <br> insertion.
+    const lineBreaks = [];
+    let tagged = '';
+    end = 0;
+    for (const tag of htmlTags(masked)) {
+        tagged += masked.slice(end, tag.start) + tag.text.replace(/\r\n?|\n/g, lineBreak => {
+            lineBreaks.push(lineBreak);
+            return prefix + 'line-' + (lineBreaks.length - 1) + '\u0000';
+        });
+        end = tag.end;
+    }
+    tagged += masked.slice(end);
+    return formatParagraphs(tagged)
+        .replace(new RegExp(prefix + 'line-(\\d+)\u0000', 'g'), (match, index) => lineBreaks[Number(index)])
+        .replace(new RegExp('<pre>' + prefix + '(\\d+)</pre>', 'g'), (match, index) => originals[Number(index)]);
 }
 
 function formatParagraphs(sText) {
@@ -64,13 +82,13 @@ function formatParagraphs(sText) {
 
         asParag[i] = asParag[i].replace(/<br \/>$/gm, '').
             replace(/$/gm, '-').
-            replace(/(<\/(?:blockquote|p|h[2-4])>)?-$/gm, function ($0, $1) {
+            replace(/(<\/(?:blockquote|p|h[2-4])\b[^>]*>)?-$/gm, function ($0, $1) {
                 return $1 ? $1 : '<br />';
             }).
             replace(/(?:<br \/>)?$/g, '');
 
         if (!/<\/?(?:blockquote|h[2-4])[^>]*>/.test(asParag[i])) {
-            if (!/<\/p>\s*$/.test(asParag[i])) {
+            if (!/<\/p\b[^>]*>\s*$/.test(asParag[i])) {
                 asParag[i] = asParag[i].replace(/\s*$/g, '</p>');
             }
             if (!/^\s*<p[^>]*>/.test(asParag[i])) {

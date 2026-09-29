@@ -92,8 +92,11 @@ export function initHtmlTextarea(eTextarea) {
             else
                 return;
             e.preventDefault();
+            // Own this key before CodeMirror's platform map can move the
+            // selection or delete text (for example macOS Ctrl+K).
+            e.stopPropagation();
         }
-    });
+    }, {capture: true});
 }
 
 export function initHtmlToolbar(eToolbar) {
