@@ -19,7 +19,10 @@ export function initActivityPubPreview(form, config) {
         return;
     }
 
-    let activeController = null;
+    // Keep the completed request as well: its displayed result or error belongs
+    // to the same form snapshot and must be invalidated by subsequent edits.
+    let previewController = null;
+    let previewSnapshot = '';
 
     function setBusy(busy) {
         button.disabled = busy;
@@ -29,6 +32,26 @@ export function initActivityPubPreview(form, config) {
     function setStatus(message, isError) {
         status.textContent = message || '';
         status.classList.toggle('is-error', Boolean(isError));
+    }
+
+    function invalidatePreview() {
+        if (!previewController) return;
+        previewController.abort();
+        previewController = null;
+        previewSnapshot = '';
+        setBusy(false);
+        result.hidden = true;
+        setStatus(config.changed, false);
+    }
+
+    function invalidateChangedPreview() {
+        if (!previewController) return;
+        register_codemirror.flip();
+        // Committing an already-synced tag can emit input/change without
+        // changing what was sent to the server.
+        if (JSON.stringify(Array.from(new FormData(form))) !== previewSnapshot) {
+            invalidatePreview();
+        }
     }
 
     function previewDocument(content) {
@@ -41,21 +64,21 @@ export function initActivityPubPreview(form, config) {
     }
 
     async function runPreview() {
+        if (form.inert) return;
         if (!form.checkValidity()) {
             form.reportValidity();
             return;
         }
-        if (activeController) {
-            activeController.abort();
-        }
+        previewController?.abort();
         const controller = new AbortController();
-        activeController = controller;
+        previewController = controller;
         setBusy(true);
         setStatus(config.working, false);
         result.hidden = true;
 
         register_codemirror.flip();
         const data = new FormData(form);
+        previewSnapshot = JSON.stringify(Array.from(data));
         data.set('entity_name', config.entityName);
         data.set('content_id', String(config.contentId || 0));
 
@@ -74,6 +97,7 @@ export function initActivityPubPreview(form, config) {
             } catch {
                 throw new Error(config.failed);
             }
+            if (controller.signal.aborted || previewController !== controller) return;
             if (!response.ok || !payload || payload.success !== true) {
                 throw new Error(payload && payload.message ? payload.message : config.failed);
             }
@@ -86,16 +110,21 @@ export function initActivityPubPreview(form, config) {
             frame.srcdoc = previewDocument(payload.content_html || '<p>' + config.noObject + '</p>');
             result.hidden = false;
         } catch (error) {
-            if (error.name !== 'AbortError') {
+            if (!controller.signal.aborted && previewController === controller && error.name !== 'AbortError') {
                 setStatus(error.message || config.failed, true);
             }
         } finally {
-            if (activeController === controller) {
-                activeController = null;
+            if (previewController === controller) {
                 setBusy(false);
             }
         }
     }
 
+    form.addEventListener('input', invalidateChangedPreview);
+    form.addEventListener('change', invalidateChangedPreview);
+    form.addEventListener('reset', invalidatePreview);
+    register_codemirror.onChange(invalidateChangedPreview);
+    document.addEventListener('save_article_start.register', invalidatePreview);
+    document.addEventListener('save_article_end.register', invalidatePreview);
     button.addEventListener('click', runPreview);
 }

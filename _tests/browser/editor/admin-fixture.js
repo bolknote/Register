@@ -66,6 +66,24 @@ if (params.has('social')) {
         + '<div data-social-preview-image></div></aside>';
     form.append(panel);
 }
+if (params.has('activitypub')) {
+    const panel = document.createElement('section');
+    panel.setAttribute('data-activitypub-editor-panel', '');
+    panel.innerHTML = '<label>Published <input name="published" type="checkbox" checked></label>'
+        + '<label for="federation">Federation</label><select id="federation" name="activitypub_publication">'
+        + '<option value="inherit">Inherit</option><option value="disabled">Disabled</option></select>'
+        + '<button type="button" data-activitypub-preview-button>Build ActivityPub preview</button>'
+        + '<p data-activitypub-preview-status></p><div data-activitypub-preview-result hidden>'
+        + '<p data-activitypub-preview-metadata></p><p data-activitypub-preview-provisional hidden></p>'
+        + '<iframe data-activitypub-preview-frame sandbox=""></iframe><pre data-activitypub-preview-json></pre></div>';
+    form.append(panel);
+    const {initActivityPubPreview} = await import('/admin/editor/activitypub.js');
+    initActivityPubPreview(form, {
+        enabled: true, entityName: 'Article', contentId: Number(id), url: '/admin-activitypub-preview',
+        working: 'Building preview', failed: 'Preview failed', noObject: 'No federated object',
+        changed: 'Publication data changed. Build the preview again.',
+    });
+}
 initArticleEditForm(form, null, 'Post', 'body', 'default');
 if (params.has('social')) {
     const {initSocialPreview} = await import('/admin/editor/social-preview.js');

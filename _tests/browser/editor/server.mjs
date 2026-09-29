@@ -86,7 +86,7 @@ export function createFixtureServer() {
                 ['/site.css', ['../../../_styles/register/site.css', 'text/css']],
                 ['/comment-editor.css', ['../../../_assets/register/comment-editor.css', 'text/css']],
             ]);
-            for (const module of ['form', 'ai', 'image-alt', 'tags', 'shortcuts', 'dialogs', 'deps', 'hash', 'preview', 'social-preview', 'codemirror', 'text/paragraphs', 'text/corrections', 'text/html', 'text/plain', 'utils/escape']) {
+            for (const module of ['form', 'ai', 'image-alt', 'tags', 'shortcuts', 'dialogs', 'deps', 'hash', 'preview', 'social-preview', 'activitypub', 'codemirror', 'text/paragraphs', 'text/corrections', 'text/html', 'text/plain', 'utils/escape']) {
                 files.set(`/admin/editor/${module}.js`, [`../../../_admin/js/editor/${module}.js`, 'text/javascript']);
             }
             const file = files.get(new URL(request.url, 'http://127.0.0.1').pathname);

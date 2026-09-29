@@ -198,6 +198,7 @@ $editorConfig = [
         'contentId' => isset($primaryKey['id']) ? (int)$primaryKey['id'] : 0,
         'working'   => $trans('ActivityPub preview working'),
         'failed'    => $trans('ActivityPub preview failed'),
+        'changed'   => $trans('ActivityPub preview changed'),
         'noObject'  => $trans('ActivityPub preview no object'),
     ],
     'socialPreview' => [

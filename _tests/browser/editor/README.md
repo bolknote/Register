@@ -127,6 +127,13 @@ including supplementary Unicode characters. Explicit descriptions still win.
 Whitespace is normalized before removing repeated titles and choosing a lead;
 titles and invisible whitespace alone before a cut fall back to the article body.
 
+ActivityPub preview scenarios cover both admin editor modes. Editing body, title,
+tags, federation or publication settings invalidates pending and rendered previews;
+resetting or saving the form does too. Rebuilding uses the current fields, and an
+obsolete response, including delayed JSON decoding, cannot replace the new result
+or unlock its request button. A preview started during a save is also invalidated
+when that save completes. Previewing preserves unsaved changes and does not save.
+
 Twenty-two admin input scenarios cover unfinished tags in form values, exit
 warnings, button and keyboard saves, edits during a save, CSRF retries, failures,
 suggestions, paste and delayed AI replies. Block formatting transforms each
