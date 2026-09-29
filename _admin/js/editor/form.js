@@ -327,9 +327,8 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
                 }
             }
 
-            const serializedData = Array.from(visibleFormData).map(function (pair) {
-                return pair[0] + '=' + pair[1];
-            }).join('&');
+            // Keep field boundaries distinct from literal '&name=' in values.
+            const serializedData = JSON.stringify(Array.from(visibleFormData));
 
             return hex_md5(serializedData);
         }

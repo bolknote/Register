@@ -47,6 +47,77 @@ function savedPost(body, creating = false) {
 
 const savedAdmin = {revision: 2, urlStatus: 'ok', urlTitle: '', url: '/post'};
 
+export async function runAdminDirtyFieldRegressions(browser, origin) {
+    const escape = value => value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;');
+    for (const codeMirror of [false, true]) {
+        for (const [name, initial, changed] of [
+            ['title/body', {title: 'A&body=B', body: 'C', tags: 'old'}, {title: 'A', body: 'B&body=C', tags: 'old'}],
+            ['body/tags', {title: 'Title', body: 'A&tags=B', tags: 'C'}, {title: 'Title', body: 'A', tags: 'B&tags=C'}],
+        ]) {
+            const page = await browser.newPage();
+            const errors = [];
+            page.setDefaultTimeout(10000);
+            page.on('pageerror', error => errors.push(String(error)));
+            const setFields = async values => {
+                await page.locator('[name="title"]').fill(values.title);
+                if (codeMirror) {
+                    await page.evaluate(() => {
+                        const cm = document.querySelector('.CodeMirror').CodeMirror;
+                        cm.setSelection(cm.posFromIndex(0), cm.posFromIndex(cm.getValue().length));
+                        cm.focus();
+                    });
+                    await page.keyboard.insertText(values.body);
+                    await page.waitForFunction(body => adminEditor.getValue() === body, values.body);
+                } else {
+                    await page.locator('textarea').fill(values.body);
+                }
+                await page.locator('[name="tags"]').fill(values.tags);
+            };
+            try {
+                await page.route('**/admin.html?*', async route => {
+                    const response = await route.fetch();
+                    await route.fulfill({response, body: (await response.text())
+                        .replace('value="Server title"', `value="${escape(initial.title)}"`)
+                        .replace('>Server body</textarea>', `>${escape(initial.body)}</textarea>`)
+                        .replace('value="old"', `value="${escape(initial.tags)}"`)});
+                });
+                const requests = holdRequests(page, '**/admin-save?id=9');
+                await requests.installed;
+                await page.goto(origin + '/admin.html?id=9' + (codeMirror ? '&codemirror=1' : ''));
+                await page.waitForFunction(() => window.adminEditorReady);
+                assert.equal(await page.evaluate(() => window.onbeforeunload()), undefined);
+                await setFields(changed);
+                assert.equal(await page.evaluate(() => window.onbeforeunload()), 'Unsaved changes',
+                    'Literal field separators must not hide edits in neighbouring fields');
+                await setFields(initial);
+                assert.equal(await page.evaluate(() => window.onbeforeunload()), undefined, 'Reverting every field clears the warning');
+                await setFields(changed);
+                await page.getByRole('button', {name: 'Save', exact: true}).click();
+                const save = await requests.next();
+                const data = await formData(save);
+                for (const [key, value] of Object.entries(changed)) assert.equal(data.get(key), value);
+                await setFields(initial);
+                await save.fulfill({json: savedAdmin});
+                await page.waitForFunction(() => document.querySelector('[name="revision"]').value === '2');
+                assert.equal(await page.evaluate(() => window.onbeforeunload()), 'Unsaved changes',
+                    'A successful save must retain the warning for a different current snapshot');
+                assert.equal(await page.evaluate(() => localStorage.getItem('register_content_draft:post:9')), initial.body);
+                await page.getByRole('button', {name: 'Save', exact: true}).click();
+                const retry = await requests.next();
+                const retryData = await formData(retry);
+                for (const [key, value] of Object.entries(initial)) assert.equal(retryData.get(key), value);
+                assert.equal(retryData.get('revision'), '2');
+                await retry.fulfill({json: {...savedAdmin, revision: 3}});
+                await page.waitForFunction(() => document.querySelector('[name="revision"]').value === '3');
+                assert.equal(await page.evaluate(() => window.onbeforeunload()), undefined);
+                assert.equal(await page.evaluate(() => localStorage.getItem('register_content_draft:post:9')), null);
+                assert.deepEqual(errors, []);
+            } finally { await page.close(); }
+            console.log(`admin dirty fields: ${name} in ${codeMirror ? 'CodeMirror' : 'textarea'} retains warnings, pending-save edits and exact saved values`);
+        }
+    }
+}
+
 export async function runSaveRegressions(browser, origin) {
     const errors = [];
     async function newPage() {

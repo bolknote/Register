@@ -2,7 +2,7 @@ import {chromium, firefox} from 'playwright';
 import assert from 'node:assert/strict';
 import {createFixtureServer} from './server.mjs';
 import {runRecoveryRegressions} from './recovery-tests.mjs';
-import {runSaveRegressions} from './save-tests.mjs';
+import {runSaveRegressions, runAdminDirtyFieldRegressions} from './save-tests.mjs';
 import {runReviewRegressions} from './review-tests.mjs';
 import {runRecoveryPreviewRegressions} from './recovery-preview-tests.mjs';
 import {runAsyncPreviewRegressions} from './async-preview-tests.mjs';
@@ -23,9 +23,9 @@ import {runAdminAiTargetRegressions} from './admin-ai-target-tests.mjs';
 import {runImageInsertionTextRegressions, runSmartParagraphRegressions, runSocialPreviewTextRegressions} from './admin-text-tests.mjs';
 import {runAltLayoutRegressions, runTemplateFieldRegressions, runPreviewDocumentRegressions, runPreviewLineRegressions} from './admin-layout-preview-tests.mjs';
 import {runAdminShortcutTargetRegressions, runAltCursorRegressions} from './admin-interaction-tests.mjs';
-import {runAdminNativeShortcutRegressions, runSmartParagraphMarkupRegressions, runSmartParagraphTagRegressions, runSmartParagraphBreakRegressions, runParagraphAttributeRegressions,
+import {runAdminNativeShortcutRegressions, runSmartParagraphMarkupRegressions, runSmartParagraphTagRegressions, runSmartParagraphBreakRegressions, runSmartParagraphNoopRegressions, runParagraphAttributeRegressions,
     runCommentParagraphRegressions, runDuplicateLineRegressions, runParagraphCaretRegressions} from './admin-formatting-tests.mjs';
-import {runAdminMediaPathRegressions, runAdminShortcutModifierRegressions} from './admin-media-shortcut-tests.mjs';
+import {runAdminMediaPathRegressions, runAdminAudioInsertionRegressions, runAdminShortcutModifierRegressions} from './admin-media-shortcut-tests.mjs';
 import {runAdminCompositionRegressions, runAdminNativeCompositionRegressions, runAdminTagNavigationRegressions} from './admin-composition-tests.mjs';
 
 async function runAuthorWorkflowRegressions(browser, origin) {
@@ -463,6 +463,8 @@ try {
             await runAdminShortcutTargetRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runAdminNativeShortcutRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runAdminMediaPathRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runAdminAudioInsertionRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runAdminDirtyFieldRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runAdminShortcutModifierRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runAdminCompositionRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runAdminNativeCompositionRegressions(browser, `http://127.0.0.1:${server.address().port}`);
@@ -470,6 +472,7 @@ try {
             await runSmartParagraphMarkupRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runSmartParagraphTagRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runSmartParagraphBreakRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runSmartParagraphNoopRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runParagraphAttributeRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runCommentParagraphRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runDuplicateLineRegressions(browser, `http://127.0.0.1:${server.address().port}`);

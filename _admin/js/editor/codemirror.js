@@ -568,7 +568,8 @@ const register_codemirror = (function () {
             }
 
             const replacements = instance.getSelections().map(text => (
-                !selectionAsAttribute && text.startsWith(sOpenTag) && text.endsWith(sCloseTag)
+                !selectionAsAttribute && sOpenTag && sCloseTag
+                    && text.startsWith(sOpenTag) && text.endsWith(sCloseTag)
                     ? text.slice(sOpenTag.length, text.length - sCloseTag.length)
                     : sOpenTag + (selectionAsAttribute ? escapeHtml(normalizePlainText(htmlToPlainText(text))) : text) + sCloseTag
             ));
@@ -583,7 +584,11 @@ const register_codemirror = (function () {
             if (!instance)
                 return false;
 
-            instance.setValue(smartParagraphs(instance.getValue()));
+            const source = instance.getValue();
+            const formatted = smartParagraphs(source);
+            if (formatted !== source) {
+                instance.setValue(formatted);
+            }
             return true;
         },
 

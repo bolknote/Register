@@ -10,13 +10,13 @@ const selectionState = page => page.evaluate(() => {
     };
 });
 
-async function withEditor(browser, origin, run) {
+async function withEditor(browser, origin, run, query = '') {
     const page = await browser.newPage();
     const errors = [];
     page.setDefaultTimeout(10000);
     page.on('pageerror', error => errors.push(String(error)));
     try {
-        await page.goto(origin + '/admin.html?id=9&codemirror=1&toolbar=1');
+        await page.goto(origin + '/admin.html?id=9&codemirror=1&toolbar=1' + query);
         await page.waitForFunction(() => window.adminEditorReady);
         await run(page);
         assert.deepEqual(errors, []);
@@ -78,6 +78,56 @@ async function addCaretWithMouse(page, index) {
     await page.keyboard.down(modifier);
     try { await page.mouse.click(coords.left + 0.2, (coords.top + coords.bottom) / 2); }
     finally { await page.keyboard.up(modifier); }
+}
+
+export async function runSmartParagraphNoopRegressions(browser, origin) {
+    await withEditor(browser, origin, async page => {
+        const initial = '<p>A sentense.</p>\n\n<p>Keep this paragraph.</p>';
+        await setBody(page, initial, [[5, 5]]);
+        await page.keyboard.insertText('X');
+        const edited = initial.replace('A sentense', 'A Xsentense');
+        await page.waitForFunction(text => adminEditor.getValue() === text, edited);
+        await page.getByRole('button', {name: 'Undo', exact: true}).click();
+        assert.equal(await value(page), initial);
+        await page.evaluate(() => {
+            const cm = document.querySelector('.CodeMirror').CodeMirror;
+            cm.setSelections([
+                {anchor: {line: 0, ch: 3}, head: {line: 0, ch: 14}},
+                {anchor: {line: 2, ch: 7}, head: {line: 2, ch: 3}},
+            ], 1);
+        });
+        const before = await selectionState(page);
+        const history = await page.evaluate(() => document.querySelector('.CodeMirror').CodeMirror.historySize());
+        assert.equal(history.redo, 1);
+        await page.getByRole('button', {name: 'Smart paragraphs', exact: true}).click();
+        assert.equal(await value(page), initial);
+        assert.deepEqual(await selectionState(page), before, 'Formatting unchanged text preserves all selections and the primary cursor');
+        assert.deepEqual(await page.evaluate(() => document.querySelector('.CodeMirror').CodeMirror.historySize()), history,
+            'Formatting unchanged text preserves undo and redo');
+        await page.getByRole('button', {name: 'Redo', exact: true}).click();
+        assert.equal(await value(page), edited, 'Redo still restores text after a no-op formatting command');
+        await page.getByRole('button', {name: 'Undo', exact: true}).click();
+        assert.equal(await value(page), initial);
+
+        const requests = holdRequests(page, '**/admin-ai');
+        await requests.installed;
+        await page.evaluate(() => {
+            const cm = document.querySelector('.CodeMirror').CodeMirror;
+            cm.setSelection({line: 0, ch: 3}, {line: 0, ch: 14});
+        });
+        await page.getByRole('button', {name: 'Proofread', exact: true}).click();
+        const request = await requests.next();
+        assert.equal((await formData(request)).get('text'), 'A sentense.');
+        await page.getByRole('button', {name: 'Smart paragraphs', exact: true}).click();
+        await page.getByRole('button', {name: 'Smart paragraphs', exact: true}).click();
+        await request.fulfill({json: {success: true, result: 'A sentence.'}});
+        await page.waitForFunction(() => document.getElementById('content-editor-ai-tools').getAttribute('aria-busy') === 'false');
+        const expected = initial.replace('A sentense.', 'A sentence.');
+        assert.equal(await value(page), expected, 'No-op formatting keeps an unchanged selection valid for a pending correction');
+        assert.equal(await page.locator('#ai-tools-status').textContent(), '');
+        await checkHistoryAndSave(page, initial, expected);
+    }, '&ai=1');
+    console.log('admin smart paragraphs: no-op formatting preserves selections, redo and pending corrections, with undo, recovery and save');
 }
 
 export async function runCommentParagraphRegressions(browser, origin) {

@@ -29,6 +29,22 @@ async function resetEditor(page, keyMap = 'pcDefault') {
     }, {initial, keyMap});
 }
 
+async function loadMediaManager(page, origin, manager) {
+    // Use the real file-details renderer and Insert button without the
+    // unrelated jstree folder browser and upload handlers.
+    await page.route('**/media-manager-review.js', route => route.fulfill({
+        contentType: 'text/javascript', body: manager.slice(0, manager.indexOf('$(function () {')),
+    }));
+    await page.evaluate(async () => {
+        Object.assign(window, await import('/admin/editor/dialogs.js'));
+        window.register_lang = {file: 'File: ', insert: 'Insert', size: 'Size: '};
+        const details = document.createElement('div');
+        details.id = 'media-file-details';
+        document.body.append(details);
+    });
+    await page.addScriptTag({url: origin + '/media-manager-review.js'});
+}
+
 export async function runAdminMediaPathRegressions(browser, origin) {
     const manager = await readFile(new URL('../../../_admin/js/pictman.js', import.meta.url), 'utf8');
     for (const [name, kind, folder, absolute] of [
@@ -40,19 +56,7 @@ export async function runAdminMediaPathRegressions(browser, origin) {
     ]) {
         await withEditor(browser, origin, async page => {
             await resetEditor(page);
-            // Use the real file-details renderer and Insert button without the
-            // unrelated jstree folder browser and upload handlers.
-            await page.route('**/media-manager-review.js', route => route.fulfill({
-                contentType: 'text/javascript', body: manager.slice(0, manager.indexOf('$(function () {')),
-            }));
-            await page.evaluate(async () => {
-                Object.assign(window, await import('/admin/editor/dialogs.js'));
-                window.register_lang = {file: 'File: ', insert: 'Insert', size: 'Size: '};
-                const details = document.createElement('div');
-                details.id = 'media-file-details';
-                document.body.append(details);
-            });
-            await page.addScriptTag({url: origin + '/media-manager-review.js'});
+            await loadMediaManager(page, origin, manager);
             const path = '/pictures/' + folder + name;
             const raw = (absolute ? origin : '') + path;
             await page.evaluate(({name, raw, kind}) => {
@@ -109,6 +113,46 @@ export async function runAdminMediaPathRegressions(browser, origin) {
         });
     }
     console.log('admin media paths: special filenames survive library links, insertion, browser requests, history, recovery and saving');
+}
+
+export async function runAdminAudioInsertionRegressions(browser, origin) {
+    const manager = await readFile(new URL('../../../_admin/js/pictman.js', import.meta.url), 'utf8');
+    const audio = '<audio controls preload="metadata" src="/pictures/voice.mp3" data-title="Voice"></audio>';
+    for (const selection of ['', 'Caption <em>text</em>']) {
+        await withEditor(browser, origin, async page => {
+            const before = `<p>Before</p>\n${selection}\n<p>After</p>`;
+            await page.evaluate(({before, selection}) => {
+                adminEditor.setValue(before, true);
+                const cm = document.querySelector('.CodeMirror').CodeMirror;
+                cm.setSelection({line: 1, ch: 0}, {line: 1, ch: selection.length});
+                cm.focus();
+            }, {before, selection});
+            await loadMediaManager(page, origin, manager);
+            await page.evaluate(() => renderFileInformation(document.getElementById('media-file-details'),
+                'Voice.mp3', '/pictures/voice.mp3', '', '', '24'));
+            await page.getByRole('button', {name: 'Insert', exact: true}).click();
+            const first = `<p>Before</p>\n${audio}${selection}\n<p>After</p>`;
+            assert.equal(await value(page), first);
+            // The inserted source remains selected when the library is opened
+            // again. Inserting the same file must not toggle that audio off.
+            await page.getByRole('button', {name: 'Insert', exact: true}).click();
+            const expected = `<p>Before</p>\n${audio}${audio}${selection}\n<p>After</p>`;
+            assert.equal(await value(page), expected, 'Repeated insertion retains existing audio and neighbouring text');
+            await page.getByRole('button', {name: 'Undo', exact: true}).click();
+            assert.equal(await value(page), first, 'Undo removes only the latest insertion');
+            await page.getByRole('button', {name: 'Redo', exact: true}).click();
+            assert.equal(await value(page), expected);
+            await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide')));
+            assert.equal(await page.evaluate(() => localStorage.getItem('register_content_draft:post:9')), expected);
+            const saves = holdRequests(page, '**/admin-save?id=9');
+            await saves.installed;
+            await page.getByRole('button', {name: 'Save', exact: true}).click();
+            const save = await saves.next();
+            assert.equal((await formData(save)).get('body').replace(/\r\n/g, '\n'), expected);
+            await save.fulfill({status: 503, json: {message: 'Retry later'}});
+        });
+    }
+    console.log('admin audio insertion: repeated library inserts retain audio, selected text, history, recovery and saved HTML');
 }
 
 export async function runAdminShortcutModifierRegressions(browser, origin) {
