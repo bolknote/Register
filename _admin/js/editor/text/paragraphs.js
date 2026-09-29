@@ -108,7 +108,8 @@ function formatParagraphs(sText) {
                     && /^(?:blockquote|p|h[2-4])$/.test(first.name);
                 const closingLine = last?.closing && last.end === visible.length
                     && /^(?:blockquote|p|h[2-4])$/.test(last.name);
-                return visible === '' || openingLine || closingLine ? line : line + '<br />';
+                const existingBreak = last && !last.closing && last.name === 'br' && last.end === visible.length;
+                return visible === '' || openingLine || closingLine || existingBreak ? line : line + '<br />';
             })
             .replace(/<br \/>$/, '');
 

@@ -8,6 +8,9 @@
 
 import {editorDeps, assertDeps} from './deps.js';
 import {register_codemirror} from './codemirror.js';
+import {htmlTags} from './text/html.js';
+
+const previewBlockTags = new Set(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'ul', 'ol', 'li', 'table', 'tr', 'td', 'th', 'div', 'section', 'article', 'header', 'footer']);
 
 function countNewlines(str) {
     let count = 0;
@@ -19,66 +22,37 @@ function countNewlines(str) {
     return count;
 }
 
-function collectBlockLineNumbers(html) {
-    const blockTags = new Set(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'ul', 'ol', 'li', 'table', 'tr', 'td', 'th', 'div', 'section', 'article', 'header', 'footer']);
-    const voidTags = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr']);
-    const lines = [];
+function collectBlockLineNumbers(html, doc) {
+    let marker = 'data-register-source-line';
+    const lowerHtml = html.toLowerCase();
+    while (lowerHtml.includes(marker)) marker += '-';
+    let markedHtml = '';
     let line = 0;
     let pos = 0;
-    let depth = 0;
-
-    while (pos < html.length) {
-        const lt = html.indexOf('<', pos);
-        if (lt === -1) {
-            line += countNewlines(html.slice(pos));
-            break;
+    for (const tag of htmlTags(html)) {
+        const gap = html.slice(pos, tag.start);
+        line += countNewlines(gap);
+        markedHtml += gap;
+        if (!tag.closing && previewBlockTags.has(tag.name)) {
+            const nameEnd = tag.name.length + 1;
+            markedHtml += tag.text.slice(0, nameEnd) + ' ' + marker + '="' + line + '"' + tag.text.slice(nameEnd);
+        } else {
+            markedHtml += tag.text;
         }
-
-        line += countNewlines(html.slice(pos, lt));
-
-        if (html.startsWith('<!--', lt)) {
-            const endComment = html.indexOf('-->', lt + 4);
-            if (endComment === -1) {
-                break;
-            }
-            line += countNewlines(html.slice(lt, endComment + 3));
-            pos = endComment + 3;
-            continue;
-        }
-
-        const gt = html.indexOf('>', lt + 1);
-        if (gt === -1) {
-            break;
-        }
-
-        const raw = html.slice(lt + 1, gt).trim();
-        if (!raw) {
-            line += countNewlines(html.slice(lt, gt + 1));
-            pos = gt + 1;
-            continue;
-        }
-
-        const isClosing = raw[0] === '/';
-        const nameToken = isClosing ? raw.slice(1) : raw;
-        const tagName = nameToken.split(/\s+/)[0].toLowerCase();
-        const isSelfClosing = !isClosing && (raw.endsWith('/') || voidTags.has(tagName));
-
-        if (!isClosing) {
-            if (depth === 0 && blockTags.has(tagName)) {
-                lines.push(line);
-            }
-            if (!isSelfClosing) {
-                depth++;
-            }
-        } else if (depth > 0) {
-            depth--;
-        }
-
-        line += countNewlines(html.slice(lt, gt + 1));
-        pos = gt + 1;
+        line += countNewlines(tag.text);
+        pos = tag.end;
     }
+    markedHtml += html.slice(pos);
 
-    return lines;
+    // Parse an inert copy in the same div context as the preview. The browser
+    // resolves omitted end tags and implicit elements; no extra resources load.
+    const template = doc.createElement('template');
+    const copy = template.content.appendChild(doc.createElement('div'));
+    copy.innerHTML = markedHtml;
+    return Array.from(copy.children).filter(node => previewBlockTags.has(node.localName)).map(node => {
+        const value = node.getAttribute(marker);
+        return value === null ? null : Number(value);
+    });
 }
 
 function applyLineMarkers(doc, wrapper, html) {
@@ -86,7 +60,7 @@ function applyLineMarkers(doc, wrapper, html) {
         return;
     }
 
-    const lineNumbers = collectBlockLineNumbers(html);
+    const lineNumbers = collectBlockLineNumbers(html, doc);
     const existing = wrapper.querySelectorAll('[data-line]');
     existing.forEach(function (node) {
         node.removeAttribute('data-line');
@@ -97,13 +71,13 @@ function applyLineMarkers(doc, wrapper, html) {
         return;
     }
 
-    const blockTags = new Set(['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE', 'PRE', 'UL', 'OL', 'LI', 'TABLE', 'TR', 'TD', 'TH', 'DIV', 'SECTION', 'ARTICLE', 'HEADER', 'FOOTER']);
     const blocks = Array.from(wrapper.children).filter(function (node) {
-        return blockTags.has(node.tagName);
+        return previewBlockTags.has(node.localName);
     });
 
     const total = Math.min(blocks.length, lineNumbers.length);
     for (let i = 0; i < total; i++) {
+        if (lineNumbers[i] === null) continue;
         blocks[i].setAttribute('data-line', String(lineNumbers[i]));
         blocks[i].classList && blocks[i].classList.add('line');
     }

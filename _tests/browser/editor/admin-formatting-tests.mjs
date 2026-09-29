@@ -261,6 +261,25 @@ export async function runSmartParagraphTagRegressions(browser, origin) {
     }
 }
 
+export async function runSmartParagraphBreakRegressions(browser, origin) {
+    for (const br of ['<br>', '<br/>', '<BR />', '<Br>', '<br class="line-break">', '<br title="x > y">',
+        '<br\n class="line-break">', '<br><!-- note -->', '<br> \t<!-- first --> <!-- second -->']) {
+        await withEditor(browser, origin, async page => {
+            const initial = 'Lead\nsecond line\n\n<p>First' + br + '\nSecond</p>\n\nTail.';
+            const expected = '<p>Lead<br />\nsecond line</p>\n\n<p>First' + br + '\nSecond</p>\n\n<p>Tail.</p>';
+            await setBody(page, initial);
+            await page.getByRole('button', {name: 'Smart paragraphs', exact: true}).click();
+            assert.equal(await value(page), expected, 'An authored break must not be doubled or lose its attributes');
+            assert.equal(await page.evaluate(() => new DOMParser().parseFromString(window.adminEditor.getValue(), 'text/html')
+                .querySelectorAll('p')[1].querySelectorAll('br').length), 1, 'The paragraph must still have exactly one visible line break');
+            await checkHistoryAndSave(page, initial, expected);
+            await page.getByRole('button', {name: 'Smart paragraphs', exact: true}).click();
+            assert.equal(await value(page), expected, 'Repeated formatting must not add another break');
+        });
+    }
+    console.log('admin smart paragraph breaks: existing break spellings, attributes and following comments survive history, recovery and saving');
+}
+
 export async function runParagraphAttributeRegressions(browser, origin) {
     const prefix = '<p><a href="#details">Go to section</a></p>\n';
     const globals = ' id="details" class=\'lead\' lang=en title="x > y" data-note="a &amp; b" aria-label="Section" dir="auto"';

@@ -225,20 +225,39 @@ export async function runPreviewDocumentRegressions(browser, origin) {
 }
 
 export async function runPreviewLineRegressions(browser, origin) {
-    for (const mode of ['opening', 'closing', 'mixed']) {
+    const paragraph = i => `<p>Paragraph ${i}</p>`;
+    for (const [mode, prefix, renderParagraph] of [
+        ['opening', '', i => `<p\n class="paragraph">Paragraph ${i}</p>`],
+        ['closing', '', i => `<p>Paragraph ${i}</p\n>`],
+        ['mixed', '<!-- Multiline\ncomment -->\n<br\n>\n', i => `<p\n title="A > B">\nParagraph ${i}</p\n>`],
+        ['quoted HTML', '', i => `<p title="A > <span>\ninside attribute">Paragraph ${i}</p>`],
+        ['raw style', '<style>/* <p>\n<div> */</style>\n', paragraph],
+        ['raw script', '<script>const example = "<div>";\n// <p>\n</script>\n', paragraph],
+        ['raw textarea', '<textarea hidden><p>\n<div></textarea>\n', paragraph],
+        ['omitted end tags', '', i => `<p>Paragraph ${i}`],
+        ['comparison text', 'Comparison: a < b.\n', paragraph],
+        ['authored markers', '', i => `<p DATA-REGISTER-SOURCE-LINE="original" data-register-source-line-="also original">Paragraph ${i}</p>`],
+        ['nested paragraphs', '', i => `<div title="A > <span>"><p>Paragraph ${i}</p></div>`],
+    ]) {
         await withPage(browser, origin, {templates: true}, async (page, url) => {
             await page.route('**/admin-ajax?*', route => route.fulfill({json: previewTemplate('first')}));
             await page.goto(url);
             await page.waitForFunction(() => window.adminEditorReady);
-            const body = (mode === 'mixed' ? '<!-- Multiline\ncomment -->\n<br\n>\n' : '')
-                + Array.from({length: 50}, (_, i) => mode === 'opening' ? `<p\n class="paragraph">Paragraph ${i}</p>`
-                    : mode === 'closing' ? `<p>Paragraph ${i}</p\n>` : `<p\n title="A > B">\nParagraph ${i}</p\n>`).join('\n');
-            const lines = body.split('\n').flatMap((line, index) => line.startsWith('<p') ? [index] : []);
+            let body = prefix;
+            const lines = [];
+            for (let i = 0; i < 50; i++) {
+                lines.push(body.split('\n').length - 1);
+                body += renderParagraph(i) + (i < 49 ? '\n' : '');
+            }
             await page.evaluate(body => window.adminEditor.setValue(body, true), body);
             await page.waitForFunction(() => document.getElementById('body-preview-frame').contentDocument.querySelectorAll('#preview-text-wrapper p').length === 50);
             await page.waitForFunction(() => document.getElementById('body-preview-frame').contentDocument.querySelector('p')?.offsetHeight === 80);
             assert.deepEqual(await page.evaluate(() => Array.from(document.getElementById('body-preview-frame').contentDocument
-                .querySelectorAll('#preview-text-wrapper p'), p => Number(p.dataset.line))), lines);
+                .querySelectorAll('#preview-text-wrapper > .line[data-line]'), block => Number(block.dataset.line))), lines);
+            assert.equal(await page.evaluate(() => Array.from(document.getElementById('body-preview-frame').contentDocument
+                .querySelectorAll('#preview-text-wrapper *')).flatMap(node => Array.from(node.attributes))
+                .filter(attribute => attribute.name.startsWith('data-register-source-line')).length), mode === 'authored markers' ? 100 : 0,
+            'Temporary source markers must not reach the preview or replace authored attributes');
 
             await page.locator('.CodeMirror').hover();
             await page.mouse.wheel(0, 1);
@@ -270,7 +289,13 @@ export async function runPreviewLineRegressions(browser, origin) {
             });
             assert.ok(sourceMiddle >= lines[29] && sourceMiddle <= lines[31], `Preview paragraph 30 should keep its source visible, got line ${sourceMiddle}`);
             assert.equal(await page.evaluate(() => window.adminEditor.getValue()), body);
+            const saves = holdRequests(page, '**/admin-save*');
+            await saves.installed;
+            await page.getByRole('button', {name: 'Save', exact: true}).click();
+            const save = await saves.next();
+            assert.equal((await formData(save)).get('body').replace(/\r\n/g, '\n'), body, 'Preview markers must not enter the saved source');
+            await save.fulfill({json: {revision: 2, urlStatus: 'ok', urlTitle: '', url: '/post'}});
         });
-        console.log(`admin preview: multiline ${mode} tags retain source lines and bidirectional scrolling`);
+        console.log(`admin preview: ${mode} retains source lines, bidirectional scrolling and saved HTML`);
     }
 }

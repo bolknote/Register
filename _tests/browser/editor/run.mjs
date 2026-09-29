@@ -23,7 +23,7 @@ import {runAdminAiTargetRegressions} from './admin-ai-target-tests.mjs';
 import {runImageInsertionTextRegressions, runSmartParagraphRegressions, runSocialPreviewTextRegressions} from './admin-text-tests.mjs';
 import {runAltLayoutRegressions, runTemplateFieldRegressions, runPreviewDocumentRegressions, runPreviewLineRegressions} from './admin-layout-preview-tests.mjs';
 import {runAdminShortcutTargetRegressions, runAltCursorRegressions} from './admin-interaction-tests.mjs';
-import {runAdminNativeShortcutRegressions, runSmartParagraphMarkupRegressions, runSmartParagraphTagRegressions, runParagraphAttributeRegressions,
+import {runAdminNativeShortcutRegressions, runSmartParagraphMarkupRegressions, runSmartParagraphTagRegressions, runSmartParagraphBreakRegressions, runParagraphAttributeRegressions,
     runCommentParagraphRegressions, runDuplicateLineRegressions, runParagraphCaretRegressions} from './admin-formatting-tests.mjs';
 import {runAdminMediaPathRegressions, runAdminShortcutModifierRegressions} from './admin-media-shortcut-tests.mjs';
 import {runAdminCompositionRegressions, runAdminNativeCompositionRegressions, runAdminTagNavigationRegressions} from './admin-composition-tests.mjs';
@@ -469,6 +469,7 @@ try {
             await runAdminTagNavigationRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runSmartParagraphMarkupRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runSmartParagraphTagRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runSmartParagraphBreakRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runParagraphAttributeRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runCommentParagraphRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runDuplicateLineRegressions(browser, `http://127.0.0.1:${server.address().port}`);
