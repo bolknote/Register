@@ -14,12 +14,14 @@ function firstImage(html) {
 
 function descriptionFromBody(html, title) {
     // Keep the local fallback consistent with PublicationMetadataGenerator.
-    let text = htmlToPlainText(html, true, true);
-    const lines = text.split(/\n+/);
-    if (normalizePlainText(lines[0]).toLowerCase() === normalizePlainText(title).toLowerCase()) {
-        lines.shift();
-    }
-    text = normalizePlainText(lines.join(' '));
+    const normalizedTitle = normalizePlainText(title).toLowerCase();
+    const withoutTitle = text => {
+        const lines = text.split(/\n+/).map(normalizePlainText).filter(Boolean);
+        if (lines[0]?.toLowerCase() === normalizedTitle) lines.shift();
+        return lines.join(' ');
+    };
+    // Test the lead after removing its title and invisible whitespace.
+    const text = withoutTitle(htmlToPlainText(html, true, true)) || withoutTitle(htmlToPlainText(html, true));
     const characters = Array.from(text);
     if (characters.length <= 160) return text;
 

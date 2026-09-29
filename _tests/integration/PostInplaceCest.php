@@ -56,6 +56,7 @@ final class PostInplaceCest
         $html = htmlspecialchars($text, ENT_NOQUOTES | ENT_SUBSTITUTE, 'UTF-8');
         $I->login('author', 'author');
         $I->amOnPage('https://localhost/');
+
         $token = (string)$I->grabAttributeFrom(
             '.site-header-shell .post-create-template input[name="inplace_token"]',
             'value',
@@ -70,6 +71,7 @@ final class PostInplaceCest
             'published_at' => (string)(time() - 60),
         ]);
         $I->seeResponseCodeIs(Response::HTTP_OK);
+
         $payload = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabService(DbLayer::class);

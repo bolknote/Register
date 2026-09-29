@@ -84,6 +84,7 @@ final class PublicationMetadataGeneratorTest extends TestCase
             ['<p>First.<p>Second.<br>Third.', 'First. Second. Third.'],
             ['<p>👩&zwj;💻 می&zwnj;روم 20&NoBreak;°C &NotEqualTilde; &amp;lt;tag&amp;gt;</p>',
                 "👩‍💻 می\u{200C}روم 20\u{2060}°C ≂̸ &lt;tag&gt;"],
+            ['<p>&Afr; &fjlig; &NotEqualTilde; &LT;tag&GT;</p>', '𝔄 fj ≂̸ <tag>'],
         ] as [$html, $expected]) {
             $metadata = $generator->complete('Title', $html);
             self::assertSame($expected, $metadata->metaDescription, $html);
@@ -123,6 +124,53 @@ final class PublicationMetadataGeneratorTest extends TestCase
             $metadata = $generator->complete($title, $html);
             self::assertSame(htmlspecialchars($expected, ENT_NOQUOTES | ENT_SUBSTITUTE, 'UTF-8'), $metadata->excerpt);
             self::assertSame($expected, $metadata->metaDescription);
+        }
+    }
+
+    public function testLocalFallbackNormalizesWhitespaceBeforeRemovingTitle(): void
+    {
+        $generator = $this->generator($this->settings());
+        foreach (['&nbsp;', '&#8203;', '&#xfeff;', '&#8239;'] as $separator) {
+            $metadata = $generator->complete('Article title', '<h1>Article' . $separator . 'title</h1><p>Visible body.</p>');
+
+            self::assertSame('Visible body.', $metadata->excerpt, $separator);
+            self::assertSame('Visible body.', $metadata->metaDescription, $separator);
+        }
+    }
+
+    public function testLocalFallbackUsesBodyWhenLeadHasNoEditorialText(): void
+    {
+        $generator = $this->generator($this->settings());
+        foreach ([
+            '<p>&nbsp;&#8203;&#xfeff;</p>',
+            '<h1>Title</h1>',
+            '<h1>&nbsp;Title&#8203;</h1><p>&nbsp;</p>',
+        ] as $lead) {
+            $metadata = $generator->complete('Title', $lead . '<cut /><p>Visible body.</p>');
+
+            self::assertSame('Visible body.', $metadata->excerpt, $lead);
+            self::assertSame('Visible body.', $metadata->metaDescription, $lead);
+        }
+    }
+
+    public function testEmptyEditorialTextDoesNotCallAi(): void
+    {
+        $generator = $this->generator(
+            $this->settings([
+                AiSettings::PROVIDER_CONFIG_KEY => AiSettings::PROVIDER_OPENROUTER,
+                AiSettings::API_KEY_CONFIG_KEY => 'secret',
+                AiSettings::AUTO_METADATA_CONFIG_KEY => '1',
+            ]),
+            static function (): HttpResponse {
+                throw new \LogicException('Empty content must not trigger AI metadata generation.');
+            },
+        );
+
+        foreach (['', 'Title'] as $title) {
+            $metadata = $generator->complete($title, '<p>&nbsp;&#8203;&#xfeff;</p><pre>non-editorial code</pre>');
+            self::assertSame('', $metadata->excerpt);
+            self::assertSame('', $metadata->metaDescription);
+            self::assertFalse($metadata->generatedWithAi);
         }
     }
 
@@ -172,8 +220,8 @@ final class PublicationMetadataGeneratorTest extends TestCase
         self::assertSame($expected, $metadata->metaDescription);
         self::assertTrue($metadata->generatedWithAi);
         self::assertCount(1, $calls);
-        self::assertStringContainsString($title, $calls[0]['messages'][0]['content']);
-        self::assertStringContainsString($expected, $calls[0]['messages'][0]['content']);
+        self::assertStringContainsString($title, (string) $calls[0]['messages'][0]['content']);
+        self::assertStringContainsString($expected, (string) $calls[0]['messages'][0]['content']);
     }
 
     public function testExistingMetadataIsPreservedWithoutCallingAi(): void

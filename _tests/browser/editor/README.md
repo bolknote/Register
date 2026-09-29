@@ -119,11 +119,13 @@ complete preformatted, raw-text and list blocks unchanged, including whitespace,
 quoted attributes, uppercase tags, nesting and an unfinished block, while still
 formatting surrounding prose. Repeated formatting is stable.
 
-Twenty-six social-preview text scenarios cover both admin editor modes. They
+Social-preview text scenarios cover both admin editor modes. They
 preserve block/line separators, exclude code and non-editorial content, decode
 entities, honor cut markers and omit a repeated title. Local descriptions use
 whole sentences or words within the same 160-character limit as the server,
 including supplementary Unicode characters. Explicit descriptions still win.
+Whitespace is normalized before removing repeated titles and choosing a lead;
+titles and invisible whitespace alone before a cut fall back to the article body.
 
 Twenty-two admin input scenarios cover unfinished tags in form values, exit
 warnings, button and keyboard saves, edits during a save, CSRF retries, failures,

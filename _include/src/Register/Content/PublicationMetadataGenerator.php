@@ -92,25 +92,7 @@ final readonly class PublicationMetadataGenerator
         return new PublicationMetadata($excerpt, $metaDescription, $generatedWithAi);
     }
 
-    private function extractPlainText(string $title, string $body): string
-    {
-        $plainText = $this->htmlToPlainText($body);
-
-        $title = $this->normalizePlainText($title);
-        if ($title === '' || $plainText === '') {
-            return $plainText;
-        }
-
-        $lines = preg_split('/\R+/u', $plainText);
-        if ($lines !== false && mb_strtolower(trim($lines[0])) === mb_strtolower($title)) {
-            array_shift($lines);
-            $plainText = implode(' ', $lines);
-        }
-
-        return $this->normalizePlainText($plainText);
-    }
-
-    private function htmlToPlainText(string $html): string
+    private function extractPlainText(string $title, string $html): string
     {
         // The PHP 8.3 DOM parser understands HTML4 names. Numeric references
         // preserve HTML5 entities without decoding them into source markup.
@@ -120,10 +102,7 @@ final readonly class PublicationMetadataGenerator
                 return $match[0];
             }
 
-            return implode('', array_map(
-                static fn(string $character): string => '&#' . mb_ord($character, 'UTF-8') . ';',
-                mb_str_split($decoded, 1, 'UTF-8'),
-            ));
+            return mb_encode_numericentity($decoded, [0, 0x10FFFF, 0, 0xFFFFFF], 'UTF-8');
         }, $html) ?? $html;
 
         $document = new \DOMDocument('1.0', 'UTF-8');
@@ -137,6 +116,7 @@ final readonly class PublicationMetadataGenerator
             libxml_clear_errors();
             libxml_use_internal_errors($previous);
         }
+
         $body = $document->getElementsByTagName('body')->item(0);
         if (!$loaded || $body === null) {
             return '';
@@ -145,8 +125,23 @@ final readonly class PublicationMetadataGenerator
         $text = '';
         $beforeCut = null;
         $this->appendPlainText($body, $text, $beforeCut);
-        $lead = $this->normalizeTextLines($beforeCut ?? $text);
-        return $lead !== '' ? $lead : $this->normalizeTextLines($text);
+        $title = $this->normalizePlainText($title);
+        // A title or invisible whitespace alone is not an editorial lead.
+        $lead = $this->normalizeDescriptionText($beforeCut ?? $text, $title);
+        return $lead !== '' ? $lead : $this->normalizeDescriptionText($text, $title);
+    }
+
+    private function normalizeDescriptionText(string $text, string $title): string
+    {
+        $lines = array_values(array_filter(
+            array_map($this->normalizePlainText(...), explode("\n", $this->normalizeTextLines($text))),
+            static fn(string $line): bool => $line !== '',
+        ));
+        if (isset($lines[0]) && $title !== '' && mb_strtolower($lines[0]) === mb_strtolower($title)) {
+            array_shift($lines);
+        }
+
+        return implode(' ', $lines);
     }
 
     private function appendPlainText(\DOMNode $node, string &$text, ?string &$beforeCut): void
@@ -155,17 +150,21 @@ final readonly class PublicationMetadataGenerator
             $text .= $node->textContent;
             return;
         }
+
         if (!$node instanceof \DOMElement) {
             return;
         }
+
         $name = strtolower($node->tagName);
         if (\in_array($name, ['script', 'style', 'template', 'noscript', 'svg', 'math', 'pre', 'code'], true)) {
             $text .= ' ';
             return;
         }
+
         if ($name === 'cut' && $beforeCut === null) {
             $beforeCut = $text;
         }
+
         $block = \in_array($name, [
             'address', 'article', 'aside', 'blockquote', 'br', 'dd', 'div', 'dl', 'dt', 'figcaption', 'figure', 'footer',
             'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header', 'hr', 'li', 'main', 'nav', 'ol', 'p', 'section',
@@ -174,9 +173,11 @@ final readonly class PublicationMetadataGenerator
         if ($block) {
             $text .= "\n";
         }
+
         foreach ($node->childNodes as $child) {
             $this->appendPlainText($child, $text, $beforeCut);
         }
+
         if ($block) {
             $text .= "\n";
         }

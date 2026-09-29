@@ -152,6 +152,9 @@ export async function runSocialPreviewTextRegressions(browser, origin) {
         ['literal entity names', '<p>Write &amp;lt;widget&amp;gt; and &amp;amp; in the source.</p>', 'Write &lt;widget&gt; and &amp; in the source.'],
         ['cut marker', '<p>Lead.</p><cut /><p>Rest of article.</p>', 'Lead.'],
         ['empty lead before cut', '<pre>only code</pre><cut><p>Visible body.</p>', 'Visible body.'],
+        ['invisible lead before cut', '<p>&nbsp;&#8203;&#xfeff;</p><cut><p>Visible body.</p>', 'Visible body.'],
+        ['title-only lead before cut', '<h1>Server title</h1><cut><p>Visible body.</p>', 'Visible body.'],
+        ['title and invisible lead before cut', '<h1>&nbsp;Server&#8203;title</h1><p>&nbsp;</p><cut><p>Visible body.</p>', 'Visible body.'],
         ['quoted greater-than sign', '<p title="left > right">First.</p><p>Second.</p>', 'First. Second.'],
         ['nested omitted content', '<p>Intro.</p><template>outer<template>inner</template>hidden tail</template><p>Ending.</p>', 'Intro. Ending.'],
         ['comment cut', '<p>Intro.</p><!-- <cut /> --><p>Ending.</p>', 'Intro. Ending.'],
@@ -165,10 +168,13 @@ export async function runSocialPreviewTextRegressions(browser, origin) {
         ['HTML5 entities', '<p>👩&zwj;💻 می&zwnj;روم 20&NoBreak;°C &NotEqualTilde; &amp;lt;tag&amp;gt;</p>',
             '👩‍💻 می\u200cروم 20\u2060°C ≂̸ &lt;tag&gt;'],
         ['duplicated title', '<h1>Server title</h1><p>Body.</p>', 'Body.'],
+        ['title with invisible separators', '<h1>Server&nbsp;&#8203;&#xfeff;title</h1><p>Body.</p>', 'Body.'],
+        ['astral and multi-character entities', '<p>&Afr; &fjlig; &NotEqualTilde; &LT;tag&GT;</p>', '𝔄 fj ≂̸ <tag>'],
         ['whole sentence limit', '<p>First sentence. ' + 'long '.repeat(40) + '</p>', 'First sentence.'],
         ['word limit', '<p>' + 'word '.repeat(40) + '</p>', Array(31).fill('word').join(' ') + '…'],
         ['Unicode limit', '<p>' + '🙂'.repeat(170) + '</p>', '🙂'.repeat(159) + '…'],
         ['empty editorial text', '<pre>only code</pre>', 'Empty preview'],
+        ['invisible editorial text', '<p>&nbsp;&#8203;&#xfeff;</p>', 'Empty preview'],
     ];
     for (const codemirror of [false, true]) {
         await withPage(browser, origin, '&social=1' + (codemirror ? '&codemirror=1&toolbar=1' : ''), async page => {
