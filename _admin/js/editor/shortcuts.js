@@ -68,7 +68,9 @@ export function initHtmlTextarea(eTextarea) {
 
         const ch = String.fromCharCode(e.which).toLowerCase();
 
-        if (e.ctrlKey && !e.shiftKey) {
+        // AltGr can report Ctrl+Alt while entering ordinary text.
+        if (e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey
+            && !e.isComposing && !e.getModifierState('AltGraph')) {
             if (ch === 'i')
                 tagSelection('em');
             else if (ch === 'b')
@@ -182,7 +184,8 @@ export function initHtmlToolbar(eToolbar) {
 }
 
 document.addEventListener('keydown', function (e) {
-    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.code === 'KeyS') {
+    if ((e.ctrlKey !== e.metaKey) && !e.shiftKey && !e.altKey && e.code === 'KeyS'
+        && !e.isComposing && !e.getModifierState('AltGraph')) {
         document.dispatchEvent(new Event('save_form.register'));
         e.preventDefault();
     }

@@ -25,6 +25,7 @@ import {runAltLayoutRegressions, runTemplateFieldRegressions, runPreviewDocument
 import {runAdminShortcutTargetRegressions, runAltCursorRegressions} from './admin-interaction-tests.mjs';
 import {runAdminNativeShortcutRegressions, runSmartParagraphMarkupRegressions, runParagraphAttributeRegressions,
     runCommentParagraphRegressions, runDuplicateLineRegressions, runParagraphCaretRegressions} from './admin-formatting-tests.mjs';
+import {runAdminMediaPathRegressions, runAdminShortcutModifierRegressions} from './admin-media-shortcut-tests.mjs';
 
 async function runAuthorWorkflowRegressions(browser, origin) {
     const page = await browser.newPage();
@@ -460,6 +461,8 @@ try {
             await runPreviewDocumentRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runAdminShortcutTargetRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runAdminNativeShortcutRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runAdminMediaPathRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runAdminShortcutModifierRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runSmartParagraphMarkupRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runParagraphAttributeRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runCommentParagraphRegressions(browser, `http://127.0.0.1:${server.address().port}`);

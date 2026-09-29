@@ -17,7 +17,8 @@ function escapeHtml(value) {
 }
 
 function sanitizeUrlForAttribute(url) {
-    return escapeHtml(encodeURI(String(url)));
+    // The media manager supplies a raw file path, including literal # and ?.
+    return escapeHtml(encodeURI(String(url)).replace(/#/g, '%23').replace(/\?/g, '%3F'));
 }
 
 export {escapeHtml, sanitizeUrlForAttribute};

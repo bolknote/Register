@@ -150,7 +150,8 @@ function renderFileInformation(container, fileName, filePath, fileSize, dimensio
 
     container.append(document.createTextNode(register_lang.file));
     var fileLink = document.createElement('a');
-    fileLink.href = encodeURI(filePath);
+    // # and ? in filenames belong to the path, not a fragment or query.
+    fileLink.href = encodeURI(filePath).replace(/#/g, '%23').replace(/\?/g, '%3F');
     fileLink.target = '_blank';
     fileLink.rel = 'noopener';
     fileLink.textContent = filePath + ' ↑';
