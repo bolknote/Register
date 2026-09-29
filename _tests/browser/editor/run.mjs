@@ -29,7 +29,8 @@ import {runAdminMediaPathRegressions, runAdminAudioInsertionRegressions, runAdmi
 import {runAdminCompositionRegressions, runAdminNativeCompositionRegressions, runAdminTagNavigationRegressions} from './admin-composition-tests.mjs';
 import {runMediaLibraryUploadRegressions, runMediaLibraryFailureRegressions, runMediaLibrarySortRegressions,
     runMediaLibraryFolderRegressions, runMediaLibraryFolderMutationRegressions, runMediaLibraryFolderFailureRegressions,
-    runMediaLibraryFileSelectionRegressions, runMediaLibraryFileRenameRegressions, runMediaLibraryFileMoveRegressions} from './media-library-tests.mjs';
+    runMediaLibraryFileSelectionRegressions, runMediaLibraryFileRenameRegressions, runMediaLibraryFileMoveRegressions,
+    runMediaLibraryFileDeleteRegressions, runMediaLibraryFolderCreateRegressions} from './media-library-tests.mjs';
 
 async function runAuthorWorkflowRegressions(browser, origin) {
     const page = await browser.newPage();
@@ -476,6 +477,8 @@ try {
             await runMediaLibraryFileSelectionRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runMediaLibraryFileRenameRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runMediaLibraryFileMoveRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runMediaLibraryFileDeleteRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runMediaLibraryFolderCreateRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runAdminDirtyFieldRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runAdminShortcutModifierRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runAdminCompositionRegressions(browser, `http://127.0.0.1:${server.address().port}`);

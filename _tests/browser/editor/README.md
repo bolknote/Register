@@ -284,3 +284,12 @@ Cross-tree file moves clear old insertion links and counts, preserve folder
 navigation and nested folders, and reload the current source or destination.
 Moving the entire file list, network failures, rejected renames and moves, and
 partially completed moves also leave the library usable with current file URLs.
+
+Sixteen deletion and folder-creation scenarios exercise the real confirmation
+dialog, cancellation, deletion of all files, refreshes and navigation during
+pending deletes, and recovery after server or network failures. Folder creation
+updates the selected folder's actual name, path and upload token, including a
+folder selected before the server replies. A failed creation removes only its
+provisional node, preserving later selections and other successfully created
+folders. Subsequent image insertions and uploads verify that the selected
+destination remains usable.

@@ -11,12 +11,19 @@ const markup = `<!doctype html><html lang="en"><meta charset="utf-8"><title>Medi
     </form>
     <div id="folders"></div><span data-media-folder-path></span><button type="button" data-media-refresh>Refresh</button>
     <input type="search" data-media-search><select data-media-type><option value="all">All</option></select>
-    <span data-media-count></span><div data-media-selection-bar hidden><span data-media-selected-count></span></div>
+    <span data-media-count></span><div data-media-selection-bar hidden><span data-media-selected-count></span>
+        <button type="button" data-media-delete>Delete files</button></div>
     <div id="brd"><div id="files"></div><div id="loadstatus"></div>
         <div data-media-empty hidden></div><div data-media-no-matches hidden></div></div>
     <div id="finfo"></div>
 </section>
+<dialog data-admin-confirm-dialog><form method="dialog">
+    <h2 data-admin-confirm-title></h2><p data-admin-confirm-message></p>
+    <button value="cancel" data-admin-confirm-cancel>Cancel</button>
+    <button value="confirm" data-admin-confirm-submit>Delete permanently</button>
+</form></dialog>
 <script src="/library/lang.js"></script><script src="/admin-fetch.js"></script>
+<script src="/library/confirm.js"></script>
 <script src="/library/ajax.js"></script><script src="/library/jquery.js"></script>
 <script src="/library/jquery-tools.js"></script><script src="/library/jquery.jstree.js"></script>
 <script src="/library/pictman.js"></script></html>`;
@@ -36,6 +43,8 @@ async function openLibrary(page, origin, folders = []) {
         ['lang.js', 'lang/en/ui.js'], ['ajax.js', 'js/ajax.js'], ['pictman.js', 'js/pictman.js'],
         ['jquery.js', 'lib/jquery.js'], ['jquery-tools.js', 'lib/jquery-tools.js'], ['jquery.jstree.js', 'lib/jquery.jstree.js'],
     ].map(async ([name, path]) => [name, await readFile(new URL('../../../_admin/' + path, import.meta.url), 'utf8')])));
+    const adminLib = await readFile(new URL('../../../_admin/js/lib.js', import.meta.url), 'utf8');
+    scripts.set('confirm.js', adminLib.slice(adminLib.indexOf('window.AdminConfirm'), adminLib.indexOf('window.PopupMessages')));
     await page.route('**/library/*', route => route.fulfill({contentType: 'text/javascript',
         body: scripts.get(new URL(route.request().url()).pathname.split('/').pop()) || ''}));
     await page.route('**/media-library.html', route => route.fulfill({contentType: 'text/html', body: markup}));
@@ -493,4 +502,168 @@ export async function runMediaLibraryFileMoveRegressions(browser, origin) {
         } finally { await page.close(); }
     }
     console.log('media library: moving files clears source actions, keeps folder navigation and refreshes the current list');
+}
+
+export async function runMediaLibraryFileDeleteRegressions(browser, origin) {
+    for (const [nextAction, outcome] of [
+        ['refresh', 'success'], ['stay', 'success'], ['round-trip', 'success'], ['other-folder', 'success'],
+        ['other-folder', 'rejected'], ['refresh', 'network'], ['stay', 'rejected'], ['all', 'success'],
+    ]) {
+        const page = await browser.newPage();
+        try {
+            const library = await openLibrary(page, origin, [
+                {data: 'second', attr: {'data-path': '/second', 'data-csrf-token': 'second-token'}},
+            ]);
+            const deletes = holdRequests(page, '**/library-api?action=delete_files&*');
+            await deletes.installed;
+            await page.locator('#files [data-fname="image2.png"] > a').click();
+            if (nextAction === 'all') await page.locator('#files [data-fname="image10.png"] > a').click({modifiers: ['Shift']});
+            await page.getByRole('button', {name: 'Delete files', exact: true}).click();
+            const dialog = page.locator('[data-admin-confirm-dialog]');
+            assert.match(await dialog.locator('[data-admin-confirm-message]').textContent(), /image2\.png/u);
+            if (nextAction === 'stay' && outcome === 'success') {
+                await dialog.getByRole('button', {name: 'Cancel', exact: true}).click();
+                assert.equal(deletes.count, 0, 'Cancelling the dialog must not send a delete request');
+                assert.equal(await page.locator('#files [data-fname="image2.png"]').count(), 1);
+                await page.getByRole('button', {name: 'Delete files', exact: true}).click();
+            }
+            await dialog.locator('[data-admin-confirm-submit]').click();
+            const request = await deletes.next();
+            const params = new URL(request.request().url()).searchParams;
+            assert.equal(params.get('path'), '');
+            assert.deepEqual(params.getAll('fname[]').sort(), nextAction === 'all' ? ['image10.png', 'image2.png'] : ['image2.png']);
+            assert.equal((await formData(request)).get('csrf_token'), 'fixture');
+            if (nextAction === 'stay' || nextAction === 'all') {
+                assert.equal(await page.locator('[data-media-count]').textContent(), nextAction === 'all' ? '0/0' : '1/1',
+                    'Removing a file updates its count while the request is pending');
+            } else if (nextAction === 'refresh') {
+                await page.getByRole('button', {name: 'Refresh', exact: true}).click();
+                await page.waitForFunction(() => jQuery.active === 0 && document.querySelector('#files [data-fname="image2.png"]'));
+            } else {
+                await page.locator('#folders [data-path="/second"] > a').click();
+                await page.waitForFunction(() => document.querySelector('#files [data-fname="photo.png"]'));
+                await page.locator('#files [data-fname="photo.png"] > a').click();
+                if (nextAction === 'round-trip') {
+                    await page.locator('#folders [data-path=""] > a').click();
+                    await page.waitForFunction(() => jQuery.active === 0 && document.querySelector('#files [data-fname="image2.png"]'));
+                }
+            }
+            if (outcome === 'success') {
+                if (nextAction === 'all') library.files.length = 0;
+                else library.files.splice(library.files.indexOf('image2.png'), 1);
+            }
+            const done = outcome === 'network' ? page.waitForEvent('requestfailed', failed => failed.url() === request.request().url())
+                : page.waitForResponse(response => response.url() === request.request().url()).then(response => response.finished());
+            if (outcome === 'network') await request.abort('failed');
+            else await request.fulfill(outcome === 'success' ? {json: {success: true}}
+                : {status: 422, json: {success: false, message: 'Unable to delete the file.'}});
+            await done;
+            await nextTask(page);
+            await page.waitForFunction(() => jQuery.active === 0);
+            if (nextAction === 'other-folder') {
+                assert.equal(await page.locator('#files a.jstree-clicked').count(), 1,
+                    'Completing a deletion elsewhere must retain the current file selection');
+                assert.equal(new URL(await page.locator('#finfo a').getAttribute('href'), origin).pathname, '/pictures/second/photo.png');
+            } else if (nextAction === 'all') {
+                assert.equal(await page.locator('#files li[data-fname]').count(), 0);
+                assert.equal(await page.locator('[data-media-empty]').evaluate(element => element.hidden), false);
+                assert.equal(await page.locator('#finfo a').count(), 0);
+                await upload(page, 'after-delete.png', false);
+                const uploadRequest = await library.uploads.next();
+                library.files.push('after-delete.png');
+                await uploadRequest.fulfill({json: {success: true}});
+                await page.waitForFunction(() => document.querySelector('#files [data-fname="after-delete.png"]'));
+            } else {
+                assert.deepEqual(await page.locator('#files li[data-fname]').evaluateAll(nodes => nodes.map(node => node.dataset.fname)),
+                    outcome === 'success' ? ['image10.png'] : ['image2.png', 'image10.png'],
+                    'A deletion reply must reconcile lists refreshed while it was pending');
+                assert.equal(await page.locator('[data-media-count]').textContent(), outcome === 'success' ? '1/1' : '2/2');
+                await page.locator('#files [data-fname="image10.png"] > a').click();
+                await page.getByRole('button', {name: '← Insert', exact: true}).click();
+                assert.equal(await page.evaluate(() => window.libraryInsertedImages.at(-1)[0]), '/pictures/image10.png');
+            }
+            assert.deepEqual(await page.evaluate(() => window.libraryMessages), outcome === 'rejected' ? ['Unable to delete the file.'] : []);
+            assert.deepEqual(library.errors, []);
+        } catch (error) {
+            throw new Error(`media file delete ${nextAction}/${outcome}: ${error.message}`, {cause: error});
+        } finally { await page.close(); }
+    }
+    console.log('media library: confirmed deletions reconcile refreshed lists and retain unrelated selections on success or failure');
+}
+
+export async function runMediaLibraryFolderCreateRegressions(browser, origin) {
+    for (const [selection, outcome] of [
+        ['new', 'success'], ['parent', 'success'], ['other', 'success'],
+        ['other', 'rejected'], ['new', 'rejected'], ['other', 'network'], ['new', 'null'], ['created', 'rejected'],
+    ]) {
+        const page = await browser.newPage();
+        try {
+            const library = await openLibrary(page, origin, [
+                {data: 'second', attr: {'data-path': '/second', 'data-csrf-token': 'second-token'}},
+            ]);
+            const creates = holdRequests(page, '**/library-api?action=create_subfolder&*');
+            await creates.installed;
+            await page.locator('#context_add').click();
+            await page.locator('#folders input').fill('new');
+            await page.locator('#folders input').press('Enter');
+            const request = await creates.next();
+            assert.equal(new URL(request.request().url()).searchParams.get('path'), '');
+            assert.equal((await formData(request)).get('csrf_token'), 'fixture');
+            if (selection === 'created') {
+                await page.locator('#context_add').click();
+                await page.locator('#folders input').fill('kept');
+                await page.locator('#folders input').press('Enter');
+                const otherCreate = await creates.next();
+                library.filesByPath.set('/kept', ['photo.png']);
+                await otherCreate.fulfill({json: {success: true, path: '/kept', name: 'kept', csrf_token: 'kept-token'}});
+                await page.locator('#folders [data-path="/kept"] > a').click();
+                await page.waitForFunction(() => document.querySelector('#files [data-fname="photo.png"]'));
+                await page.locator('#files [data-fname="photo.png"] > a').click();
+            } else if (selection === 'new') {
+                await page.locator('#folders li:not([data-path]) > a').click();
+            } else if (selection === 'other') {
+                await page.locator('#folders [data-path="/second"] > a').click();
+                await page.waitForFunction(() => document.querySelector('#files [data-fname="photo.png"]'));
+                await page.locator('#files [data-fname="photo.png"] > a').click();
+            }
+            library.filesByPath.set('/new1', []);
+            const done = outcome === 'network' ? page.waitForEvent('requestfailed', failed => failed.url() === request.request().url())
+                : page.waitForResponse(response => response.url() === request.request().url()).then(response => response.finished());
+            if (outcome === 'network') await request.abort('failed');
+            else await request.fulfill(outcome === 'success' ? {json: {success: true, path: '/new1', name: 'new1', csrf_token: 'new-token'}}
+                : outcome === 'null' ? {json: null} : {status: 409, json: {success: false, message: 'Unable to create the folder.'}});
+            await done;
+            await nextTask(page);
+            await page.waitForFunction(() => jQuery.active === 0);
+            const expected = selection === 'created' ? '/kept' : selection === 'other' ? '/second'
+                : selection === 'new' && outcome === 'success' ? '/new1' : '';
+            assert.equal(await page.evaluate(() => getCurDir()), expected,
+                'Completing folder creation must synchronize the selected folder path');
+            assert.equal(await page.locator('#folders a.jstree-clicked').evaluate(anchor => anchor.parentElement.dataset.path), expected);
+            assert.equal(await page.locator('[data-media-folder-path]').textContent(), expected || 'Pictures');
+            assert.equal(await page.locator('#folders li:not([data-path])').count(), 0);
+            assert.equal(await page.locator('#folders [data-path="/new1"]').count(), outcome === 'success' ? 1 : 0);
+            if (selection === 'other' || selection === 'created') {
+                assert.equal(await page.locator('#files a.jstree-clicked').count(), 1);
+                assert.equal(new URL(await page.locator('#finfo a').getAttribute('href'), origin).pathname, '/pictures' + expected + '/photo.png');
+            } else if (expected === '/new1') {
+                assert.equal(await page.locator('#files li[data-fname]').count(), 0, 'The selected new folder must not show parent files');
+                assert.equal(await page.locator('#fold_name').textContent(), 'new1');
+            }
+            await upload(page, 'created.png', false);
+            const uploadRequest = await library.uploads.next();
+            const body = await formData(uploadRequest);
+            assert.equal(body.get('dir'), expected);
+            assert.equal(body.get('csrf_token'), expected === '/new1' ? 'new-token' : expected === '/second' ? 'second-token'
+                : expected === '/kept' ? 'kept-token' : 'fixture');
+            library.filesByPath.get(expected).push('created.png');
+            await uploadRequest.fulfill({json: {success: true}});
+            await page.waitForFunction(() => document.querySelector('#files [data-fname="created.png"]'));
+            assert.deepEqual(await page.evaluate(() => window.libraryMessages), outcome === 'rejected' ? ['Unable to create the folder.'] : []);
+            assert.deepEqual(library.errors, []);
+        } catch (error) {
+            throw new Error(`media folder create ${selection}/${outcome}: ${error.message}`, {cause: error});
+        } finally { await page.close(); }
+    }
+    console.log('media library: folder creation synchronizes pending selections and preserves unrelated selections after errors');
 }

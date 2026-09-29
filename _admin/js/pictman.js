@@ -492,12 +492,23 @@ $(function () {
                 + '&path=' + encodeURIComponent(data.rslt.parent.attr('data-path'));
             const createParams = new URLSearchParams();
             createParams.append('csrf_token', data.rslt.parent.attr('data-csrf-token'));
+            const discardCreatedFolder = function () {
+                if (!$.contains(folderTree[0], data.rslt.obj[0])) return;
+                if (data.rslt.obj.is(folderTree.jstree('get_selected'))) {
+                    folderTree.jstree('deselect_all');
+                    folderTree.jstree('select_node', data.rslt.parent);
+                }
+                // Only the provisional folder belongs to this operation.
+                // Restoring its old tree snapshot would undo later selections
+                // and unrelated folder changes.
+                folderTree.jstree('delete_node', data.rslt.obj);
+            };
             fetch(endpointUrl, {method: 'POST', body: createParams})
                 .then(response => response.json())
                 .then(d => {
-                    if (!d.success) {
-                        folderRollback(data.rlbk);
-                        if (d.message) {
+                    if (!d?.success) {
+                        discardCreatedFolder();
+                        if (d?.message) {
                             PopupMessages.show(d.message);
                         }
                     } else {
@@ -506,11 +517,10 @@ $(function () {
                             data.rslt.obj.attr('data-csrf-token', d.csrf_token);
                         }
                         folderTree.jstree('rename_node', data.rslt.obj, d.name);
+                        syncSelectedFolder();
                     }
                 })
-                .catch(() => {
-                    folderRollback(data.rlbk);
-                });
+                .catch(discardCreatedFolder);
         })
         .bind('move_node.jstree', function (e, data) {
             if (typeof (data.rslt.o.attr('data-path')) != 'undefined') {
@@ -714,25 +724,25 @@ $(function () {
                 fileNames.push('fname[]=' + encodeURIComponent($(this).attr('data-fname')));
             });
 
-            const endpointUrl = sUrl + 'action=delete_files&path=' + encodeURIComponent(path)
+            const deletedPath = path;
+            const endpointUrl = sUrl + 'action=delete_files&path=' + encodeURIComponent(deletedPath)
                 + '&' + fileNames.join('&');
 
             const deleteFilesParams = new URLSearchParams();
             deleteFilesParams.append('csrf_token', pathCsrfToken);
+            updateFileView();
+            const refreshDeletedFiles = function () {
+                if (path === deletedPath) refreshFiles();
+            };
             fetch(endpointUrl, {method: 'POST', body: deleteFilesParams})
                 .then(response => response.json())
                 .then(d => {
-                    if (!d || !d.success) {
-                        fileTree.jstree('refresh', -1);
-                        if (d.message) {
-                            PopupMessages.show(d.message);
-                        }
+                    if (!d?.success && d?.message) {
+                        PopupMessages.show(d.message);
                     }
-                    updateFileView();
+                    refreshDeletedFiles();
                 })
-                .catch(() => {
-                    fileTree.jstree('refresh', -1);
-                });
+                .catch(refreshDeletedFiles);
         })
         .bind('focus', function () {
             fileTree.jstree('set_focus');
