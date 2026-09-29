@@ -122,32 +122,26 @@ const register_codemirror = (function () {
         return null;
     }
 
-    /** Duplicate a current line in CodeMirror doc */
+    function primarySelectionIndex(editor, ranges) {
+        const cursor = editor.getCursor();
+        return ranges.findIndex(({head}) => head.line === cursor.line && head.ch === cursor.ch);
+    }
+
+    /** Duplicate each cursor's line once, preserving its exact whitespace. */
     function cmDuplicateLine(cm) {
-        const CodeMirror = getCodeMirror();
-        if (!CodeMirror) {
-            return;
-        }
-        // get a position of a current cursor in a current cell
-        const currentCursor = cm.doc.getCursor();
-
-        // read a content from a line where is the current cursor
-        const lineContent = cm.doc.getLine(currentCursor.line);
-
-        // go to the end the current line
-        CodeMirror.commands.goLineEnd(cm);
-
-        // make a break for a new line
-        CodeMirror.commands.newlineAndIndent(cm);
-
-        // move caret to the left position
-        CodeMirror.commands.goLineStart(cm);
-
-        // filled a content of the new line content with line above it
-        cm.doc.replaceSelection(lineContent);
-
-        // restore position cursor on the new line
-        cm.doc.setCursor(currentCursor.line + 1, currentCursor.ch);
+        const ranges = cm.listSelections();
+        const primary = primarySelectionIndex(cm, ranges);
+        const lines = [...new Set(ranges.map(({head}) => head.line))].sort((a, b) => a - b);
+        cm.operation(function () {
+            for (const line of lines.slice().reverse()) {
+                const content = cm.getLine(line);
+                cm.replaceRange('\n' + content, {line, ch: content.length}, null, 'editor-duplicate-line');
+            }
+            cm.setSelections(ranges.map(({head}) => {
+                const cursor = {line: head.line + lines.filter(line => line <= head.line).length, ch: head.ch};
+                return {anchor: cursor, head: cursor};
+            }), primary);
+        });
     }
 
     function ensureCodeMirror() {
@@ -601,32 +595,28 @@ const register_codemirror = (function () {
                 const replacements = instance.getSelections().map(text => formatParagraph(text, sOpenTag, sCloseTag));
                 instance.replaceSelections(replacements, 'around', 'editor-format');
             } else {
-                const cursor = instance.getCursor();
+                const ranges = instance.listSelections();
+                const primary = primarySelectionIndex(instance, ranges);
                 const totalLineNum = instance.lineCount();
-                const currentLine = instance.getLine(cursor.line);
                 const doc = instance.getDoc();
                 const source = instance.getValue();
-                const position = doc.indexFromPos(cursor);
                 const blocks = paragraphBlocks(source);
-                // Use the innermost enclosing element, even when adjacent
-                // blocks share a line or have no blank line between them.
-                let block = blocks.filter(block => block.start <= position && position <= block.end)
-                    .sort((a, b) => b.start - a.start)[0];
-
-                if (!block && currentLine.trim() === '') {
-                    // Empty line
-                    if ((totalLineNum <= cursor.line + 1 || instance.getLine(cursor.line + 1).replace(/^\s+|\s+$/g, '') === '') &&
-                        (cursor.line <= 0 || instance.getLine(cursor.line - 1).replace(/^\s+|\s+$/g, '') === '')) {
-                        // surrounded by empty lines
-                        instance.replaceRange(
-                            sOpenTag + sCloseTag,
-                            {line: cursor.line, ch: 0},
-                            {line: cursor.line, ch: 0}
-                        );
-                        instance.setCursor(cursor.line, sOpenTag.length);
-                    }
-                } else {
-                    if (!block) {
+                const targets = new Map();
+                const carets = ranges.map(({head: cursor}) => {
+                    const position = doc.indexFromPos(cursor);
+                    // Use the innermost enclosing element, even when adjacent
+                    // blocks share a line or have no blank line between them.
+                    let block = blocks.filter(block => block.start <= position && position <= block.end)
+                        .sort((a, b) => b.start - a.start)[0];
+                    if (!block && instance.getLine(cursor.line).trim() === '') {
+                        if ((totalLineNum <= cursor.line + 1 || instance.getLine(cursor.line + 1).trim() === '') &&
+                            (cursor.line <= 0 || instance.getLine(cursor.line - 1).trim() === '')) {
+                            const start = doc.indexFromPos({line: cursor.line, ch: 0});
+                            block = {start, end: start, contentStart: start, contentEnd: start};
+                        } else {
+                            return {position};
+                        }
+                    } else if (!block) {
                         let first = cursor.line;
                         let last = cursor.line;
                         while (first > 0 && instance.getLine(first - 1).trim() !== '') first--;
@@ -646,15 +636,41 @@ const register_codemirror = (function () {
                         end -= text.match(/\n[ \t]*$/)?.[0].length || 0;
                         block = {start, end, contentStart: start, contentEnd: end};
                     }
-                    const content = source.slice(block.contentStart, block.contentEnd);
-                    const open = formatParagraphOpeningTag(source.slice(block.start, block.contentStart), sOpenTag);
-                    const offset = Math.max(0, Math.min(content.length, position - block.contentStart));
-                    instance.operation(function () {
-                        instance.replaceRange(open + content + sCloseTag,
-                            doc.posFromIndex(block.start), doc.posFromIndex(block.end), 'editor-format');
-                        instance.setCursor(doc.posFromIndex(block.start + open.length + offset));
-                    });
+                    const key = block.start + ':' + block.end;
+                    if (!targets.has(key)) targets.set(key, block);
+                    return {position, block: targets.get(key)};
+                });
+                const changes = [];
+                targets.forEach(block => {
+                    block.open = {from: block.start, to: block.contentStart,
+                        text: formatParagraphOpeningTag(source.slice(block.start, block.contentStart), sOpenTag)};
+                    block.close = {from: block.contentEnd, to: block.end, text: sCloseTag};
+                    changes.push(block.open, block.close);
+                });
+                // Change only the delimiters so nested targets and unmodified
+                // content survive. Equal-position insertions keep open/close order.
+                changes.sort((a, b) => a.from - b.from || a.to - b.to);
+                let delta = 0;
+                for (const change of changes) {
+                    change.resultFrom = change.from + delta;
+                    change.resultTo = change.resultFrom + change.text.length;
+                    delta += change.text.length - (change.to - change.from);
                 }
+                const positions = carets.map(({position, block}) => {
+                    if (block && position <= block.contentStart) return block.open.resultTo;
+                    if (block && position >= block.contentEnd) return block.close.resultFrom;
+                    return position + changes.reduce((shift, change) => shift + (change.to <= position
+                        ? change.text.length - (change.to - change.from) : 0), 0);
+                });
+                instance.operation(function () {
+                    for (const change of changes.slice().reverse()) {
+                        instance.replaceRange(change.text, doc.posFromIndex(change.from), doc.posFromIndex(change.to), 'editor-format');
+                    }
+                    instance.setSelections(positions.map(position => {
+                        const cursor = doc.posFromIndex(position);
+                        return {anchor: cursor, head: cursor};
+                    }), primary);
+                });
             }
 
             instance.focus();

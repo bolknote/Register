@@ -225,6 +225,14 @@ conversion scenarios retain anchors and compatible attributes with a caret,
 complete blocks and disjoint selections; explicit alignment still replaces or
 clears the old value. Each case checks undo/redo, recovery and submitted HTML.
 
+Ten comment scenarios format prose around inline and multiline comments while
+retaining comment contents, existing tags and idempotence. Seven Ctrl+D scenarios
+duplicate each cursor's line once, preserving indentation, empty lines and Unicode
+columns. Thirteen paragraph scenarios format every cursor's block, including
+shared, nested and empty blocks, while retaining attributes and separator cursors.
+Native mouse gestures create multiple cursors; formatting, undo and redo retain
+their positions and the primary cursor. All cases check recovery and saving.
+
 Twenty-seven media-insertion scenarios retain existing images and their pending
 descriptions when splitting paragraphs, including nested formatting, repeated
 images, manual overrides and undo/redo. Block anchors survive splitting without

@@ -42,7 +42,11 @@ export function smartParagraphs(source) {
     let end = 0;
     let masked = '';
     for (const block of protectedBlocks(source)) {
-        masked += source.slice(end, block.start) + '<pre>' + prefix + originals.length + '</pre>';
+        // A complete comment is invisible inline content. Using a pre marker
+        // for it would also exclude all neighbouring prose from formatting.
+        const comment = block.name === '' && block.text.endsWith('-->');
+        masked += source.slice(end, block.start) + (comment ? '<!--' : '<pre>')
+            + prefix + originals.length + (comment ? '-->' : '</pre>');
         originals.push(source.slice(block.start, block.end));
         end = block.end;
     }
@@ -62,6 +66,7 @@ export function smartParagraphs(source) {
     tagged += masked.slice(end);
     return formatParagraphs(tagged)
         .replace(new RegExp(prefix + 'line-(\\d+)\u0000', 'g'), (match, index) => lineBreaks[Number(index)])
+        .replace(new RegExp('<!--' + prefix + '(\\d+)-->', 'g'), (match, index) => originals[Number(index)])
         .replace(new RegExp('<pre>' + prefix + '(\\d+)</pre>', 'g'), (match, index) => originals[Number(index)]);
 }
 
@@ -70,7 +75,7 @@ function formatParagraphs(sText) {
     const asParag = sText.split(/\n{2,}/);
 
     for (let i = asParag.length; i--;) {
-        if (asParag[i].replace(/^\s+|\s+$/g, '') === '') {
+        if (asParag[i].replace(/<!--[\s\S]*?-->/g, '').trim() === '') {
             continue;
         }
 
@@ -80,18 +85,21 @@ function formatParagraphs(sText) {
             continue;
         }
 
-        asParag[i] = asParag[i].replace(/<br \/>$/gm, '').
-            replace(/$/gm, '-').
-            replace(/(<\/(?:blockquote|p|h[2-4])\b[^>]*>)?-$/gm, function ($0, $1) {
-                return $1 ? $1 : '<br />';
-            }).
-            replace(/(?:<br \/>)?$/g, '');
+        asParag[i] = asParag[i]
+            .replace(/<br \/>((?:[ \t]*<!--.*?-->)*[ \t]*)$/gm, '$1')
+            .replace(/^.*$/gm, line => {
+                const visible = line.replace(/<!--.*?-->/g, '').trim();
+                return visible === '' || /^<(?:blockquote|p|h[2-4])\b[^>]*>$/.test(visible)
+                    || /<\/(?:blockquote|p|h[2-4])\b[^>]*>$/.test(visible) ? line : line + '<br />';
+            })
+            .replace(/<br \/>$/, '');
 
-        if (!/<\/?(?:blockquote|h[2-4])[^>]*>/.test(asParag[i])) {
-            if (!/<\/p\b[^>]*>\s*$/.test(asParag[i])) {
+        const visible = asParag[i].replace(/<!--.*?-->/g, '');
+        if (!/<\/?(?:blockquote|h[2-4])[^>]*>/.test(visible)) {
+            if (!/<\/p\b[^>]*>\s*$/.test(visible)) {
                 asParag[i] = asParag[i].replace(/\s*$/g, '</p>');
             }
-            if (!/^\s*<p[^>]*>/.test(asParag[i])) {
+            if (!/^\s*<p[^>]*>/.test(visible)) {
                 asParag[i] = asParag[i].replace(/^\s*/g, '<p>');
             }
         }
