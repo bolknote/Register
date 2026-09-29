@@ -7,11 +7,8 @@
  */
 
 function str_replace(from, to, str) {
-    to = to.replace(/\$/g, '$$$$');
-    while (str.indexOf(from) >= 0) {
-        str = str.replace(from, to);
-    }
-    return str;
+    // Process only the original template: names may contain the placeholder.
+    return from === '' ? str : str.split(from).join(to);
 }
 
 //
@@ -21,27 +18,21 @@ function str_replace(from, to, str) {
 function checkAjaxStatus(XHR) {
     XHR.registerErrorFlag = true;
 
-    if (XHR.status === 401) {
-        const data = JSON.parse(XHR.responseText);
-        if (data && data.message) {
-            PopupMessages.show(data.message, null, null, 'login');
-        } else {
-            DisplayError(XHR.responseText);
+    if (XHR.status === 401 || XHR.status === 403) {
+        let data = null;
+        try {
+            data = JSON.parse(XHR.responseText);
+        } catch {
+            // Proxies and login pages can return HTML instead of JSON.
         }
-        return false;
-    }
-
-    if (XHR.status === 403) {
-        const data = JSON.parse(XHR.responseText);
-        if (data && data.message) {
-            PopupMessages.show(data.message);
-        } else if (data.errors) {
-            Array.from(data.errors).forEach(function (error) {
-                // TODO array_merge
-                PopupMessages.show(error);
-            });
+        const errors = Array.isArray(data?.errors)
+            ? data.errors.filter(error => typeof error === 'string' && error.trim() !== '') : [];
+        if (typeof data?.message === 'string' && data.message.trim() !== '') {
+            PopupMessages.show(data.message, null, null, XHR.status === 401 ? 'login' : null);
+        } else if (errors.length) {
+            errors.forEach(error => PopupMessages.show(error));
         } else {
-            DisplayError(XHR.responseText);
+            DisplayError(String(XHR.responseText ?? '') || register_lang.unknown_error);
         }
         return false;
     }

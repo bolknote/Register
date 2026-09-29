@@ -273,9 +273,15 @@ requests retain the latest loading state without showing errors. Renaming and
 moving a folder refreshes the selected branch, including nested folders selected
 while the operation was pending, and preserves unrelated selections. File links,
 image insertion and subsequent uploads use the current folder path and token.
-Six more scenarios distinguish a failed current request from an empty directory,
+Twelve more scenarios distinguish a failed current request from an empty directory,
 reject malformed responses without leaving the browser busy, and load the same
-folder successfully on retry.
+folder successfully on retry. Authentication and permission failures handle HTML,
+null and malformed error payloads while preserving valid server messages.
+
+Two deletion scenarios use filenames and folder names containing `%s`, dollar
+patterns and Unicode. The confirmation displays these names literally without
+freezing, cancellation preserves the item, and confirmation deletes the exact
+requested name.
 
 Fourteen file-operation scenarios restore insertion details when filtering a
 multiple selection down to one file, reconcile renames after an intervening

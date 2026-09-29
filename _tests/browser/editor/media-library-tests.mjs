@@ -302,10 +302,16 @@ export async function runMediaLibraryFolderMutationRegressions(browser, origin) 
 }
 
 export async function runMediaLibraryFolderFailureRegressions(browser, origin) {
-    for (const [name, reply, hasError] of [
+    for (const [name, reply, hasError, messages] of [
         ['null JSON', {json: null}, true],
         ['invalid JSON', {body: 'not JSON'}, true],
         ['HTTP error', {status: 503, json: {message: 'Unavailable'}}, true],
+        ['HTML authentication error', {status: 401, contentType: 'text/html', body: '<h1>Sign in</h1>'}, true, ['<h1>Sign in</h1>']],
+        ['HTML permission error', {status: 403, contentType: 'text/html', body: '<h1>Forbidden</h1>'}, true, ['<h1>Forbidden</h1>']],
+        ['null permission error', {status: 403, json: null}, true, ['null']],
+        ['malformed permission errors', {status: 403, json: {errors: {file: 'Forbidden'}}}, true, ['{"errors":{"file":"Forbidden"}}']],
+        ['authentication message', {status: 401, json: {message: 'Sign in again.'}}, true, ['Sign in again.']],
+        ['permission messages', {status: 403, json: {errors: [null, 'Permission denied.', {}, '']}}, true, ['Permission denied.']],
         ['network', null, true],
         ['empty directory', {json: {message: 'Empty directory'}}, false],
         ['empty list', {json: []}, false],
@@ -325,6 +331,8 @@ export async function runMediaLibraryFolderFailureRegressions(browser, origin) {
             else await request.abort('failed');
             await page.waitForFunction(() => jQuery.active === 0);
             assert.deepEqual(library.errors, [], `${name}: invalid file responses must not throw in the browser`);
+            if (messages) assert.deepEqual(await page.evaluate(() => window.libraryMessages), messages,
+                `${name}: authentication failures must show a useful error exactly once`);
             assert.equal(await page.locator('#files').getAttribute('aria-busy'), null);
             assert.equal(await page.locator('#files li[data-fname]').count(), 0);
             assert.equal(await page.locator('#loadstatus').textContent(), hasError ? 'Unknown error' : '');
@@ -343,6 +351,60 @@ export async function runMediaLibraryFolderFailureRegressions(browser, origin) {
         } finally { await page.close(); }
     }
     console.log('media library: current folder failures and empty lists clear loading state and allow a successful refresh');
+}
+
+export async function runMediaLibraryLiteralNameRegressions(browser, origin) {
+    for (const kind of ['file', 'folder']) {
+        const page = await browser.newPage();
+        try {
+            const name = kind === 'file' ? 'снимок %s $& $$.png' : 'архив %s $& $$';
+            const library = await openLibrary(page, origin, kind === 'folder' ? [
+                {data: name, attr: {id: 'literal-folder', 'data-path': '/' + name, 'data-csrf-token': 'folder-token'}},
+            ] : []);
+            if (kind === 'file') {
+                library.files.splice(0, library.files.length, name);
+                await page.getByRole('button', {name: 'Refresh', exact: true}).click();
+                await page.waitForFunction(name => document.querySelectorAll('#files li[data-fname]').length === 1
+                    && document.querySelector('#files li[data-fname]').dataset.fname === name, name);
+                await page.locator('#files li[data-fname] > a').click();
+            } else {
+                await page.locator('#literal-folder > a').click();
+                await page.waitForFunction(() => jQuery.active === 0 && document.querySelector('#files [data-fname="photo.png"]'));
+            }
+            const deletes = holdRequests(page, `**/library-api?action=delete_${kind === 'file' ? 'files' : 'folder'}&*`);
+            await deletes.installed;
+            const deleteButton = kind === 'file' ? page.getByRole('button', {name: 'Delete files', exact: true})
+                : page.locator('#context_delete');
+            const dialog = page.locator('[data-admin-confirm-dialog]');
+            await deleteButton.click();
+            assert.equal(await dialog.locator('[data-admin-confirm-message]').textContent(), kind === 'file'
+                ? `The following will be permanently deleted: ${name}. This action cannot be undone.`
+                : `“${name}” and all nested items will be permanently deleted. This action cannot be undone.`);
+            await dialog.locator('[data-admin-confirm-cancel]').click();
+            assert.equal(deletes.count, 0, 'Cancelling must keep the literal name intact without deleting it');
+            assert.equal(await page.locator(kind === 'file' ? '#files li[data-fname]' : '#literal-folder').count(), 1);
+            await deleteButton.click();
+            await dialog.locator('[data-admin-confirm-submit]').click();
+            const request = await deletes.next();
+            const params = new URL(request.request().url()).searchParams;
+            assert.equal(params.get('path'), kind === 'file' ? '' : '/' + name);
+            if (kind === 'file') assert.deepEqual(params.getAll('fname[]'), [name]);
+            assert.equal((await formData(request)).get('csrf_token'), kind === 'file' ? 'fixture' : 'folder-token');
+            if (kind === 'file') library.files.length = 0;
+            else library.filesByPath.delete('/' + name);
+            const done = page.waitForResponse(response => response.url() === request.request().url()).then(response => response.finished());
+            await request.fulfill({json: {success: true}});
+            await done;
+            await nextTask(page);
+            await page.waitForFunction(() => jQuery.active === 0);
+            assert.equal(await page.locator(kind === 'file' ? '#files li[data-fname]' : '#literal-folder').count(), 0);
+            assert.deepEqual(library.errors, []);
+            assert.deepEqual(await page.evaluate(() => window.libraryMessages), []);
+        } catch (error) {
+            throw new Error(`media library literal ${kind} name: ${error.message}`, {cause: error});
+        } finally { await page.close(); }
+    }
+    console.log('media library: deletion dialogs preserve placeholders and dollar signs in file and folder names');
 }
 
 export async function runMediaLibraryFileSelectionRegressions(browser, origin) {

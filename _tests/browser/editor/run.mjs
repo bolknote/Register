@@ -31,7 +31,7 @@ import {runMediaLibraryUploadRegressions, runMediaLibraryFailureRegressions, run
     runMediaLibraryFolderRegressions, runMediaLibraryFolderMutationRegressions, runMediaLibraryFolderFailureRegressions,
     runMediaLibraryFileSelectionRegressions, runMediaLibraryFileRenameRegressions, runMediaLibraryFileMoveRegressions,
     runMediaLibraryFileDeleteRegressions, runMediaLibraryFolderCreateRegressions,
-    runMediaLibraryFolderRollbackRegressions} from './media-library-tests.mjs';
+    runMediaLibraryFolderRollbackRegressions, runMediaLibraryLiteralNameRegressions} from './media-library-tests.mjs';
 
 async function runAuthorWorkflowRegressions(browser, origin) {
     const page = await browser.newPage();
@@ -475,6 +475,7 @@ try {
             await runMediaLibraryFolderRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runMediaLibraryFolderMutationRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runMediaLibraryFolderFailureRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runMediaLibraryLiteralNameRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runMediaLibraryFileSelectionRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runMediaLibraryFileRenameRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runMediaLibraryFileMoveRegressions(browser, `http://127.0.0.1:${server.address().port}`);
