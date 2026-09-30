@@ -90,7 +90,12 @@ export async function runClipboardUploadRegressions(browser, origin) {
                 }, mode);
                 if (!['late-paste', 'closed-session'].includes(flow)) {
                     await page.keyboard.press(`${modifier}+v`);
-                    assert.equal((await snapshot(page)).pending, duplicate ? 2 : 1);
+                    const expectedPending = duplicate ? 2 : 1;
+                    await page.waitForFunction(expected => {
+                        const state = window.editorTest.editorStates.get(document.querySelector('.post-card.is-editing'));
+                        return state?.body.querySelectorAll('[data-post-history-upload]').length === expected;
+                    }, expectedPending);
+                    assert.equal((await snapshot(page)).pending, expectedPending);
                     if (duplicate || mode === 'menu-cut') {
                         await body.press(`${modifier}+z`);
                         assert.equal((await snapshot(page)).pending, duplicate ? 1 : 0);
