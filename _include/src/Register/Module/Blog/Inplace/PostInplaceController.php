@@ -589,6 +589,8 @@ final readonly class PostInplaceController implements ControllerInterface
         $isDraft = (int)$post['published'] === 0 && (int)$post['scheduled_at'] <= 0;
         $scheduled = !$isDraft && $publishedAt > time();
         $storedScheduled = (int)$post['published'] === 0 && (int)$post['scheduled_at'] > 0;
+        $normalizedTagNames = array_map(mb_strtolower(...), $tagNames);
+        $normalizedStoredTagNames = array_map(mb_strtolower(...), $storedTagNames);
         $revision = $this->revisionService->resolve(
             [
                 'title'    => $title,
@@ -596,7 +598,7 @@ final readonly class PostInplaceController implements ControllerInterface
                 'excerpt'  => $metadata->excerpt,
                 'body'     => $body,
                 'meta_description' => $metadata->metaDescription,
-                'tags'     => $tagNames,
+                'tags'     => $normalizedTagNames,
                 'published_at' => $publishedAt,
                 'scheduled' => $scheduled,
                 'revision' => $submittedRevision,
@@ -607,7 +609,7 @@ final readonly class PostInplaceController implements ControllerInterface
                 'column_excerpt'  => (string)$post['excerpt'],
                 'column_body'     => (string)$post['body'],
                 'column_meta_description' => (string)$post['meta_description'],
-                'column_tags'     => $storedTagNames,
+                'column_tags'     => $normalizedStoredTagNames,
                 'column_published_at' => $storedPublishedAt,
                 'column_scheduled' => $storedScheduled,
                 'column_revision' => (int)$post['revision'],
@@ -618,7 +620,7 @@ final readonly class PostInplaceController implements ControllerInterface
             return $this->error($request, 'Post has changed in another window', Response::HTTP_CONFLICT);
         }
 
-        $tagsChanged = $tagNames !== $storedTagNames;
+        $tagsChanged = $normalizedTagNames !== $normalizedStoredTagNames;
         $dateChanged = $publishedAt !== $storedPublishedAt;
         $scheduleChanged = $scheduled !== $storedScheduled;
         $orphanMedia = [];
@@ -906,7 +908,7 @@ final readonly class PostInplaceController implements ControllerInterface
                 continue;
             }
 
-            if (mb_strlen($tag) > 255 || preg_match('/^[\p{L}\p{N}_\- !.]+$/uD', $tag) !== 1) {
+            if (mb_strlen($tag) > TagRepository::MAX_NAME_LENGTH || preg_match('/^[\p{L}\p{N}_\- !.]+$/uD', $tag) !== 1) {
                 return null;
             }
 

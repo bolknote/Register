@@ -13,6 +13,8 @@ use Register\Core\Pdo\DbLayer;
 
 final readonly class TagRepository
 {
+    public const int MAX_NAME_LENGTH = 191;
+
     public function __construct(private DbLayer $dbLayer, private ?\Register\Url\UrlHistoryService $urlHistory = null)
     {
     }
@@ -121,7 +123,7 @@ final readonly class TagRepository
             $used[$key] = true;
 
             if (!isset($idsByName[$key])) {
-                if (mb_strlen($name) > 191 || preg_match('/[\x00-\x1f\x7f]/u', $name) !== 0) {
+                if (mb_strlen($name) > self::MAX_NAME_LENGTH || preg_match('/[\x00-\x1f\x7f]/u', $name) !== 0) {
                     throw new \InvalidArgumentException('Invalid tag name.');
                 }
 

@@ -18,6 +18,7 @@ use Register\Core\Framework\StatefulServiceInterface;
 use Register\Core\Model\AuthManager;
 use Register\Core\Model\PermissionChecker;
 use Register\Core\Security\Http\SameOriginRequestGuard;
+use Register\Url\UrlHistoryService;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
@@ -93,8 +94,16 @@ readonly class AdminRequestHandler
 
                     // NOTE: Initialization of the AdminPanel is delayed since its factory is relied on the RequestStack to be populated
                     $adminPanelFactory = $this->container->get(AdminPanelFactory::class);
-                    $adminPanel        = $adminPanelFactory->create();
-                    $response          = $adminPanel->handleRequest($request);
+                    $handle = static fn(): Response => $adminPanelFactory->create()->handleRequest($request);
+                    if ($request->getRealMethod() === Request::METHOD_POST
+                        && $request->query->get('entity') === 'Article'
+                        && $request->query->get('action') === 'edit'
+                    ) {
+                        // Keep the revision read, content write and tag replacement in one editorial transaction.
+                        $response = $this->container->get(UrlHistoryService::class)->run($handle);
+                    } else {
+                        $response = $handle();
+                    }
                 }
             }
 

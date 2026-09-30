@@ -14,7 +14,7 @@ import {runAdminHtmlRegressions} from './admin-html-tests.mjs';
 import {runCaptionInputRegressions} from './caption-input-tests.mjs';
 import {runCaptionBoundaryRegressions} from './caption-boundary-tests.mjs';
 import {runFieldHistoryRegressions} from './field-history-tests.mjs';
-import {runMediaAiRegressions, runTagPasteRegressions} from './media-ai-tag-tests.mjs';
+import {runMediaAiRegressions, runTagPasteRegressions, runTagLengthRegressions, runManualTitleLengthRegressions, runAiTitleLengthRegressions} from './media-ai-tag-tests.mjs';
 import {runClipboardUploadRegressions} from './clipboard-upload-tests.mjs';
 import {runAdminSaveFailureRegressions, runSocialPreviewRegressions} from './admin-save-social-tests.mjs';
 import {runActivityPubPreviewRegressions} from './admin-activitypub-tests.mjs';
@@ -453,6 +453,9 @@ try {
             await runFieldHistoryRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runMediaAiRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runTagPasteRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runTagLengthRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runManualTitleLengthRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runAiTitleLengthRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runClipboardUploadRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runAdminSaveFailureRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runAdminFieldErrorRegressions(browser, `http://127.0.0.1:${server.address().port}`);

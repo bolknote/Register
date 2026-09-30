@@ -53,6 +53,7 @@ use Register\Admin\Controller\UserController;
 use Register\Admin\Validator\IntegerRange;
 use Register\Admin\Validator\Optional;
 use Register\Admin\Validator\SecurePassword;
+use Register\Admin\Validator\TagNamesLength;
 use Register\Core\Comment\Antispam\SpamMetricsRepository;
 use Register\Core\Config\BoolProxy;
 use Register\Core\Config\DynamicConfigProvider;
@@ -875,6 +876,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 })()),
                 control: 'input',
                 validators: [
+                    new TagNamesLength(),
                     (static function (): \Register\AdminYard\Validator\Regex {
                         $validator          = new Regex('#^[\p{L}\p{N}_\- ,\.!]*$#u');
                         $validator->message = 'Tags must contain only letters, numbers and spaces.';
@@ -1189,6 +1191,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 }
 
                 $event->data['revision']        = $revision->value;
+                $event->data[UrlHistoryDataProvider::EXPECTED_REVISION] = (string)$oldData['column_revision'];
                 $event->context['new_revision'] = $revision->value;
                 $event->context['article_id'] = $articleId;
 
@@ -1297,7 +1300,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                     control: 'input',
                     validators: [
                         new NotBlank(),
-                        new Length(max: 255),
+                        new Length(max: TagRepository::MAX_NAME_LENGTH),
                         (static function (): \Register\AdminYard\Validator\Regex {
                             $r          = new Regex('#^[\p{L}\p{N}_\- !\.]*$#u');
                             $r->message = 'Tag name must contain only letters, numbers and spaces';

@@ -233,3 +233,129 @@ export async function runTagPasteRegressions(browser, origin) {
         console.log(`tag paste: ${scenario.name} cannot consume the clipboard or silently replace unfinished text`);
     }
 }
+
+export async function runTagLengthRegressions(browser, origin) {
+    for (const [name, character] of [['ASCII', 'a'], ['supplementary Unicode', '𐐀']]) {
+        await withPage(browser, async page => {
+            const requests = holdRequests(page, '**/_inplace/post/9');
+            await requests.installed;
+            await page.goto(origin + '/recovery.html');
+            await page.getByRole('button', {name: 'Edit', exact: true}).click();
+            const input = page.locator('.post-tags-text-input');
+            const tooLong = character.repeat(192);
+            await input.fill(tooLong);
+            await page.getByRole('button', {name: 'Save', exact: true}).click();
+            assert.equal(await input.inputValue(), tooLong, 'A tag beyond the stored length limit must remain available for correction');
+            assert.deepEqual(await page.locator('.post-tag-chip-label').allTextContents(), ['old']);
+            assert.equal(requests.count, 0, 'An overlong tag must not start a save');
+            assert.equal(await page.locator('.post-inplace-edit-error').isVisible(), true);
+
+            const valid = character.repeat(191);
+            await input.fill(valid);
+            await page.getByRole('button', {name: 'Save', exact: true}).click();
+            let request = await requests.next();
+            let data = await formData(request);
+            assert.equal(data.get('tags'), 'old, ' + valid, 'The maximum length is measured in Unicode characters');
+            await request.fulfill({status: 422, json: {success: false, message: 'Retry this save'}});
+            await page.waitForFunction(() => !document.querySelector('.post-edit-save').disabled);
+            assert.deepEqual(await page.locator('.post-tag-chip-label').allTextContents(), ['old', valid]);
+            await page.getByRole('button', {name: 'Save', exact: true}).click();
+            request = await requests.next();
+            data = await formData(request);
+            assert.equal(data.get('tags'), 'old, ' + valid, 'A failed save must retain the complete tag for retry');
+            await request.fulfill({json: {...savedPost(data), tags: [
+                {name: 'old', url: '/tags/old'}, {name: valid, url: '/tags/long'},
+            ]}});
+            await page.waitForFunction(() => !document.querySelector('.post-card.is-editing'));
+            assert.deepEqual(await page.locator('.post-tag-link').allTextContents(), ['old', valid]);
+        });
+        console.log(`tag length: ${name} rejects 192 characters and saves all 191 characters after correction and retry`);
+    }
+}
+
+export async function runManualTitleLengthRegressions(browser, origin) {
+    await withPage(browser, async page => {
+        const requests = holdRequests(page, '**/_inplace/post/9');
+        await requests.installed;
+        await page.goto(origin + '/recovery.html');
+        await page.getByRole('button', {name: 'Edit', exact: true}).click();
+        const title = page.locator('.post-card.is-editing [data-post-inplace-title]');
+        const body = await editorHtml(page);
+        const tooLong = '𐐀'.repeat(256);
+        await title.fill(tooLong);
+        await page.getByRole('button', {name: 'Save', exact: true}).click();
+        assert.equal(await title.textContent(), tooLong, 'An oversized title remains available for correction');
+        assert.equal(await editorHtml(page), body);
+        assert.equal(requests.count, 0, 'A title longer than 255 characters must not start a save');
+        assert.equal(await page.locator('.post-inplace-edit-error').isVisible(), true);
+
+        const valid = '𐐀'.repeat(255);
+        await title.fill(valid);
+        await page.getByRole('button', {name: 'Save', exact: true}).click();
+        let request = await requests.next();
+        let data = await formData(request);
+        assert.equal(data.get('title'), valid, 'The title limit counts Unicode characters, including supplementary letters');
+        assert.equal(data.get('body'), body);
+        await request.fulfill({status: 422, json: {success: false, message: 'Retry this title'}});
+        await page.waitForFunction(() => !document.querySelector('.post-edit-save').disabled);
+        assert.equal(await title.textContent(), valid);
+        await page.getByRole('button', {name: 'Save', exact: true}).click();
+        request = await requests.next();
+        data = await formData(request);
+        assert.equal(data.get('title'), valid);
+        assert.equal(data.get('body'), body);
+        await request.fulfill({json: savedPost(data)});
+        await page.waitForFunction(() => !document.querySelector('.post-card.is-editing'));
+        assert.equal(await page.locator('[data-post-inplace-title]').textContent(), valid);
+    });
+    console.log('title length: manual input rejects 256 Unicode characters and saves all 255 after correction and retry');
+}
+
+export async function runAiTitleLengthRegressions(browser, origin) {
+    await withPage(browser, async page => {
+        const requests = holdRequests(page, '**/_inplace/post/9');
+        await requests.installed;
+        await page.goto(origin + '/recovery.html');
+        await page.getByRole('button', {name: 'Edit', exact: true}).click();
+        const title = page.locator('.post-card.is-editing [data-post-inplace-title]');
+        const body = page.locator('.post-card.is-editing [data-post-inplace-body]');
+        await title.fill('Keep this draft title');
+        await body.locator('p').fill('Keep this draft body.');
+        const draftBody = await editorHtml(page);
+        await page.waitForFunction(html => window.RegisterPostRecovery.createStore(localStorage, '/_inplace/tags', 1)
+            .list().some(copy => copy.snapshot.title === 'Keep this draft title' && copy.snapshot.body === html), draftBody);
+
+        for (const length of [256, 255]) {
+            await body.locator('p').click({button: 'right'});
+            await page.locator('[data-context-ai-action="title"]').click();
+            const ai = await requests.next();
+            const data = await formData(ai);
+            assert.equal(data.get('inplace_action'), 'ai');
+            assert.equal(data.get('ai_action'), 'title');
+            assert.equal(data.get('title'), 'Keep this draft title');
+            assert.equal(data.get('text'), draftBody);
+            await ai.fulfill({json: {success: true, action: 'ai', ai_action: 'title', result: '𐐀'.repeat(length)}});
+            await page.waitForFunction(() => !document.querySelector('.post-card.is-ai-working'));
+            assert.equal(await editorHtml(page), draftBody, 'An AI title reply must preserve the body draft');
+            if (length === 256) {
+                assert.equal(await title.textContent(), 'Keep this draft title');
+                assert.equal(await page.locator('.post-inplace-status').evaluate(status => status.classList.contains('is-error')), true);
+                assert.equal(await page.evaluate(html => window.RegisterPostRecovery.createStore(localStorage, '/_inplace/tags', 1)
+                    .list().some(copy => copy.snapshot.title === 'Keep this draft title' && copy.snapshot.body === html), draftBody), true);
+            } else {
+                assert.equal(await title.textContent(), '𐐀'.repeat(255), 'A retry accepts an AI title at the Unicode character limit');
+                assert.equal(await page.locator('.post-inplace-status').evaluate(status => status.classList.contains('is-error')), false);
+            }
+        }
+
+        await page.getByRole('button', {name: 'Save', exact: true}).click();
+        const request = await requests.next();
+        const data = await formData(request);
+        assert.equal(data.get('title'), '𐐀'.repeat(255));
+        assert.equal(data.get('body'), draftBody);
+        await request.fulfill({json: savedPost(data)});
+        await page.waitForFunction(() => !document.querySelector('.post-card.is-editing'));
+        assert.equal(await page.locator('[data-post-inplace-title]').textContent(), '𐐀'.repeat(255));
+    });
+    console.log('title length: an oversized AI reply preserves the draft and a retry accepts and saves 255 Unicode characters');
+}

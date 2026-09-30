@@ -2429,7 +2429,7 @@
             .replace(/\u00a0/gu, ' ')
             .replace(/\s+/gu, ' ')
             .trim();
-        if (title === '' || title.length > 255) {
+        if (title === '' || Array.from(title).length > 255) {
             showError(state.form, editorConfig().invalidContent || editorConfig().editError || 'Invalid post content.');
             focusEdge(state.title, true);
             return false;
@@ -2475,7 +2475,7 @@
             if (tag === '') {
                 continue;
             }
-            if (tag.length > 255 || !/^[\p{L}\p{N}_\- !.]+$/u.test(tag)) {
+            if (Array.from(tag).length > 191 || !/^[\p{L}\p{N}_\- !.]+$/u.test(tag)) {
                 return null;
             }
             const key = tag.toLocaleLowerCase();
@@ -6253,7 +6253,7 @@
 
             if (action === 'title') {
                 const title = payload.result.replace(/\s+/gu, ' ').trim();
-                if (title === '' || title.length > 255) {
+                if (title === '' || Array.from(title).length > 255) {
                     throw new Error(editorConfig().invalidContent || 'Invalid post content.');
                 }
                 state.titleHistory?.before();

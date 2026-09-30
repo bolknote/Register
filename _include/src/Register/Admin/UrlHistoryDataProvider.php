@@ -18,10 +18,12 @@ use Register\Url\UrlHistoryService;
 /** Preserves the URLs of actual authorized AdminYard writes, including inline patches. */
 final readonly class UrlHistoryDataProvider extends PdoDataProvider
 {
+    public const string EXPECTED_REVISION = '_register_expected_revision';
+
     private UrlHistoryInsertState $insertState;
 
     public function __construct(
-        \PDO $pdo,
+        private \PDO $pdo,
         TypeTransformerInterface $typeTransformer,
         private UrlHistoryService $history,
         private TagUrlAliasRepository $tagAliases,
@@ -39,8 +41,15 @@ final readonly class UrlHistoryDataProvider extends PdoDataProvider
     #[\Override]
     public function updateEntity(string $tableName, array $dataTypes, array $conditions, Key $primaryKey, array $data): void
     {
+        $expectedRevision = $data[self::EXPECTED_REVISION] ?? null;
+        unset($data[self::EXPECTED_REVISION]);
+
         try {
-            $write = function () use ($tableName, $dataTypes, $conditions, $primaryKey, $data): void {
+            $write = function () use ($tableName, $dataTypes, $conditions, $primaryKey, $data, $expectedRevision): void {
+                if ($expectedRevision !== null) {
+                    $this->assertPageRevision($tableName, $primaryKey, $expectedRevision);
+                }
+
                 parent::updateEntity($tableName, $dataTypes, $conditions, $primaryKey, $data);
             };
             if ($tableName === $this->prefix . ContentSchema::TABLE_NAME && (isset($data['slug']) || isset($data['parent_id']))) {
@@ -56,7 +65,11 @@ final readonly class UrlHistoryDataProvider extends PdoDataProvider
                 return;
             }
 
-            $write();
+            if ($expectedRevision !== null) {
+                $this->history->run($write);
+            } else {
+                $write();
+            }
         } catch (ContentUrlCollisionException $exception) {
             throw $this->safeCollision($exception);
         }
@@ -99,6 +112,30 @@ final readonly class UrlHistoryDataProvider extends PdoDataProvider
     public function lastInsertId(): ?string
     {
         return $this->insertState->id ?? parent::lastInsertId();
+    }
+
+    /** Checks again while holding the content-row lock, including against scheduler writes. */
+    private function assertPageRevision(string $tableName, Key $primaryKey, mixed $expectedRevision): void
+    {
+        if ($tableName !== $this->prefix . ContentSchema::TABLE_NAME
+            || !\is_int($expectedRevision) && !\is_string($expectedRevision)
+            || !ctype_digit((string)$expectedRevision)
+        ) {
+            throw new \LogicException('Expected revision must identify a page-content update.');
+        }
+
+        $lock = $this->pdo->getAttribute(\PDO::ATTR_DRIVER_NAME) === 'sqlite' ? '' : ' FOR UPDATE';
+        $statement = $this->pdo->prepare("SELECT revision FROM $tableName WHERE id = :id AND content_type = 'page'" . $lock);
+        if ($statement === false) {
+            throw new SafeDataProviderException('Cannot save entity to database', 500);
+        }
+
+        $statement->execute(['id' => $primaryKey->getIntId()]);
+
+        $revision = $statement->fetchColumn();
+        if ($revision === false || (string)$revision !== (string)$expectedRevision) {
+            throw new SafeDataProviderException('Outdated version', 422);
+        }
     }
 
     private function safeCollision(ContentUrlCollisionException $exception): SafeDataProviderException
