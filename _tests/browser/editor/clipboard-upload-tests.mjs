@@ -72,12 +72,31 @@ export async function runClipboardUploadRegressions(browser, origin) {
                     getSelection().addRange(range);
                 });
                 const cut = ['move', 'late-paste', 'menu-cut'].includes(flow);
+                await page.evaluate(type => {
+                    window.__editorClipboard = null;
+                    document.addEventListener(type, event => {
+                        window.__editorClipboard = {
+                            html: event.clipboardData?.getData('text/html') || '',
+                            text: event.clipboardData?.getData('text/plain') || '',
+                        };
+                    }, {once: true});
+                }, cut ? 'cut' : 'copy');
                 if (mode === 'menu-cut') {
                     await body.locator('p').first().click({button: 'right'});
                     await page.locator('[data-context-action="cut"]').click();
                 } else {
                     await page.keyboard.press(`${modifier}+${cut ? 'x' : 'c'}`);
                 }
+                const clipboard = await page.evaluate(() => window.__editorClipboard);
+                assert.ok(clipboard?.html, 'Copy/cut must put the pending upload on the clipboard');
+                const paste = () => body.evaluate((body, clipboard) => {
+                    const data = new DataTransfer();
+                    data.setData('text/html', clipboard.html);
+                    data.setData('text/plain', clipboard.text);
+                    const event = new Event('paste', {bubbles: true, cancelable: true});
+                    Object.defineProperty(event, 'clipboardData', {value: data});
+                    body.dispatchEvent(event);
+                }, clipboard);
                 if (cut) assert.equal((await snapshot(page)).pending, 0, 'Cut must remove the selected upload');
                 const duplicate = ['duplicate', 'mid-paragraph', 'failure'].includes(mode);
                 if (duplicate) await body.evaluate((body, mode) => {
@@ -89,7 +108,7 @@ export async function runClipboardUploadRegressions(browser, origin) {
                     getSelection().addRange(range);
                 }, mode);
                 if (!['late-paste', 'closed-session'].includes(flow)) {
-                    await page.keyboard.press(`${modifier}+v`);
+                    await paste();
                     const expectedPending = duplicate ? 2 : 1;
                     await page.waitForFunction(expected => {
                         const state = window.editorTest.editorStates.get(document.querySelector('.post-card.is-editing'));
@@ -130,7 +149,7 @@ export async function runClipboardUploadRegressions(browser, origin) {
                 await page.waitForFunction(() => window.editorTest.editorStates
                     .get(document.querySelector('.post-card.is-editing')).mediaUploads.size === 0);
                 if (flow === 'late-paste') {
-                    await page.keyboard.press(`${modifier}+v`);
+                    await paste();
                     if (alt) await replyAlt();
                 }
                 if (mode === 'closed-session') {
@@ -140,7 +159,7 @@ export async function runClipboardUploadRegressions(browser, origin) {
                     await body.focus();
                     await page.keyboard.press(`${modifier}+a`);
                     const before = await snapshot(page);
-                    await page.keyboard.press(`${modifier}+v`);
+                    await paste();
                     assert.deepEqual(await snapshot(page), before, 'An expired clipboard must not replace selected text');
                     assert.match(await page.locator('.post-inplace-status').textContent(), /Copy the attachment again/u);
                     assert.equal(await body.evaluate(body => {
@@ -159,7 +178,7 @@ export async function runClipboardUploadRegressions(browser, origin) {
                     await body.press(`${modifier}+Shift+z`);
                     const before = await snapshot(page);
                     assert.doesNotMatch(before.html, temporaryMarkup);
-                    await page.keyboard.press(`${modifier}+v`);
+                    await paste();
                     assert.deepEqual(await snapshot(page), before, 'A failed upload must not be resurrected from clipboard or history');
                     assert.match(await page.locator('.post-inplace-status').textContent(), /Copy the attachment again/u);
                 } else {
