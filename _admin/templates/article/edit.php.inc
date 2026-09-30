@@ -20,6 +20,7 @@ declare(strict_types=1);
 /** @var array|null $primaryKey */
 /** @var array $actions */
 /** @var int|null $commentsNum */
+/** @var int|null $editorUserId */
 
 $primaryKey   = $primaryKey ?? [];
 $csrfToken    = $csrfToken ?? null;
@@ -155,6 +156,17 @@ $editorConfig = [
     'templateId'    => null,
     'templateScope' => $contentType,
     'statusData'    => $statusData,
+    'recovery'      => [
+        'userId' => $editorUserId ?? null,
+        'scope' => $basePath ?: '/',
+        'labels' => [
+            'found' => $trans('Local draft available'),
+            'changed' => $trans('Local draft server changed'),
+            'restore' => $trans('Restore local draft'),
+            'discard' => $trans('Discard local draft'),
+            'unavailable' => $trans('Local draft unavailable'),
+        ],
+    ],
     'tags'          => [
         'inputId'          => 'id-tags',
         'suggestions'      => $tagsList,

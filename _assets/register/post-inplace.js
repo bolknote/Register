@@ -5,8 +5,6 @@
     const editorConfigs = new WeakMap();
     const emptyEditorConfig = Object.freeze({});
     const recoverySessions = new Set();
-    const tagSuggestionRequests = new Map();
-    let tagEditorSequence = 0;
     let inlineCodeBoundarySequence = 0;
     let pendingMediaClipboard = null;
     let activeMediaDrag = null;
@@ -84,6 +82,24 @@
             'unordered-list': ['Ctrl+Shift+8', 'Control+Shift+8'],
             'apply-link': ['↵', 'Enter'],
         };
+
+    const {createEditorFieldSurfaces} = window.RegisterEditorFields.create({});
+
+    const {clearBoundaryCaret, clearSyntheticBoundaryCaret, boundaryNodeIsEmpty, isMediaBoundaryElement, editorBoundaryParagraphIsEmpty, topLevelBodyChild, hoistMediaFromParagraph, normalizeLeadingNestedMedia, leadingMediaIndex, prepareMediaInsertionRange, focusBeforeLeadingMedia, focusAfterMedia, mediaBoundaryAtRange, syncBoundaryCaret, moveInsertionBeforeMediaBoundary, protectSelectedMediaBoundary, collapseEmptyParagraphBesideMedia, expandCollapsedBoundaryParagraph, collapseEmptyLeadingParagraphAfterDelete, isMediaOwnedDirectChild, normalizeMediaBodyStructure} = window.RegisterEditorBoundaries.create({
+        rangeIsInside, editorStates,
+    });
+
+    const {createBodyHistory, createFieldHistory} = window.RegisterEditorHistory.create({
+        clearBoundaryCaret, clearError, clearStatus, closeContextMenu, focusEdge, selectionIsInside, syncBoundaryCaret, updateMediaUrls, getPendingMediaClipboard: () => pendingMediaClipboard, editorPlatform,
+    });
+
+    const {normalizeTags, loadTagSuggestions, createTagEditor} = window.RegisterEditorTags.create({
+        clearError, clearStatus, editorConfig, handleEditingSaveShortcut, showError,
+    });
+
+    const {postRecoveryStore, recoverySnapshot, startPostRecovery, restorePostRecovery, refreshPostRecoveryOffers} = window.RegisterEditorRecovery.create({
+        beginCreate, beginEdit, clearStatus, closeEditor, editableBodyHtml, editorConfig, focusEdge, prepareEditableMedia, showEditorStatus, editorStates, recoverySessions,
+    });
 
     // The page owns one config and template set, including after partial navigation.
     // Cache by DOM node so replacing the page also replaces its language and settings.
@@ -710,149 +726,6 @@
     // Paint editor fields outside the content flow. Font leading belongs to the text layout,
     // not to the field's padding; measuring it keeps the visible gutters equal without moving
     // a baseline, changing line wrapping, or adding nodes to the editable/saved HTML.
-    function createEditorFieldSurfaces(state) {
-        if (!getComputedStyle(state.card).getPropertyValue('--post-editor-field-padding')) {
-            return {destroy() {}};
-        }
-        const namespace = 'http://www.w3.org/2000/svg';
-        const surface = document.createElementNS(namespace, 'svg');
-        surface.classList.add('post-editor-field-surfaces');
-        surface.setAttribute('aria-hidden', 'true');
-        surface.setAttribute('focusable', 'false');
-        const fields = [
-            ['title', state.title],
-            ['body', state.body],
-            ['tags', state.tags.querySelector('.post-tags-surface')],
-        ].map(([name, element]) => {
-            const rect = document.createElementNS(namespace, 'rect');
-            rect.setAttribute('data-editor-field-surface', name);
-            rect.setAttribute('rx', '4');
-            surface.append(rect);
-            return {element, rect};
-        });
-        const context = document.createElement('canvas').getContext('2d');
-        const fontMetrics = new Map();
-        let pendingFrame = 0;
-
-        function textEdge(node, atStart) {
-            if (node.nodeType === Node.TEXT_NODE) {
-                if (String(node.textContent).trim() === '') {
-                    return null;
-                }
-                const range = document.createRange();
-                range.selectNodeContents(node);
-                const rects = Array.from(range.getClientRects());
-                return {element: node.parentElement, bounds: rects.at(atStart ? 0 : -1)};
-            }
-            if (!(node instanceof HTMLElement) || node.hidden
-                || node.matches('style, script, template')) {
-                return null;
-            }
-            if (node.matches('img, video, audio, iframe, hr, table, pre, .post-tag-chip')) {
-                return {element: node, bounds: null};
-            }
-            if (node.matches('input, br') || node.childNodes.length === 0) {
-                return {element: node, bounds: node.getBoundingClientRect()};
-            }
-            const children = Array.from(node.childNodes);
-            for (const child of atStart ? children : children.reverse()) {
-                const edge = textEdge(child, atStart);
-                if (edge) {
-                    return edge;
-                }
-            }
-            return null;
-        }
-
-        function leading(element, bounds, atStart) {
-            if (!context || element.querySelector('.post-tag-chip')
-                || (element === state.body && (state.creating || element.textContent.trim() === ''))) {
-                return 0;
-            }
-            const edge = textEdge(element, atStart);
-            if (!edge?.bounds?.height) {
-                return 0;
-            }
-            const typography = getComputedStyle(edge.element);
-            const font = `${typography.fontStyle} ${typography.fontWeight} ${typography.fontSize} ${typography.fontFamily}`;
-            let metrics = fontMetrics.get(font);
-            if (!metrics) {
-                context.font = font;
-                metrics = context.measureText('Hg');
-                fontMetrics.set(font, metrics);
-            }
-            const {fontBoundingBoxAscent: ascent, fontBoundingBoxDescent: descent} = metrics;
-            if (!Number.isFinite(ascent) || !Number.isFinite(descent)) {
-                return 0;
-            }
-            const baseline = edge.bounds.top + (edge.bounds.height - ascent - descent) / 2 + ascent;
-            const inset = atStart
-                ? baseline - metrics.actualBoundingBoxAscent - bounds.top
-                : bounds.bottom - baseline - metrics.actualBoundingBoxDescent;
-            // Do not trim intentional blank paragraphs, custom margins, or a new editor's height.
-            const limit = (edge.element.matches('input')
-                ? edge.bounds.height : Number.parseFloat(typography.lineHeight) || 0) / 2;
-            return inset >= 0 && inset <= limit ? inset : 0;
-        }
-
-        function update() {
-            pendingFrame = 0;
-            const origin = state.card.getBoundingClientRect();
-            const padding = Number.parseFloat(getComputedStyle(surface).getPropertyValue('--post-editor-field-padding'));
-            fields.forEach(({element, rect}) => {
-                const outer = element.getBoundingClientRect();
-                const fieldStyle = getComputedStyle(element);
-                const inset = (side) => (Number.parseFloat(fieldStyle[`padding${side}`]) || 0)
-                    + (Number.parseFloat(fieldStyle[`border${side}Width`]) || 0);
-                const bounds = {
-                    left: outer.left + inset('Left'),
-                    top: outer.top + inset('Top'),
-                    bottom: outer.bottom - inset('Bottom'),
-                    width: outer.width - inset('Left') - inset('Right'),
-                    height: outer.height - inset('Top') - inset('Bottom'),
-                };
-                const top = leading(element, bounds, true);
-                const bottom = leading(element, bounds, false);
-                rect.setAttribute('x', String(bounds.left - origin.left - padding));
-                rect.setAttribute('y', String(bounds.top - origin.top + top - padding));
-                rect.setAttribute('width', String(bounds.width + 2 * padding));
-                rect.setAttribute('height', String(Math.max(0, bounds.height - top - bottom) + 2 * padding));
-            });
-        }
-
-        function schedule() {
-            if (!pendingFrame) {
-                pendingFrame = requestAnimationFrame(update);
-            }
-        }
-
-        function fontsLoaded() {
-            fontMetrics.clear();
-            schedule();
-        }
-
-        state.card.append(surface);
-        const resizeObserver = new ResizeObserver(schedule);
-        const mutationObserver = new MutationObserver(schedule);
-        resizeObserver.observe(state.card);
-        fields.forEach(({element}) => {
-            resizeObserver.observe(element);
-            mutationObserver.observe(element, {childList: true, subtree: true, characterData: true});
-        });
-        document.fonts?.addEventListener('loadingdone', fontsLoaded);
-        update();
-
-        return {
-            destroy() {
-                cancelAnimationFrame(pendingFrame);
-                resizeObserver.disconnect();
-                mutationObserver.disconnect();
-                document.fonts?.removeEventListener('loadingdone', fontsLoaded);
-                surface.remove();
-            },
-        };
-    }
-
     function focusEdge(element, atEnd) {
         element.focus();
         const selection = window.getSelection();
@@ -865,688 +738,6 @@
         selection.removeAllRanges();
         selection.addRange(range);
         syncBoundaryCaret();
-    }
-
-    function clearBoundaryCaret(element) {
-        element.classList.remove('has-leading-boundary-caret');
-    }
-
-    function clearSyntheticBoundaryCaret(element) {
-        element.classList.remove('uses-synthetic-boundary-caret');
-    }
-
-    function boundaryNodeIsEmpty(node) {
-        return node instanceof HTMLBRElement
-            || (node.nodeType === Node.TEXT_NODE && String(node.textContent || '').trim() === '');
-    }
-
-    function isMediaBoundaryElement(body, element) {
-        return element instanceof HTMLElement
-            && element.matches('.post-picture, .post-media-picture, figure')
-            && body.contains(element)
-            && Boolean(element.querySelector('img, video, audio'));
-    }
-
-    function editorBoundaryParagraphIsEmpty(element) {
-        return element instanceof HTMLElement
-            && element.tagName === 'P'
-            && Array.from(element.childNodes).every(boundaryNodeIsEmpty);
-    }
-
-    function topLevelBodyChild(body, node) {
-        if (!(body instanceof HTMLElement) || !(node instanceof Node) || node === body) {
-            return null;
-        }
-
-        let child = node instanceof HTMLElement ? node : node.parentElement;
-        while (child instanceof HTMLElement && child.parentElement !== body) {
-            if (child === body || !body.contains(child)) {
-                return null;
-            }
-            child = child.parentElement;
-        }
-        return child instanceof HTMLElement && child.parentElement === body ? child : null;
-    }
-
-    function hoistMediaFromParagraph(body, media) {
-        const paragraph = media.parentElement;
-        if (
-            !(paragraph instanceof HTMLElement)
-            || paragraph.tagName !== 'P'
-            || paragraph.parentElement !== body
-        ) {
-            return;
-        }
-
-        const trailing = document.createElement('p');
-        while (media.nextSibling) {
-            trailing.append(media.nextSibling);
-        }
-        body.insertBefore(media, paragraph.nextSibling);
-        if (!editorBoundaryParagraphIsEmpty(trailing)) {
-            body.insertBefore(trailing, media.nextSibling);
-        }
-        if (editorBoundaryParagraphIsEmpty(paragraph)) {
-            paragraph.remove();
-        }
-    }
-
-    function normalizeLeadingNestedMedia(body, expectedMedia = null) {
-        if (expectedMedia instanceof HTMLElement) {
-            hoistMediaFromParagraph(body, expectedMedia);
-            return;
-        }
-
-        for (const child of Array.from(body.childNodes)) {
-            if (boundaryNodeIsEmpty(child)) {
-                continue;
-            }
-            if (!(child instanceof HTMLElement) || child.tagName !== 'P') {
-                return;
-            }
-            const nestedMedia = Array.from(child.childNodes).find((nested, index, siblings) => (
-                isMediaBoundaryElement(body, nested)
-                && siblings.slice(0, index).every(boundaryNodeIsEmpty)
-            ));
-            if (nestedMedia instanceof HTMLElement) {
-                hoistMediaFromParagraph(body, nestedMedia);
-            }
-            return;
-        }
-    }
-
-    function leadingMediaIndex(body, expectedMedia) {
-        normalizeLeadingNestedMedia(body, expectedMedia);
-        if (!(expectedMedia instanceof HTMLElement) || expectedMedia.parentElement !== body) {
-            return -1;
-        }
-
-        const children = Array.from(body.childNodes);
-        const index = children.indexOf(expectedMedia);
-        return index >= 0 && children.slice(0, index).every(boundaryNodeIsEmpty)
-            ? index
-            : -1;
-    }
-
-    function prepareMediaInsertionRange(body, range) {
-        if (!range.collapsed) {
-            return range;
-        }
-
-        const boundary = topLevelBodyChild(body, range.startContainer);
-        if (isMediaBoundaryElement(body, boundary)) {
-            range.setStartAfter(boundary);
-            range.collapse(true);
-            return range;
-        }
-
-        if (editorBoundaryParagraphIsEmpty(boundary)) {
-            const boundaryIndex = Array.from(body.childNodes).indexOf(boundary);
-            boundary.remove();
-            range.setStart(body, boundaryIndex);
-            range.collapse(true);
-            return range;
-        }
-
-        // Block media cannot remain inside a paragraph, heading or code block
-        // (including their inline formatting). Split that text block, retaining
-        // any surrounding quote/list, before inserting the attachment beside it.
-        const caretElement = range.startContainer instanceof Element
-            ? range.startContainer : range.startContainer.parentElement;
-        const block = caretElement?.closest('p, h1, h2, h3, h4, h5, h6, pre');
-        if (block instanceof HTMLElement && body.contains(block)) {
-            const parent = block.parentNode;
-            const suffixRange = range.cloneRange();
-            suffixRange.setEnd(block, block.childNodes.length);
-
-            const prefix = block;
-            const suffix = block.cloneNode(false);
-            // Move the original descendants on either side of the caret. Image
-            // descriptions and upload callbacks retain references to those nodes.
-            suffix.append(suffixRange.extractContents());
-            const hasContent = (element) => {
-                const text = String(element.textContent || '');
-                return (element.tagName === 'PRE' ? text : text.trim()) !== ''
-                    || Boolean(element.querySelector('img, video, audio, iframe, table, hr'));
-            };
-            const keepPrefix = hasContent(prefix);
-            const keepSuffix = hasContent(suffix);
-            // At the start of a block only the suffix survives; it must keep
-            // the original anchor. A split with two halves must not duplicate it.
-            if (keepPrefix) suffix.removeAttribute('id');
-            const boundaryIndex = Array.from(parent.childNodes).indexOf(block);
-            if (keepSuffix) {
-                block.after(suffix);
-            }
-            if (!keepPrefix) {
-                block.remove();
-            }
-            range.setStart(parent, boundaryIndex + (keepPrefix ? 1 : 0));
-            range.collapse(true);
-            return range;
-        }
-
-        let paragraph = range.startContainer instanceof HTMLElement
-            ? range.startContainer
-            : range.startContainer.parentNode;
-        while (paragraph instanceof HTMLElement && paragraph.parentNode !== body) {
-            paragraph = paragraph.parentNode;
-        }
-        if (!editorBoundaryParagraphIsEmpty(paragraph) || paragraph.parentNode !== body) {
-            return range;
-        }
-
-        const index = Array.from(body.childNodes).indexOf(paragraph);
-        paragraph.remove();
-        range.setStart(body, index);
-        range.collapse(true);
-        return range;
-    }
-
-    function focusBeforeLeadingMedia(body, expectedMedia) {
-        const index = leadingMediaIndex(body, expectedMedia);
-        const selection = window.getSelection();
-        if (index < 0 || !selection) {
-            return null;
-        }
-
-        body.focus({preventScroll: true});
-        const range = document.createRange();
-        range.setStart(body, index);
-        range.collapse(true);
-        selection.removeAllRanges();
-        selection.addRange(range);
-        syncBoundaryCaret();
-        return expectedMedia;
-    }
-
-    function focusAfterMedia(body, media) {
-        if (!(media instanceof HTMLElement)) {
-            return null;
-        }
-        const mediaBoundary = node => isMediaBoundaryElement(body, node)
-            || (node instanceof HTMLElement && body.contains(node) && node.matches('audio, .post-media-upload'));
-
-        const boundary = topLevelBodyChild(body, media);
-        if (mediaBoundary(boundary)) {
-            media = boundary;
-        } else if (!mediaBoundary(media)) {
-            return null;
-        }
-
-        let target = media.nextSibling;
-        if (
-            !editorBoundaryParagraphIsEmpty(target)
-            && (
-                !(target instanceof Node)
-                || boundaryNodeIsEmpty(target)
-                || mediaBoundary(target)
-            )
-        ) {
-            const paragraph = document.createElement('p');
-            paragraph.className = 'post-editor-body-paragraph';
-            paragraph.append(document.createElement('br'));
-            // A picture in a quote or list item needs an editable trailing line
-            // in that same container, even while its upload is noneditable.
-            media.parentNode.insertBefore(paragraph, media.nextSibling);
-            target = paragraph;
-        }
-        if (!(target instanceof Node)) {
-            return null;
-        }
-        if (target instanceof HTMLElement && target.tagName === 'P') {
-            target.classList.add('post-editor-body-paragraph');
-            // Leaving a caption is an explicit request to start a visible body
-            // line. A boundary collapsed by an earlier Backspace/Delete must
-            // therefore become a normal paragraph again immediately.
-            target.classList.remove('post-editor-collapsed-boundary-paragraph');
-        }
-        const needsVisibleEmptyCaret = editorBoundaryParagraphIsEmpty(target)
-            ? target
-            : null;
-
-        const selection = window.getSelection();
-        if (!selection) {
-            return null;
-        }
-        body.focus({preventScroll: true});
-        const range = document.createRange();
-        if (target.nodeType === Node.TEXT_NODE) {
-            range.setStart(target, 0);
-        } else {
-            range.selectNodeContents(target);
-            range.collapse(true);
-        }
-        selection.removeAllRanges();
-        selection.addRange(range);
-        if (needsVisibleEmptyCaret instanceof HTMLElement) {
-            needsVisibleEmptyCaret.classList.add('has-leading-boundary-caret');
-        }
-        syncBoundaryCaret();
-        return target;
-    }
-
-    function mediaBoundaryAtRange(body, range) {
-        if (!range.collapsed || !(range.startContainer instanceof HTMLElement)) {
-            return null;
-        }
-
-        const boundary = range.startContainer;
-        if (boundary === body) {
-            for (let index = range.startOffset; index < body.childNodes.length; ++index) {
-                const child = body.childNodes[index];
-                if (boundaryNodeIsEmpty(child)) {
-                    continue;
-                }
-                return isMediaBoundaryElement(body, child) ? child : null;
-            }
-            return null;
-        }
-        const emptyPrefix = Array.from(boundary.childNodes)
-            .slice(0, range.startOffset)
-            .every(boundaryNodeIsEmpty);
-        return emptyPrefix
-            && isMediaBoundaryElement(body, boundary)
-            ? boundary
-            : null;
-    }
-
-    function syncBoundaryCaret() {
-        const selection = window.getSelection();
-        const active = document.activeElement;
-        let nextElement = null;
-
-        if (
-            active instanceof HTMLElement
-            && active.matches('.post-card.is-editing > .post.body[data-post-inplace-body]')
-            && active.hasChildNodes()
-            && selection
-            && selection.rangeCount === 1
-        ) {
-            const range = selection.getRangeAt(0);
-            if (range.collapsed) {
-                if (range.startContainer === active && range.startOffset === 0) {
-                    nextElement = active;
-                } else {
-                    nextElement = mediaBoundaryAtRange(active, range);
-                    // Chromium and Firefox can keep a valid selection in an
-                    // empty <p><br></p> without painting its native caret.
-                    // This also happens when Enter creates the trailing line
-                    // after an ordinary last paragraph. Reuse the synthetic
-                    // caret for every active empty top-level paragraph.
-                    if (!nextElement) {
-                        let paragraph = range.startContainer instanceof HTMLElement
-                            ? range.startContainer
-                            : range.startContainer.parentElement;
-                        while (paragraph instanceof HTMLElement && paragraph.parentElement !== active) {
-                            paragraph = paragraph.parentElement;
-                        }
-                        if (
-                            paragraph instanceof HTMLElement
-                            && editorBoundaryParagraphIsEmpty(paragraph)
-                            && paragraph.parentElement === active
-                            && !paragraph.classList.contains('post-editor-collapsed-boundary-paragraph')
-                        ) {
-                            nextElement = paragraph;
-                        }
-                    }
-                }
-            }
-        }
-
-        document.querySelectorAll('.has-leading-boundary-caret').forEach((element) => {
-            if (element instanceof HTMLElement && element !== nextElement) {
-                clearBoundaryCaret(element);
-            }
-        });
-        document.querySelectorAll('.uses-synthetic-boundary-caret').forEach((element) => {
-            if (element instanceof HTMLElement && element !== active) {
-                clearSyntheticBoundaryCaret(element);
-            }
-        });
-        if (nextElement) {
-            nextElement.classList.add('has-leading-boundary-caret');
-            active.classList.add('uses-synthetic-boundary-caret');
-        } else if (active instanceof HTMLElement) {
-            clearSyntheticBoundaryCaret(active);
-        }
-    }
-
-    function moveInsertionBeforeMediaBoundary(event) {
-        if (!event.inputType.startsWith('insert')) {
-            return;
-        }
-
-        const target = event.target;
-        const body = target instanceof HTMLElement
-            ? target.closest('.post-card.is-editing > .post.body[data-post-inplace-body]')
-            : null;
-        const selection = window.getSelection();
-        if (
-            !(body instanceof HTMLElement)
-            || !selection
-            || selection.rangeCount !== 1
-        ) {
-            return;
-        }
-
-        const boundary = mediaBoundaryAtRange(body, selection.getRangeAt(0));
-        if (!boundary) {
-            return;
-        }
-
-        // Chromium applies insertParagraph after this listener returns. Moving
-        // the selection into a paragraph and then allowing that default action
-        // would split the new paragraph, so one Enter would leave two empty
-        // blocks before the media. Handle this particular insertion ourselves;
-        // other insertions still need the browser to place their text in the
-        // paragraph prepared below.
-        const handlesParagraph = event.inputType === 'insertParagraph' && event.cancelable;
-        if (handlesParagraph) {
-            event.preventDefault();
-        }
-
-        document.querySelectorAll('.has-leading-boundary-caret').forEach(clearBoundaryCaret);
-        document.querySelectorAll('.uses-synthetic-boundary-caret').forEach(clearSyntheticBoundaryCaret);
-        const paragraph = document.createElement('p');
-        paragraph.className = 'post-editor-body-paragraph';
-        paragraph.append(document.createElement('br'));
-        body.insertBefore(paragraph, boundary);
-        const range = document.createRange();
-        range.setStart(paragraph, 0);
-        range.collapse(true);
-        selection.removeAllRanges();
-        selection.addRange(range);
-
-        // A cancelled native action emits no input event. Reuse the normal input
-        // path so dirty state, recovery and the shared undo history all observe
-        // the single paragraph insertion.
-        if (handlesParagraph) {
-            body.dispatchEvent(new InputEvent('input', {
-                bubbles: true,
-                inputType: event.inputType,
-            }));
-        }
-    }
-
-    function protectSelectedMediaBoundary(body) {
-        const selection = window.getSelection();
-        if (selection?.rangeCount !== 1) return;
-        const range = selection.getRangeAt(0);
-        if (range.collapsed || !rangeIsInside(body, range)) return;
-        const end = range.cloneRange();
-        end.collapse(false);
-        const media = mediaBoundaryAtRange(body, end);
-        if (!media) return;
-        let previous = media.previousSibling;
-        while (previous && boundaryNodeIsEmpty(previous)) previous = previous.previousSibling;
-        if (!(previous instanceof HTMLElement) || previous.querySelector('img, video, audio')) return;
-
-        // Chromium's paragraph selection includes the start of the next block.
-        // Replacing it can pull an unselected image out of its caption wrapper.
-        // End inside the preceding text block, excluding only the whitespace
-        // between blocks, never any selected prose or media.
-        const protectedRange = range.cloneRange();
-        protectedRange.setEnd(previous, previous.childNodes.length);
-        if (protectedRange.collapsed || protectedRange.toString().trimEnd() !== range.toString().trimEnd()) return;
-        const backwards = selection.anchorNode === range.endContainer && selection.anchorOffset === range.endOffset;
-        const start = [protectedRange.startContainer, protectedRange.startOffset];
-        const finish = [protectedRange.endContainer, protectedRange.endOffset];
-        selection.setBaseAndExtent(...(backwards ? finish : start), ...(backwards ? start : finish));
-    }
-
-    function collapseEmptyParagraphBesideMedia(event) {
-        const direction = event.inputType.endsWith('Backward')
-            ? -1
-            : (event.inputType.endsWith('Forward') ? 1 : 0);
-        if (direction === 0 || !event.cancelable) {
-            return false;
-        }
-
-        const target = event.target;
-        const body = target instanceof HTMLElement
-            ? target.closest('.post-card.is-editing > .post.body[data-post-inplace-body]')
-            : null;
-        const selection = window.getSelection();
-        if (
-            !(body instanceof HTMLElement)
-            || !selection
-            || selection.rangeCount !== 1
-        ) {
-            return false;
-        }
-
-        const currentRange = selection.getRangeAt(0);
-        if (!currentRange.collapsed) {
-            return false;
-        }
-        let paragraph = currentRange.startContainer instanceof HTMLElement
-            ? currentRange.startContainer
-            : currentRange.startContainer.parentNode;
-        while (paragraph instanceof HTMLElement && paragraph.parentNode !== body) {
-            paragraph = paragraph.parentNode;
-        }
-        if (!editorBoundaryParagraphIsEmpty(paragraph) || paragraph.parentNode !== body) {
-            return false;
-        }
-
-        const siblings = Array.from(body.childNodes);
-        const paragraphIndex = siblings.indexOf(paragraph);
-        let neighbour = null;
-        for (
-            let index = paragraphIndex + direction;
-            index >= 0 && index < siblings.length;
-            index += direction
-        ) {
-            if (boundaryNodeIsEmpty(siblings[index])) {
-                continue;
-            }
-            neighbour = siblings[index];
-            break;
-        }
-        if (!isMediaBoundaryElement(body, neighbour)) {
-            return false;
-        }
-
-        // Chromium merges an empty paragraph with the adjacent media wrapper and
-        // can remove its caption as collateral. Collapse the editable placeholder
-        // instead: visually the line is gone, while the next insertion still has
-        // a safe text container on the same side of the media.
-        event.preventDefault();
-        if (paragraph.classList.contains('post-editor-collapsed-boundary-paragraph')) {
-            return true;
-        }
-        paragraph.classList.add('post-editor-collapsed-boundary-paragraph');
-        body.focus({preventScroll: true});
-        const range = document.createRange();
-        range.setStart(paragraph, 0);
-        range.collapse(true);
-        selection.removeAllRanges();
-        selection.addRange(range);
-        body.dispatchEvent(new InputEvent('input', {
-            bubbles: true,
-            inputType: event.inputType,
-        }));
-        return true;
-    }
-
-    function expandCollapsedBoundaryParagraph(event) {
-        if (!String(event.inputType || '').startsWith('insert')) {
-            return false;
-        }
-
-        const target = event.target;
-        const body = target instanceof HTMLElement
-            ? target.closest('.post-card.is-editing > .post.body[data-post-inplace-body]')
-            : null;
-        const selection = window.getSelection();
-        if (
-            !(body instanceof HTMLElement)
-            || !selection
-            || selection.rangeCount !== 1
-        ) {
-            return false;
-        }
-
-        const currentRange = selection.getRangeAt(0);
-        if (!currentRange.collapsed) {
-            return false;
-        }
-        let paragraph = currentRange.startContainer instanceof HTMLElement
-            ? currentRange.startContainer
-            : currentRange.startContainer.parentNode;
-        while (paragraph instanceof HTMLElement && paragraph.parentNode !== body) {
-            paragraph = paragraph.parentNode;
-        }
-        if (
-            !(paragraph instanceof HTMLElement)
-            || paragraph.parentNode !== body
-            || !paragraph.classList.contains('post-editor-collapsed-boundary-paragraph')
-        ) {
-            return false;
-        }
-
-        const handlesEmptyLine = (
-            event.inputType === 'insertParagraph'
-            || event.inputType === 'insertLineBreak'
-        ) && event.cancelable;
-        if (handlesEmptyLine) {
-            event.preventDefault();
-        }
-        paragraph.classList.remove('post-editor-collapsed-boundary-paragraph');
-        if (handlesEmptyLine) {
-            body.dispatchEvent(new InputEvent('input', {
-                bubbles: true,
-                inputType: event.inputType,
-            }));
-        }
-        return true;
-    }
-
-    function collapseEmptyLeadingParagraphAfterDelete(event, body) {
-        if (!String(event.inputType || '').startsWith('delete')) {
-            return false;
-        }
-
-        const selection = window.getSelection();
-        if (!selection || selection.rangeCount !== 1) {
-            return false;
-        }
-        const currentRange = selection.getRangeAt(0);
-        if (!currentRange.collapsed) {
-            return false;
-        }
-
-        let paragraph = currentRange.startContainer instanceof HTMLElement
-            ? currentRange.startContainer
-            : currentRange.startContainer.parentNode;
-        while (paragraph instanceof HTMLElement && paragraph.parentNode !== body) {
-            paragraph = paragraph.parentNode;
-        }
-        if (!editorBoundaryParagraphIsEmpty(paragraph) || paragraph.parentNode !== body) {
-            return false;
-        }
-
-        const siblings = Array.from(body.childNodes);
-        const paragraphIndex = siblings.indexOf(paragraph);
-        if (paragraphIndex < 0 || !siblings.slice(0, paragraphIndex).every(boundaryNodeIsEmpty)) {
-            return false;
-        }
-
-        let media = null;
-        for (let index = paragraphIndex + 1; index < siblings.length; ++index) {
-            if (boundaryNodeIsEmpty(siblings[index])) {
-                continue;
-            }
-            media = isMediaBoundaryElement(body, siblings[index]) ? siblings[index] : null;
-            break;
-        }
-        if (!(media instanceof HTMLElement)) {
-            return false;
-        }
-
-        paragraph.remove();
-        body.focus({preventScroll: true});
-        const range = document.createRange();
-        range.setStart(body, paragraphIndex);
-        range.collapse(true);
-        selection.removeAllRanges();
-        selection.addRange(range);
-        syncBoundaryCaret();
-        return true;
-    }
-
-    function isMediaOwnedDirectChild(node) {
-        if (!(node instanceof HTMLElement)) {
-            return false;
-        }
-        if (node.matches(
-            'img, picture, video, audio, source, track, '
-            + '.post-picture, .post-media-picture, '
-            + '.post-media-overlay, .post-media-processing-progress, '
-            + '.post-caption, figcaption, .post-media-caption-toolbar',
-        )) {
-            return true;
-        }
-        return node.matches('a') && Boolean(node.querySelector('img, picture, video, audio'));
-    }
-
-    function normalizeMediaBodyStructure(root) {
-        let changed = false;
-        const selection = window.getSelection();
-        const preserveSelection = selection?.rangeCount > 0
-            && root.contains(selection.anchorNode)
-            && root.contains(selection.focusNode);
-        const anchorNode = preserveSelection ? selection.anchorNode : null;
-        const anchorOffset = preserveSelection ? selection.anchorOffset : 0;
-        const focusNode = preserveSelection ? selection.focusNode : null;
-        const focusOffset = preserveSelection ? selection.focusOffset : 0;
-        const pictures = Array.from(root.querySelectorAll('.post-media-picture')).reverse();
-        pictures.forEach((picture) => {
-            if (!picture.isConnected && !root.contains(picture)) {
-                return;
-            }
-            const children = Array.from(picture.childNodes);
-            const hasBodyContent = children.some((node) => (
-                node.nodeType === Node.TEXT_NODE
-                    ? String(node.textContent || '').trim() !== ''
-                    : !isMediaOwnedDirectChild(node)
-            ));
-            if (!hasBodyContent) {
-                return;
-            }
-
-            // A browser editing operation must never leave prose inside the
-            // image wrapper. Besides inheriting caption typography, that tree
-            // is reparsed differently by the page renderer and can lose text.
-            // Move the original nodes (rather than cloning or serializing them)
-            // so a live selection/caret inside the prose remains attached.
-            const bodyNodes = children.filter((node) => !isMediaOwnedDirectChild(node));
-            const fragment = document.createDocumentFragment();
-            let paragraph = null;
-            bodyNodes.forEach((node) => {
-                const isBlock = node instanceof HTMLElement && node.matches(
-                    'p, div, h1, h2, h3, h4, h5, h6, blockquote, pre, ul, ol, table, hr, figure',
-                );
-                if (isBlock) {
-                    paragraph = null;
-                    fragment.append(node);
-                    return;
-                }
-                if (!(paragraph instanceof HTMLElement)) {
-                    paragraph = document.createElement('p');
-                    paragraph.className = 'post-editor-body-paragraph';
-                    fragment.append(paragraph);
-                }
-                paragraph.append(node);
-            });
-            picture.parentNode?.insertBefore(fragment, picture.nextSibling);
-            changed = true;
-        });
-        if (changed && preserveSelection && root.contains(anchorNode) && root.contains(focusNode)) {
-            selection.setBaseAndExtent(anchorNode, anchorOffset, focusNode, focusOffset);
-        }
-        return changed;
     }
 
     function prepareEditableMedia(root) {
@@ -1740,208 +931,6 @@
             return;
         }
         state.titleLink.setAttribute('href', state.titleLinkHref);
-    }
-
-    function postRecoveryStore() {
-        try {
-            const config = editorConfig();
-            return window.RegisterPostRecovery?.createStore(
-                {
-                    get length() { return window.localStorage.length; },
-                    key(index) { return window.localStorage.key(index); },
-                    getItem(key) { return window.localStorage.getItem(key); },
-                    setItem(key, value) { window.localStorage.setItem(key, value); },
-                    removeItem(key) { window.localStorage.removeItem(key); },
-                },
-                config.tagSuggestionsUrl,
-                config.recoveryUserId,
-            ) || null;
-        } catch (_) {
-            return null;
-        }
-    }
-
-    function recoverySnapshot(state) {
-        const body = state.body.cloneNode(true);
-        body.querySelectorAll('.post-media-upload, .post-media-picture.is-processing').forEach(node => node.remove());
-        return {
-            title: state.title.textContent || '',
-            body: editableBodyHtml({...state, body}),
-            tags: state.tagEditor.snapshot(),
-            date: state.dateInput.value,
-            slug: state.form.elements.namedItem('slug')?.value || '',
-            slugChanged: Boolean(state.slugField && state.slugField.value !== state.originalSlug),
-            mediaIds: Array.from(state.uploadedMediaIds),
-            pendingMedia: state.mediaUploads.size > 0,
-        };
-    }
-
-    function startPostRecovery(state) {
-        const store = postRecoveryStore();
-        if (!store) {
-            if (editorConfig().recoveryUserId) {
-                showEditorStatus(state, editorConfig().recoveryUnavailable || 'Unable to save a local copy. Keep this tab open.', true);
-            }
-            return;
-        }
-        const userId = editorConfig().recoveryUserId;
-        const initial = JSON.stringify(recoverySnapshot(state));
-        const id = (window.crypto?.randomUUID?.() || `${Date.now()}_${Math.random().toString(36).slice(2)}`).replaceAll('-', '');
-        const target = state.creating ? 'new' : state.card.dataset.postId;
-        const revision = Number(state.form.elements.namedItem('revision')?.value || 0);
-        let stored = null;
-        let restored = null;
-        let last = initial;
-        let timer = null;
-        let stopped = false;
-        const controller = new AbortController();
-        function persist() {
-            window.clearTimeout(timer);
-            if (stopped || userId !== editorConfig().recoveryUserId) return false;
-            const snapshot = recoverySnapshot(state);
-            const serialized = JSON.stringify(snapshot);
-            if (serialized === initial && !restored) {
-                if (stored) store.remove(stored);
-                stored = null;
-                last = initial;
-                return true;
-            }
-            if (serialized === last && stored && store.list(target).some(record => (
-                record.id === id && record.savedAt === stored.savedAt
-            ))) return true;
-            const record = {version: 1, id, target, revision, savedAt: Date.now(), snapshot};
-            if (!store.save(record)) {
-                showEditorStatus(state, editorConfig().recoveryUnavailable || 'Unable to save a local copy. Keep this tab open.', true);
-                return false;
-            }
-            snapshot.mediaIds.forEach(mediaId => state.recoveryMediaIds.add(mediaId));
-            stored = record;
-            last = serialized;
-            const status = state.card.querySelector(':scope > .post-inplace-status');
-            if (status?.textContent === editorConfig().recoveryUnavailable) clearStatus(state.card);
-            if (restored) {
-                store.remove(restored);
-                restored = null;
-            }
-            return true;
-        }
-        function schedule() {
-            window.clearTimeout(timer);
-            timer = window.setTimeout(persist, 250);
-        }
-        const observer = new MutationObserver(schedule);
-        observer.observe(state.body, {childList: true, subtree: true, characterData: true, attributes: true});
-        observer.observe(state.title, {childList: true, subtree: true, characterData: true});
-        state.card.addEventListener('input', schedule, {signal: controller.signal});
-        state.card.addEventListener('change', schedule, {signal: controller.signal});
-        state.recovery = {
-            id,
-            persist,
-            hasStored: () => stored !== null,
-            restored(record) { restored = record; return persist(); },
-            stop(discard = false) {
-                if (!discard) persist();
-                const preserved = !discard && stored !== null;
-                stopped = true;
-                window.clearTimeout(timer);
-                observer.disconnect();
-                controller.abort();
-                if (discard) {
-                    if (stored) store.remove(stored);
-                    if (restored) store.remove(restored);
-                }
-                recoverySessions.delete(state);
-                state.recovery = null;
-                return preserved;
-            },
-        };
-        recoverySessions.add(state);
-    }
-
-    function restorePostRecovery(state, record) {
-        if (!window.RegisterPostRecovery || !state.recovery) return;
-        const snapshot = record.snapshot;
-        state.history?.before();
-        state.titleHistory?.before();
-        state.title.textContent = snapshot.title;
-        const safeBody = window.RegisterPostRecovery.cleanBody(snapshot.body);
-        state.body.innerHTML = safeBody;
-        prepareEditableMedia(state.body);
-        state.tagEditor.restore(snapshot.tags);
-        state.dateInput.value = snapshot.date;
-        const slug = state.form.elements.namedItem('slug');
-        if (slug && snapshot.slugChanged) slug.value = snapshot.slug;
-        state.uploadedMediaIds = new Set(snapshot.mediaIds);
-        snapshot.mediaIds.forEach(mediaId => state.recoveryMediaIds.add(mediaId));
-        state.titleDirty = state.bodyDirty = state.tagsDirty = state.dateDirty = true;
-        state.history?.record();
-        state.titleHistory?.record();
-        state.recovery.restored(record);
-        showEditorStatus(state, [
-            editorConfig().recoveryRestored || 'Text restored. Review it before saving.',
-            snapshot.pendingMedia || snapshot.mediaIds.length > 0 ? editorConfig().recoveryMedia : '',
-            safeBody !== snapshot.body ? editorConfig().recoveryMarkup : '',
-        ].filter(Boolean).join(' '));
-        focusEdge(state.body, true);
-        refreshPostRecoveryOffers();
-    }
-
-    function refreshPostRecoveryOffers() {
-        document.querySelectorAll('.post-recovery-notice').forEach(notice => notice.remove());
-        const store = postRecoveryStore();
-        if (!store) return;
-        const active = new Set(Array.from(recoverySessions, state => state.recovery?.id));
-        store.list().filter(record => !active.has(record.id)).forEach(record => {
-            const card = record.target === 'new' ? null
-                : document.querySelector(`.post-card.is-manageable[data-post-id="${record.target}"]`);
-            const button = card?.querySelector('.post-edit-start')
-                || (record.target === 'new' ? document.querySelector('.post-create-start') : null);
-            if (!(button instanceof HTMLButtonElement)) return;
-            const anchor = card || document.querySelector('.live-post-feed, .tag-post-list, #content');
-            if (!(anchor instanceof HTMLElement)) return;
-            const notice = document.createElement('aside');
-            notice.className = 'post-recovery-notice';
-            notice.dataset.recoveryId = record.id;
-            const summary = document.createElement('p');
-            summary.textContent = (editorConfig().recoveryFound || 'This device has unsaved text:') + ' '
-                + (record.snapshot.title || editorConfig().titlePlaceholder || 'New post');
-            notice.append(summary);
-            const currentRevision = Number(card?.querySelector('input[name="revision"]')?.value || 0);
-            if (record.target !== 'new' && currentRevision !== record.revision) {
-                const warning = document.createElement('p');
-                warning.textContent = editorConfig().recoveryChanged || 'The site has a newer version. Review the restored text before saving.';
-                notice.append(warning);
-            }
-            const actions = document.createElement('div');
-            actions.className = 'post-recovery-actions';
-            const restore = document.createElement('button');
-            restore.type = 'button';
-            restore.textContent = editorConfig().recoveryRestore || 'Restore text';
-            const discard = document.createElement('button');
-            discard.type = 'button';
-            discard.textContent = editorConfig().recoveryDiscard || 'Delete local copy';
-            restore.addEventListener('click', () => {
-                // Open through the same permission-scoped controls as ordinary
-                // editing; retain the CURRENT server revision for conflict checks.
-                const editing = card || document.querySelector('.post-card[data-post-creating]');
-                const previous = editing ? editorStates.get(editing) : null;
-                if (previous?.submitting) return;
-                if (previous && !closeEditor(editing, false)) return;
-                if (!(record.target === 'new' ? beginCreate(button) : beginEdit(button))) return;
-                const opened = card || document.querySelector('.post-card[data-post-creating]');
-                const state = editorStates.get(opened);
-                if (state) restorePostRecovery(state, record);
-            });
-            discard.addEventListener('click', () => {
-                if (!window.confirm(editorConfig().recoveryDiscardWarning || 'Delete this unsaved local copy?')) return;
-                store.remove(record);
-                refreshPostRecoveryOffers();
-            });
-            actions.append(restore, discard);
-            notice.append(actions);
-            if (card) card.before(notice);
-            else anchor.prepend(notice);
-        });
     }
 
     function editorHasUnsavedChanges(state) {
@@ -2274,6 +1263,7 @@
             tagsDirty: false,
             dateDirty: false,
             creating: card.hasAttribute('data-post-creating'),
+            requestId: card.hasAttribute('data-post-creating') ? window.RegisterEditorStorage.recordId() : null,
             mediaUploads: new Set(),
             mediaControllers: new Set(),
             imageUploadTail: Promise.resolve(),
@@ -2318,6 +1308,16 @@
         elements.dateButton.hidden = false;
         state.tagEditor = createTagEditor(state);
         editorStates.set(card, state);
+        if (state.creating) {
+            let operation = state.form.elements.namedItem('request_id');
+            if (!operation) {
+                operation = document.createElement('input');
+                operation.type = 'hidden';
+                operation.name = 'request_id';
+                state.form.append(operation);
+            }
+            operation.value = state.requestId;
+        }
         if (!state.creating) {
             elements.foot.append(state.footSpacer);
         }
@@ -2462,414 +1462,6 @@
         // media is registered from the body, including files shared by recovery.
         state.uploadedMediaField.value = releasableMediaIds(state).join(',');
         return true;
-    }
-
-    function normalizeTags(value) {
-        const tags = [];
-        const used = new Set();
-        for (const part of String(value).split(/[,;\n]+/u)) {
-            const tag = part
-                .replace(/^\s*#+\s*/u, '')
-                .replace(/\s+/gu, ' ')
-                .trim();
-            if (tag === '') {
-                continue;
-            }
-            if (Array.from(tag).length > 191 || !/^[\p{L}\p{N}_\- !.]+$/u.test(tag)) {
-                return null;
-            }
-            const key = tag.toLocaleLowerCase();
-            if (!used.has(key)) {
-                used.add(key);
-                tags.push(tag);
-            }
-            if (tags.length > 100) {
-                return null;
-            }
-        }
-        return tags;
-    }
-
-    function loadTagSuggestions(url) {
-        const requestUrl = String(url || '').trim();
-        if (requestUrl === '') {
-            return Promise.resolve([]);
-        }
-
-        const pending = tagSuggestionRequests.get(requestUrl);
-        if (pending) {
-            return pending;
-        }
-
-        const request = fetch(requestUrl, {
-            credentials: 'same-origin',
-            headers: {'X-Requested-With': 'XMLHttpRequest'},
-        })
-            .then((response) => {
-                if (!response.ok) {
-                    throw new Error('Unable to load tag suggestions.');
-                }
-                return response.json();
-            })
-            .then((payload) => {
-                if (!payload || !Array.isArray(payload.tags)) {
-                    return [];
-                }
-
-                const suggestions = [];
-                const used = new Set();
-                payload.tags.forEach((value) => {
-                    const normalized = normalizeTags(value);
-                    if (!normalized || normalized.length !== 1) {
-                        return;
-                    }
-                    const tag = normalized[0];
-                    const key = tag.toLocaleLowerCase();
-                    if (!used.has(key)) {
-                        used.add(key);
-                        suggestions.push(tag);
-                    }
-                });
-                return suggestions;
-            })
-            .catch((error) => {
-                tagSuggestionRequests.delete(requestUrl);
-                console.warn(error.message);
-                return [];
-            });
-
-        tagSuggestionRequests.set(requestUrl, request);
-        return request;
-    }
-
-    function createTagEditor(state) {
-        const root = document.createElement('span');
-        const surface = document.createElement('span');
-        const input = document.createElement('input');
-        const suggestionList = document.createElement('span');
-        const suggestionListId = `post-tag-suggestions-${++tagEditorSequence}`;
-        let tags = normalizeTags(state.originalTags) || [];
-        const originalTags = [...tags];
-        let suggestions = [];
-        let matches = [];
-        let activeIndex = -1;
-
-        root.className = 'post-tags-editor';
-        surface.className = 'post-tags-surface';
-        input.type = 'text';
-        input.className = 'post-tags-text-input';
-        input.placeholder = editorConfig().tagsPlaceholder || '';
-        input.autocomplete = 'off';
-        input.setAttribute('aria-label', editorConfig().tagsLabel || 'Tags');
-        input.setAttribute('role', 'combobox');
-        input.setAttribute('aria-autocomplete', 'list');
-        input.setAttribute('aria-haspopup', 'listbox');
-        input.setAttribute('aria-expanded', 'false');
-        input.setAttribute('aria-controls', suggestionListId);
-        suggestionList.id = suggestionListId;
-        suggestionList.className = 'post-tag-suggestions';
-        suggestionList.hidden = true;
-        suggestionList.setAttribute('role', 'listbox');
-        suggestionList.setAttribute(
-            'aria-label',
-            editorConfig().tagSuggestionsLabel || editorConfig().tagsLabel || 'Tag suggestions',
-        );
-        surface.append(input);
-        root.append(surface, suggestionList);
-        state.tags.append(root);
-
-        function changed() {
-            state.tagsDirty = true;
-            clearError(state.form);
-            clearStatus(state.card);
-        }
-
-        function syncSurface() {
-            state.tagsHost.classList.toggle('is-empty', tags.length === 0 && input.value.trim() === '');
-        }
-
-        function closeSuggestions() {
-            matches = [];
-            activeIndex = -1;
-            suggestionList.replaceChildren();
-            suggestionList.hidden = true;
-            input.setAttribute('aria-expanded', 'false');
-            input.removeAttribute('aria-activedescendant');
-        }
-
-        function setActiveSuggestion(index) {
-            if (matches.length === 0) {
-                closeSuggestions();
-                return;
-            }
-
-            activeIndex = (index + matches.length) % matches.length;
-            suggestionList.querySelectorAll('[role="option"]').forEach((option, optionIndex) => {
-                const active = optionIndex === activeIndex;
-                option.setAttribute('aria-selected', active ? 'true' : 'false');
-                if (active) {
-                    input.setAttribute('aria-activedescendant', option.id);
-                    option.scrollIntoView({block: 'nearest'});
-                }
-            });
-        }
-
-        function renderSuggestions(open) {
-            if (!open) {
-                closeSuggestions();
-                return;
-            }
-
-            const query = input.value.replace(/\s+/gu, ' ').trim().toLocaleLowerCase();
-            const selected = new Set(tags.map((tag) => tag.toLocaleLowerCase()));
-            matches = suggestions
-                .filter((tag) => {
-                    const key = tag.toLocaleLowerCase();
-                    return !selected.has(key) && (query === '' || key.includes(query));
-                })
-                .sort((left, right) => {
-                    const leftStarts = left.toLocaleLowerCase().startsWith(query);
-                    const rightStarts = right.toLocaleLowerCase().startsWith(query);
-                    if (leftStarts !== rightStarts) {
-                        return leftStarts ? -1 : 1;
-                    }
-                    return left.localeCompare(right, undefined, {sensitivity: 'base'});
-                })
-                .slice(0, 8);
-
-            suggestionList.replaceChildren();
-            activeIndex = -1;
-            input.removeAttribute('aria-activedescendant');
-            if (matches.length === 0) {
-                closeSuggestions();
-                return;
-            }
-
-            const fragment = document.createDocumentFragment();
-            matches.forEach((tag, index) => {
-                const option = document.createElement('span');
-                option.id = `${suggestionListId}-${index}`;
-                option.dataset.tag = tag;
-                option.setAttribute('role', 'option');
-                option.setAttribute('aria-selected', 'false');
-                option.textContent = tag;
-                fragment.append(option);
-            });
-            suggestionList.append(fragment);
-            suggestionList.hidden = false;
-            input.setAttribute('aria-expanded', 'true');
-        }
-
-        function render() {
-            surface.querySelectorAll('.post-tag-chip').forEach((chip) => chip.remove());
-            const fragment = document.createDocumentFragment();
-            tags.forEach((tag, index) => {
-                const chip = document.createElement('span');
-                const label = document.createElement('span');
-                const remove = document.createElement('button');
-
-                chip.className = 'post-tag-chip';
-                label.className = 'post-tag-chip-label';
-                label.textContent = tag;
-                remove.type = 'button';
-                remove.className = 'post-tag-chip-remove';
-                remove.dataset.tagIndex = String(index);
-                remove.textContent = '×';
-                remove.setAttribute(
-                    'aria-label',
-                    (editorConfig().removeTagLabel || 'Remove tag') + ': ' + tag,
-                );
-                chip.append(label, remove);
-                fragment.append(chip);
-            });
-            surface.insertBefore(fragment, input);
-            syncSurface();
-        }
-
-        function add(value) {
-            const additions = normalizeTags(value);
-            if (additions === null) {
-                return false;
-            }
-            const merged = normalizeTags([...tags, ...additions].join(', '));
-            if (merged === null) {
-                return false;
-            }
-            tags = merged;
-            input.value = '';
-            changed();
-            render();
-            renderSuggestions(document.activeElement === input);
-            return true;
-        }
-
-        function commit() {
-            if (input.value.trim() === '') {
-                input.value = '';
-                syncSurface();
-                return true;
-            }
-            return add(input.value);
-        }
-
-        surface.addEventListener('click', (event) => {
-            const target = event.target instanceof Element ? event.target : null;
-            const remove = target?.closest('.post-tag-chip-remove');
-            if (remove) {
-                const index = Number(remove.dataset.tagIndex);
-                if (Number.isInteger(index) && index >= 0 && index < tags.length) {
-                    tags.splice(index, 1);
-                    changed();
-                    render();
-                    renderSuggestions(true);
-                }
-            }
-            input.focus();
-        });
-
-        input.addEventListener('focus', () => {
-            renderSuggestions(true);
-        });
-        input.addEventListener('input', () => {
-            changed();
-            syncSurface();
-            renderSuggestions(true);
-        });
-        input.addEventListener('keydown', (event) => {
-            if (handleEditingSaveShortcut(event, state)) {
-                event.stopPropagation();
-                return;
-            }
-            if (event.isComposing) {
-                return;
-            }
-
-            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-                event.preventDefault();
-                event.stopPropagation();
-                if (suggestionList.hidden) {
-                    renderSuggestions(true);
-                }
-                setActiveSuggestion(activeIndex + (event.key === 'ArrowDown' ? 1 : -1));
-                return;
-            }
-
-            if (event.key === 'Tab' && activeIndex >= 0) {
-                event.preventDefault();
-                const tag = matches[activeIndex];
-                if (tag) {
-                    add(tag);
-                }
-                return;
-            }
-
-            if (event.key === 'Enter' || event.key === ',' || event.key === ';') {
-                event.preventDefault();
-                event.stopPropagation();
-                const tag = activeIndex >= 0 ? matches[activeIndex] : null;
-                if (tag) {
-                    add(tag);
-                } else if (!commit()) {
-                    showError(state.form, editorConfig().invalidTags || editorConfig().editError || 'Invalid post tags.');
-                }
-                return;
-            }
-            if (event.key === 'Backspace' && input.value === '' && tags.length > 0) {
-                event.preventDefault();
-                tags.pop();
-                changed();
-                render();
-                renderSuggestions(true);
-                return;
-            }
-            if (event.key === 'Escape' && !suggestionList.hidden) {
-                event.preventDefault();
-                event.stopPropagation();
-                closeSuggestions();
-            }
-        });
-        input.addEventListener('paste', (event) => {
-            const pasted = event.clipboardData?.getData('text/plain') || '';
-            if (!/[,;\n]/u.test(pasted)) {
-                return;
-            }
-            const value = input.value;
-            const start = input.selectionStart ?? value.length;
-            const end = input.selectionEnd ?? start;
-            const next = value.slice(0, start) + pasted + value.slice(end);
-            // Only consume a paste that can be committed in full. Otherwise
-            // native insertion leaves the unfinished text available to correct.
-            if (add(next)) {
-                event.preventDefault();
-            }
-        });
-        input.addEventListener('blur', () => {
-            setTimeout(() => {
-                if (!root.isConnected || !state.card.classList.contains('is-editing') || root.contains(document.activeElement)) {
-                    return;
-                }
-                if (!commit()) {
-                    showError(state.form, editorConfig().invalidTags || editorConfig().editError || 'Invalid post tags.');
-                }
-                closeSuggestions();
-            }, 0);
-        });
-
-        suggestionList.addEventListener('mousedown', (event) => {
-            event.preventDefault();
-        });
-        suggestionList.addEventListener('click', (event) => {
-            const target = event.target instanceof Element ? event.target : null;
-            const option = target?.closest('[role="option"]');
-            if (!option) {
-                return;
-            }
-            const index = Array.from(suggestionList.children).indexOf(option);
-            const tag = matches[index];
-            if (tag) {
-                add(tag);
-                input.focus();
-            }
-        });
-
-        render();
-        loadTagSuggestions(editorConfig().tagSuggestionsUrl).then((loadedSuggestions) => {
-            if (!root.isConnected) {
-                return;
-            }
-            suggestions = loadedSuggestions;
-            if (document.activeElement === input) {
-                renderSuggestions(true);
-            }
-        });
-
-        return {
-            focus: () => input.focus(),
-            hasChanges: () => input.value.trim() !== ''
-                || tags.length !== originalTags.length
-                || tags.some((tag, index) => tag !== originalTags[index]),
-            sync: () => commit() ? [...tags] : null,
-            snapshot: () => [...tags, input.value].filter(Boolean).join(', '),
-            restore: value => {
-                const parsed = normalizeTags(value);
-                tags = parsed || [];
-                input.value = parsed === null ? value : '';
-                changed();
-                render();
-            },
-            replace: (value) => {
-                const replacements = normalizeTags(value);
-                if (replacements === null) {
-                    return false;
-                }
-                tags = replacements;
-                input.value = '';
-                changed();
-                render();
-                renderSuggestions(document.activeElement === input);
-                return true;
-            },
-        };
     }
 
     function mediaKindForFile(file) {
@@ -3141,48 +1733,6 @@
         Array.from(state.mediaCaptionEditors.keys()).forEach((caption) => {
             finishInlineMediaCaption(state, caption, false);
         });
-    }
-
-    function createFieldHistory(state, field, controller, restoreCallback = null) {
-        const history = createBodyHistory({
-            ...state,
-            body: field,
-            contextMenu: null,
-            imageCaptionEditor: null,
-            mediaCaptionEditors: new Map(),
-        }, restoreCallback);
-        const keydown = (event) => {
-            if (!selectionIsInside(field) || event.isComposing || event.altKey || !(event.ctrlKey || event.metaKey)) return;
-            const key = String(event.key || '').toLowerCase();
-            const undo = !event.shiftKey && (event.code === 'KeyZ' || key === 'z');
-            const redo = editorPlatform === 'windows'
-                ? !event.shiftKey && (event.code === 'KeyY' || key === 'y')
-                : event.shiftKey && (event.code === 'KeyZ' || key === 'z');
-            if (undo || redo) {
-                event.preventDefault();
-                event.stopPropagation();
-                history[undo ? 'undo' : 'redo']();
-            }
-        };
-        field.addEventListener('keydown', keydown, {signal: controller.signal});
-        state.body.addEventListener('keydown', keydown, {signal: controller.signal});
-        field.addEventListener('beforeinput', (event) => {
-            if (event.inputType === 'historyUndo' || event.inputType === 'historyRedo') {
-                event.preventDefault();
-                history[event.inputType === 'historyUndo' ? 'undo' : 'redo']();
-            } else {
-                history.before(event.inputType);
-            }
-        }, {signal: controller.signal});
-        field.addEventListener('input', (event) => {
-            history.record(event.inputType);
-        }, {signal: controller.signal});
-        const destroy = history.destroy;
-        history.destroy = () => {
-            controller.abort();
-            destroy();
-        };
-        return history;
     }
 
     function beginInlineMediaCaption(state, caption) {
@@ -3544,7 +2094,7 @@
                 formData.append('published_at', String(publishedAt));
                 formData.append('media', uploadFile, uploadName);
 
-                const response = await window.fetch(state.form.action, {
+                const {response, data: payload} = await window.RegisterEditorRequest.requestJson(state.form.action, {
                     method: 'POST',
                     body: formData,
                     credentials: 'same-origin',
@@ -3553,8 +2103,8 @@
                         'X-Requested-With': 'XMLHttpRequest',
                     },
                     signal: controller.signal,
-                });
-                const payload = await response.json().catch(() => null);
+                }, {timeoutMs: editorConfig().saveTimeoutMs, timeoutMessage: editorConfig().saveTimeout});
+
                 if (
                     !response.ok
                     || !payload
@@ -3668,7 +2218,7 @@
         data.set('inplace_token', token instanceof HTMLInputElement ? token.value : '');
         data.set('media_ids', Array.from(state.uploadedMediaIds).join(','));
         data.set('published_at', String(publishedAt));
-        const response = await window.fetch(state.form.action, {
+        const {response, data: payload} = await window.RegisterEditorRequest.requestJson(state.form.action, {
             method: 'POST',
             body: data,
             credentials: 'same-origin',
@@ -3676,8 +2226,8 @@
                 'Accept': 'application/json',
                 'X-Requested-With': 'XMLHttpRequest',
             },
-        });
-        const payload = await response.json().catch(() => null);
+        }, {timeoutMs: editorConfig().saveTimeoutMs, timeoutMessage: editorConfig().saveTimeout});
+
         if (!response.ok || payload?.success !== true || !Array.isArray(payload.media)) {
             throw new Error(payload?.message || editorConfig().mediaUploadFailed || 'Unable to name the image.');
         }
@@ -4338,15 +2888,19 @@
         };
 
         try {
+            // Keep the draft durable even if processing an attachment never
+            // reaches its upload request or a save's preparation times out.
+            state?.recovery?.persist();
             setBusy(true);
             if (state) {
+                const preparationOptions = {timeoutMs: editorConfig().saveTimeoutMs, timeoutMessage: editorConfig().saveTimeout};
                 if (state.mediaUploads.size > 0) {
-                    const uploads = await Promise.all(Array.from(state.mediaUploads));
+                    const uploads = await window.RegisterEditorRequest.withDeadline(Promise.all(Array.from(state.mediaUploads)), preparationOptions);
                     const failure = uploads.find((result) => result instanceof Error);
                     if (failure) throw failure;
                 }
                 if (state.aiAltTasks.size > 0) {
-                    await Promise.all(Array.from(state.aiAltTasks));
+                    await window.RegisterEditorRequest.withDeadline(Promise.all(Array.from(state.aiAltTasks)), preparationOptions);
                 }
                 await redatePendingMedia(state);
                 // Validation may focus an invalid field. This synchronous section
@@ -4364,7 +2918,8 @@
             }
 
             clearError(form);
-            const response = await window.fetch(form.action, {
+            state?.recovery?.persist();
+            const {response, data: payload} = await window.RegisterEditorRequest.requestJson(form.action, {
                 method: 'POST',
                 body: new FormData(form),
                 credentials: 'same-origin',
@@ -4372,8 +2927,8 @@
                     'Accept': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest',
                 },
-            });
-            const payload = await response.json().catch(() => null);
+            }, {timeoutMs: editorConfig().saveTimeoutMs,
+                retries: state ? 1 : 0, timeoutMessage: editorConfig().saveTimeout});
             if (!response.ok || !payload || payload.success !== true) {
                 throw new Error(payload?.message || editorConfig().editError || 'Unable to change the post.');
             }
@@ -4382,7 +2937,17 @@
             if (payload.action === 'edit') {
                 updateEditedCard(card, form, payload);
             } else if (payload.action === 'create') {
+                const laterDraft = payload.replayed && payload.request_matched === false && state
+                    ? recoverySnapshot(state) : null;
                 updateCreatedCard(card, form, payload);
+                if (laterDraft) {
+                    beginEdit(card.querySelector('.post-edit-start'));
+                    const next = editorStates.get(card);
+                    if (next) {
+                        restorePostRecovery(next, {snapshot: laterDraft});
+                        showEditorStatus(next, editorConfig().creationRecovered || 'The post was already created. Review and save your later changes.');
+                    }
+                }
             } else if (payload.action === 'delete') {
                 removeDeletedCard(card, payload);
             } else {
@@ -4411,243 +2976,6 @@
     // cannot see wrapping a <tt>, unlinking a node, or finishing an async upload.
     // Keep DOM clones (not reparsed HTML) and both selection endpoints; reparsing
     // browser-generated editing HTML can change its structure and caret offsets.
-    function createBodyHistory(state, restoreCallback = null) {
-        const uploads = new Map();
-        const liveImages = new WeakMap();
-        const ignored = '[data-post-inline-code-exit], .post-editor-context-anchor';
-        let uploadSequence = 0;
-        let index = 0;
-        let depth = 0;
-        let queued = false;
-        let destroyed = false;
-        let previousInput = null;
-        let mergeInput = false;
-
-        const children = (node) => Array.from(node.childNodes).filter((child) => (
-            !(child instanceof Element) || !child.matches(ignored)
-        ));
-        function point(node, offset) {
-            if (!node || !state.body.contains(node)) {
-                return null;
-            }
-            const path = [];
-            const position = node.nodeType === Node.TEXT_NODE
-                ? offset
-                : Array.from(node.childNodes).slice(0, offset).filter((child) => (
-                    !(child instanceof Element) || !child.matches(ignored)
-                )).length;
-            while (node !== state.body) {
-                const parent = node.parentNode;
-                path.unshift(children(parent).indexOf(node));
-                node = parent;
-            }
-            return {path, offset: position};
-        }
-        function selection() {
-            const selected = window.getSelection();
-            const anchor = point(selected?.anchorNode, selected?.anchorOffset);
-            const focus = point(selected?.focusNode, selected?.focusOffset);
-            return anchor && focus ? {anchor, focus} : null;
-        }
-        const imagesIn = (root) => root instanceof HTMLImageElement ? [root] : Array.from(root.querySelectorAll('img'));
-        function cloneWithImages(source) {
-            const root = source.cloneNode(true);
-            const images = imagesIn(source);
-            imagesIn(root).forEach((image, index) => liveImages.set(image, images[index]));
-            return root;
-        }
-        function snapshot() {
-            const root = cloneWithImages(state.body);
-            root.querySelectorAll(ignored).forEach((node) => node.remove());
-            root.querySelectorAll('.has-leading-boundary-caret').forEach(clearBoundaryCaret);
-            // A pending upload is one stable slot, not a succession of progress
-            // messages. Restoration reuses its live node, including its listeners.
-            root.querySelectorAll('[data-post-history-upload]').forEach((node) => {
-                const slot = document.createElement('span');
-                slot.dataset.postHistoryUpload = node.dataset.postHistoryUpload;
-                node.replaceWith(slot);
-            });
-            root.querySelectorAll('[class=""]').forEach((node) => node.removeAttribute('class'));
-            return {root, html: root.innerHTML, selection: selection()};
-        }
-        let entries = [snapshot()];
-        const suspended = () => destroyed || depth > 0 || state.imageCaptionEditor || state.mediaCaptionEditors.size > 0;
-        function trim() {
-            let size = entries.reduce((sum, entry) => sum + entry.html.length, 0);
-            // Bound both operation count and serialized size. Always retain the
-            // current and previous state, even for an exceptionally large post.
-            while (entries.length > 2 && index > 1 && (entries.length > 100 || size > 4 * 1024 * 1024)) {
-                size -= entries.shift().html.length;
-                index--;
-            }
-        }
-        function record(type = '') {
-            if (suspended()) {
-                return;
-            }
-            queued = false;
-            const next = snapshot();
-            if (next.html === entries[index].html) {
-                if (next.selection) entries[index].selection = next.selection;
-                return;
-            }
-            entries.splice(index + 1);
-            if (mergeInput && previousInput?.type === type && index > 0) {
-                entries[index] = next;
-            } else {
-                entries.push(next);
-                index++;
-            }
-            mergeInput = false;
-            previousInput = /^(insertText|insertCompositionText|deleteContentBackward|deleteContentForward)$/u.test(type)
-                ? {type, time: Date.now(), selection: next.selection}
-                : null;
-            trim();
-        }
-        function before(type = '') {
-            if (suspended()) return;
-            if (queued) record();
-            const current = snapshot();
-            if (current.html !== entries[index].html) record();
-            mergeInput = Boolean(previousInput && previousInput.type === type
-                && Date.now() - previousInput.time < 1000
-                && JSON.stringify(previousInput.selection) === JSON.stringify(current.selection));
-            if (current.selection) entries[index].selection = current.selection;
-        }
-        function restorePoint(saved) {
-            let node = state.body;
-            for (const part of saved.path) {
-                if (!node.childNodes[part]) break;
-                node = node.childNodes[part];
-            }
-            return [node, Math.min(saved.offset, node.nodeType === Node.TEXT_NODE ? node.data.length : node.childNodes.length)];
-        }
-        function travel(direction) {
-            if (suspended()) return false;
-            if (queued) record();
-            const target = index + direction;
-            if (target < 0 || target >= entries.length) return false;
-            closeContextMenu(state, false);
-            index = target;
-            previousInput = null;
-            mergeInput = false;
-            const entry = entries[index];
-            const restored = entry.root.cloneNode(true);
-            // Keep each image occurrence's identity so delayed AI descriptions
-            // still target it. Restore attributes from the snapshot, preserving
-            // the existing source/alt guards against stale replies.
-            const savedImages = imagesIn(entry.root);
-            imagesIn(restored).forEach((image, index) => {
-                const live = liveImages.get(savedImages[index]);
-                if (!live) return;
-                Array.from(live.attributes).forEach(({name}) => {
-                    if (!image.hasAttribute(name)) live.removeAttribute(name);
-                });
-                Array.from(image.attributes).forEach(({name, value}) => {
-                    if (live.getAttribute(name) !== value) live.setAttribute(name, value);
-                });
-                image.replaceWith(live);
-            });
-            restored.querySelectorAll('[data-post-history-upload]').forEach((slot) => {
-                const pending = uploads.get(slot.dataset.postHistoryUpload);
-                if (pending) slot.replaceWith(pending.element);
-                else slot.remove();
-            });
-            state.body.replaceChildren(...restored.childNodes);
-            state.bodyDirty = true;
-            state.body.focus({preventScroll: true});
-            if (entry.selection) {
-                window.getSelection()?.setBaseAndExtent(
-                    ...restorePoint(entry.selection.anchor), ...restorePoint(entry.selection.focus),
-                );
-            } else {
-                focusEdge(state.body, true);
-            }
-            clearError(state.form);
-            clearStatus(state.card);
-            syncBoundaryCaret();
-            restoreCallback?.();
-            return true;
-        }
-        function trackUpload(pending) {
-            const id = String(++uploadSequence);
-            pending.element.dataset.postHistoryUpload = id;
-            uploads.set(id, pending);
-        }
-        return {
-            before,
-            record,
-            transact(change) {
-                before();
-                depth++;
-                try { return change(); }
-                finally { depth--; record(); }
-            },
-            schedule() {
-                if (suspended()) return;
-                queued = true;
-                queueMicrotask(() => { if (queued) record(); });
-            },
-            undo: () => travel(-1),
-            redo: () => travel(1),
-            redateMedia(mediaById) {
-                // Renaming a server file is not an edit to undo. Every retained
-                // state, including the redo branch, must point to its new URL.
-                entries.forEach((entry) => {
-                    updateMediaUrls(entry.root, mediaById);
-                    entry.html = entry.root.innerHTML;
-                });
-                if (pendingMediaClipboard?.state === state) {
-                    pendingMediaClipboard.uploads.forEach(pending => {
-                        if (pending.completed) updateMediaUrls(pending.completed, mediaById);
-                    });
-                }
-                trim();
-            },
-            clipboardUploads(root) {
-                return new Map(Array.from(root.querySelectorAll('[data-post-history-upload]'))
-                    .map(node => {
-                        const pending = uploads.get(node.dataset.postHistoryUpload);
-                        return [node.dataset.postHistoryUpload, pending?.original || pending];
-                    })
-                    .filter(([_id, pending]) => pending));
-            },
-            trackUpload,
-            cloneUpload(pending) {
-                const element = pending.element.cloneNode(true);
-                trackUpload({element, original: pending});
-                return element;
-            },
-            resolveUpload(pending, completed) {
-                pending.element.removeAttribute('data-post-history-upload');
-                if (destroyed) return;
-                // Completion amends the insertion in every retained state. It
-                // never adds an undo step or resurrects an insertion already undone.
-                uploads.forEach((occurrence, id) => {
-                    if (occurrence !== pending && occurrence.original !== pending) return;
-                    uploads.delete(id);
-                    // Copies share a request, but retain distinct image identities
-                    // through completion and every undo/redo snapshot.
-                    const result = occurrence === pending ? completed : completed?.cloneNode(true);
-                    if (occurrence !== pending) {
-                        if (result) occurrence.element.replaceWith(result);
-                        else occurrence.element.remove();
-                    }
-                    entries.forEach((entry) => {
-                        entry.root.querySelectorAll(`[data-post-history-upload="${id}"]`).forEach((slot) => {
-                            if (result) slot.replaceWith(cloneWithImages(result));
-                            else slot.remove();
-                        });
-                        entry.html = entry.root.innerHTML;
-                    });
-                });
-                trim();
-            },
-            destroy() { destroyed = true; queued = false; entries = []; uploads.clear(); },
-            get length() { return entries.length; },
-        };
-    }
-
     function selectionIsInside(element) {
         const selection = window.getSelection();
         if (!selection || selection.rangeCount === 0) {
@@ -5289,7 +3617,7 @@
                 `image-alt.${preview.extension}`,
             );
 
-            const response = await window.fetch(state.form.action, {
+            const {response, data: payload} = await window.RegisterEditorRequest.requestJson(state.form.action, {
                 method: 'POST',
                 body: data,
                 credentials: 'same-origin',
@@ -5298,8 +3626,8 @@
                     'X-Requested-With': 'XMLHttpRequest',
                 },
                 signal: controller.signal,
-            });
-            const payload = await response.json().catch(() => null);
+            }, {timeoutMs: editorConfig().saveTimeoutMs, timeoutMessage: editorConfig().saveTimeout});
+
             if (
                 !response.ok
                 || !payload
@@ -5549,6 +3877,9 @@
         if (!editor) {
             return;
         }
+        // Read the rendered text while the caption is still editable. WebKit
+        // can omit it from innerText once the overlay's clipping is restored.
+        const text = commit ? imageCaptionEditorText(editor.caption) : editor.original;
         state.imageCaptionEditor = null;
         editor.controller.abort();
         editor.history?.destroy();
@@ -5571,7 +3902,6 @@
             state.body.setAttribute('contenteditable', editor.bodyContentEditable);
         }
 
-        const text = commit ? imageCaptionEditorText(editor.caption) : editor.original;
         const styleChanged = text !== '' && (
             editor.caption.dataset.captionFont !== editor.originalFont
             || editor.caption.dataset.captionBackground !== editor.originalBackground
@@ -6187,7 +4517,7 @@
         data.set('text', source);
 
         try {
-            const response = await window.fetch(state.form.action, {
+            const {response, data: payload} = await window.RegisterEditorRequest.requestJson(state.form.action, {
                 method: 'POST',
                 body: data,
                 credentials: 'same-origin',
@@ -6196,8 +4526,8 @@
                     'X-Requested-With': 'XMLHttpRequest',
                 },
                 signal: controller.signal,
-            });
-            const payload = await response.json().catch(() => null);
+            }, {timeoutMs: editorConfig().saveTimeoutMs, timeoutMessage: editorConfig().saveTimeout});
+
             if (
                 !response.ok
                 || !payload

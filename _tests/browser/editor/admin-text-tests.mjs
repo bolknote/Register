@@ -35,7 +35,7 @@ async function checkHistoryAndSave(page, initial, result) {
     await page.getByRole('button', {name: 'Redo', exact: true}).click();
     assert.equal(await value(page), result);
     await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide')));
-    assert.equal(await page.evaluate(() => localStorage.getItem('register_content_draft:post:9')), result);
+    assert.equal(await page.evaluate(() => window.readAdminDraft('9')), result);
     const saves = holdRequests(page, '**/admin-save?id=9');
     await saves.installed;
     await page.getByRole('button', {name: 'Save', exact: true}).click();

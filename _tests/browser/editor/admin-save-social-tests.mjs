@@ -39,7 +39,10 @@ export async function runAdminSaveFailureRegressions(browser, origin) {
                     request = await requests.next();
                     assert.equal((await formData(request)).get('body'), text);
                 }
-                if (fault.endsWith('network')) await request.abort('failed');
+                if (fault.endsWith('network')) {
+                    await request.abort('failed');
+                    if (!creating) await (await requests.next()).abort('failed');
+                }
                 else if (fault === '409-message') await request.fulfill({status: 409, json: {message: 'Server conflict'}});
                 else if (fault === '500-errors') await request.fulfill({status: 500, json: {errors: ['Server rejected save']}});
                 else if (fault === '422-invalid') await request.fulfill({status: 422, json: {errors: null}});
@@ -51,7 +54,7 @@ export async function runAdminSaveFailureRegressions(browser, origin) {
                 assert.equal(await page.evaluate(() => window.saveEndCount), 0);
                 assert.equal(await page.locator('[name="revision"]').inputValue(), '1');
                 assert.equal(await page.evaluate(() => window.onbeforeunload()), 'Unsaved changes');
-                assert.equal(await page.evaluate(key => localStorage.getItem(key), 'register_content_draft:post:' + (creating ? 'new' : '9')), text);
+                assert.equal(await page.evaluate(key => window.readAdminDraft(key), creating ? 'new' : '9'), text);
                 assert.equal(await page.locator('form').evaluate(form => form.inert), false);
                 const next = text + ' and a retry';
                 if (codemirror) {
@@ -62,9 +65,9 @@ export async function runAdminSaveFailureRegressions(browser, origin) {
                 const retry = await requests.next();
                 assert.equal((await formData(retry)).get('body'), next);
                 if (creating) {
-                    await retry.fulfill({status: 302, headers: {location: '/admin.html?id=10'}});
+                    await retry.continue({url: origin + '/admin-save-redirect'});
                     await page.waitForURL('**/admin.html?id=10');
-                    assert.equal(await page.evaluate(() => localStorage.getItem('register_content_draft:post:new')), null);
+                    assert.equal(await page.evaluate(() => window.readAdminDraft('new')), null);
                 } else {
                     await retry.fulfill({json: {revision: 2, urlStatus: 'ok', urlTitle: '', url: '/post'}});
                     await page.waitForFunction(() => document.querySelector('[name="revision"]').value === '2');
@@ -121,9 +124,10 @@ export async function runSocialPreviewRegressions(browser, origin) {
         });
         console.log(`social preview: ${codemirror ? 'CodeMirror' : 'textarea'} changes, undo/redo, AI and explicit overrides stay current`);
         await withPage(browser, async page => {
-            await page.addInitScript(() => localStorage.setItem('register_content_draft:post:9', '<p>Recovered description</p><img src="/recovered.png">'));
+            await page.addInitScript(() => localStorage.setItem('register:admin-recovery:1:%2F:1:post:seed', JSON.stringify({version: 1, id: 'seed', target: '9', revision: 1, savedAt: Date.now(), snapshot: [['title', 'Server title'], ['body', '<p>Recovered description</p><img src="/recovered.png">'], ['tags', 'old']]})));
             await page.goto(origin + '/admin.html?id=9&social=1' + (codemirror ? '&codemirror=1' : ''));
             await page.waitForFunction(() => window.adminEditorReady);
+            await page.getByRole('button', {name: 'Restore draft', exact: true}).first().click();
             assert.equal(await page.locator('[data-social-preview-description]').textContent(), 'Recovered description');
             assert.equal(await page.locator('[data-social-preview-image]').evaluate(image => image.style.backgroundImage), 'url("/recovered.png")');
         });

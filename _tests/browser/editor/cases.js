@@ -118,12 +118,13 @@ test('inline code undo/redo preserves the text and selection', async () => {
     const s = setup();
     await type(s, 'Альфа бета гамма');
     select(s);
+    const selectedText = getSelection().toString();
     await action(s, 'inline-code');
     equal(s.body.querySelector('tt')?.textContent, 'Альфа бета гамма');
     await undo(s);
     equal(plain(s), 'Альфа бета гамма');
     equal(s.body.querySelector('tt'), null);
-    equal(getSelection().toString(), 'Альфа бета гамма', 'Undo restores the selected text');
+    equal(getSelection().toString(), selectedText, 'Undo restores the selected text');
     await undo(s, true);
     equal(s.body.querySelector('tt')?.textContent, 'Альфа бета гамма');
 });
@@ -181,7 +182,7 @@ test('unlink is its own undo step after creating a link', async () => {
 test('overlay caption commit and styling undo as one operation', async () => {
     const s = setup('<p>Before</p><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="fixture">');
     api.beginImageCaptionEditing(s, s.body.querySelector('img'), 'Caption');
-    await tick();
+    await frame();
     const caption = s.imageCaptionEditor.caption;
     caption.focus();
     document.execCommand('insertText', false, 'Первая строка\nВторая строка');

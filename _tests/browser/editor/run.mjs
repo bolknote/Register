@@ -1,6 +1,7 @@
-import {chromium, firefox} from 'playwright';
+import {chromium, firefox, webkit} from 'playwright';
 import assert from 'node:assert/strict';
 import {createFixtureServer} from './server.mjs';
+import {runDurabilityRegressions} from './durability-tests.mjs';
 import {runRecoveryRegressions} from './recovery-tests.mjs';
 import {runSaveRegressions, runAdminDirtyFieldRegressions} from './save-tests.mjs';
 import {runReviewRegressions} from './review-tests.mjs';
@@ -417,12 +418,18 @@ async function runAuthorWorkflowRegressions(browser, origin) {
     }
 }
 
+const engines = [chromium, firefox, webkit];
+const selectedEngine = process.env.EDITOR_TEST_BROWSER;
+if (selectedEngine && !engines.some(engine => engine.name() === selectedEngine)) {
+    throw new Error(`Unknown EDITOR_TEST_BROWSER: ${selectedEngine}`);
+}
 const server = createFixtureServer();
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 try {
-    for (const engine of [chromium, firefox]) {
+    for (const engine of engines.filter(engine => !selectedEngine || engine.name() === selectedEngine)) {
         const browser = await engine.launch();
         try {
+            await runDurabilityRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             for (const fixture of ['/', '/comment.html', '/live.html']) {
                 const page = await browser.newPage();
                 const errors = [];

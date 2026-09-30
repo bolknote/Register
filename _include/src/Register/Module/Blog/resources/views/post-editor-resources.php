@@ -51,6 +51,8 @@ $config = [
     'recoveryUnavailable' => $trans('Post recovery unavailable'),
     'recoveryMedia' => $trans('Post recovery media'),
     'recoveryMarkup' => $trans('Post recovery markup'),
+    'saveTimeout' => $trans('Post save timeout'),
+    'creationRecovered' => $trans('Post creation recovered'),
 ];
 ?>
 <div id="post-editor-resources" hidden data-config="<?php echo register_htmlencode(json_encode($config, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)); ?>">

@@ -101,7 +101,7 @@ export async function runAdminDirtyFieldRegressions(browser, origin) {
                 await page.waitForFunction(() => document.querySelector('[name="revision"]').value === '2');
                 assert.equal(await page.evaluate(() => window.onbeforeunload()), 'Unsaved changes',
                     'A successful save must retain the warning for a different current snapshot');
-                assert.equal(await page.evaluate(() => localStorage.getItem('register_content_draft:post:9')), initial.body);
+                assert.equal(await page.evaluate(() => window.readAdminDraft('9')), initial.body);
                 await page.getByRole('button', {name: 'Save', exact: true}).click();
                 const retry = await requests.next();
                 const retryData = await formData(retry);
@@ -110,7 +110,7 @@ export async function runAdminDirtyFieldRegressions(browser, origin) {
                 await retry.fulfill({json: {...savedAdmin, revision: 3}});
                 await page.waitForFunction(() => document.querySelector('[name="revision"]').value === '3');
                 assert.equal(await page.evaluate(() => window.onbeforeunload()), undefined);
-                assert.equal(await page.evaluate(() => localStorage.getItem('register_content_draft:post:9')), null);
+                assert.equal(await page.evaluate(() => window.readAdminDraft('9')), null);
                 assert.deepEqual(errors, []);
             } finally { await page.close(); }
             console.log(`admin dirty fields: ${name} in ${codeMirror ? 'CodeMirror' : 'textarea'} retains warnings, pending-save edits and exact saved values`);
@@ -277,7 +277,7 @@ export async function runSaveRegressions(browser, origin) {
             assert.equal(requests.count, 0, 'Only one save may run at a time');
             assert.deepEqual(await page.evaluate(() => ({
                 body: document.querySelector('textarea').value,
-                draft: localStorage.getItem('register_content_draft:post:9'),
+                draft: window.readAdminDraft('9'),
                 warning: window.onbeforeunload(),
             })), {body: 'Typed during save', draft: 'Typed during save', warning: 'Unsaved changes'});
             await page.getByRole('button', {name: 'Save', exact: true}).click();
@@ -319,13 +319,13 @@ export async function runSaveRegressions(browser, origin) {
             await input.focus();
             await page.keyboard.press('End');
             await page.keyboard.type(' again');
-            assert.equal(await page.evaluate(() => localStorage.getItem('register_content_draft:post:new')), 'Corrected new post again');
+            assert.equal(await page.evaluate(() => window.readAdminDraft('new')), 'Corrected new post again');
             await page.getByRole('button', {name: 'Save', exact: true}).click();
             const created = await requests.next();
             assert.equal((await formData(created)).get('body'), 'Corrected new post again');
-            await created.fulfill({status: 303, headers: {location: '/admin.html?id=10'}});
+            await created.continue({url: origin + '/admin-save-redirect'});
             await page.waitForURL('**/admin.html?id=10');
-            assert.equal(await page.evaluate(() => localStorage.getItem('register_content_draft:post:new')), null);
+            assert.equal(await page.evaluate(() => window.readAdminDraft('new')), null);
         } finally {
             await page.close();
         }

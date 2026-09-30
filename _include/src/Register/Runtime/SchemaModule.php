@@ -25,6 +25,7 @@ use Register\Schema\PublicAuthSchemaMigration;
 use Register\Schema\QueueLeaseSchemaMigration;
 use Register\Schema\QueuePrioritySchemaMigration;
 use Register\Schema\PostUrlNamespaceSchemaMigration;
+use Register\Schema\PostCreateOperationSchemaMigration;
 use Register\Schema\ReactionEmojiCollationSchemaMigration;
 use Register\Schema\ReactionEmojiHashSchemaMigration;
 use Register\Schema\SchemaManager;
@@ -157,6 +158,7 @@ final readonly class SchemaModule implements ContainerModuleInterface
             ),
             [SchemaMigrationInterface::class],
         );
+        $container->set(PostCreateOperationSchemaMigration::class, new PostCreateOperationSchemaMigration(), [SchemaMigrationInterface::class]);
         $container->set(SchemaMigrator::class, fn(Container $container): SchemaMigrator => new SchemaMigrator(
             $container->get(DbLayer::class),
             $container->getByTag(SchemaMigrationInterface::class),

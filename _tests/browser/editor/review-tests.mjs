@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {formData, holdRequests} from './save-tests.mjs';
 
-const draftKey = 'register_content_draft:post:9';
+const draftTarget = '9';
 const savedAdmin = {revision: 2, urlStatus: 'ok', urlTitle: '', url: '/post'};
 
 async function closeTab(page) {
@@ -45,7 +45,16 @@ export async function runReviewRegressions(browser, origin) {
                 .list().some(copy => copy.snapshot.body.includes('Last recoverable text')));
             if (failure === 'storage') await page.evaluate(() => { window.blockDraftStorage = true; });
             const text = failure === 'oversized' ? 'x'.repeat(530000) : 'Latest text while storage is full';
-            await body.fill(text);
+            if (failure === 'oversized') {
+                // This case exercises the storage size limit, avoiding a slow
+                // native insertion of half a million unbroken characters.
+                await body.evaluate((element, value) => {
+                    element.textContent = value;
+                    element.dispatchEvent(new InputEvent('input', {bubbles: true, inputType: 'insertFromPaste'}));
+                }, text);
+            } else {
+                await body.fill(text);
+            }
             await page.waitForFunction(() => document.querySelector('.post-inplace-status.is-error:not([hidden])'));
             await page.getByRole('button', {name: 'New post', exact: true}).click();
             assert.equal(await page.locator('.post-card.is-editing').getAttribute('data-post-id'), '9');
@@ -100,14 +109,16 @@ export async function runReviewRegressions(browser, origin) {
                     await (await requests.next()).fulfill({json: savedAdmin});
                     await older.waitForFunction(() => document.querySelector('[name="revision"]').value === '2');
                 }
-                assert.equal(await older.evaluate(key => localStorage.getItem(key), draftKey), 'Latest unsaved text');
+                assert.equal(await older.evaluate(key => window.readAdminDraft(key), draftTarget), 'Latest unsaved text');
                 await closeTab(newer);
                 await closeTab(older);
                 const reopened = await context.newPage();
                 await reopened.goto(url);
                 await reopened.waitForFunction(() => window.adminEditorReady);
+                assert.equal(await reopened.locator('textarea').inputValue(), 'Server body');
+                await reopened.getByRole('button', {name: 'Restore draft', exact: true}).first().click();
                 assert.equal(await reopened.locator('textarea').inputValue(), 'Latest unsaved text');
-                assert.equal(await reopened.evaluate(key => localStorage.getItem(key), draftKey), 'Latest unsaved text');
+                assert.equal(await reopened.evaluate(key => window.readAdminDraft(key), draftTarget), 'Latest unsaved text');
             });
             console.log(`recovery: ${scenario} admin tab cannot erase or rewind another tab's copy (${codemirror ? 'CodeMirror' : 'textarea'})`);
         }

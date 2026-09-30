@@ -18,6 +18,7 @@ use Register\Comment\CommentSchema;
 use Register\Content\ContentSchema;
 use Register\Content\ContentMediaSchema;
 use Register\Content\ContentType;
+use Register\Content\PostCreateOperationSchema;
 use Register\Content\ContentTagSchema;
 use Register\Content\ContentViewSchema;
 use Register\Content\ContentViewSpoolReceiptSchema;
@@ -94,6 +95,7 @@ readonly class Installer
         ContentViewSchema::create($this->dbLayer);
         ContentViewSpoolReceiptSchema::create($this->dbLayer);
         ContentMediaSchema::create($this->dbLayer);
+        PostCreateOperationSchema::create($this->dbLayer);
         ContentUrlAliasSchema::create($this->dbLayer);
         UserpicSchema::create($this->dbLayer);
 
@@ -194,6 +196,7 @@ readonly class Installer
         CommentSchema::drop($this->dbLayer);
         ContentUrlAliasSchema::drop($this->dbLayer);
         ContentMediaSchema::drop($this->dbLayer);
+        $this->dbLayer->dropTable(PostCreateOperationSchema::TABLE_NAME);
         ContentViewSpoolReceiptSchema::drop($this->dbLayer);
         ContentViewSchema::drop($this->dbLayer);
         ContentSchema::drop($this->dbLayer);

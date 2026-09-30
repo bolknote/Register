@@ -3,6 +3,12 @@
 declare(strict_types = 1);
 
 return [
+    'Local draft available' => 'A local draft is available.',
+    'Local draft server changed' => 'The server version changed since this draft was saved.',
+    'Restore local draft' => 'Restore draft',
+    'Discard local draft' => 'Discard draft',
+    'Local draft unavailable' => 'The local draft could not be saved.',
+
     'Comment deleted' => 'Comment deleted',
     'Undo comment deletion' => 'Undo',
     'Comment deleted with undo period' => 'Comment deleted. Undo is available for ten minutes.',

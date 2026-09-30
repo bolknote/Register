@@ -4,10 +4,11 @@ import vm from 'node:vm';
 import {readFile} from 'node:fs/promises';
 
 const source = await readFile(new URL('../../_assets/register/post-inplace.js', import.meta.url), 'utf8');
+const fieldsSource = await readFile(new URL('../../_assets/register/editor/fields.js', import.meta.url), 'utf8');
 const functions = source.slice(
     source.indexOf('    function restoreTypographicNoBreaks('),
     source.indexOf('    function focusEdge('),
-);
+) + fieldsSource.slice(fieldsSource.indexOf('        function createEditorFieldSurfaces('), fieldsSource.lastIndexOf('        return {createEditorFieldSurfaces};'));
 
 const bounds = (top, height, left = 100, width = 500) => ({top, bottom: top + height, left, width, height});
 

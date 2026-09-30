@@ -53,7 +53,7 @@ async function checkPopup(page, expected) {
     assert.deepEqual(await popup(page).allTextContents(), [expected], 'Every current error must be visible in one notification');
     assert.equal(await page.locator('[name="revision"]').inputValue(), '1');
     assert.equal(await warning(page), 'Unsaved changes');
-    assert.equal(await page.evaluate(() => localStorage.getItem('register_content_draft:post:9')), 'Unsaved body');
+    assert.equal(await page.evaluate(() => window.readAdminDraft('9')), 'Unsaved body');
     assert.equal(await page.locator('form').evaluate(form => form.inert), false);
 }
 
@@ -69,7 +69,7 @@ async function retry(page, requests) {
     await page.waitForFunction(() => document.querySelector('[name="revision"]').value === '2');
     assert.equal(await popup(page).count(), 0, 'Success clears the complete previous error notification');
     assert.equal(await warning(page), undefined);
-    assert.equal(await page.evaluate(() => localStorage.getItem('register_content_draft:post:9')), null);
+    assert.equal(await page.evaluate(() => window.readAdminDraft('9')), null);
 }
 
 export async function runAdminFieldErrorRegressions(browser, origin) {

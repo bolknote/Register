@@ -42,7 +42,16 @@ export async function runLifecycleRegressions(browser, origin) {
             }
             if (failure === 'quota') await page.evaluate(() => { window.blockDraftStorage = true; });
             const latest = failure === 'oversized' ? 'Latest paragraph ' + 'x'.repeat(530000) : 'Latest unsaved paragraph';
-            await body.fill(latest);
+            if (failure === 'oversized') {
+                // Seed the storage limit payload without timing native editing
+                // of half a million unbroken characters in the browser.
+                await body.evaluate((element, value) => {
+                    element.textContent = value;
+                    element.dispatchEvent(new InputEvent('input', {bubbles: true, inputType: 'insertFromPaste'}));
+                }, latest);
+            } else {
+                await body.fill(latest);
+            }
             await page.waitForFunction(() => document.querySelector('.post-inplace-status.is-error:not([hidden])'));
 
             const warned = page.waitForEvent('dialog');
@@ -196,7 +205,7 @@ export async function runLifecycleRegressions(browser, origin) {
                 }
                 assert.deepEqual(await values(), original, 'Late AI cannot dirty a submitted create form');
                 if (succeeds) {
-                    await pendingSave.fulfill({status: 303, headers: {location: '/admin.html?id=10'}});
+                    await pendingSave.continue({url: origin + '/admin-save-redirect'});
                     await page.waitForURL('**/admin.html?id=10');
                 } else {
                     await pendingSave.fulfill({status: 422, json: {errors: ['Invalid article']}});
@@ -205,7 +214,7 @@ export async function runLifecycleRegressions(browser, origin) {
                 }
             }
             assert.deepEqual(dialogs, [], 'The saved creation must redirect without an unsaved-changes warning');
-            assert.equal(await page.evaluate(() => localStorage.getItem('register_content_draft:post:new')), null);
+            assert.equal(await page.evaluate(() => window.readAdminDraft('new')), null);
         });
         console.log(`save: late admin AI ${action} is cancelled; failed saves unlock and successful creation redirects`);
     }

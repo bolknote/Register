@@ -69,7 +69,7 @@ export async function runAdminCompositionRegressions(browser, origin) {
                 await page.getByRole('button', {name: 'Redo', exact: true}).click();
                 assert.equal(await value(page), expected);
                 await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide')));
-                assert.equal(await page.evaluate(() => localStorage.getItem('register_content_draft:post:9')), expected);
+                assert.equal(await page.evaluate(() => window.readAdminDraft('9')), expected);
                 await page.locator('.ai-image-alt-text').click();
                 await page.locator('.ai-image-alt-input').fill('Discard this');
                 await page.locator('.ai-image-alt-input').press('Escape');

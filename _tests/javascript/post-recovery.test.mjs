@@ -5,6 +5,7 @@ import {readFile} from 'node:fs/promises';
 
 const source = await readFile(new URL('../../_assets/register/post-recovery.js', import.meta.url), 'utf8');
 const context = vm.createContext({window: {}});
+vm.runInContext(await readFile(new URL('../../_assets/register/editor/storage.js', import.meta.url), 'utf8'), context);
 vm.runInContext(source, context);
 const {createStore} = context.window.RegisterPostRecovery;
 const stamp = 1800000000000;

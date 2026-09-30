@@ -3,6 +3,9 @@
 declare(strict_types = 1);
 
 return [
+    'Post save timeout' => 'The server did not respond in time. Your draft is retained; please try saving again.',
+    'Post creation recovered' => 'The post was already created. Review and save your later changes.',
+
     'Invalid post URL' => 'Enter an unused post address without spaces, special characters or query parameters.',
     'The complete URL exceeds the 255-byte URL history limit. Shorten the address or its parent addresses.' => 'The complete URL exceeds the 255-byte URL history limit. Shorten the address or its parent addresses.',
     'Post recovery found' => 'This device has unsaved text:',

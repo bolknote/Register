@@ -45,8 +45,7 @@ async function withPage(browser, origin, options, run) {
             if (options.layout) source = source
                 .replace("Object.assign(editor.getWrapperElement().style, {position: 'relative', width: '500px', height: '160px'});", '')
                 .replace('form.before(toolbar);', 'toolbar.innerHTML += \'<button type="button" data-editor-action="fullscreen">Fullscreen</button>\'; form.before(toolbar);');
-            if (options.templates) source = source.replace("initArticleEditForm(form, null, 'Post', 'body', 'default');",
-                "initArticleEditForm(form, null, 'Post', 'body', null);");
+            if (options.templates) source = source.replace("'Post', 'body', 'default',", "'Post', 'body', null,");
             await route.fulfill({response, body: source});
         });
         await page.route('**/preview-layout.css', route => route.fulfill({contentType: 'text/css', body: 'p {height:80px;margin:0}'}));
@@ -109,7 +108,7 @@ export async function runAltLayoutRegressions(browser, origin) {
             await page.keyboard.insertText('New ');
             await page.waitForFunction(expected => window.adminEditor.getValue() === '<p>New ' + expected.slice(3), expected);
             await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide')));
-            assert.equal(await page.evaluate(creating => localStorage.getItem('register_content_draft:post:' + (creating ? 'new' : '9')), mode === 'new'), '<p>New ' + expected.slice(3));
+            assert.equal(await page.evaluate(creating => window.readAdminDraft(creating ? 'new' : '9'), mode === 'new'), '<p>New ' + expected.slice(3));
         });
         console.log(`admin alt layout: ${mode} keeps source accessible, saves descriptions and resumes typing`);
     }
@@ -139,7 +138,7 @@ export async function runTemplateFieldRegressions(browser, origin) {
                 await page.waitForLoadState('networkidle');
                 assert.equal(await page.evaluate(() => document.getElementById('body-preview-frame').contentDocument.body.dataset.template), 'second');
                 assert.deepEqual(requests, ['first', 'second']);
-                assert.equal(await page.evaluate(() => localStorage.getItem('register_content_draft:post:9')), null, 'Changing the template must not create a body draft');
+                assert.equal(await page.evaluate(() => window.readAdminDraft('9')), 'Server body', 'The complete draft retains the unchanged body as well as the edited template');
                 assert.equal(await page.evaluate(() => Boolean(window.onbeforeunload())), true);
                 const saves = holdRequests(page, '**/admin-save?id=9');
                 await saves.installed;

@@ -4,8 +4,10 @@
     const revision = Number(params.get('revision') || 1);
     const config = {
         aiAltEnabled: false,
+        titlePlaceholder: 'New post',
         tagSuggestionsUrl: '/_inplace/tags',
         recoveryUserId: user,
+        saveTimeoutMs: Number(params.get('timeout')) || 30000,
         recoveryFound: 'This device has unsaved text:',
         recoveryChanged: 'The site has a newer version. Review it before saving.',
         recoveryRestore: 'Restore text', recoveryDiscard: 'Delete local copy',
@@ -29,7 +31,7 @@
                 <input name="inplace_token" type="hidden" value="private-fixture-token">
             </form>
             <p class="post-inplace-error post-inplace-edit-error" hidden></p><p class="post-inplace-status" hidden></p>
-            <h2 class="post head"><a href="/server-slug"><span data-post-inplace-title></span></a></h2>
+            <h2 class="post head"><a href="/server-slug"><span class="post-title-text" data-post-inplace-title></span></a></h2>
             <div class="post time"><time datetime="2026-09-06T12:00:00Z" data-local-time="datetime" data-locale="ru">6 September</time>
                 <button type="button" class="post-inplace-date-button" hidden>Date</button>
                 <input class="post-inplace-datetime" type="datetime-local" step="1" hidden></div>

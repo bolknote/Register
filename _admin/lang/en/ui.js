@@ -1,4 +1,5 @@
 var register_lang = {
+    save_timeout: 'The server did not respond in time. Your draft is retained; please try saving again.',
 	load				: 'Loading...',
 	load_tree			: 'Loading site structure...',
 	new_page			: 'New page',

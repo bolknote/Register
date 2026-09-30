@@ -12,12 +12,13 @@ import {Preview, initPreviewSync} from './preview.js';
 import {register_codemirror} from './codemirror.js';
 import {escapeHtml, sanitizeUrlForAttribute} from './utils/escape.js';
 import {formErrorMessages} from './utils/form-errors.js';
+import {createFormRecovery} from './form-recovery.js';
+import '../../../_assets/register/editor/request.js';
 
-export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaName, sTemplateId, sSlugFieldName = 'url', sTemplateScope = '') {
+export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaName, sTemplateId, sSlugFieldName = 'url', sTemplateScope = '', recoveryOptions = {}) {
     const sLowerEntityName = sEntityName.toLowerCase();
     const formUrl = new URL(eForm.action);
     const contentId = formUrl.searchParams.get('id') || 'new';
-    const draftStorageKey = 'register_content_draft:' + sLowerEntityName + ':' + contentId;
 
     function decorateForm(currentStatusData) {
         const publishedInput = eForm.querySelector('input[name="published"]');
@@ -69,7 +70,7 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
 
         function successHandler(nextStatusData) {
             editorDeps.PopupMessages.hide(sLowerEntityName + '-save');
-            Changes.markSaved(submittedSnapshot);
+            Changes.markSaved(submittedSnapshot, nextStatusData['revision']);
             document.dispatchEvent(new Event('save_article_end.register'));
 
             eForm.elements['revision'].value = nextStatusData['revision'];
@@ -117,17 +118,18 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
             if (tempCsrfToken !== '') {
                 headers['X-AdminYard-CSRF-Token'] = tempCsrfToken;
             }
-            let response = await fetch(eForm.action, {
+            const requestOptions = {timeoutMs: editorDeps.saveTimeoutMs, retries: contentId === 'new' ? 0 : 1,
+                timeoutMessage: editorDeps.register_lang?.save_timeout};
+            let {response, data} = await window.RegisterEditorRequest.requestJson(eForm.action, {
                 method: 'POST', headers: headers, body: formData, registerHandleErrorsInline: true
-            });
+            }, requestOptions);
 
             if (response.status === 422) {
-                const data = await response.json().catch(() => null);
                 if (!data?.invalid_csrf_token) {
                     errorHandler(data);
                     return;
                 }
-                response = await fetch(eForm.action, {
+                ({response, data} = await window.RegisterEditorRequest.requestJson(eForm.action, {
                     method: 'POST',
                     headers: {
                         'X-Requested-With': 'XMLHttpRequest',
@@ -135,7 +137,7 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
                     },
                     body: formData,
                     registerHandleErrorsInline: true
-                });
+                }, requestOptions));
             }
 
             if (response.redirected) {
@@ -147,14 +149,13 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
                 return;
             }
 
-            const data = await response.json().catch(() => null);
             if (response.ok && data && data.revision != null) {
                 successHandler(data);
             } else {
                 errorHandler(data);
             }
         } catch (error) {
-            errorHandler(null);
+            errorHandler(error?.name === 'EditorTimeoutError' ? {errors: [error.message]} : null);
             console.warn('An error occurred:', error);
         } finally {
             if (!navigating) {
@@ -213,56 +214,27 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
     var Changes = (function () {
         const eTextarea = eForm.elements[sTextareaName];
         const eTitle = eForm.elements['title'];
-        // Firefox can restore an unsaved textarea value before initialization.
-        // Only the server-rendered default is the saved body in that case.
-        let savedText = eTextarea.defaultValue;
         let previousText = eTextarea.value;
         let previousTitle = eTitle.value;
         const templateInput = eForm.elements['template'];
         const templateId = () => sTemplateId || templateInput?.value || '';
         let previousTemplate = templateId();
         let currentFormHash = '';
-        let lastDraft = null;
-        let lastPersistedText = savedText;
-        let lastPersistedSavedText = savedText;
+        const recovery = createFormRecovery(eForm, {
+            ...recoveryOptions, entity: sLowerEntityName, target: contentId,
+        }, () => {
+            register_codemirror.setValue(eTextarea.value, true);
+            register_codemirror.flip();
+            checkChanges();
+        });
 
-        function readDraft() {
-            try {
-                return localStorage.getItem(draftStorageKey);
-            } catch (error) {
-                console.warn('Unable to read the local editor draft:', error);
-                return null;
-            }
-        }
-
-        function removeDraft(expected) {
-            if (expected !== null && localStorage.getItem(draftStorageKey) === expected) {
-                localStorage.removeItem(draftStorageKey);
-            }
-        }
-
-        function persistDraft(currentText) {
-            // An idle tab must not replace a more recent copy on its preview
-            // timer or on exit. Only a text change or a completed save writes.
-            if (currentText === lastPersistedText && savedText === lastPersistedSavedText) return;
-            try {
-                if (savedText !== currentText) {
-                    localStorage.setItem(draftStorageKey, currentText);
-                    lastDraft = currentText;
-                } else {
-                    removeDraft(lastDraft);
-                    lastDraft = null;
-                }
-                lastPersistedText = currentText;
-                lastPersistedSavedText = savedText;
-            } catch (error) {
-                console.warn('Unable to save the local editor draft:', error);
-            }
+        function persistDraft() {
+            recovery.persist();
         }
 
         function persistCurrentText() {
             register_codemirror.flip();
-            persistDraft(eTextarea.value);
+            persistDraft();
         }
 
         function checkChanges() {
@@ -272,7 +244,7 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
             const currentText = eTextarea.value;
             const currentTitle = eTitle.value;
             const currentTemplate = templateId();
-            persistDraft(currentText);
+            persistDraft();
 
             if (previousText !== currentText || previousTitle !== currentTitle || previousTemplate !== currentTemplate) {
                 const absoluteUrl = new URL(eForm.action);
@@ -299,7 +271,7 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
 
             function handleTextChange() {
                 register_codemirror.flip();
-                persistDraft(eTextarea.value);
+                persistDraft();
                 updatePreview();
             }
 
@@ -316,50 +288,18 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
             }
         }
 
-        function getFormHash(formData = new FormData(eForm)) {
-            const visibleFormData = new FormData();
-
-            for (const [key, value] of formData.entries()) {
-                const inputElement = eForm.elements[key];
-                if (inputElement.type !== 'hidden') {
-                    visibleFormData.append(key, value);
-                }
-            }
-
-            // Keep field boundaries distinct from literal '&name=' in values.
-            const serializedData = JSON.stringify(Array.from(visibleFormData));
-
-            return hex_md5(serializedData);
+        function getFormHash(formData) {
+            return hex_md5(JSON.stringify(recovery.snapshot(formData)));
         }
 
-        function markSaved(snapshot) {
+        function markSaved(snapshot, revision) {
             currentFormHash = snapshot.hash;
-            savedText = snapshot.text;
+            recovery.markSaved(snapshot.fields, revision);
             persistCurrentText();
         }
 
-        const recoveredText = readDraft();
-        lastDraft = recoveredText;
-        lastPersistedText = recoveredText ?? savedText;
-        const initialFormData = new FormData(eForm);
-        initialFormData.set(sTextareaName, savedText);
-        currentFormHash = getFormHash(initialFormData);
+        currentFormHash = hex_md5(JSON.stringify(recovery.baseline));
         wireLivePreview();
-
-        if (recoveredText !== null && recoveredText !== savedText) {
-            if (!register_codemirror.setValue(recoveredText, true)) {
-                eTextarea.value = recoveredText;
-            }
-            register_codemirror.flip();
-            previousText = recoveredText;
-        } else if (recoveredText !== null) {
-            try {
-                removeDraft(recoveredText);
-                lastDraft = null;
-            } catch (error) {
-                console.warn('Unable to remove the local editor draft:', error);
-            }
-        }
 
         setInterval(checkChanges, 5000);
         const absoluteUrl = new URL(eForm.action);
@@ -374,7 +314,7 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
         );
         return {
             persist: persistCurrentText,
-            snapshot: formData => ({hash: getFormHash(formData), text: formData.get(sTextareaName)}),
+            snapshot: formData => ({hash: getFormHash(formData), fields: recovery.snapshot(formData)}),
             markSaved,
             present: function () {
                 document.dispatchEvent(new Event('changes_present.register'));

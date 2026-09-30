@@ -3,7 +3,7 @@ import {formData, holdRequests} from './save-tests.mjs';
 
 export async function runAdminHtmlRegressions(browser, origin) {
     const errors = [];
-    const draftKey = 'register_content_draft:post:9';
+    const draftTarget = '9';
     const value = page => page.evaluate(() => window.adminEditor.getValue());
     async function withPage(initial, run) {
         const context = await browser.newContext();
@@ -45,7 +45,7 @@ export async function runAdminHtmlRegressions(browser, origin) {
                 // form's pagehide listener persists its recovery copy.
                 await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide')));
                 assert.equal(await value(page), changedImage);
-                assert.equal(await page.evaluate(key => localStorage.getItem(key), draftKey), changedImage);
+                assert.equal(await page.evaluate(key => window.readAdminDraft(key), draftTarget), changedImage);
                 return;
             }
             const warned = page.waitForEvent('dialog');
@@ -57,18 +57,19 @@ export async function runAdminHtmlRegressions(browser, origin) {
                 await dialog.accept();
                 await navigated;
                 await page.waitForFunction(() => window.adminEditorReady);
+                await page.getByRole('button', {name: 'Restore draft', exact: true}).first().click();
             } else {
                 await dialog.dismiss();
             }
             await reload;
             assert.equal(await value(page), changedImage);
-            assert.equal(await page.evaluate(key => localStorage.getItem(key), draftKey), changedImage);
+            assert.equal(await page.evaluate(key => window.readAdminDraft(key), draftTarget), changedImage);
             assert.equal(await page.evaluate(() => Boolean(window.onbeforeunload())), true,
                 'Native form restoration must not make an unsaved description look saved');
             if (leave === 'dismiss') {
                 await page.getByRole('button', {name: 'Undo', exact: true}).click();
                 assert.equal(await value(page), image, 'Committing on exit is one undoable edit');
-                assert.equal(await page.evaluate(key => localStorage.getItem(key), draftKey), null);
+                assert.equal(await page.evaluate(key => window.readAdminDraft(key), draftTarget), null);
             }
         });
         console.log(`admin alt recovery: ${leave} retains the unfinished description`);
@@ -81,7 +82,7 @@ export async function runAdminHtmlRegressions(browser, origin) {
         assert.equal(await page.evaluate(() => window.onbeforeunload()), undefined);
         await page.locator('.ai-image-alt-text').click();
         assert.equal(await page.evaluate(() => window.onbeforeunload()), undefined);
-        assert.equal(await page.evaluate(key => localStorage.getItem(key), draftKey), null);
+        assert.equal(await page.evaluate(key => window.readAdminDraft(key), draftTarget), null);
     });
     console.log('admin alt recovery: cancelled and unchanged fields stay clean');
 

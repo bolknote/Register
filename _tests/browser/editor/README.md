@@ -4,16 +4,19 @@ These tests execute the real `post-inplace.js` with real DOM, Selection, editing
 commands and input/keyboard events. Unlike the VM unit tests, they exercise undo
 history. The fixture exposes private functions **only in its loopback test server**;
 production code has no testing API. Upload and AI responses are deterministic
-stubs. No blog, database, credentials or external services are used.
+stubs. These fixture regressions use no blog, database, credentials or external
+services. A separate end-to-end suite below starts a disposable PHP installation.
 
 ```sh
 npm ci --prefix _tests/browser/editor
 cd _tests/browser/editor
-npx playwright install chromium firefox
+npx playwright install chromium firefox webkit
 npm test
 ```
 
-The Quality workflow runs both Chromium and Firefox and blocks releases on failure.
+The Quality workflow runs Chromium, Firefox and WebKit and blocks releases on failure.
+To diagnose one engine locally, run `EDITOR_TEST_BROWSER=webkit npm test` (or
+`chromium` / `firefox`); the default runs all three.
 For interactive inspection in Opera or another local browser:
 
 ```sh
@@ -27,7 +30,7 @@ Open `http://127.0.0.1:8082/` for post editing or
 `EDITOR_TEST_REVISION=<git ref>` runs the current tests against an older asset.
 The five original failures reproduce at `d8ebfbb3` (10 failing scenarios).
 
-The 22 post scenarios and four comment scenarios run in each browser. Post
+The 34 post scenarios and five comment scenarios run in each browser. Post
 coverage includes inline code and partial removal, mixed native/DOM formatting,
 unlink, overlay and inline captions,
 full/partial/nested list conversion, and asynchronous media insertion (undo before
@@ -141,7 +144,7 @@ warnings, button and keyboard saves, edits during a save, CSRF retries, failures
 suggestions, paste and delayed AI replies. Block formatting transforms each
 selection independently, including multiline/reversed ranges and mixed carets,
 with one undo step. Delayed image-alt successes and failures preserve an open
-description field, its focus and selection in both browsers; Enter, Escape and
+description field, its focus and selection in all three browsers; Enter, Escape and
 blur retain their usual meaning. Saving commits the open field before capturing
 the body and cancels pending generation.
 
@@ -330,3 +333,35 @@ name or tree position, retaining the selected folder, its insertion link and
 upload token, nested folders, context buttons, and independently created folders.
 Each operation can be retried successfully after a network failure without
 repeating the original server mutation during local recovery.
+
+`npm run test:durability` runs the focused recovery and timeout regressions in all
+three browsers. Admin recovery stores all editable form fields, the base revision
+and an independent copy per tab under the installation/account namespace. Copies
+are restored explicitly, bounded to seven days, ten records and 2 Mi characters
+per namespace; each record is limited to 512 Ki characters. Tokens are excluded.
+Older body-only admin copies have no installation or account identity, so they
+remain in storage without being restored automatically into an authenticated form.
+
+`npm run test:e2e` uses PHP (8.3+) with the Composer dependencies to exercise an
+actual disposable Register installation. It creates a private temporary SQLite
+DB, cache, session directory and secret file, starts the normal development router
+on a free loopback port, and removes all its files in `finally`. It never opens
+`config.php`, `config.local.php` or the developer database. The temporary
+`config.e2e-<random>.php` in the repository contains fixture paths and is removed
+on exit. The workflow runs this suite after the browser regressions.
+
+The end-to-end suite uses real login forms, session cookies, editor controls,
+PHP validation/controllers and SQLite writes. It loses a creation response after
+the DB commit and verifies that retry returns the same post without another row.
+It also edits and reloads a post, restores title/body/tags in the admin editor and
+verifies their stored values. Service workers are blocked in this fault-injection
+context so Playwright can intercept the lost response reliably. On failure the
+server log is saved to `_tests/_output/editor-e2e-server.log`.
+
+The public editor entry coordinates components under `_assets/register/editor/`:
+field decorations, text/media boundaries, undo history, tags and recovery. These
+components accept explicit dependencies. Both public and admin editors use the
+same bounded storage and request deadline helpers. Creation retries retain the
+same operation identifier across local recovery; a replay with later draft edits
+opens the created post for review without discarding those edits. Save deadlines
+include JSON decoding, and uploads/AI/media renaming have bounded requests too.

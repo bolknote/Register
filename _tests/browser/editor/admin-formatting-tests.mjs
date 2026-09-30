@@ -46,7 +46,7 @@ async function checkHistoryAndSave(page, initial, expected, keyMap, selections) 
     assert.equal(await value(page), expected);
     if (selections) assert.deepEqual(await selectionState(page), selections.after, 'Redo restores every resulting cursor and the primary one');
     await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide')));
-    assert.equal(await page.evaluate(() => localStorage.getItem('register_content_draft:post:9')), expected);
+    assert.equal(await page.evaluate(() => window.readAdminDraft('9')), expected);
     const saves = holdRequests(page, '**/admin-save?id=9');
     await saves.installed;
     if (keyMap) await page.keyboard.press('Control+s');

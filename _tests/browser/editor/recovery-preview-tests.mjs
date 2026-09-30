@@ -273,7 +273,7 @@ export async function runRecoveryPreviewRegressions(browser, origin) {
             }
             assert.equal(await page.frameLocator('#body-preview-frame').locator('#preview-text-wrapper').textContent(), 'Server body');
             assert.equal(await page.locator('[name="body"]').inputValue(), 'Server body');
-            assert.equal(await page.evaluate(() => localStorage.length), 0);
+            assert.equal(await page.evaluate(() => window.readAdminDraft('9')), 'Server body');
         });
         console.log(`preview: title-only edits update live and on the periodic check without changing the body (${codemirror ? 'CodeMirror and AI' : 'textarea'})`);
     }

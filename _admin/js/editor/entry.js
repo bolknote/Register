@@ -102,7 +102,8 @@ document.addEventListener('DOMContentLoaded', function () {
             config.textareaName,
             config.templateId,
             config.slugFieldName || 'url',
-            config.templateScope || ''
+            config.templateScope || '',
+            config.recovery || {}
         );
     }
 

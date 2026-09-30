@@ -84,26 +84,34 @@ export async function runAdminMediaPathRegressions(browser, origin) {
 
             // Verify the URL actually requested by a browser rendering the saved
             // markup, rather than checking only its source representation.
-            await page.route('**/pictures/**', route => route.fulfill({status: 204}));
-            const request = page.waitForRequest(request => ['image', 'media'].includes(request.resourceType())
-                && new URL(request.url()).pathname.startsWith('/pictures/'));
-            await page.evaluate(html => {
-                const preview = document.createElement('div');
-                preview.innerHTML = html;
-                preview.querySelector('img')?.setAttribute('loading', 'eager');
-                document.body.append(preview);
-                preview.querySelector('audio')?.load();
-            }, expected);
-            const requested = new URL((await request).url());
-            assert.equal(decodeURIComponent(requested.pathname), path);
-            assert.equal(requested.search + requested.hash, '');
+            // Use a fresh document/context so WebKit cannot reuse or coalesce
+            // the media request already made by the library details panel.
+            const previewPage = await browser.newPage();
+            previewPage.setDefaultTimeout(10000);
+            try {
+                await previewPage.route('**/pictures/**', route => route.fulfill({status: 204}));
+                await previewPage.goto(origin + '/recovery.html');
+                // WebKit reports metadata audio loads as "other".
+                const request = previewPage.waitForRequest(request => ['image', 'media', 'other'].includes(request.resourceType())
+                    && new URL(request.url()).pathname.startsWith('/pictures/'));
+                await previewPage.evaluate(html => {
+                    const preview = document.createElement('div');
+                    preview.innerHTML = html;
+                    preview.querySelector('img')?.setAttribute('loading', 'eager');
+                    document.body.append(preview);
+                    preview.querySelector('audio')?.load();
+                }, expected);
+                const requested = new URL((await request).url());
+                assert.equal(decodeURIComponent(requested.pathname), path);
+                assert.equal(requested.search + requested.hash, '');
+            } finally { await previewPage.close(); }
 
             await page.getByRole('button', {name: 'Undo', exact: true}).click();
             assert.equal(await value(page), initial);
             await page.getByRole('button', {name: 'Redo', exact: true}).click();
             assert.equal(await value(page), expected);
             await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide')));
-            assert.equal(await page.evaluate(() => localStorage.getItem('register_content_draft:post:9')), expected);
+            assert.equal(await page.evaluate(() => window.readAdminDraft('9')), expected);
             const saves = holdRequests(page, '**/admin-save?id=9');
             await saves.installed;
             await page.getByRole('button', {name: 'Save', exact: true}).click();
@@ -143,7 +151,7 @@ export async function runAdminAudioInsertionRegressions(browser, origin) {
             await page.getByRole('button', {name: 'Redo', exact: true}).click();
             assert.equal(await value(page), expected);
             await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide')));
-            assert.equal(await page.evaluate(() => localStorage.getItem('register_content_draft:post:9')), expected);
+            assert.equal(await page.evaluate(() => window.readAdminDraft('9')), expected);
             const saves = holdRequests(page, '**/admin-save?id=9');
             await saves.installed;
             await page.getByRole('button', {name: 'Save', exact: true}).click();

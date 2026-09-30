@@ -16,7 +16,8 @@ const editorDeps = {
     pictureManagerUrl: null,
     previewErrorStylesheet: null,
     morphdom: null,
-    DisplayError: null
+    DisplayError: null,
+    saveTimeoutMs: 30000
 };
 
 function setEditorDeps(nextDeps) {

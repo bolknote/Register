@@ -14,5 +14,6 @@ _vendor/*
 /.register-maintenance.lock
 config.local.php
 config.test.php
+config.e2e-*.php
 pictures
 register_test

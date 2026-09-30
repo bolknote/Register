@@ -1441,7 +1441,9 @@ h2.preview,
 }
 
 .post-editor-context-menu {
-    position: absolute;
+    /* The SVG viewport supplies the coordinates. Absolute HTML positioning
+     * inside foreignObject paints at the origin in WebKit and breaks clicks. */
+    position: relative;
     z-index: 30;
     top: 0;
     left: 0;

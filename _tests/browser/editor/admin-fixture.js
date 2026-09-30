@@ -31,7 +31,12 @@ setEditorDeps({
     PopupMessages: popupMessages,
     register_lang: {unsaved_exit: 'Unsaved changes'},
     sUrl: '/admin-ajax',
+    saveTimeoutMs: Number(params.get('timeout')) || 30000,
 });
+window.adminDrafts = window.RegisterEditorStorage?.createStore(localStorage,
+    `register:admin-recovery:1:${encodeURIComponent(params.get('scope') || '/')}:${Number(params.get('account')) || 1}:post:`,
+    record => Array.isArray(record.snapshot));
+window.readAdminDraft = target => window.adminDrafts.list(target).at(0)?.snapshot.find(([name]) => name === 'body')?.[1] ?? null;
 const form = document.querySelector('form');
 if (params.has('preview')) {
     const frame = document.createElement('iframe');
@@ -92,7 +97,7 @@ if (params.has('activitypub')) {
         changed: 'Publication data changed. Build the preview again.',
     });
 }
-initArticleEditForm(form, null, 'Post', 'body', 'default');
+initArticleEditForm(form, null, 'Post', 'body', 'default', 'url', '', {userId: Number(params.get('account')) || 1, scope: params.get('scope') || '/'});
 if (params.has('social')) {
     const {initSocialPreview} = await import('/admin/editor/social-preview.js');
     initSocialPreview(form, {defaultImage: '/default.png', emptyText: 'Empty preview'});

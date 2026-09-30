@@ -230,6 +230,13 @@ export function initTagsInput(config) {
         renderSuggestions(true);
     }
 
+    surface.addEventListener('pointerdown', function (event) {
+        if (event.target.closest('.editor-tag-chip-remove')) {
+            // WebKit does not focus a clicked button. Keep the input focused
+            // so blur cannot commit text and replace the button before click.
+            event.preventDefault();
+        }
+    });
     surface.addEventListener('click', function (event) {
         const removeButton = event.target.closest('.editor-tag-chip-remove');
         if (removeButton) {

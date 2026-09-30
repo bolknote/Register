@@ -397,6 +397,10 @@ final class AssetPackTest extends Unit
         $rootDir = \dirname(__DIR__, 4) . '/';
         $site = file_get_contents($rootDir . '_styles/register/site.css');
         $script = file_get_contents($rootDir . '_assets/register/post-inplace.js');
+        $boundaries = file_get_contents($rootDir . '_assets/register/editor/boundaries.js');
+        self::assertIsString($script);
+        self::assertIsString($boundaries);
+        $script .= $boundaries;
 
         self::assertIsString($site);
         self::assertMatchesRegularExpression(
@@ -418,7 +422,6 @@ final class AssetPackTest extends Unit
             $site,
         );
 
-        self::assertIsString($script);
         self::assertStringContainsString(
             'range.startContainer === active && range.startOffset === 0',
             $script,

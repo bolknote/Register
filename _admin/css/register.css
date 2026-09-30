@@ -5525,3 +5525,15 @@ body.login_page {
         animation-iteration-count: 1 !important;
     }
 }
+
+.editor-recovery {
+    margin-block: 1rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--admin-warning-color);
+    border-radius: 0.4rem;
+    background: var(--admin-surface-background);
+    color: var(--admin-text-color);
+}
+.editor-recovery p { margin: 0 0 0.5rem; }
+.editor-recovery > div + div { margin-top: 0.75rem; }
+.editor-recovery button + button { margin-left: 0.5rem; }

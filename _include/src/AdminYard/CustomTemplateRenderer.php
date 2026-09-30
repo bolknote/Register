@@ -62,6 +62,7 @@ class CustomTemplateRenderer extends TemplateRenderer implements StatefulService
         $adminStyleVersion = $this->adminStyleVersion(...);
         $adminAssetVersion = $this->adminAssetVersion(...);
         $basePath          = $this->basePath;
+        $editorUserId      = $this->permissionChecker->getUserId();
         [$extraStyles, $extraScripts] = $this->getExtraAssets();
 
         // Template data must not be able to replace the selected file or renderer helpers.

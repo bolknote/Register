@@ -90,6 +90,7 @@ final readonly class PostInplaceController implements ControllerInterface
         private PublicationMetadataGenerator $publicationMetadataGenerator,
         private TranslatorInterface        $translator,
         private \Register\Url\UrlHistoryService $urlHistory,
+        private PostCreateOperations       $createOperations,
         ContentDeletionGuardInterface ...$deletionGuards,
     ) {
         $this->deletionGuards = array_values($deletionGuards);
@@ -747,6 +748,28 @@ final readonly class PostInplaceController implements ControllerInterface
 
     private function create(Request $request, AuthenticatedPublicUser $editor): Response
     {
+        $requestId = $request->request->getString('request_id');
+        if ($requestId !== '' && preg_match('/^[a-zA-Z0-9_-]{16,80}$/D', $requestId) !== 1) {
+            return $this->error($request, 'Invalid post mutation request', Response::HTTP_BAD_REQUEST);
+        }
+
+        $hash = hash('sha256', serialize(array_map(
+            $request->request->getString(...),
+            ['title', 'body', 'tags', 'published_at', 'uploaded_media_ids'],
+        )));
+
+        $operation = $requestId === '' ? null : $this->createOperations->find($editor->id, $requestId);
+        if ($operation !== null) {
+            return $this->urlHistory->run(fn(): Response => $this->replayCreation(
+                $request, $operation['post_id'], hash_equals($operation['request_hash'], $hash),
+            ));
+        }
+
+        return $this->createNew($request, $editor, $requestId, $hash);
+    }
+
+    private function createNew(Request $request, AuthenticatedPublicUser $editor, string $requestId, string $hash): Response
+    {
         $title       = trim($request->request->getString('title'));
         $body        = $request->request->getString('body');
         $publishedAt = $this->publishedAt($request, time());
@@ -778,7 +801,7 @@ final readonly class PostInplaceController implements ControllerInterface
         $slug        = '';
         $orphanMedia = [];
         $liveCursor  = null;
-        $write = function () use ($request, $editor, $title, $metadata, $body, $publishedAt, $scheduled, $tagNames, &$postId, &$slug, &$orphanMedia, &$liveCursor): bool {
+        $write = function () use ($request, $editor, $title, $metadata, $body, $publishedAt, $scheduled, $tagNames, $requestId, $hash, &$postId, &$slug, &$orphanMedia, &$liveCursor): bool {
             $now  = time();
             $slug = $this->contentSlugService->generatePost($title);
             $values = [
@@ -834,13 +857,29 @@ final readonly class PostInplaceController implements ControllerInterface
                 $editor->id,
             );
             $liveCursor = $this->changeDispatcher->dispatch($contentId)[(string)$contentId];
+            if ($requestId !== '') {
+                $this->createOperations->remember($editor->id, $requestId, $hash, $postId);
+            }
 
             return true;
         };
         try {
-            $created = $this->urlHistory->run(fn(): bool => $this->transactional($write));
+            // Metadata can call AI: compute it before taking the editorial mutex.
+            // Recheck the receipt inside the mutex before any content write.
+            $created = $this->urlHistory->run(function () use ($request, $editor, $requestId, $hash, $write): bool|Response {
+                $operation = $requestId === '' ? null : $this->createOperations->find($editor->id, $requestId);
+                if ($operation !== null) {
+                    return $this->replayCreation($request, $operation['post_id'], hash_equals($operation['request_hash'], $hash));
+                }
+
+                return $this->transactional($write);
+            });
         } catch (PostMediaConflictException) {
             return $this->error($request, 'Post media has changed', Response::HTTP_CONFLICT);
+        }
+
+        if ($created instanceof Response) {
+            return $created;
         }
 
         if (!$created) {
@@ -887,6 +926,49 @@ final readonly class PostInplaceController implements ControllerInterface
                 $savedTags,
             ),
             'message'        => $this->translator->trans($scheduled ? 'Post scheduled' : 'Post created'),
+        ]);
+    }
+
+    private function replayCreation(Request $request, int $postId, bool $matched): Response
+    {
+        $post = $this->dbLayer->select('author_id, revision, title, body, slug, published_at, scheduled_at, date_label, created_at')
+            ->from(ContentSchema::TABLE_NAME)
+            ->where('id = :id')->setParameter('id', $postId)
+            ->andWhere('content_type = :type')->setParameter('type', ContentType::POST->value)
+            ->execute()->fetchAssoc();
+        if ($post === false) {
+            // Receipts survive deletion: retrying must never recreate a deleted post.
+            return $this->error($request, 'Post not found', Response::HTTP_NOT_FOUND);
+        }
+
+        $authorId = $post['author_id'] === null ? null : (int)$post['author_id'];
+        $controls = $this->controls->forPost($request, $postId, $authorId, (int)$post['revision']);
+        if ($controls === null) {
+            return $this->error($request, 'Post editing forbidden', Response::HTTP_FORBIDDEN);
+        }
+
+        $url = $this->contentUrlGenerator->post((string)$post['slug']);
+        if (!$this->wantsJson($request)) {
+            return new RedirectResponse($url, Response::HTTP_SEE_OTHER);
+        }
+
+        $publishedAt = $this->storedPublicationAt($post);
+        $scheduled = (int)$post['scheduled_at'] > 0;
+        $contentId = ContentId::post($postId);
+        $tags = $this->tagRepository->findForContent([$contentId])[(string)$contentId] ?? [];
+
+        return $this->json([
+            'success' => true, 'action' => 'create', 'replayed' => true, 'request_matched' => $matched,
+            'id' => $postId, 'url' => $url, 'action_url' => $controls['action_url'], 'token' => $controls['token'],
+            'title' => (string)$post['title'], 'revision' => (int)$post['revision'], 'published_at' => $publishedAt,
+            'datetime' => gmdate(DATE_ATOM, $publishedAt),
+            'time' => $this->postProvider->displayDate($publishedAt, (string)$post['date_label']),
+            'scheduled' => $scheduled, 'schedule_message' => $this->translator->trans('Scheduled post preview'),
+            'body_html' => $this->fragmentRenderer->render('<div class="post body" data-post-inplace-body>' . $post['body'] . '</div>'),
+            'tags' => array_map(fn(\Register\Content\Tag $tag): array => [
+                'name' => $tag->name, 'url' => $this->blogUrlBuilder->tag($tag->slug),
+            ], $tags),
+            'message' => $this->translator->trans($scheduled ? 'Post scheduled' : 'Post created'),
         ]);
     }
 

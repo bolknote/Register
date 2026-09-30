@@ -84,6 +84,7 @@ export async function runAdminInputRegressions(browser, origin) {
         await input.fill('Later');
         await page.getByRole('button', {name: 'Remove tag: old', exact: true}).click();
         assert.equal(await source.inputValue(), 'Cameras, Later');
+        assert.equal(await input.inputValue(), 'Later', 'Removing a chip keeps unfinished text in the input');
         await input.fill('');
         assert.equal(await source.inputValue(), 'Cameras');
         await input.evaluate(input => {

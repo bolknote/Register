@@ -3,6 +3,12 @@
 declare(strict_types = 1);
 
 return [
+    'Local draft available' => 'Доступен локальный черновик.',
+    'Local draft server changed' => 'Версия на сервере изменилась после сохранения этого черновика.',
+    'Restore local draft' => 'Восстановить черновик',
+    'Discard local draft' => 'Удалить черновик',
+    'Local draft unavailable' => 'Не удалось сохранить локальный черновик.',
+
     'Comment deleted' => 'Комментарий удалён',
     'Undo comment deletion' => 'Отменить удаление',
     'Comment deleted with undo period' => 'Комментарий удалён. Удаление можно отменить в течение десяти минут.',

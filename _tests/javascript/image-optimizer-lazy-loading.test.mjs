@@ -45,6 +45,9 @@ test('starting the post editor script does not import image codecs or create wor
         }
     });
 
+    for (const module of ['fields', 'boundaries', 'history', 'tags', 'recovery']) {
+        vm.runInContext(await readFile(new URL(`../../_assets/register/editor/${module}.js`, import.meta.url), 'utf8'), context);
+    }
     script.runInContext(context);
     await Promise.resolve();
 
@@ -78,7 +81,7 @@ test('automatic alt generation covers existing and newly uploaded images', funct
 
     assert.match(editSource, /generateMissingImageAlts\(state\)/u);
     assert.match(uploadSource, /await queueImageAlt\(state, image, uploadFile, false, false\)/u);
-    assert.match(submitSource, /await Promise\.all\(Array\.from\(state\.aiAltTasks\)\)/u);
+    assert.match(submitSource, /await [^\n]*Promise\.all\(Array\.from\(state\.aiAltTasks\)\)/u);
     assert.match(editorSource, /data\.set\('inplace_action', 'ai_alt'\)/u);
     assert.match(editorSource, /\(!force && !imageNeedsGeneratedAlt\(image\)\)/u);
     assert.match(editorSource, /targetImage: context\.targetImage/u);

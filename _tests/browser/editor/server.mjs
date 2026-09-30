@@ -10,6 +10,14 @@ export function createFixtureServer() {
         response.setHeader('Cache-Control', 'no-store');
         response.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' data: blob:; media-src 'self'; object-src 'none'");
         try {
+            if (request.url === '/admin-save-redirect') {
+                // WebKit cannot synthesize an intercepted redirect. Exercise
+                // the real HTTP redirect and fetch's redirected/url properties.
+                request.resume();
+                response.writeHead(303, {Location: '/admin.html?id=10'});
+                response.end();
+                return;
+            }
             if (request.url === '/image-optimizer/js/optimizer.js') {
                 response.setHeader('Content-Type', 'text/javascript');
                 response.end('export async function optimizeImage(blob) { return {blob, extension: "png", retina: false, width: 1, height: 1, displayWidth: 1, displayHeight: 1}; }');
@@ -94,8 +102,11 @@ export function createFixtureServer() {
                 ['/site.css', ['../../../_styles/register/site.css', 'text/css']],
                 ['/comment-editor.css', ['../../../_assets/register/comment-editor.css', 'text/css']],
             ]);
-            for (const module of ['form', 'ai', 'image-alt', 'tags', 'shortcuts', 'dialogs', 'deps', 'hash', 'preview', 'social-preview', 'activitypub', 'codemirror', 'text/paragraphs', 'text/corrections', 'text/html', 'text/plain', 'utils/escape', 'utils/form-errors']) {
+            for (const module of ['form', 'form-recovery', 'ai', 'image-alt', 'tags', 'shortcuts', 'dialogs', 'deps', 'hash', 'preview', 'social-preview', 'activitypub', 'codemirror', 'text/paragraphs', 'text/corrections', 'text/html', 'text/plain', 'utils/escape', 'utils/form-errors']) {
                 files.set(`/admin/editor/${module}.js`, [`../../../_admin/js/editor/${module}.js`, 'text/javascript']);
+            }
+            for (const module of ['storage', 'request', 'fields', 'boundaries', 'history', 'tags', 'recovery']) {
+                files.set(`/_assets/register/editor/${module}.js`, [`../../../_assets/register/editor/${module}.js`, 'text/javascript']);
             }
             const file = files.get(new URL(request.url, 'http://127.0.0.1').pathname);
             if (!file) { response.writeHead(404); response.end(); return; }

@@ -7,7 +7,8 @@ const editorSource = await readFile(
     new URL('../../_assets/register/post-inplace.js', import.meta.url),
     'utf8'
 );
-const testableEditorSource = editorSource.replace(
+const editorModulesSource = (await Promise.all(['fields', 'boundaries', 'history', 'tags', 'recovery'].map(module => readFile(new URL(`../../_assets/register/editor/${module}.js`, import.meta.url), 'utf8')))).join('\n');
+const testableEditorSource = editorModulesSource + '\n' + editorSource.replace(
     /\n\}\)\(\);\s*$/u,
     [
         '',

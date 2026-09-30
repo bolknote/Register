@@ -242,6 +242,7 @@ final class ServiceModule implements ContainerModuleInterface
             $container->get(DbLayer::class),
             $container->getStringParameter('image_path'),
         ));
+        $container->set(Inplace\PostCreateOperations::class, static fn(Container $container): Inplace\PostCreateOperations => new Inplace\PostCreateOperations($container->get(DbLayer::class)));
         $container->set(PostInplaceController::class, static fn(Container $container): PostInplaceController => new PostInplaceController(
             $container->get(DbLayer::class),
             $container->get(\PDO::class),
@@ -264,6 +265,7 @@ final class ServiceModule implements ContainerModuleInterface
             $container->get(\Register\Content\PublicationMetadataGenerator::class),
             $container->get('register_blog_translator'),
             $container->get(\Register\Url\UrlHistoryService::class),
+            $container->get(Inplace\PostCreateOperations::class),
             ...$container->getByTag(ContentDeletionGuardInterface::class),
         ));
         $container->set(PostTagSuggestionsController::class, static fn(Container $container): PostTagSuggestionsController => new PostTagSuggestionsController(
