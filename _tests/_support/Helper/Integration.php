@@ -177,6 +177,40 @@ class Integration extends AbstractBrowserModule
         }
     }
 
+    /**
+     * Installs an extension outside the per-test transaction before exercising its admin modules.
+     *
+     * MySQL commits implicitly around DDL, including CREATE TABLE IF NOT EXISTS. Installing an
+     * extension from inside the transaction started in _before() would therefore also commit any
+     * fixture changes made by the test and leak them into the rest of the suite.
+     *
+     * @param list<class-string<\Register\Core\Framework\ModuleInterface>> $moduleClasses
+     */
+    public function withInstalledExtensionAdminModules(string $extensionId, array $moduleClasses, \Closure $scenario): void
+    {
+        if ($this->pdo->inTransaction()) {
+            $this->pdo->rollBack();
+        }
+
+        $manager = $this->adminApplication->container->get(\Register\Core\Extensions\ExtensionManager::class);
+        $errors = $manager->installExtension($extensionId);
+        if ($errors !== []) {
+            throw new \RuntimeException(implode("\n", $errors));
+        }
+
+        $this->pdo->beginTransaction();
+        try {
+            $this->withAdminModules($moduleClasses, $scenario);
+        } finally {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+
+            $manager->uninstallExtension($extensionId);
+            $this->pdo->beginTransaction();
+        }
+    }
+
     public function grabService(string $serviceName): mixed
     {
         return $this->publicApplication->container->get($serviceName);

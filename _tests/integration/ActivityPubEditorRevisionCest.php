@@ -11,7 +11,6 @@ namespace integration;
 
 use Codeception\Example;
 use Register\Content\ContentSchema;
-use Register\Core\Extensions\ExtensionManager;
 use Register\Core\Pdo\DbLayer;
 use Register\Extension\activitypub\AdminExtension;
 use Register\Extension\activitypub\Extension;
@@ -22,8 +21,7 @@ final class ActivityPubEditorRevisionCest
     /** @dataProvider _federationFields */
     public function staleFormsCannotRestoreFederationSettings(\IntegrationTester $I, Example $example): void
     {
-        $I->assertSame([], $I->grabAdminService(ExtensionManager::class)->installExtension('activitypub'));
-        $I->withAdminModules([Extension::class, AdminExtension::class], function () use ($I, $example): void {
+        $I->withInstalledExtensionAdminModules('activitypub', [Extension::class, AdminExtension::class], function () use ($I, $example): void {
             [$id, $url, $older] = $this->page($I);
             $field = (string)$example['field'];
             $I->sendAjaxPostRequest($url, [...$older, $field => $example['value']]);
@@ -64,8 +62,7 @@ final class ActivityPubEditorRevisionCest
 
     public function normalizedSettingsDoNotCreateSpuriousRevisions(\IntegrationTester $I): void
     {
-        $I->assertSame([], $I->grabAdminService(ExtensionManager::class)->installExtension('activitypub'));
-        $I->withAdminModules([Extension::class, AdminExtension::class], function () use ($I): void {
+        $I->withInstalledExtensionAdminModules('activitypub', [Extension::class, AdminExtension::class], function () use ($I): void {
             [$id, $url, $values] = $this->page($I);
             $I->sendAjaxPostRequest($url, [...$values,
                 'activitypub_summary' => 'Spoilers', 'activitypub_language' => 'en-gb',
@@ -95,8 +92,7 @@ final class ActivityPubEditorRevisionCest
 
     public function invalidSettingsDoNotSaveTheBodyOrConsumeARevision(\IntegrationTester $I): void
     {
-        $I->assertSame([], $I->grabAdminService(ExtensionManager::class)->installExtension('activitypub'));
-        $I->withAdminModules([Extension::class, AdminExtension::class], function () use ($I): void {
+        $I->withInstalledExtensionAdminModules('activitypub', [Extension::class, AdminExtension::class], function () use ($I): void {
             [$id, $url, $values] = $this->page($I);
             $before = $this->stored($I, $id);
             $I->sendAjaxPostRequest($url, [...$values,
