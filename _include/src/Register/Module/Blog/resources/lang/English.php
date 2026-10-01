@@ -3,6 +3,11 @@
 declare(strict_types = 1);
 
 return [
+    'Post editor mode' => 'Editing mode',
+    'Post visual editor' => 'Editor',
+    'Post HTML pending' => 'Wait for uploads and AI changes to finish before opening HTML.',
+    'Post HTML load failed' => 'Unable to open the HTML editor. Try again.',
+    'Post HTML unsupported' => 'This HTML contains elements that cannot be opened in the visual editor. Continue editing in HTML mode; the source has been retained.',
     'Post save timeout' => 'The server did not respond in time. Your draft is retained; please try saving again.',
     'Post creation recovered' => 'The post was already created. Review and save your later changes.',
 

@@ -79,6 +79,7 @@
             return {
                 title: state.title.textContent || '',
                 body: editableBodyHtml({...state, body}),
+                ...(state.bodyDirty && typeof state.sourceEditor?.html === 'string' ? {htmlSource: true} : {}),
                 tags: state.tagEditor.snapshot(),
                 date: state.dateInput.value,
                 slug: state.form.elements.namedItem('slug')?.value || '',
@@ -191,13 +192,14 @@
             state.uploadedMediaIds = new Set(snapshot.mediaIds);
             snapshot.mediaIds.forEach(mediaId => state.recoveryMediaIds.add(mediaId));
             state.titleDirty = state.bodyDirty = state.tagsDirty = state.dateDirty = true;
+            if (snapshot.htmlSource === true) state.sourceEditor?.restore(snapshot.body);
             state.history?.record();
             state.titleHistory?.record();
             state.recovery?.restored(record);
             showEditorStatus(state, [
                 editorConfig().recoveryRestored || 'Text restored. Review it before saving.',
                 snapshot.pendingMedia || snapshot.mediaIds.length > 0 ? editorConfig().recoveryMedia : '',
-                safeBody !== snapshot.body ? editorConfig().recoveryMarkup : '',
+                !snapshot.htmlSource && safeBody !== snapshot.body ? editorConfig().recoveryMarkup : '',
             ].filter(Boolean).join(' '), false, 5000);
             focusEdge(state.body, true);
             refreshPostRecoveryOffers();

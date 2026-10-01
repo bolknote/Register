@@ -45,7 +45,7 @@ test('starting the post editor script does not import image codecs or create wor
         }
     });
 
-    for (const module of ['fields', 'boundaries', 'history', 'tags', 'recovery']) {
+    for (const module of ['fields', 'boundaries', 'history', 'tags', 'recovery', 'source']) {
         vm.runInContext(await readFile(new URL(`../../_assets/register/editor/${module}.js`, import.meta.url), 'utf8'), context);
     }
     script.runInContext(context);

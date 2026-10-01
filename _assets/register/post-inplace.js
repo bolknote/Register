@@ -86,12 +86,21 @@
 
     const {createEditorFieldSurfaces} = window.RegisterEditorFields.create({});
 
+    const {createSourceEditor} = window.RegisterEditorSource.create({
+        editableBodyHtml, editorConfig, prepareEditableMedia, showEditorStatus,
+        clearError, clearStatus, closeContextMenu, editorStates,
+        finishCaptions: state => {
+            finishImageCaptionEditing(state, true, false);
+            finishInlineMediaCaptions(state);
+        },
+    });
+
     const {clearBoundaryCaret, clearSyntheticBoundaryCaret, boundaryNodeIsEmpty, isMediaBoundaryElement, editorBoundaryParagraphIsEmpty, topLevelBodyChild, hoistMediaFromParagraph, normalizeLeadingNestedMedia, leadingMediaIndex, prepareMediaInsertionRange, focusBeforeLeadingMedia, focusAfterMedia, mediaBoundaryAtRange, syncBoundaryCaret, moveInsertionBeforeMediaBoundary, protectSelectedMediaBoundary, collapseEmptyParagraphBesideMedia, expandCollapsedBoundaryParagraph, collapseEmptyLeadingParagraphAfterDelete, isMediaOwnedDirectChild, normalizeMediaBodyStructure} = window.RegisterEditorBoundaries.create({
         rangeIsInside, editorStates,
     });
 
     const {createBodyHistory, createFieldHistory} = window.RegisterEditorHistory.create({
-        clearBoundaryCaret, clearError, clearStatus, closeContextMenu, focusEdge, selectionIsInside, syncBoundaryCaret, updateMediaUrls, getPendingMediaClipboard: () => pendingMediaClipboard, editorPlatform,
+        clearBoundaryCaret, clearError, clearStatus, closeContextMenu, editableBodyHtml, focusEdge, selectionIsInside, syncBoundaryCaret, updateMediaUrls, getPendingMediaClipboard: () => pendingMediaClipboard, editorPlatform,
     });
 
     const {normalizeTags, loadTagSuggestions, createTagEditor} = window.RegisterEditorTags.create({
@@ -869,7 +878,9 @@
         }
     }
 
-    function editableBodyHtml(state) {
+    function editableBodyHtml(state, visualOnly = false) {
+        const source = visualOnly ? null : state.sourceEditor?.html;
+        if (typeof source === 'string') return source;
         const clone = state.body.cloneNode(true);
         normalizeMediaBodyStructure(clone);
         removeInlineCodeExitMarkers(clone);
@@ -1049,6 +1060,7 @@
         if (pendingMediaClipboard?.state === state) pendingMediaClipboard = null;
         if (activeMediaDrag?.state === state) activeMediaDrag = null;
         state.recovery?.stop();
+        state.sourceEditor?.destroy();
         state.history?.destroy();
         state.titleHistory?.destroy();
         closeDiscardChangesDialog(state, false);
@@ -1301,6 +1313,8 @@
         restoreTypographicNoBreaks(elements.body, state.originalNoBreaks);
         prepareEditableMedia(elements.body);
         state.originalEditableBodyHtml = editableBodyHtml(state);
+        state.htmlSource = {html: state.originalBody, rendered: state.body.innerHTML, canonical: state.originalEditableBodyHtml};
+        state.originalEditableBodyHtml = state.originalBody;
         elements.tags.replaceChildren();
         if (state.titleLinkHadHref) {
             titleLink.removeAttribute('href');
@@ -1334,6 +1348,7 @@
         toggleEditingTools(card, true);
         document.execCommand('defaultParagraphSeparator', false, 'p');
         state.history = createBodyHistory(state);
+        state.sourceEditor = createSourceEditor(state);
         state.titleHistory = createFieldHistory(state, elements.title, new AbortController(), () => {
             state.titleDirty = true;
         });
@@ -1428,7 +1443,7 @@
         finishImageCaptionEditing(state, true, false);
         finishInlineMediaCaptions(state);
         closeContextMenu(state, false);
-        if (normalizeMediaBodyStructure(state.body)) {
+        if (!state.sourceEditor?.active && normalizeMediaBodyStructure(state.body)) {
             state.bodyDirty = true;
         }
         const titleSource = state.titleDirty ? (state.title.textContent || '') : state.originalTitle;
@@ -2240,7 +2255,9 @@
         }
 
         const mediaById = new Map(payload.media.map((media) => [Number(media.media_id), media]));
+        const sourceHtml = state.sourceEditor?.html;
         updateMediaUrls(state.body, mediaById);
+        await state.sourceEditor?.redateMedia(mediaById, sourceHtml);
         state.history?.redateMedia(mediaById);
     }
 
@@ -2872,7 +2889,8 @@
                 // Firefox can retain an editing host after its ancestor becomes
                 // inert. Explicitly end editing on each surface as well.
                 const editable = Array.from(card.querySelectorAll('[contenteditable="true"]'));
-                const inputs = [state.dateInput, ...state.tags.querySelectorAll('input, button')];
+                const inputs = [state.dateInput, ...state.tags.querySelectorAll('input, button'),
+                    ...card.querySelectorAll('.post-editor-source textarea, .post-editor-mode-tabs button')];
                 lockedFields = {editable, inputs: inputs.map(input => [input, input.disabled])};
                 editable.forEach(element => element.setAttribute('contenteditable', 'false'));
                 inputs.forEach(input => { input.disabled = true; });
@@ -4954,6 +4972,10 @@
         if (handleEditingSaveShortcut(event, state)) {
             return true;
         }
+        if (state.sourceEditor?.active && event.target instanceof Element
+            && event.target.closest('.post-editor-source')) {
+            return false;
+        }
         // Caption sessions handle their own typing history until commit adds
         // a single operation to the post's history.
         if (event.target instanceof Element && event.target.closest('.is-editing-caption, .is-editing-inline-caption')) {
@@ -4991,7 +5013,8 @@
 
         if (state.title.contains(event.target) && event.key === 'Enter') {
             event.preventDefault();
-            focusEdge(state.body, false);
+            if (state.sourceEditor?.active) state.sourceEditor.focus();
+            else focusEdge(state.body, false);
             return true;
         }
 

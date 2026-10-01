@@ -105,8 +105,13 @@ export function createFixtureServer() {
             for (const module of ['form', 'form-recovery', 'ai', 'image-alt', 'tags', 'shortcuts', 'dialogs', 'deps', 'hash', 'preview', 'social-preview', 'activitypub', 'codemirror', 'text/paragraphs', 'text/corrections', 'text/html', 'text/plain', 'utils/escape', 'utils/form-errors']) {
                 files.set(`/admin/editor/${module}.js`, [`../../../_admin/js/editor/${module}.js`, 'text/javascript']);
             }
-            for (const module of ['storage', 'request', 'fields', 'boundaries', 'history', 'tags', 'recovery']) {
+            for (const module of ['storage', 'request', 'fields', 'boundaries', 'history', 'tags', 'recovery', 'source']) {
                 files.set(`/_assets/register/editor/${module}.js`, [`../../../_assets/register/editor/${module}.js`, 'text/javascript']);
+            }
+            files.set('/_admin/lib/codemirror.css', ['../../../_admin/lib/codemirror.css', 'text/css']);
+            files.set('/_admin/js/editor/text/html.js', ['../../../_admin/js/editor/text/html.js', 'text/javascript']);
+            for (const file of ['codemirror', 'xml', 'javascript', 'css', 'htmlmixed']) {
+                files.set(`/_admin/lib/codemirror/${file}.min.js`, [`../../../_admin/lib/codemirror/${file}.min.js`, 'text/javascript']);
             }
             const file = files.get(new URL(request.url, 'http://127.0.0.1').pathname);
             if (!file) { response.writeHead(404); response.end(); return; }

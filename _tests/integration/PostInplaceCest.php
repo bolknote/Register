@@ -159,6 +159,8 @@ final class PostInplaceCest
         $I->seeElement('.post-recovery-discard-template [data-recovery-discard-action="cancel"]');
         $I->dontSeeElement('.post-editor-context-menu-template [data-context-ai-action]');
         $I->seeElement('script[src^="/_assets/register/post-inplace.js?v="]');
+        $I->seeElement('script[src^="/_assets/register/editor/source.js?v="]');
+        $I->dontSeeElement('script[src*="codemirror.min.js"]');
         $I->dontSeeElement('script[src*="image-optimizer"]');
         $I->dontSeeElement('link[href*="image-optimizer"]');
 

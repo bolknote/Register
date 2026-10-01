@@ -2,7 +2,7 @@
 (() => {
     'use strict';
 
-    function create({clearBoundaryCaret, clearError, clearStatus, closeContextMenu, focusEdge, selectionIsInside, syncBoundaryCaret, updateMediaUrls, getPendingMediaClipboard, editorPlatform}) {
+    function create({clearBoundaryCaret, clearError, clearStatus, closeContextMenu, editableBodyHtml, focusEdge, selectionIsInside, syncBoundaryCaret, updateMediaUrls, getPendingMediaClipboard, editorPlatform}) {
         function createBodyHistory(state, restoreCallback = null) {
             const uploads = new Map();
             const liveImages = new WeakMap();
@@ -60,16 +60,19 @@
                     node.replaceWith(slot);
                 });
                 root.querySelectorAll('[class=""]').forEach((node) => node.removeAttribute('class'));
-                return {root, html: root.innerHTML, selection: selection()};
+                const htmlSource = state.sourceEditor ? state.sourceEditor.snapshotSource
+                    : state.htmlSource?.rendered === state.body.innerHTML ? {...state.htmlSource} : null;
+                return {root, html: root.innerHTML, htmlSource, selection: selection()};
             }
             let entries = [snapshot()];
             const suspended = () => destroyed || depth > 0 || state.imageCaptionEditor || state.mediaCaptionEditors.size > 0;
             function trim() {
-                let size = entries.reduce((sum, entry) => sum + entry.html.length, 0);
+                const length = entry => entry.html.length + (entry.htmlSource?.html.length || 0);
+                let size = entries.reduce((sum, entry) => sum + length(entry), 0);
                 // Bound both operation count and serialized size. Always retain the
                 // current and previous state, even for an exceptionally large post.
                 while (entries.length > 2 && index > 1 && (entries.length > 100 || size > 4 * 1024 * 1024)) {
-                    size -= entries.shift().html.length;
+                    size -= length(entries.shift());
                     index--;
                 }
             }
@@ -79,7 +82,7 @@
                 }
                 queued = false;
                 const next = snapshot();
-                if (next.html === entries[index].html) {
+                if (next.html === entries[index].html && next.htmlSource?.html === entries[index].htmlSource?.html) {
                     if (next.selection) entries[index].selection = next.selection;
                     return;
                 }
@@ -146,6 +149,7 @@
                     else slot.remove();
                 });
                 state.body.replaceChildren(...restored.childNodes);
+                state.htmlSource = entry.htmlSource ? {...entry.htmlSource, rendered: state.body.innerHTML} : null;
                 state.bodyDirty = true;
                 state.body.focus({preventScroll: true});
                 if (entry.selection) {
@@ -188,6 +192,8 @@
                     entries.forEach((entry) => {
                         updateMediaUrls(entry.root, mediaById);
                         entry.html = entry.root.innerHTML;
+                        state.sourceEditor?.redateSnapshot(entry.htmlSource, mediaById);
+                        if (entry.htmlSource) entry.htmlSource.canonical = editableBodyHtml({...state, body: entry.root}, true);
                     });
                     if (getPendingMediaClipboard()?.state === state) {
                         getPendingMediaClipboard().uploads.forEach(pending => {
