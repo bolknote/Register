@@ -8,6 +8,7 @@ export async function runSourceRegressions(browser, origin) {
     const context = await browser.newContext();
     const page = await context.newPage();
     page.setDefaultTimeout(10000);
+    const undoModifier = await page.evaluate(() => /mac/i.test(navigator.platform) ? 'Meta' : 'Control');
     const errors = [];
     page.on('pageerror', error => errors.push(error.stack || String(error)));
     page.on('dialog', dialog => { errors.push(`Native dialog: ${dialog.type()}`); dialog.dismiss(); });
@@ -74,16 +75,16 @@ export async function runSourceRegressions(browser, origin) {
         assert.match(beforeHtmlEdit, /Typed/u);
         const edited = beforeHtmlEdit.replace('После картинки.', '<strong>Правка в HTML.</strong>');
         await replaceHtml(edited);
-        await page.keyboard.press('Meta+z');
+        await page.keyboard.press(`${undoModifier}+z`);
         assert.equal(await readHtml(), beforeHtmlEdit);
-        await page.keyboard.press('Meta+Shift+z');
+        await page.keyboard.press(`${undoModifier}+Shift+z`);
         assert.equal(await readHtml(), edited);
         await visualMode();
         assert.equal(await page.locator('[data-post-inplace-body] strong').textContent(), 'Правка в HTML.');
-        await page.locator('[data-post-inplace-body]').press('Meta+z');
+        await page.locator('[data-post-inplace-body]').press(`${undoModifier}+z`);
         assert.equal(await page.locator('[data-post-inplace-body] strong').count(), 0);
         assert.match(await page.locator('[data-post-inplace-body]').textContent(), /Typed/u);
-        await page.locator('[data-post-inplace-body]').press('Meta+Shift+z');
+        await page.locator('[data-post-inplace-body]').press(`${undoModifier}+Shift+z`);
         await htmlMode();
         assert.equal(await readHtml(), edited);
         console.log('source: real typing, HTML undo/redo and visual undo/redo share the same text without losing images, captions or paragraphs');
