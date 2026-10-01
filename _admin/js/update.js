@@ -189,14 +189,12 @@
             passwordInput?.focus();
             return;
         }
-        const confirmed = window.AdminConfirm
-            ? await window.AdminConfirm.ask({
-                title: root.dataset.messageConfirm || 'Install this release?',
-                message: root.dataset.messageConfirm || '',
-                confirmLabel: applyButton instanceof HTMLButtonElement ? applyButton.textContent : '',
-                dangerous: false
-            })
-            : window.confirm(root.dataset.messageConfirm || 'Install this release?');
+        const confirmed = await window.AdminConfirm?.ask({
+            title: root.dataset.messageConfirm || 'Install this release?',
+            message: root.dataset.messageConfirm || '',
+            confirmLabel: applyButton instanceof HTMLButtonElement ? applyButton.textContent : '',
+            dangerous: false
+        });
         if (!confirmed) {
             return;
         }

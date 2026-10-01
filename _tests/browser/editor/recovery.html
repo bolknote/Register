@@ -33,6 +33,28 @@
             <button data-caption-background="light">Light</button>
         </div>
     </template>
+    <template class="post-recovery-discard-template">
+        <div class="post-media-conflict-backdrop post-recovery-discard-backdrop">
+            <section class="post-media-conflict-dialog post-recovery-discard-dialog" role="dialog" aria-modal="true" aria-label="Delete local copy">
+                <header><span>Editor</span><h2>Delete local copy</h2><p>Delete this unsaved local copy?</p></header>
+                <div class="post-media-conflict-actions post-recovery-discard-actions">
+                    <button type="button" class="is-danger" data-recovery-discard-action="confirm">Delete local copy</button>
+                    <button type="button" class="is-primary" data-recovery-discard-action="cancel">Keep local copy</button>
+                </div>
+            </section>
+        </div>
+    </template>
+    <template class="post-discard-changes-template">
+        <div class="post-media-conflict-backdrop post-discard-changes-backdrop">
+            <section class="post-media-conflict-dialog post-discard-changes-dialog" role="dialog" aria-modal="true" aria-label="Discard unsaved changes">
+                <header><span>Editor</span><h2>Discard unsaved changes</h2><p>Discard unsaved changes?</p></header>
+                <div class="post-media-conflict-actions post-discard-changes-actions">
+                    <button type="button" class="is-danger" data-discard-changes-action="discard">Discard changes</button>
+                    <button type="button" class="is-primary" data-discard-changes-action="continue">Continue editing</button>
+                </div>
+            </section>
+        </div>
+    </template>
 </div>
 <script src="/recovery-fixture.js"></script>
 <script src="/_assets/register/editor/storage.js"></script>

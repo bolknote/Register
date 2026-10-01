@@ -99,7 +99,7 @@
     });
 
     const {postRecoveryStore, recoverySnapshot, startPostRecovery, restorePostRecovery, refreshPostRecoveryOffers} = window.RegisterEditorRecovery.create({
-        beginCreate, beginEdit, clearStatus, closeEditor, editableBodyHtml, editorConfig, focusEdge, prepareEditableMedia, showEditorStatus, editorStates, recoverySessions,
+        beginCreate, beginEdit, clearStatus, closeEditor, editableBodyHtml, editorConfig, editorTemplate, focusEdge, prepareEditableMedia, showEditorStatus, editorStates, recoverySessions,
     });
 
     // The page owns one config and template set, including after partial navigation.
@@ -998,10 +998,6 @@
             || !(dialog instanceof HTMLElement)
             || !(continueButton instanceof HTMLButtonElement)
         ) {
-            const warning = editorConfig().discardChangesWarning || 'Discard unsaved changes?';
-            if (window.confirm(warning)) {
-                closeEditor(card, restoreFocus, true);
-            }
             return;
         }
 

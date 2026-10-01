@@ -2337,15 +2337,18 @@ h2.preview,
     color: var(--page-background);
 }
 
-.post-discard-changes-dialog {
+.post-discard-changes-dialog,
+.post-recovery-discard-dialog {
     width: min(34rem, 100%);
 }
 
-.post-discard-changes-actions {
+.post-discard-changes-actions,
+.post-recovery-discard-actions {
     padding-top: 1.15rem;
 }
 
-.post-discard-changes-actions button.is-danger {
+.post-discard-changes-actions button.is-danger,
+.post-recovery-discard-actions button.is-danger {
     color: var(--accent-color);
 }
 

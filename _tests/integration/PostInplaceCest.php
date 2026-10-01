@@ -154,6 +154,9 @@ final class PostInplaceCest
         $I->seeElement('template.post-discard-changes-template');
         $I->seeElement('.post-discard-changes-template [data-discard-changes-action="discard"]');
         $I->seeElement('.post-discard-changes-template [data-discard-changes-action="continue"]');
+        $I->seeElement('template.post-recovery-discard-template');
+        $I->seeElement('.post-recovery-discard-template [data-recovery-discard-action="confirm"]');
+        $I->seeElement('.post-recovery-discard-template [data-recovery-discard-action="cancel"]');
         $I->dontSeeElement('.post-editor-context-menu-template [data-context-ai-action]');
         $I->seeElement('script[src^="/_assets/register/post-inplace.js?v="]');
         $I->dontSeeElement('script[src*="image-optimizer"]');
@@ -186,7 +189,8 @@ final class PostInplaceCest
         $I->amOnPage('https://localhost/');
 
         foreach (['#post-editor-resources', 'template.post-editor-context-menu-template',
-            'template.post-image-caption-toolbar-template', 'template.post-discard-changes-template'] as $selector) {
+            'template.post-image-caption-toolbar-template', 'template.post-discard-changes-template',
+            'template.post-recovery-discard-template'] as $selector) {
             $I->assertCount(1, $I->grabMultiple($selector));
         }
 

@@ -9,6 +9,17 @@
 <pre id="results" role="status">Ready</pre>
 <main id="content"><div id="fixture"></div></main>
 <div id="post-editor-resources" hidden data-config='{"aiAltEnabled":false}'>
+    <template class="post-discard-changes-template">
+        <div class="post-media-conflict-backdrop post-discard-changes-backdrop">
+            <section class="post-media-conflict-dialog post-discard-changes-dialog" role="dialog" aria-modal="true" aria-label="Discard unsaved changes">
+                <header><span>Editor</span><h2>Discard unsaved changes</h2><p>Discard unsaved changes?</p></header>
+                <div class="post-media-conflict-actions post-discard-changes-actions">
+                    <button type="button" class="is-danger" data-discard-changes-action="discard">Discard changes</button>
+                    <button type="button" class="is-primary" data-discard-changes-action="continue">Continue editing</button>
+                </div>
+            </section>
+        </div>
+    </template>
     <template class="post-editor-context-menu-template">
         <div class="post-editor-context-menu">
             <strong data-context-selection-only>Selected text</strong>

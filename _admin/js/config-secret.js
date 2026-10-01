@@ -100,8 +100,12 @@ function makeSecretInlineForm(formId, messages) {
         });
     }
 
-    clearButton.addEventListener('click', function () {
-        if (window.confirm(messages.clearConfirm)) {
+    clearButton.addEventListener('click', async function () {
+        if (await window.AdminConfirm?.ask({
+            title: clearButton.textContent || '',
+            message: messages.clearConfirm,
+            confirmLabel: clearButton.textContent || '',
+        })) {
             save(true);
         }
     });

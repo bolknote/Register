@@ -12,6 +12,7 @@ return [
     'Post recovery server changed' => 'The site has a newer version. Restoring replaces only the text in this editor; review it before saving.',
     'Post recovery restore' => 'Restore text',
     'Post recovery discard' => 'Delete local copy',
+    'Post recovery keep' => 'Keep local copy',
     'Post recovery discard warning' => 'Delete this unsaved copy? The text on the site will stay unchanged.',
     'Post recovery restored' => 'Text restored. Review it before saving. The local copy remains in this browser.',
     'Post recovery unavailable' => 'Unable to save a local copy. Keep this tab open and save the post when the connection returns.',

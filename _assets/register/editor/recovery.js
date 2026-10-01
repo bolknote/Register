@@ -2,7 +2,58 @@
 (() => {
     'use strict';
 
-    function create({beginCreate, beginEdit, clearStatus, closeEditor, editableBodyHtml, editorConfig, focusEdge, prepareEditableMedia, showEditorStatus, editorStates, recoverySessions}) {
+    function create({beginCreate, beginEdit, clearStatus, closeEditor, editableBodyHtml, editorConfig, editorTemplate, focusEdge, prepareEditableMedia, showEditorStatus, editorStates, recoverySessions}) {
+        let discardConfirmation = null;
+
+        function closeDiscardConfirmation(restoreFocus) {
+            if (!discardConfirmation) return;
+            const {backdrop, controller, restoreTarget} = discardConfirmation;
+            discardConfirmation = null;
+            controller.abort();
+            backdrop.remove();
+            if (restoreFocus && restoreTarget?.isConnected) restoreTarget.focus({preventScroll: true});
+        }
+
+        function confirmDiscardRecoveryCopy(onConfirm, restoreTarget) {
+            if (discardConfirmation) {
+                discardConfirmation.cancelButton.focus({preventScroll: true});
+                return;
+            }
+            const template = editorTemplate('.post-recovery-discard-template');
+            const fragment = template instanceof HTMLTemplateElement
+                ? template.content.cloneNode(true)
+                : null;
+            const backdrop = fragment?.querySelector('.post-recovery-discard-backdrop');
+            const cancelButton = fragment?.querySelector('[data-recovery-discard-action="cancel"]');
+            if (!(backdrop instanceof HTMLElement) || !(cancelButton instanceof HTMLButtonElement)) return;
+            const controller = new AbortController();
+            const cancel = () => closeDiscardConfirmation(true);
+            discardConfirmation = {backdrop, cancelButton, controller, restoreTarget};
+            document.body.append(fragment);
+            backdrop.addEventListener('click', event => {
+                const button = event.target instanceof Element
+                    ? event.target.closest('[data-recovery-discard-action]')
+                    : null;
+                if (button instanceof HTMLButtonElement) {
+                    if (button.dataset.recoveryDiscardAction === 'confirm') {
+                        closeDiscardConfirmation(false);
+                        onConfirm();
+                    } else {
+                        cancel();
+                    }
+                    return;
+                }
+                if (event.target === backdrop) cancel();
+            }, {signal: controller.signal});
+            document.addEventListener('keydown', event => {
+                if (event.key !== 'Escape') return;
+                event.preventDefault();
+                event.stopPropagation();
+                cancel();
+            }, {capture: true, signal: controller.signal});
+            cancelButton.focus({preventScroll: true});
+        }
+
         function postRecoveryStore() {
             try {
                 const config = editorConfig();
@@ -199,9 +250,10 @@
                     if (state) restorePostRecovery(state, record);
                 });
                 discard.addEventListener('click', () => {
-                    if (!window.confirm(editorConfig().recoveryDiscardWarning || 'Delete this unsaved local copy?')) return;
-                    store.remove(record);
-                    refreshPostRecoveryOffers();
+                    confirmDiscardRecoveryCopy(() => {
+                        store.remove(record);
+                        refreshPostRecoveryOffers();
+                    }, discard);
                 });
                 actions.append(restore, discard);
                 notice.append(actions);

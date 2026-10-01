@@ -102,8 +102,14 @@
         }
         event.preventDefault();
         const submitter = event.submitter;
-        if (submitter && submitter.dataset.confirm && !window.confirm(submitter.dataset.confirm)) {
-            return;
+        if (submitter && submitter.dataset.confirm) {
+            const confirmed = await window.AdminConfirm?.ask({
+                title: submitter.textContent.trim(),
+                message: submitter.dataset.confirm,
+                confirmLabel: submitter.textContent.trim(),
+                dangerous: true,
+            });
+            if (!confirmed) return;
         }
         const controls = Array.from(form.querySelectorAll('button, input, select, textarea'));
         controls.forEach(function (control) {

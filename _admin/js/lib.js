@@ -105,7 +105,7 @@ window.AdminConfirm = {
             || !(confirmButton instanceof HTMLButtonElement)
             || typeof dialog.showModal !== 'function'
         ) {
-            return Promise.resolve(window.confirm(options.message || options.title || ''));
+            return Promise.resolve(false);
         }
         if (dialog.open) {
             return Promise.resolve(false);

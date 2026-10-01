@@ -218,6 +218,21 @@ $config = [
         </div>
     </div>
 </template>
+<template class="post-recovery-discard-template">
+    <div class="post-media-conflict-backdrop post-recovery-discard-backdrop">
+        <section class="post-media-conflict-dialog post-recovery-discard-dialog" role="dialog" aria-modal="true" aria-label="<?php echo register_htmlencode($trans('Post recovery discard')); ?>" tabindex="-1">
+            <header>
+                <span><?php echo $trans('Editor'); ?></span>
+                <h2><?php echo $trans('Post recovery discard'); ?></h2>
+                <p><?php echo $trans('Post recovery discard warning'); ?></p>
+            </header>
+            <div class="post-media-conflict-actions post-recovery-discard-actions">
+                <button type="button" class="is-danger" data-recovery-discard-action="confirm"><?php echo $trans('Post recovery discard'); ?></button>
+                <button type="button" class="is-primary" data-recovery-discard-action="cancel"><?php echo $trans('Post recovery keep'); ?></button>
+            </div>
+        </section>
+    </div>
+</template>
 <template class="post-discard-changes-template">
     <div class="post-media-conflict-backdrop post-discard-changes-backdrop">
         <section class="post-media-conflict-dialog post-discard-changes-dialog" role="dialog" aria-modal="true" aria-label="<?php echo register_htmlencode($trans('Discard unsaved post changes')); ?>" tabindex="-1">

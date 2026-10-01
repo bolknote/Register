@@ -29,6 +29,21 @@ async function allowBlockingRecoveryStorage(context) {
     });
 }
 
+async function discardEditing(page) {
+    await page.getByRole('button', {name: 'Cancel', exact: true}).click();
+    await page.getByRole('dialog', {name: 'Discard unsaved changes'})
+        .getByRole('button', {name: 'Discard changes'}).click();
+}
+
+async function deleteRecoveryCopy(page) {
+    const discard = page.getByRole('button', {name: 'Delete local copy', exact: true});
+    while (await discard.count()) {
+        await discard.first().click();
+        await page.getByRole('dialog', {name: 'Delete local copy'})
+            .getByRole('button', {name: 'Delete local copy'}).click();
+    }
+}
+
 export async function runRecoveryPreviewRegressions(browser, origin) {
     const errors = [];
     async function withContext(run) {
@@ -172,9 +187,7 @@ export async function runRecoveryPreviewRegressions(browser, origin) {
                     await restored.evaluate(() => { window.blockDraftStorage = true; });
                     const third = await context.newPage();
                     await third.goto(origin + '/recovery.html');
-                    third.on('dialog', dialog => dialog.accept());
-                    const discard = third.getByRole('button', {name: 'Delete local copy', exact: true});
-                    while (await discard.count()) await discard.first().click();
+                    await deleteRecoveryCopy(third);
                     assert.equal(await third.evaluate(() => localStorage.length), 0);
                     await third.close();
                 }
@@ -185,8 +198,7 @@ export async function runRecoveryPreviewRegressions(browser, origin) {
                 await upload(cancelled, 'audio', 502);
                 const released = cancelled.waitForResponse(response => response.url().endsWith('/_inplace/post/9')
                     && response.request().postData()?.includes('media_release'));
-                cancelled.once('dialog', dialog => dialog.accept());
-                await cancelled.getByRole('button', {name: 'Cancel', exact: true}).click();
+                await discardEditing(cancelled);
                 await released;
                 assert.deepEqual(releases, [502]);
                 assert.equal(await remaining.evaluate(async () => (await fetch('/clip-501.wav')).status), 200);

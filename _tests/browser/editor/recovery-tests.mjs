@@ -14,6 +14,11 @@ export async function runRecoveryRegressions(browser, origin) {
     const waitForCopy = async () => {
         await page.waitForFunction(() => window.RegisterPostRecovery.createStore(localStorage, '/_inplace/tags', 1).list().length > 0);
     };
+    const closeEditor = async () => {
+        await edited().getByRole('button', {name: 'Cancel', exact: true}).click();
+        await page.getByRole('dialog', {name: 'Discard unsaved changes'})
+            .getByRole('button', {name: 'Discard changes'}).click();
+    };
     const reset = async () => {
         await page.evaluate(() => {
             document.querySelectorAll('.post-card.is-editing').forEach(card => {
@@ -50,8 +55,7 @@ export async function runRecoveryRegressions(browser, origin) {
         assert.match(await edited().locator('.post-inplace-status').textContent(), /Text restored/u);
         assert.equal(await edited().locator('.post-inplace-status.is-editor-toast').count(), 0);
         await page.waitForFunction(() => document.querySelector('.post-card.is-editing > .post-inplace-status')?.hidden === true);
-        page.once('dialog', dialog => dialog.accept());
-        await edited().getByRole('button', {name: 'Cancel', exact: true}).click();
+        await closeEditor();
         assert.equal(await page.locator('[data-post-inplace-body]').textContent(), 'Server body 1');
         assert.equal(await page.locator('[data-post-inplace-title]').textContent(), 'Server title 1');
         assert.equal(await page.locator('.post-inplace-status').textContent(), '');
@@ -68,8 +72,7 @@ export async function runRecoveryRegressions(browser, origin) {
         await page.getByRole('button', {name: 'Restore text'}).click();
         assert.equal(await edited().locator('[data-post-inplace-title]').textContent(), '');
         assert.equal(await edited().locator('[data-post-inplace-body]').textContent(), 'New untitled text');
-        page.once('dialog', dialog => dialog.accept());
-        await edited().getByRole('button', {name: 'Cancel', exact: true}).click();
+        await closeEditor();
         assert.equal((await copies()).length, 0);
         console.log('recovery: untitled new post restores and deliberate cancellation removes its copy');
 
@@ -189,9 +192,13 @@ export async function runRecoveryRegressions(browser, origin) {
         assert.equal(await page.locator('.post-recovery-notice').count(), 0);
         await open();
         assert.match(await page.locator('.post-recovery-notice').textContent(), /Private account one title/u);
-        page.once('dialog', dialog => dialog.accept());
+        let nativeDialogs = 0;
+        page.on('dialog', dialog => { nativeDialogs++; dialog.dismiss(); });
         await page.getByRole('button', {name: 'Delete local copy'}).click();
+        const discardDialog = page.getByRole('dialog', {name: 'Delete local copy'});
+        await discardDialog.getByRole('button', {name: 'Delete local copy'}).click();
         assert.equal((await copies()).length, 0);
+        assert.equal(nativeDialogs, 0);
         console.log('recovery: account changes hide private drafts; explicit deletion removes them');
 
         await page.evaluate(() => {
@@ -213,8 +220,7 @@ export async function runRecoveryRegressions(browser, origin) {
         await edited().locator('[data-post-inplace-body]').evaluate(body => { body.textContent = 'x'.repeat(550000); });
         await page.waitForFunction(() => document.querySelector('.post-inplace-status.is-error:not([hidden])')?.textContent.includes('local copy'));
         assert.equal((await copies()).length, 0);
-        page.once('dialog', dialog => dialog.accept());
-        await edited().getByRole('button', {name: 'Cancel', exact: true}).click();
+        await closeEditor();
         assert.equal(await page.locator('.post-inplace-status').textContent(), '');
         assert.equal(await page.locator('.post-inplace-status').isVisible(), false);
         console.log('recovery: oversized text reports local persistence failure visibly');

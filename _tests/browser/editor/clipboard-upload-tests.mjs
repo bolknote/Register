@@ -153,8 +153,9 @@ export async function runClipboardUploadRegressions(browser, origin) {
                     if (alt) await replyAlt();
                 }
                 if (mode === 'closed-session') {
-                    page.once('dialog', dialog => dialog.accept());
                     await page.getByRole('button', {name: 'Cancel', exact: true}).click();
+                    await page.getByRole('dialog', {name: 'Discard unsaved changes'})
+                        .getByRole('button', {name: 'Discard changes'}).click();
                     await page.getByRole('button', {name: 'Edit', exact: true}).click();
                     await body.focus();
                     await page.keyboard.press(`${modifier}+a`);

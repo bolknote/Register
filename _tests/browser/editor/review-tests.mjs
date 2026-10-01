@@ -63,11 +63,13 @@ export async function runReviewRegressions(browser, origin) {
             assert.match(await card.locator('.post-inplace-status').textContent(), /local copy/u);
 
             // Explicit discard still works when recovery cannot write anything.
-            page.once('dialog', dialog => dialog.dismiss());
             await card.getByRole('button', {name: 'Cancel', exact: true}).click();
+            await page.getByRole('dialog', {name: 'Discard unsaved changes'})
+                .getByRole('button', {name: 'Continue editing'}).click();
             assert.equal(await body.textContent(), text);
-            page.once('dialog', dialog => dialog.accept());
             await card.getByRole('button', {name: 'Cancel', exact: true}).click();
+            await page.getByRole('dialog', {name: 'Discard unsaved changes'})
+                .getByRole('button', {name: 'Discard changes'}).click();
             assert.equal(await body.textContent(), 'Server body 1');
             assert.equal(await page.evaluate(() => localStorage.length), 0);
 
