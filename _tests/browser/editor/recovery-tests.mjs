@@ -48,6 +48,8 @@ export async function runRecoveryRegressions(browser, origin) {
         assert.equal(await edited().locator('.post-tags-text-input').inputValue(), 'old, unfinished ? tag');
         assert.ok(!(JSON.stringify(await copies())).includes('private-fixture-token'));
         assert.match(await edited().locator('.post-inplace-status').textContent(), /Text restored/u);
+        assert.equal(await edited().locator('.post-inplace-status.is-editor-toast').count(), 0);
+        await page.waitForFunction(() => document.querySelector('.post-card.is-editing > .post-inplace-status')?.hidden === true);
         page.once('dialog', dialog => dialog.accept());
         await edited().getByRole('button', {name: 'Cancel', exact: true}).click();
         assert.equal(await page.locator('[data-post-inplace-body]').textContent(), 'Server body 1');

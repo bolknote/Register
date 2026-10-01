@@ -13,7 +13,7 @@ return [
     'Post recovery restore' => 'Restore text',
     'Post recovery discard' => 'Delete local copy',
     'Post recovery discard warning' => 'Delete this unsaved copy? The text on the site will stay unchanged.',
-    'Post recovery restored' => 'Text restored. Review it before saving. Local copies are kept for up to 7 days.',
+    'Post recovery restored' => 'Text restored. Review it before saving. The local copy remains in this browser.',
     'Post recovery unavailable' => 'Unable to save a local copy. Keep this tab open and save the post when the connection returns.',
     'Post recovery media' => 'Unfinished uploads must be added again. Check images and audio before saving.',
     'Post recovery markup' => 'Custom markup, scripts and embedded objects were removed from the local copy. Check formatting and media before saving.',

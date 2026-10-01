@@ -18,10 +18,10 @@ editor's user ID; another account or a guest does not see these offers. Separate
 editing sessions have independent copy IDs, so tabs cannot overwrite one another.
 Deleting a stale offer cannot remove its newer snapshot.
 
-Copies expire seven days after their last update. Each is limited to 512 Ki UTF-16
-code units of serialized JSON (approximately 1 MiB of browser storage); an account
-can retain up to ten copies and 2 Mi code units in total. Oldest copies are pruned
-when the bounded store is full. The local browser profile is not an encrypted
+Copies do not expire by age. Each is limited to 512 Ki UTF-16 code units of
+serialized JSON (approximately 1 MiB of browser storage); an account can retain
+up to ten copies and 2 Mi code units in total. Oldest copies are pruned when the
+bounded store is full. The local browser profile is not an encrypted
 vault: a person with access to that profile can inspect browser storage. Normal
 server authorisation remains required to display editing controls and save posts.
 

@@ -61,15 +61,15 @@ test('independent tab records coexist and a stale view cannot delete a newer sna
     assert.equal(first.list('4').length, 1);
 });
 
-test('seven-day expiry prunes only the current account and rejects malformed local data', () => {
+test('old copies remain available and malformed local data is rejected', () => {
     const data = storage();
     open(data).save(record());
     open(data, 2).save(record());
     const later = createStore(data, '/_inplace/tags', 1, () => stamp + 8 * 86400000);
-    assert.equal(later.list().length, 0);
+    assert.equal(later.list().length, 1);
     assert.equal(open(data, 2).list().length, 1);
     data.setItem('register:post-recovery:1:%2F_inplace%2Ftags:1:bad', '{bad');
-    assert.equal(open(data).list().length, 0);
+    assert.equal(open(data).list().length, 1);
     assert.equal(open(data).save(record('bad', {target: '1"] script'})), false);
     assert.equal(open(data).save(record('bad', {snapshot: {}})), false);
 });

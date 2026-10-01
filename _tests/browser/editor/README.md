@@ -337,7 +337,7 @@ repeating the original server mutation during local recovery.
 `npm run test:durability` runs the focused recovery and timeout regressions in all
 three browsers. Admin recovery stores all editable form fields, the base revision
 and an independent copy per tab under the installation/account namespace. Copies
-are restored explicitly, bounded to seven days, ten records and 2 Mi characters
+are restored explicitly, retained without an age limit, and bounded to ten records and 2 Mi characters
 per namespace; each record is limited to 512 Ki characters. Tokens are excluded.
 Older body-only admin copies have no installation or account identity, so they
 remain in storage without being restored automatically into an authenticated form.

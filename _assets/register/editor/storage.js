@@ -2,7 +2,6 @@
 (() => {
     'use strict';
 
-    const lifetime = 7 * 24 * 60 * 60 * 1000;
     const maximumRecordLength = 512 * 1024;
     const maximumTotalLength = 2 * 1024 * 1024;
     const maximumRecords = 10;
@@ -12,10 +11,10 @@
     function createStore(storage, prefix, validate, now = () => Date.now()) {
         const key = record => prefix + record.id;
         function valid(record) {
-            return record?.version === 1
+                return record?.version === 1
                 && typeof record.id === 'string' && /^[a-zA-Z0-9_-]{1,80}$/u.test(record.id)
                 && Number.isSafeInteger(record.savedAt)
-                && record.savedAt > now() - lifetime && record.savedAt <= now() + 60000
+                && record.savedAt <= now() + 60000
                 && validate(record);
         }
         function entries() {

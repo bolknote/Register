@@ -3,6 +3,7 @@
 
     const editorStates = new WeakMap();
     const editorConfigs = new WeakMap();
+    const editorStatusTimers = new WeakMap();
     const emptyEditorConfig = Object.freeze({});
     const recoverySessions = new Set();
     let inlineCodeBoundarySequence = 0;
@@ -325,6 +326,8 @@
     }
 
     function clearStatus(card) {
+        window.clearTimeout(editorStatusTimers.get(card));
+        editorStatusTimers.delete(card);
         const status = card.querySelector(':scope > .post-inplace-status');
         if (status) {
             status.hidden = true;
@@ -333,15 +336,23 @@
         }
     }
 
-    function showEditorStatus(state, message, error = false) {
+    function showEditorStatus(state, message, error = false, duration = 0) {
+        window.clearTimeout(editorStatusTimers.get(state.card));
+        editorStatusTimers.delete(state.card);
         const status = state.card.querySelector(':scope > .post-inplace-status');
         if (!status) {
             return;
         }
         status.textContent = message;
         status.hidden = false;
-        status.classList.add('is-editor-toast');
+        status.classList.remove('is-editor-toast');
         status.classList.toggle('is-error', error);
+        if (duration > 0) {
+            const timer = window.setTimeout(() => {
+                if (status.textContent === message) clearStatus(state.card);
+            }, duration);
+            editorStatusTimers.set(state.card, timer);
+        }
     }
 
     function closePostToolsMenu(tools, restoreFocus = false) {

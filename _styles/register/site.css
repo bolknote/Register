@@ -1854,35 +1854,12 @@ h2.preview,
     opacity: 0.5;
 }
 
-.post-card.is-editing > .post-inplace-status.is-editor-toast {
-    position: fixed;
-    z-index: 40;
-    right: max(1rem, env(safe-area-inset-right));
-    bottom: max(1rem, env(safe-area-inset-bottom));
-    display: flex;
-    max-width: min(30rem, calc(100vw - 2rem));
-    min-height: 2.6rem;
-    margin: 0;
-    padding: 0.65rem 0.85rem;
-    align-items: center;
-    gap: 0.6rem;
-    border: 1px solid color-mix(in srgb, var(--success-color) 42%, var(--border-color));
-    border-radius: 0.7rem;
-    background: color-mix(in srgb, var(--field-background) 96%, var(--page-background));
-    box-shadow: 0 0.7rem 2.2rem color-mix(in srgb, #000 22%, transparent);
-    color: var(--text-color);
-    font-size: 0.8rem;
-    font-weight: 620;
-}
-
-.post-card.is-editing > .post-inplace-status.is-editor-toast.is-error {
-    border-color: color-mix(in srgb, var(--error-color) 56%, var(--border-color));
-}
-
-.post-card.is-ai-working > .post-inplace-status.is-editor-toast::before {
+.post-card.is-ai-working > .post-inplace-status::before {
+    display: inline-block;
     width: 0.82rem;
     height: 0.82rem;
-    flex: 0 0 auto;
+    margin-right: 0.45rem;
+    vertical-align: -0.1em;
     border: 2px solid color-mix(in srgb, var(--accent-color) 24%, transparent);
     border-top-color: var(--accent-color);
     border-radius: 50%;
@@ -2265,7 +2242,7 @@ h2.preview,
 @media (prefers-reduced-motion: reduce) {
     .post-media-upload::before,
     .post-media-processing-progress::before,
-    .post-card.is-ai-working > .post-inplace-status.is-editor-toast::before {
+    .post-card.is-ai-working > .post-inplace-status::before {
         animation: none;
     }
 

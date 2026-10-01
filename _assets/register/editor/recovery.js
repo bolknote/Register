@@ -147,7 +147,7 @@
                 editorConfig().recoveryRestored || 'Text restored. Review it before saving.',
                 snapshot.pendingMedia || snapshot.mediaIds.length > 0 ? editorConfig().recoveryMedia : '',
                 safeBody !== snapshot.body ? editorConfig().recoveryMarkup : '',
-            ].filter(Boolean).join(' '));
+            ].filter(Boolean).join(' '), false, 5000);
             focusEdge(state.body, true);
             refreshPostRecoveryOffers();
         }
