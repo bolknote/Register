@@ -107,6 +107,10 @@ export async function runReviewRegressions(browser, origin) {
                     await older.getByRole('button', {name: 'Save', exact: true}).click();
                 }
                 await setText(newer, 'Latest unsaved text');
+                // WebKit can propagate localStorage between page processes
+                // after the editing event completes. Observe that propagation
+                // before testing whether the older tab can rewind the copy.
+                await older.waitForFunction(key => window.readAdminDraft(key) === 'Latest unsaved text', draftTarget);
                 if (requests) {
                     await (await requests.next()).fulfill({json: savedAdmin});
                     await older.waitForFunction(() => document.querySelector('[name="revision"]').value === '2');
