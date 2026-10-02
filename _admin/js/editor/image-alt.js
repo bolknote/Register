@@ -1,6 +1,8 @@
 /** Automatic alt generation and the inline image/alt editor. */
 
 import {register_codemirror} from './codemirror.js';
+import {editorDeps} from './deps.js';
+import '../../../_assets/register/editor/request.js';
 
 export function initImageAlt(form, config) {
     if (!form || !config || !config.enabled || !register_codemirror.isReady()) {
@@ -12,6 +14,7 @@ export function initImageAlt(form, config) {
     let activeImage = null;
     let activeEdit = null;
     let syncTimer = null;
+    const requestFailed = config.requestFailed || 'Unable to generate an image description. Please try again.';
 
     function scheduleSyncWithCursor() {
         if (syncTimer !== null) return;
@@ -140,7 +143,7 @@ export function initImageAlt(form, config) {
             overlay.append(spinner, message);
         } else if (state.status === 'error') {
             const message = document.createElement('span');
-            message.textContent = config.requestFailed;
+            message.textContent = requestFailed;
             const retry = button(config.retry, 'ai-image-alt-retry', config.retry);
             retry.addEventListener('click', function () {
                 generate(image);
@@ -238,21 +241,18 @@ export function initImageAlt(form, config) {
         data.set('__csrf_token', csrfInput ? csrfInput.value : '');
 
         try {
-            const response = await fetch(config.url, {
+            const {response, data: responseData} = await window.RegisterEditorRequest.requestJson(config.url, {
                 method: 'POST',
                 body: data,
                 signal: controller.signal,
                 registerHandleErrorsInline: true
+            }, {
+                timeoutMs: editorDeps.saveTimeoutMs,
+                timeoutMessage: config.timeout || requestFailed
             });
-            let responseData = null;
-            try {
-                responseData = await response.json();
-            } catch {
-                throw new Error(config.requestFailed);
-            }
             if (controller.signal.aborted || requestStates.get(image.target) !== state) return;
-            if (!response.ok || !responseData.success || typeof responseData.result !== 'string') {
-                throw new Error(config.requestFailed);
+            if (!response.ok || !responseData?.success || typeof responseData.result !== 'string') {
+                throw new Error(requestFailed);
             }
 
             if (!register_codemirror.replaceImageAlt(image, state.expectedAlt, responseData.result)) {

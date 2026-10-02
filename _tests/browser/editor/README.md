@@ -353,6 +353,20 @@ per namespace; each record is limited to 512 Ki characters. Tokens are excluded.
 Older body-only admin copies have no installation or account identity, so they
 remain in storage without being restored automatically into an authenticated form.
 
+`npm run test:reliability` covers cross-tab removal and pruning of active admin
+drafts, stalled AI/alt/ActivityPub requests and JSON responses, and HTML-block
+preview growth/shrink, plain-text clipboard boundaries and removing/replacing
+an expired recovery attachment. It runs in all three
+browsers and is included in `npm test`.
+
+Pending server uploads retain their seven-day cleanup limit. Restoring a local
+draft whose upload expired reports the unavailable attachment and requires its
+removal or replacement before saving. Schema generation 37 retains allocated
+media ids separately so deleted uploads cannot be confused with newer files.
+Legacy recovery copies cannot adopt uploads allocated after the upgrade. A new
+managed image/audio element retains its identity marker through history and
+recovery; existing post-media relations remain valid without that marker.
+
 `npm run test:e2e` uses PHP (8.3+) with the Composer dependencies to exercise an
 actual disposable Register installation. It creates a private temporary SQLite
 DB, cache, session directory and secret file, starts the normal development router

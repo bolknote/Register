@@ -2,6 +2,8 @@
 
 import {register_codemirror} from './codemirror.js';
 import {findCorrectionRanges} from './text/corrections.js';
+import {editorDeps} from './deps.js';
+import '../../../_assets/register/editor/request.js';
 
 export function initAiTools(form, config) {
     if (!form || !config || !config.enabled) {
@@ -16,6 +18,7 @@ export function initAiTools(form, config) {
     }
 
     let activeController = null;
+    const requestFailed = config.requestFailed || 'Unable to generate text. Please try again.';
 
     function setBusy(busy) {
         container.setAttribute('aria-busy', busy ? 'true' : 'false');
@@ -69,21 +72,18 @@ export function initAiTools(form, config) {
         data.set('__csrf_token', csrfInput ? csrfInput.value : '');
 
         try {
-            const response = await fetch(config.url, {
+            const {response, data: responseData} = await window.RegisterEditorRequest.requestJson(config.url, {
                 method: 'POST',
                 body: data,
                 signal: controller.signal,
                 registerHandleErrorsInline: true
+            }, {
+                timeoutMs: editorDeps.saveTimeoutMs,
+                timeoutMessage: config.timeout || requestFailed
             });
-            let responseData = null;
-            try {
-                responseData = await response.json();
-            } catch {
-                throw new Error(config.requestFailed);
-            }
             if (controller.signal.aborted || activeController !== controller) return;
-            if (!response.ok || !responseData.success || typeof responseData.result !== 'string') {
-                throw new Error(responseData && responseData.message ? responseData.message : config.requestFailed);
+            if (!response.ok || !responseData?.success || typeof responseData.result !== 'string') {
+                throw new Error(responseData?.message || requestFailed);
             }
 
             const currentText = register_codemirror.getValue();
@@ -134,7 +134,7 @@ export function initAiTools(form, config) {
             }
         } catch (error) {
             if (!controller.signal.aborted && activeController === controller && error.name !== 'AbortError') {
-                setStatus(error.message || config.requestFailed, true);
+                setStatus(error.message || requestFailed, true);
             }
         } finally {
             trackedRange?.clear();

@@ -319,11 +319,24 @@ final readonly class PostInplaceController implements ControllerInterface
         // Serialize file renames with post writes under the same editorial mutex.
         return $this->urlHistory->run(function () use ($request, $editor, $publishedAt): Response {
             $mediaIds = $this->mediaIds($request->request->getString('media_ids'));
+            $legacyMediaIds = $this->mediaIds($request->request->getString('legacy_media_ids'));
             $moves = [];
             $payload = [];
             try {
-                $updated = $this->transactional(function () use ($mediaIds, $editor, $publishedAt, &$moves, &$payload): bool {
+                $updated = $this->transactional(function () use ($mediaIds, $legacyMediaIds, $editor, $publishedAt, &$moves, &$payload): bool {
                     $uploads = $this->mediaRepository->ownedUploads($mediaIds, $editor->id);
+                    if (\count($uploads) !== \count(array_unique($mediaIds))) {
+                        throw new PostMediaConflictException(PostMediaConflictException::UNAVAILABLE);
+                    }
+
+                    foreach ($uploads as $media) {
+                        if (\in_array((int)$media['id'], $legacyMediaIds, true)
+                            && $this->mediaRepository->hasPersistentIdentity((int)$media['id'])
+                        ) {
+                            throw new PostMediaConflictException(PostMediaConflictException::UNAVAILABLE);
+                        }
+                    }
+
                     foreach ($uploads as $media) {
                         // Another tab may have renamed and published this upload.
                         // Reconcile its URL without moving a file already used by a post.
@@ -352,6 +365,10 @@ final readonly class PostInplaceController implements ControllerInterface
             } catch (\Throwable $throwable) {
                 foreach (array_reverse($moves) as $move) {
                     $this->mediaStorage->rollbackRedate($move);
+                }
+
+                if ($throwable instanceof PostMediaConflictException) {
+                    return $this->error($request, $throwable->getMessage(), Response::HTTP_CONFLICT);
                 }
 
                 if ($throwable instanceof \RuntimeException) {
@@ -717,6 +734,7 @@ final readonly class PostInplaceController implements ControllerInterface
                         $body,
                         $this->mediaIds($request->request->getString('uploaded_media_ids')),
                         $editor->id,
+                        $this->mediaIds($request->request->getString('legacy_media_ids')),
                     );
 
                     $liveCursor = $this->changeDispatcher->dispatch($contentId)[(string)$contentId];
@@ -724,8 +742,8 @@ final readonly class PostInplaceController implements ControllerInterface
                     return true;
                 };
                 $updated = $this->urlHistory->changeContent($contentId, fn(): bool => $this->transactional($write));
-            } catch (PostMediaConflictException) {
-                return $this->error($request, 'Post media has changed', Response::HTTP_CONFLICT);
+            } catch (PostMediaConflictException $mediaConflict) {
+                return $this->error($request, $mediaConflict->getMessage() !== '' ? $mediaConflict->getMessage() : 'Post media has changed', Response::HTTP_CONFLICT);
             } catch (\Register\Url\ContentUrlCollisionException $exception) {
                 return $this->error($request, $exception->getMessage() === \Register\Url\ContentUrlCollisionException::PATH_TOO_LONG ? $exception->getMessage() : 'Invalid post URL', Response::HTTP_UNPROCESSABLE_ENTITY);
             }
@@ -891,6 +909,7 @@ final readonly class PostInplaceController implements ControllerInterface
                 $body,
                 $this->mediaIds($request->request->getString('uploaded_media_ids')),
                 $editor->id,
+                $this->mediaIds($request->request->getString('legacy_media_ids')),
             );
             $liveCursor = $this->changeDispatcher->dispatch($contentId)[(string)$contentId];
             if ($requestId !== '') {
@@ -910,8 +929,8 @@ final readonly class PostInplaceController implements ControllerInterface
 
                 return $this->transactional($write);
             });
-        } catch (PostMediaConflictException) {
-            return $this->error($request, 'Post media has changed', Response::HTTP_CONFLICT);
+        } catch (PostMediaConflictException $mediaConflict) {
+            return $this->error($request, $mediaConflict->getMessage() !== '' ? $mediaConflict->getMessage() : 'Post media has changed', Response::HTTP_CONFLICT);
         }
 
         if ($created instanceof Response) {
@@ -1272,6 +1291,7 @@ final readonly class PostInplaceController implements ControllerInterface
             'success'     => true,
             'action'      => 'media',
             'media_id'    => (int)$media['id'],
+            'persistent_identity' => $this->mediaRepository->hasPersistentIdentity((int)$media['id']),
             'kind'        => (string)$media['kind'],
             'url'         => $url,
             'preview_url' => $url . '?editor-media=' . (int)$media['created_at'],

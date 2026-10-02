@@ -1596,6 +1596,7 @@
             throw new Error('The image preview is unavailable.');
         }
         image.dataset.postMediaId = String(payload.media_id);
+        if (payload.persistent_identity === true) image.dataset.postMediaIdentity = '1';
         if (Number.isInteger(payload.width) && payload.width > 0) {
             image.setAttribute('width', String(payload.width));
         }
@@ -1642,6 +1643,7 @@
         audio.setAttribute('controls', '');
         audio.setAttribute('data-register-audio-native', '');
         audio.dataset.postMediaId = String(payload.media_id);
+        if (payload.persistent_identity === true) audio.dataset.postMediaIdentity = '1';
         audio.dataset.title = typeof payload.name === 'string' && payload.name !== ''
             ? payload.name
             : file.name;
@@ -2219,8 +2221,18 @@
         upload.finally(() => state.mediaUploads.delete(upload));
     }
 
+    function legacyMediaIds(body) {
+        return Array.from(new Set(Array.from(body.querySelectorAll('[data-post-media-id]'))
+            .filter(element => element.dataset.postMediaIdentity !== '1')
+            .map(element => Number(element.dataset.postMediaId))));
+    }
+
     async function redatePendingMedia(state) {
-        if (state.uploadedMediaIds.size === 0) {
+        const body = parseBody('<div data-post-inplace-body>' + editableBodyHtml(state) + '</div>');
+        const bodyIds = new Set(Array.from(body.querySelectorAll('[data-post-media-id]'),
+            element => Number(element.dataset.postMediaId)));
+        const usedIds = Array.from(state.uploadedMediaIds).filter(id => bodyIds.has(id));
+        if (usedIds.length === 0) {
             return;
         }
 
@@ -2232,7 +2244,9 @@
         const data = new FormData();
         data.set('inplace_action', 'media_redate');
         data.set('inplace_token', token instanceof HTMLInputElement ? token.value : '');
-        data.set('media_ids', Array.from(state.uploadedMediaIds).join(','));
+        data.set('media_ids', usedIds.join(','));
+        const legacyIds = new Set(legacyMediaIds(body));
+        data.set('legacy_media_ids', usedIds.filter(id => legacyIds.has(id)).join(','));
         data.set('published_at', String(publishedAt));
         const {response, data: payload} = await window.RegisterEditorRequest.requestJson(state.form.action, {
             method: 'POST',
@@ -2390,6 +2404,46 @@
         range.deleteContents();
     }
 
+    function htmlBlockClipboardText(root) {
+        let result = '';
+        let boundary = 0;
+        const paragraphs = new Set(['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'PRE', 'BLOCKQUOTE']);
+        const blocks = new Set(['DIV', 'SECTION', 'ARTICLE', 'HEADER', 'FOOTER', 'ASIDE', 'FIGURE', 'FIGCAPTION', 'LI', 'TR']);
+        function append(text) {
+            if (text === '') return;
+            if (boundary && result !== '') {
+                const before = result.match(/\n*$/u)[0].length;
+                const after = text.match(/^\n*/u)[0].length;
+                result += '\n'.repeat(Math.max(0, boundary - before - after));
+            }
+            boundary = 0;
+            result += text;
+        }
+        function visit(node) {
+            if (node instanceof Text) {
+                append(node.data);
+                return;
+            }
+            if (!(node instanceof Element)) return;
+            if (node.matches('div[data-post-html-source]')) {
+                boundary = Math.max(boundary, 2);
+                append(node.dataset.postHtmlSource);
+                boundary = Math.max(boundary, 2);
+                return;
+            }
+            if (node.tagName === 'BR') {
+                append('\n');
+                return;
+            }
+            const separator = paragraphs.has(node.tagName) ? 2 : blocks.has(node.tagName) ? 1 : 0;
+            boundary = Math.max(boundary, separator);
+            node.childNodes.forEach(visit);
+            boundary = Math.max(boundary, separator);
+        }
+        root.childNodes.forEach(visit);
+        return result;
+    }
+
     function copyEditorBlocks(event) {
         if (event.defaultPrevented || !event.clipboardData) return;
         pendingMediaClipboard = null;
@@ -2421,11 +2475,9 @@
             references.set(id, pending);
         });
         const html = container.innerHTML;
-        const plain = container.cloneNode(true);
-        const htmlBlocks = plain.querySelectorAll('div[data-post-html-source]');
-        htmlBlocks.forEach(node => node.replaceWith(document.createTextNode(node.dataset.postHtmlSource)));
+        const hasHtmlBlocks = container.querySelector('div[data-post-html-source]');
         event.clipboardData.setData('text/html', html);
-        event.clipboardData.setData('text/plain', htmlBlocks.length > 0 ? plain.textContent : range.toString());
+        event.clipboardData.setData('text/plain', hasHtmlBlocks ? htmlBlockClipboardText(container) : range.toString());
         event.preventDefault();
         pendingMediaClipboard = {state, html, root: container, uploads: references};
         if (event.type === 'cut') {
@@ -2945,9 +2997,14 @@
 
             clearError(form);
             state?.recovery?.persist();
+            const formData = new FormData(form);
+            if (state) {
+                const body = parseBody('<div data-post-inplace-body>' + state.bodyField.value + '</div>');
+                formData.set('legacy_media_ids', legacyMediaIds(body).join(','));
+            }
             const {response, data: payload} = await window.RegisterEditorRequest.requestJson(form.action, {
                 method: 'POST',
-                body: new FormData(form),
+                body: formData,
                 credentials: 'same-origin',
                 headers: {
                     'Accept': 'application/json',

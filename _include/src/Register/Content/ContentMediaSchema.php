@@ -54,6 +54,8 @@ final class ContentMediaSchema
             true,
         );
 
+        ContentMediaIdentitySchema::create($dbLayer);
+
         $dbLayer->createTable(self::USAGE_TABLE, static function (SchemaBuilderInterface $table): void {
             $table
                 ->addInteger('post_id', true)
@@ -82,5 +84,6 @@ final class ContentMediaSchema
     {
         $dbLayer->dropTable(self::USAGE_TABLE);
         $dbLayer->dropTable(self::FILE_TABLE);
+        $dbLayer->dropTable(ContentMediaIdentitySchema::TABLE_NAME);
     }
 }

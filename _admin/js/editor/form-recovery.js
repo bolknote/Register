@@ -56,7 +56,10 @@ export function createFormRecovery(form, options, onRestore) {
         if (!store) return false;
         const current = snapshot();
         const serialized = JSON.stringify(current);
-        if (serialized === last && lastRevision === revision) return true;
+        // Another tab can restore/remove this copy, and storage limits can prune it.
+        // Unchanged form values are safe only while their own snapshot still exists.
+        if (serialized === last && lastRevision === revision
+            && (!record || store.list(options.target).some(copy => copy.id === id && copy.savedAt === record.savedAt))) return true;
         if (serialized === JSON.stringify(saved)) {
             if (record) store.remove(record);
             record = null;

@@ -2,6 +2,8 @@
 
 import {register_codemirror} from './codemirror.js';
 import {formErrorMessages} from './utils/form-errors.js';
+import {editorDeps} from './deps.js';
+import '../../../_assets/register/editor/request.js';
 
 export function initActivityPubPreview(form, config) {
     if (!form || !config || !config.enabled) {
@@ -24,6 +26,7 @@ export function initActivityPubPreview(form, config) {
     // to the same form snapshot and must be invalidated by subsequent edits.
     let previewController = null;
     let previewSnapshot = '';
+    const requestFailed = config.failed || 'Unable to build the preview. Please try again.';
 
     function setBusy(busy) {
         button.disabled = busy;
@@ -84,23 +87,20 @@ export function initActivityPubPreview(form, config) {
         data.set('content_id', String(config.contentId || 0));
 
         try {
-            const response = await fetch(config.url, {
+            const {response, data: payload} = await window.RegisterEditorRequest.requestJson(config.url, {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: {'X-Requested-With': 'XMLHttpRequest'},
                 body: data,
                 signal: controller.signal,
                 registerHandleErrorsInline: true
+            }, {
+                timeoutMs: editorDeps.saveTimeoutMs,
+                timeoutMessage: config.timeout || requestFailed
             });
-            let payload = null;
-            try {
-                payload = await response.json();
-            } catch {
-                throw new Error(config.failed);
-            }
             if (controller.signal.aborted || previewController !== controller) return;
             if (!response.ok || !payload || payload.success !== true) {
-                throw new Error(formErrorMessages(form, payload, config.failed).join('\n'));
+                throw new Error(formErrorMessages(form, payload, requestFailed).join('\n'));
             }
 
             setStatus(payload.message || '', false);
@@ -112,7 +112,7 @@ export function initActivityPubPreview(form, config) {
             result.hidden = false;
         } catch (error) {
             if (!controller.signal.aborted && previewController === controller && error.name !== 'AbortError') {
-                setStatus(error.message || config.failed, true);
+                setStatus(error.message || requestFailed, true);
             }
         } finally {
             if (previewController === controller) {

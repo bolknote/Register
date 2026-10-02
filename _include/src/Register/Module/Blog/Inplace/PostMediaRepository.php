@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace Register\Module\Blog\Inplace;
 
 use Register\Content\ContentMediaSchema;
+use Register\Content\ContentMediaIdentitySchema;
 use Register\Core\Pdo\DbLayer;
 
 /** Keeps the media registry in sync with media ids embedded by the post editor. */
@@ -29,9 +30,15 @@ final readonly class PostMediaRepository
     /** @param array{original_name: string, normalized_name: string, storage_path: string, mime_type: string, kind: string, byte_size: int, width: int|null, height: int|null, uploaded_by: int} $media */
     public function register(array $media): int
     {
+        // Never remove allocator rows: SQLite otherwise reuses the id of a
+        // deleted upload and a restored draft can adopt a different file.
+        $this->dbLayer->insert(ContentMediaIdentitySchema::TABLE_NAME)
+            ->values(['created_at' => ':created_at'])->execute(['created_at' => time()]);
+        $mediaId = (int)$this->dbLayer->insertId();
         $this->dbLayer
             ->insert(ContentMediaSchema::FILE_TABLE)
             ->values([
+                'id'              => ':id',
                 'original_name'   => ':original_name',
                 'normalized_name' => ':normalized_name',
                 'storage_path'    => ':storage_path',
@@ -47,11 +54,12 @@ final readonly class PostMediaRepository
             ])
             ->execute([
                 ...$media,
+                'id'         => $mediaId,
                 'created_at' => time(),
             ])
         ;
 
-        return (int)$this->dbLayer->insertId();
+        return $mediaId;
     }
 
     /** @return array<string, mixed>|null */
@@ -84,25 +92,40 @@ final readonly class PostMediaRepository
         ;
     }
 
+    /** Legacy draft ids cannot identify a file allocated after the upgrade. */
+    public function hasPersistentIdentity(int $mediaId): bool
+    {
+        return (int)$this->dbLayer->select('created_at')->from(ContentMediaIdentitySchema::TABLE_NAME)
+            ->where('id = :id')->setParameter('id', $mediaId)->execute()->result() > 0;
+    }
+
     /**
      * Replaces post-media relations and returns registry rows that became unused.
      * Call within the same editorial transaction as the post write.
      *
      * @param list<int> $uploadedMediaIds Uploads eligible for cleanup; used media is read from the body.
+     * @param list<int> $legacyMediaIds Body references without the persistent-identity marker.
      * @return list<array<string, mixed>>
      * @throws PostMediaConflictException
      */
-    public function syncPost(int $postId, string $body, array $uploadedMediaIds, int $editorId): array
+    public function syncPost(int $postId, string $body, array $uploadedMediaIds, int $editorId, array $legacyMediaIds = []): array
     {
         $currentIds = $this->postMediaIds($postId);
         $usedIds    = $this->mediaIdsFromBody($body);
         $validIds   = [];
         foreach ($usedIds as $mediaId => $sources) {
             $media = $this->find($mediaId);
-            if (
-                $media === null
-                || ((bool)$media['pending'] && (int)$media['uploaded_by'] !== $editorId)
+            if ($media === null) {
+                throw new PostMediaConflictException(PostMediaConflictException::UNAVAILABLE);
+            }
+
+            if (\in_array($mediaId, $legacyMediaIds, true) && !\in_array($mediaId, $currentIds, true)
+                && $this->hasPersistentIdentity($mediaId)
             ) {
+                throw new PostMediaConflictException(PostMediaConflictException::UNAVAILABLE);
+            }
+
+            if ((bool)$media['pending'] && (int)$media['uploaded_by'] !== $editorId) {
                 continue;
             }
 

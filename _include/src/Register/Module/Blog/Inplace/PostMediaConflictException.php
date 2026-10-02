@@ -12,4 +12,5 @@ namespace Register\Module\Blog\Inplace;
 /** A submitted attachment URL no longer matches its registered file. */
 final class PostMediaConflictException extends \RuntimeException
 {
+    public const string UNAVAILABLE = 'Post media is unavailable';
 }
