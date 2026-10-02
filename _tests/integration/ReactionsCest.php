@@ -21,6 +21,44 @@ use Register\Core\Pdo\DbLayer;
 
 final class ReactionsCest
 {
+    public function keepsLikeAsTheFirstControlWhenOtherReactionsAreMorePopular(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        /** @var ReactionAggregateRepository $aggregateRepository */
+        $aggregateRepository = $I->grabService(ReactionAggregateRepository::class);
+        $contentId = $this->insertPost($dbLayer, 'stable-reaction-control-post');
+        foreach ([['like', '👍', 1], ['love', '❤️', 1], ['haha', '😂', 2], ['', '🔥', 3]] as [$reaction, $emoji, $count]) {
+            $aggregateRepository->store(new ReactionAggregate(
+                ReactionAggregateTargetType::POST,
+                $contentId,
+                'test-archive',
+                $emoji,
+                $reaction,
+                $emoji,
+                $count,
+                time(),
+            ));
+        }
+
+        $widget = '[data-endpoint="/_reactions/post/' . $contentId . '"]';
+        $I->amOnPage('https://localhost/stable-reaction-control-post');
+        $I->seeResponseCodeIs(200);
+        $I->seeElement($widget . ' .register-reaction-toolbar > button:first-child[data-reaction="like"].register-reaction-primary[aria-haspopup="menu"]:not([hidden])');
+        $I->assertCount(1, $I->grabMultiple($widget . ' .register-reaction-primary'));
+        $I->dontSeeElement($widget . ' [data-reaction]:not([data-reaction="like"])[aria-haspopup]');
+        $I->seeElement($widget . ' [data-reaction="like"][data-count="1"]');
+        $I->seeElement($widget . ' [data-reaction="haha"][data-count="2"]');
+        $I->seeElement($widget . ' [data-reaction="🔥"][data-count="3"]');
+
+        // Removing the imported like total must not remove the palette control.
+        $I->assertTrue($aggregateRepository->remove(ReactionAggregateTargetType::POST, $contentId, 'test-archive', '👍'));
+        $I->amOnPage('https://localhost/stable-reaction-control-post');
+        $I->seeElement($widget . ' .register-reaction-toolbar > button:first-child[data-reaction="like"].register-reaction-primary[aria-haspopup="menu"]:not([hidden])');
+        $I->seeElement($widget . ' [data-reaction="like"][data-count="0"] .register-reaction-count[hidden]');
+        $I->assertCount(1, $I->grabMultiple($widget . ' [data-reaction][aria-haspopup]'));
+    }
+
     public function rendersImportedTotalsWithoutSyntheticVisitors(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */
@@ -154,9 +192,9 @@ final class ReactionsCest
         $I->seeElement('[data-register-reactions][data-endpoint="/_reactions/post/' . $secondId . '"]');
         $I->seeElement('[data-endpoint="/_reactions/post/' . $firstId . '"] [data-reaction="love"][data-count="1"]');
         $I->seeElement('[data-endpoint="/_reactions/post/' . $secondId . '"] [data-reaction="like"][data-count="1"]');
-        $I->seeElement('[data-endpoint="/_reactions/post/' . $firstId . '"] [data-reaction="love"].register-reaction-primary');
-        $I->seeElement('[data-endpoint="/_reactions/post/' . $firstId . '"] [data-reaction="like"][hidden]');
-        $I->assertCount(1, $I->grabMultiple('[data-endpoint="/_reactions/post/' . $firstId . '"] .register-reaction-chip:not([hidden])'));
+        $I->seeElement('[data-endpoint="/_reactions/post/' . $firstId . '"] [data-reaction="like"].register-reaction-primary:not([hidden])');
+        $I->seeElement('[data-endpoint="/_reactions/post/' . $firstId . '"] [data-reaction="like"][data-count="0"] .register-reaction-count[hidden]');
+        $I->assertCount(2, $I->grabMultiple('[data-endpoint="/_reactions/post/' . $firstId . '"] .register-reaction-chip:not([hidden])'));
         $I->assertCount(2, $I->grabMultiple('.register-reaction-primary[aria-haspopup="menu"]'));
         $I->assertCount(2, $I->grabMultiple('.register-reaction-like-icon'));
         $I->dontSeeElement('.register-reaction-add');

@@ -4,7 +4,7 @@ These tests execute the real `post-inplace.js` with real DOM, Selection, editing
 commands and input/keyboard events. Unlike the VM unit tests, they exercise undo
 history. The fixture exposes private functions **only in its loopback test server**;
 production code has no testing API. Upload and AI responses are deterministic
-stubs. These fixture regressions use no blog, database, credentials or external
+stubs. These fixture regressions use no configured blog, persistent database, credentials or external
 services. A separate end-to-end suite below starts a disposable PHP installation.
 
 ```sh
@@ -17,6 +17,17 @@ npm test
 The Quality workflow runs Chromium, Firefox and WebKit and blocks releases on failure.
 To diagnose one engine locally, run `EDITOR_TEST_BROWSER=webkit npm test` (or
 `chromium` / `firefox`); the default runs all three.
+The reaction-control regressions also run independently with
+`node reactions-tests.mjs`. They use the real PHP renderer and reaction repository
+against a disposable in-memory SQLite database, the production reaction JavaScript
+and both public stylesheets. The suite checks server and visual order, zero likes,
+hydration, imported/selected emoji, old cached markup, hover timing, keyboard
+navigation, optimistic selection/removal and failed-request rollback. Only visitor
+identity and HTTP responses are stubbed. Chromium exercises a native held touch
+through CDP; Firefox/WebKit exercise the touch pointer timer followed by a real
+touchscreen tap, since Playwright exposes no held-touch API for those engines.
+`REACTIONS_TEST_REVISION=<git ref> node reactions-tests.mjs` uses an older reaction
+asset to reproduce the pre-fix primary-control regression.
 For interactive inspection in Opera or another local browser:
 
 ```sh

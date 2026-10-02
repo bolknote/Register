@@ -111,6 +111,11 @@
                         window.clearTimeout(this.closeTimer);
                         this.openTimer = window.setTimeout(() => this.openPicker(false), 220);
                     });
+                    button.addEventListener('pointerleave', () => {
+                        if (button === this.primaryButton) {
+                            window.clearTimeout(this.openTimer);
+                        }
+                    });
                 }
                 this.root.addEventListener('pointerleave', () => {
                     window.clearTimeout(this.openTimer);
@@ -204,7 +209,7 @@
         }
 
         render() {
-            this.setPrimaryButton(this.chips.get(this.primaryType()) || null);
+            this.setPrimaryButton(this.chips.get('like') || null);
 
             for (const [type, button] of this.chips) {
                 const count = this.counts[type];
@@ -223,23 +228,6 @@
             for (const [type, button] of this.choices) {
                 button.setAttribute('aria-checked', String(this.selected === type));
             }
-        }
-
-        primaryType() {
-            if (this.selected !== null) {
-                return this.selected;
-            }
-
-            let primary = 'like';
-            let maxCount = 0;
-            for (const type of builtInReactionTypes) {
-                if (this.counts[type] > maxCount) {
-                    primary = type;
-                    maxCount = this.counts[type];
-                }
-            }
-
-            return primary;
         }
 
         setPrimaryButton(button) {
@@ -279,10 +267,10 @@
         }
 
         closePicker(returnFocus) {
+            window.clearTimeout(this.openTimer);
             if (!this.picker || !this.primaryButton || this.picker.hidden) {
                 return;
             }
-            window.clearTimeout(this.openTimer);
             this.picker.hidden = true;
             this.primaryButton.setAttribute('aria-expanded', 'false');
             this.suppressPrimaryClick = false;

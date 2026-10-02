@@ -10,6 +10,29 @@ export function createFixtureServer() {
         response.setHeader('Cache-Control', 'no-store');
         response.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' data: blob:; media-src 'self'; object-src 'none'");
         try {
+            if (new URL(request.url, 'http://127.0.0.1').pathname === '/reactions.html') {
+                const zero = new URL(request.url, 'http://127.0.0.1').searchParams.has('zero');
+                const widget = execFileSync(process.env.PHP_BIN || 'php',
+                    [new URL('./reactions-fixture.php', import.meta.url).pathname, zero ? 'zero' : 'normal'],
+                    {encoding: 'utf8'});
+                response.setHeader('Content-Type', 'text/html; charset=utf-8');
+                response.end(`<!doctype html><html lang="en"><head><meta charset="utf-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1">
+                    <link rel="stylesheet" href="/site.css"><link rel="stylesheet" href="/reactions.css">
+                    <link rel="stylesheet" href="/reactions-fixture.css">
+                    <script src="/reactions-fixture.js" defer></script><script src="/reactions.js" defer></script>
+                    </head><body><article class="post-card"><h1>Reaction control fixture</h1>
+                    <p>A normal article with imported reactions.</p><footer class="post foot">${widget}</footer>
+                    </article></body></html>`);
+                return;
+            }
+            if (request.url === '/reactions.js' && process.env.REACTIONS_TEST_REVISION) {
+                response.setHeader('Content-Type', 'text/javascript');
+                response.end(execFileSync('git',
+                    ['show', `${process.env.REACTIONS_TEST_REVISION}:_assets/register/reactions/reactions.js`],
+                    {encoding: 'utf8'}));
+                return;
+            }
             if (request.url === '/admin-save-redirect') {
                 // WebKit cannot synthesize an intercepted redirect. Exercise
                 // the real HTTP redirect and fetch's redirected/url properties.
@@ -100,6 +123,10 @@ export function createFixtureServer() {
                 ['/post-recovery.js', ['../../../_assets/register/post-recovery.js', 'text/javascript']],
                 ['/post-recovery.css', ['../../../_assets/register/post-recovery.css', 'text/css']],
                 ['/site.css', ['../../../_styles/register/site.css', 'text/css']],
+                ['/reactions.js', ['../../../_assets/register/reactions/reactions.js', 'text/javascript']],
+                ['/reactions.css', ['../../../_assets/register/reactions/reactions.css', 'text/css']],
+                ['/reactions-fixture.js', ['reactions-fixture.js', 'text/javascript']],
+                ['/reactions-fixture.css', ['reactions-fixture.css', 'text/css']],
                 ['/_assets/register/editor/html-preview.css', ['../../../_assets/register/editor/html-preview.css', 'text/css']],
                 ['/comment-editor.css', ['../../../_assets/register/comment-editor.css', 'text/css']],
             ]);

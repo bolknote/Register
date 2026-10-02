@@ -9,6 +9,11 @@ each content item. Clicking the active reaction removes it; choosing another rep
 The server renders public counts into the initial HTML, then JavaScript restores the reader's own
 selection and updates the interface optimistically.
 
+The 👍 control is always visible and first, even with no likes. It never changes into the most popular
+or the reader's selected reaction. Hovering this control opens the full palette; keyboard users open
+it with Arrow Up or Arrow Down, and touch users hold it. A normal click still toggles a like. Other
+nonzero reaction counters remain visible after it, and selecting one does not move the palette control.
+
 ## Identity recovery
 
 The identity is not a login, credential, or authorization boundary. It consists of a random 128-bit

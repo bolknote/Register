@@ -5,6 +5,7 @@ import {runDurabilityRegressions} from './durability-tests.mjs';
 import {runRecoveryRegressions} from './recovery-tests.mjs';
 import {runHtmlBlockRegressions} from './html-block-tests.mjs';
 import {runContextMenuRegressions} from './context-menu-tests.mjs';
+import {runReactionRegressions} from './reactions-tests.mjs';
 import {runSaveRegressions, runAdminDirtyFieldRegressions} from './save-tests.mjs';
 import {runReviewRegressions} from './review-tests.mjs';
 import {runRecoveryPreviewRegressions} from './recovery-preview-tests.mjs';
@@ -435,6 +436,7 @@ try {
             await runDurabilityRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runHtmlBlockRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runContextMenuRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runReactionRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             for (const fixture of ['/', '/comment.html', '/live.html']) {
                 const page = await browser.newPage();
                 const errors = [];

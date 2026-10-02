@@ -1,0 +1,14 @@
+body {
+    margin: 0;
+    padding: 4rem 1rem;
+    font-size: 16px;
+}
+
+.post-card {
+    max-width: 48rem;
+    margin: auto;
+}
+
+.post.foot {
+    margin-top: 6rem;
+}
