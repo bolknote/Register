@@ -227,6 +227,9 @@ export async function runRecoveryPreviewRegressions(browser, origin) {
         const editCaption = async () => {
             await page.locator('.post-card.is-editing img').click({button: 'right'});
             await page.locator('.post-editor-image-panel [data-context-action="edit-image-caption"]').click();
+            // Opening positions the caret on the next animation frame. Wait
+            // for that focus before fill selects and replaces the existing text.
+            await page.waitForFunction(() => document.activeElement?.classList.contains('is-editing-caption'));
         };
         const commit = () => page.locator('.post-media-caption-toolbar [data-caption-action="commit"]').click();
         const caption = page.locator('.post-card.is-editing .post-media-overlay-caption');
