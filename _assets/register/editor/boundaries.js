@@ -263,7 +263,7 @@
         }
 
         function mediaBoundaryAtRange(body, range) {
-            if (!range.collapsed || !(range.startContainer instanceof HTMLElement)) {
+            if (!range.collapsed || !body.contains(range.startContainer)) {
                 return null;
             }
 
@@ -278,13 +278,38 @@
                 }
                 return null;
             }
-            const emptyPrefix = Array.from(boundary.childNodes)
-                .slice(0, range.startOffset)
-                .every(boundaryNodeIsEmpty);
-            return emptyPrefix
-                && isMediaBoundaryElement(body, boundary)
-                ? boundary
-                : null;
+            const media = topLevelBodyChild(body, boundary);
+            if (!isMediaBoundaryElement(body, media)) {
+                return null;
+            }
+            if (boundary !== media && String(boundary.textContent || '').trim() !== '') {
+                // Existing prose in an older malformed media block still needs
+                // editing at its chosen text offset; normalization moves that
+                // original text node safely after input.
+                return null;
+            }
+
+            // The same visual boundary can be represented at the wrapper, at
+            // an image/link/picture child, or in leading formatting whitespace.
+            // Recognize all of them before native Enter can split the media
+            // wrapper and separate the image from its caption.
+            let node = boundary;
+            let offset = range.startOffset;
+            while (node instanceof Node) {
+                const emptyPrefix = node.nodeType === Node.TEXT_NODE
+                    ? String(node.textContent || '').slice(0, offset).trim() === ''
+                    : Array.from(node.childNodes).slice(0, offset).every(boundaryNodeIsEmpty);
+                if (!emptyPrefix) {
+                    return null;
+                }
+                if (node === media) {
+                    return media;
+                }
+                const parent = node.parentNode;
+                offset = Array.from(parent.childNodes).indexOf(node);
+                node = parent;
+            }
+            return null;
         }
 
         function syncBoundaryCaret() {
@@ -355,6 +380,43 @@
             }
         }
 
+        function mediaBoundaryAfterRange(body, range) {
+            if (!range.collapsed || range.startContainer === body || !body.contains(range.startContainer)) {
+                return null;
+            }
+            const media = topLevelBodyChild(body, range.startContainer);
+            if (!isMediaBoundaryElement(body, media)) {
+                return null;
+            }
+            const element = range.startContainer instanceof Element
+                ? range.startContainer : range.startContainer.parentElement;
+            // Captions have their own editing host/history. Only redirect a
+            // body caret that the browser has left inside the image wrapper.
+            if (element?.closest('.post-caption, figcaption, .post-media-overlay-caption')) {
+                return null;
+            }
+            if (range.startContainer !== media && String(range.startContainer.textContent || '').trim() !== '') {
+                return null;
+            }
+            let node = range.startContainer;
+            let offset = range.startOffset;
+            while (node instanceof Node) {
+                if (node.nodeType !== Node.TEXT_NODE && Array.from(node.childNodes).slice(0, offset).some(child => (
+                    child instanceof HTMLElement
+                    && (child.matches('img, video, audio') || child.querySelector('img, video, audio'))
+                ))) {
+                    return media;
+                }
+                if (node === media) {
+                    break;
+                }
+                const parent = node.parentNode;
+                offset = Array.from(parent.childNodes).indexOf(node);
+                node = parent;
+            }
+            return null;
+        }
+
         function moveInsertionBeforeMediaBoundary(event) {
             if (!event.inputType.startsWith('insert')) {
                 return;
@@ -373,7 +435,10 @@
                 return;
             }
 
-            const boundary = mediaBoundaryAtRange(body, selection.getRangeAt(0));
+            const selectedRange = selection.getRangeAt(0);
+            const before = mediaBoundaryAtRange(body, selectedRange);
+            const after = before ? null : mediaBoundaryAfterRange(body, selectedRange);
+            const boundary = before || after;
             if (!boundary) {
                 return;
             }
@@ -381,11 +446,15 @@
             // Chromium applies insertParagraph after this listener returns. Moving
             // the selection into a paragraph and then allowing that default action
             // would split the new paragraph, so one Enter would leave two empty
-            // blocks before the media. Handle this particular insertion ourselves;
-            // other insertions still need the browser to place their text in the
-            // paragraph prepared below.
+            // blocks before the media. Handle paragraph insertion ourselves.
             const handlesParagraph = event.inputType === 'insertParagraph' && event.cancelable;
-            if (handlesParagraph) {
+            // WebKit caches the original text target before beforeinput. Merely
+            // moving Selection is too late there: the first character can still
+            // enter the picture wrapper. Insert that text at the corrected range
+            // through the same native command used by formatting and paste.
+            const handlesText = event.inputType === 'insertText'
+                && typeof event.data === 'string' && event.cancelable;
+            if (handlesParagraph || handlesText) {
                 event.preventDefault();
             }
 
@@ -394,12 +463,23 @@
             const paragraph = document.createElement('p');
             paragraph.className = 'post-editor-body-paragraph';
             paragraph.append(document.createElement('br'));
-            body.insertBefore(paragraph, boundary);
+            if (before) {
+                body.insertBefore(paragraph, boundary);
+            } else {
+                // A body caret between the image and caption is an after-image
+                // boundary, never permission to split their shared wrapper.
+                body.insertBefore(paragraph, boundary.nextSibling);
+            }
             const range = document.createRange();
             range.setStart(paragraph, 0);
             range.collapse(true);
             selection.removeAllRanges();
             selection.addRange(range);
+
+            if (handlesText) {
+                document.execCommand('insertText', false, event.data);
+                return;
+            }
 
             // A cancelled native action emits no input event. Reuse the normal input
             // path so dirty state, recovery and the shared undo history all observe
@@ -636,6 +716,12 @@
 
         function normalizeMediaBodyStructure(root) {
             let changed = false;
+            // CSS cannot distinguish <p><br></p> from <p>Text<br></p>:
+            // :only-child counts elements, not text nodes. Mark only genuinely
+            // empty lines, including native Enter clones and reopened content.
+            root.querySelectorAll(':scope > p').forEach((paragraph) => {
+                paragraph.classList.toggle('post-editor-empty-paragraph', editorBoundaryParagraphIsEmpty(paragraph));
+            });
             const selection = window.getSelection();
             const preserveSelection = selection?.rangeCount > 0
                 && root.contains(selection.anchorNode)

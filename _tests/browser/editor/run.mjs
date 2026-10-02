@@ -4,6 +4,7 @@ import {createFixtureServer} from './server.mjs';
 import {runDurabilityRegressions} from './durability-tests.mjs';
 import {runRecoveryRegressions} from './recovery-tests.mjs';
 import {runHtmlBlockRegressions} from './html-block-tests.mjs';
+import {runContextMenuRegressions} from './context-menu-tests.mjs';
 import {runSaveRegressions, runAdminDirtyFieldRegressions} from './save-tests.mjs';
 import {runReviewRegressions} from './review-tests.mjs';
 import {runRecoveryPreviewRegressions} from './recovery-preview-tests.mjs';
@@ -23,6 +24,7 @@ import {runActivityPubPreviewRegressions} from './admin-activitypub-tests.mjs';
 import {runAdminFieldErrorRegressions, runAdminErrorRefreshRegressions, runActivityPubFieldErrorRegressions} from './admin-validation-tests.mjs';
 import {runMediaInsertionAltRegressions, runMediaInsertionCaretRegressions, runMixedMediaCaretRegressions, runRejectedMediaRegressions} from './media-insertion-tests.mjs';
 import {runMediaDragRegressions} from './media-drag-tests.mjs';
+import {runMediaSpacingRegressions} from './media-spacing-tests.mjs';
 import {runAdminAiTargetRegressions} from './admin-ai-target-tests.mjs';
 import {runImageInsertionTextRegressions, runSmartParagraphRegressions, runSocialPreviewTextRegressions} from './admin-text-tests.mjs';
 import {runAltLayoutRegressions, runTemplateFieldRegressions, runPreviewDocumentRegressions, runPreviewLineRegressions} from './admin-layout-preview-tests.mjs';
@@ -432,6 +434,7 @@ try {
         try {
             await runDurabilityRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runHtmlBlockRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runContextMenuRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             for (const fixture of ['/', '/comment.html', '/live.html']) {
                 const page = await browser.newPage();
                 const errors = [];
@@ -447,6 +450,7 @@ try {
                 await page.close();
             }
             await runAuthorWorkflowRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runMediaSpacingRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runRecoveryRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runSaveRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runReviewRegressions(browser, `http://127.0.0.1:${server.address().port}`);

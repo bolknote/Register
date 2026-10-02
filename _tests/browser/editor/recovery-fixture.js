@@ -37,6 +37,9 @@
                 <input class="post-inplace-datetime" type="datetime-local" step="1" hidden></div>
             <nav class="post-inplace-tools">
                 <button class="post-inplace-button post-edit-start" type="button">Edit</button>
+                <button class="post-inplace-button post-edit-menu" type="button" aria-label="Editor tools" aria-haspopup="menu" aria-expanded="false" hidden>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h3m4 0h9M4 12h9m4 0h3M4 18h3m4 0h9"/><circle cx="9" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="9" cy="18" r="2"/></svg>
+                </button>
                 <button class="post-inplace-button post-edit-save" type="button" hidden>Save</button>
                 <button class="post-inplace-button post-edit-cancel" type="button" hidden>Cancel</button>
             </nav>

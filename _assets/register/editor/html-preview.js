@@ -2,7 +2,12 @@
 (() => {
     'use strict';
     const options = JSON.parse(document.currentScript.dataset.previewOptions);
-    Object.assign(document.body.style, options.theme);
+    const {backgroundColor, colorScheme, ...typography} = options.theme;
+    // Defaults belong to the preview, not the author's body. Author CSS may
+    // override them; a transparent document still matches the editor panel.
+    document.documentElement.style.setProperty('--register-html-preview-background', backgroundColor);
+    document.documentElement.style.setProperty('--register-html-preview-color-scheme', colorScheme);
+    Object.assign(document.body.style, typography);
     let queued = false;
     function measure() {
         if (queued) return;

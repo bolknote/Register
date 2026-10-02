@@ -278,6 +278,9 @@ export async function runRecoveryRegressions(browser, origin) {
         const shortcutRequest = (await request).postData() || '';
         assert.equal(shortcutPrevented, true);
         assert.match(shortcutRequest, /shortcut-tag/u);
+        // Finish the save before replacing this document; otherwise WebKit
+        // can report an aborted in-flight response as a page error.
+        await page.getByText('Expected shortcut probe', {exact: true}).waitFor();
         await page.unroute('**/_inplace/post/9');
         console.log('editor: Cmd+S saves an unfinished tag even during text composition');
 

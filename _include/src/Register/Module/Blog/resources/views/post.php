@@ -162,6 +162,12 @@ $analyticsSection = (string)($tagNames[0] ?? '');
         <span class="post-inplace-button-label"><?php echo $trans('Delete post inplace'); ?></span>
     </button>
     </div>
+    <button class="post-inplace-button post-edit-menu" type="button" title="<?php echo register_htmlencode($trans('Editor tools')); ?>" aria-label="<?php echo register_htmlencode($trans('Editor tools')); ?>" aria-haspopup="menu" aria-expanded="false" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M4 6h3m4 0h9M4 12h9m4 0h3M4 18h3m4 0h9" />
+            <circle cx="9" cy="6" r="2" /><circle cx="15" cy="12" r="2" /><circle cx="9" cy="18" r="2" />
+        </svg>
+    </button>
     <button class="post-inplace-button post-edit-save" type="button" title="<?php echo $trans('Save post changes'); ?>" aria-label="<?php echo $trans('Save post changes'); ?>" data-editor-shortcut="save" hidden>
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path d="m5 12.2 4.2 4.2L19 6.8" />

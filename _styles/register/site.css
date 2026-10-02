@@ -501,7 +501,9 @@ hr {
     margin: 1.8rem 0 2.1rem;
 }
 
-#content .post-media-picture > .post-media-image {
+/* The outer picture owns the block gap, including when its image is linked or
+ * has a responsive <picture> wrapper. An inner image must not add another gap. */
+#content .post-media-picture .post-media-image {
     margin: 0;
 }
 
@@ -962,17 +964,24 @@ h2.preview,
     line-height: inherit;
 }
 
-/* A caret line inserted immediately before media must occupy one text line,
- * without also inheriting the normal paragraph and picture gaps. Do not flatten
- * every paragraph here: stored paragraph boundaries must stay visible when the
- * post switches from reading to editing. */
+/* An explicit empty line is one line, not a text paragraph plus its reading gap.
+ * Native Enter clones the paragraph, so this must cover every empty line in a
+ * sequence, including saved lines with no editor-only class. Nonempty paragraphs
+ * retain their normal rhythm when switching from reading to editing. */
+#content .post-card.is-editing > .post.body[data-post-inplace-body]
+    > p.post-editor-empty-paragraph {
+    min-height: 1lh;
+    margin-bottom: 0;
+}
+
+/* A caret line immediately before media must not also add a picture gap. */
 #content .post-card.is-editing > .post.body[data-post-inplace-body]
     > p.post-editor-body-paragraph:has(+ .post-media-picture) {
     margin-bottom: 0;
 }
 
 #content .post-card.is-editing > .post.body[data-post-inplace-body]
-    > p.post-editor-body-paragraph + .post-media-picture {
+    > :is(p.post-editor-body-paragraph, p.post-editor-empty-paragraph) + .post-media-picture {
     margin-top: 0;
 }
 
@@ -1447,8 +1456,9 @@ h2.preview,
     z-index: 30;
     top: 0;
     left: 0;
-    width: min(22rem, calc(100vw - 1.5rem));
-    max-height: min(28rem, calc(50vh - 0.75rem));
+    width: min(32rem, calc(100vw - 1.5rem));
+    max-height: calc(100vh - 1.5rem);
+    max-height: calc(100dvh - 1.5rem);
     padding: 0.38rem;
     overflow: auto;
     border: 1px solid color-mix(in srgb, var(--text-color) 18%, transparent);
@@ -1510,6 +1520,17 @@ h2.preview,
     font-weight: 780;
     letter-spacing: 0.08em;
     text-transform: uppercase;
+}
+
+.post-editor-context-menu .post-editor-context-close {
+    width: 2.15rem;
+    flex: 0 0 2.15rem;
+    margin-left: auto;
+    padding: 0.25rem;
+    justify-content: center;
+    align-self: center;
+    color: var(--minor-color);
+    font-size: 1.35rem;
 }
 
 .post-editor-context-section {
@@ -1896,8 +1917,8 @@ h2.preview,
         bottom: max(0.75rem, env(safe-area-inset-bottom));
         left: max(0.75rem, env(safe-area-inset-left));
         width: auto;
-        max-height: min(78vh, 36rem);
-        max-height: min(78dvh, 36rem);
+        max-height: calc(100vh - 1.5rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+        max-height: calc(100dvh - 1.5rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
     }
 
 }
@@ -2518,6 +2539,7 @@ h2.preview,
 
     .post-card.is-editing > .post.time {
         display: flex;
+        padding-right: 9rem;
         align-items: center;
         gap: 0.25rem;
     }
@@ -2530,6 +2552,10 @@ h2.preview,
         height: 1lh;
         flex: 0 0 1.5rem;
         transform: none;
+    }
+
+    .post-card.is-editing > .post.time > time {
+        min-width: 0;
     }
 
     .post-inplace-tools,
@@ -2561,6 +2587,10 @@ h2.preview,
 
     .post-card.is-editing > .post-inplace-tools > .post-edit-cancel {
         order: 1;
+    }
+
+    .post-card.is-editing > .post-inplace-tools > .post-edit-menu {
+        order: 0;
     }
 
     .post-card.is-editing > .post-inplace-tools > .post-edit-save {
@@ -2615,6 +2645,10 @@ h2.preview,
     }
 
     @container post-editor (max-width: 320px) {
+        .post-card.is-editing > .post.time {
+            padding-right: 6.5rem;
+        }
+
         .post-card.is-editing > .post-inplace-tools > :is(.post-edit-save, .post-edit-cancel) {
             width: 1.5rem;
         }
@@ -4342,28 +4376,67 @@ ul.back_forward .empty {
     margin: 1em 0;
     border: 1px solid var(--border-color);
     border-radius: .5em;
+    background: var(--surface-background);
     overflow: hidden;
 }
 .post-html-block-tools {
     display: flex;
     flex-wrap: wrap;
-    gap: .75em;
+    gap: .5rem .75rem;
     align-items: center;
-    padding: .5em .75em;
-    font: 14px/1.5 sans-serif;
+    padding: .55rem .75rem;
+    font: 500 .84rem/1.3 var(--ui-font);
 }
 .post-html-block-tools strong { margin-right: auto; }
+.post-html-block-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem;
+    margin-left: auto;
+}
 .post-html-block-tools button {
-    color: inherit;
+    display: inline-flex;
+    min-height: 2.15rem;
+    padding: .4rem .65rem;
+    align-items: center;
+    gap: .4rem;
+    border: 0;
+    border-radius: .48rem;
+    appearance: none;
     background: transparent;
-    border: 1px solid currentColor;
-    border-radius: .4em;
-    padding: .25em .5em;
-    font: inherit;
+    color: var(--minor-color);
     cursor: pointer;
+    font: inherit;
+    line-height: 1.2;
+}
+.post-html-block-tools .post-html-block-edit {
+    background: color-mix(in srgb, var(--accent-color) 12%, transparent);
+    color: var(--accent-color);
+}
+.post-html-block-tools button:is(:hover, :focus-visible) {
+    background: color-mix(in srgb, var(--accent-color) 18%, transparent);
+    color: var(--accent-color);
+}
+.post-html-block-tools .post-html-block-remove:is(:hover, :focus-visible) {
+    background: color-mix(in srgb, var(--error-color) 12%, transparent);
+    color: var(--error-color);
+}
+.post-html-block-tools svg {
+    width: 1rem;
+    height: 1rem;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+@media (hover: none) {
+    .post-html-block-tools button { min-height: 2.75rem; }
 }
 .post-html-block-code {
     box-sizing: border-box;
+    display: block;
     width: 100%;
     min-height: 12em;
     padding: .75em;
@@ -4374,12 +4447,13 @@ ul.back_forward .empty {
     color: inherit;
     background: transparent;
 }
-.post-html-block-code[hidden] { display: none; }
+.post-html-block-code[hidden],
+.post-html-block-preview[hidden] { display: none; }
 .post-html-block-preview {
     display: block;
     width: 100%;
     height: 40px;
     min-height: 40px;
     border: 0;
-    background: transparent;
+    background: inherit;
 }

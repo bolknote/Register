@@ -3,6 +3,20 @@
     'use strict';
     const selector = 'div[data-post-html-source]';
     const sandbox = 'allow-scripts allow-forms allow-modals allow-downloads allow-popups allow-presentation';
+    const editPath = 'm8 5-6 7 6 7m8-14 6 7-6 7m-3-17-2 20';
+    const donePath = 'm5 12 4 4L19 6';
+
+    function toolIcon(path) {
+        const namespace = 'http://www.w3.org/2000/svg';
+        const icon = document.createElementNS(namespace, 'svg');
+        icon.setAttribute('viewBox', '0 0 24 24');
+        icon.setAttribute('aria-hidden', 'true');
+        icon.setAttribute('focusable', 'false');
+        const shape = document.createElementNS(namespace, 'path');
+        shape.setAttribute('d', path);
+        icon.append(shape);
+        return icon;
+    }
 
     function block(source = '') {
         const node = document.createElement('div');
@@ -90,14 +104,23 @@
                 header.className = 'post-html-block-tools';
                 const title = document.createElement('strong');
                 title.textContent = labels.htmlBlockLabel || 'HTML';
+                const actions = document.createElement('div');
+                actions.className = 'post-html-block-actions';
                 const edit = document.createElement('button');
                 edit.type = 'button';
-                edit.textContent = labels.htmlBlockEdit || 'Edit code';
+                edit.className = 'post-html-block-edit';
+                const editIcon = toolIcon(editPath);
+                const editLabel = document.createElement('span');
+                editLabel.textContent = labels.htmlBlockEdit || 'Edit code';
+                edit.append(editIcon, editLabel);
                 edit.setAttribute('aria-expanded', 'false');
                 const remove = document.createElement('button');
                 remove.type = 'button';
-                remove.textContent = labels.htmlBlockRemove || 'Remove block';
-                header.append(title, edit, remove);
+                remove.className = 'post-html-block-remove';
+                remove.append(toolIcon('M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7'),
+                    document.createTextNode(labels.htmlBlockRemove || 'Remove block'));
+                actions.append(edit, remove);
+                header.append(title, actions);
                 const code = document.createElement('textarea');
                 code.className = 'post-html-block-code';
                 code.setAttribute('aria-label', labels.htmlBlockCode || 'HTML code');
@@ -109,6 +132,7 @@
                 frame.title = labels.htmlBlockPreview || 'HTML preview';
                 frame.setAttribute('sandbox', sandbox);
                 frame.name = `register-html-${crypto.randomUUID()}`;
+                frame.hidden = node.dataset.postHtmlSource.trim() === '';
                 const form = document.createElement('form');
                 form.hidden = true;
                 form.method = 'post';
@@ -121,7 +145,10 @@
                     clearTimeout(session.timer);
                     if (!state.body.contains(node)) return;
                     session.key = crypto.randomUUID();
+                    frame.hidden = node.dataset.postHtmlSource.trim() === '';
+                    if (frame.hidden) return;
                     const theme = getComputedStyle(state.body);
+                    const panelTheme = getComputedStyle(node);
                     const fields = {
                         inplace_action: 'html_preview',
                         inplace_token: state.form.elements.namedItem('inplace_token')?.value || '',
@@ -130,7 +157,8 @@
                         html_base: location.href,
                         html_font: theme.font,
                         html_color: theme.color,
-                        html_backgroundColor: theme.backgroundColor,
+                        html_backgroundColor: panelTheme.backgroundColor,
+                        html_colorScheme: panelTheme.colorScheme,
                     };
                     form.replaceChildren();
                     Object.entries(fields).forEach(([name, value]) => {
@@ -148,7 +176,8 @@
                 listen(edit, 'click', () => {
                     code.hidden = !code.hidden;
                     edit.setAttribute('aria-expanded', String(!code.hidden));
-                    edit.textContent = code.hidden ? (labels.htmlBlockEdit || 'Edit code') : (labels.htmlBlockDone || 'Done');
+                    editLabel.textContent = code.hidden ? (labels.htmlBlockEdit || 'Edit code') : (labels.htmlBlockDone || 'Done');
+                    editIcon.firstElementChild.setAttribute('d', code.hidden ? editPath : donePath);
                     if (!code.hidden) code.focus();
                     else { preview(); focusAfter(node); }
                 });
@@ -167,6 +196,8 @@
                 listen(code, 'input', event => {
                     event.stopPropagation();
                     node.dataset.postHtmlSource = code.value;
+                    frame.hidden = code.value.trim() === '';
+                    if (frame.hidden) session.key = null;
                     state.bodyDirty = true;
                     state.history?.record(event.inputType);
                     state.recovery?.persist();

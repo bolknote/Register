@@ -1,3 +1,7 @@
+html {
+    background: var(--register-html-preview-background, transparent);
+    color-scheme: var(--register-html-preview-color-scheme, light dark);
+}
 html, body { margin: 0; padding: 0; }
 body { display: flow-root; overflow-wrap: anywhere; }
 img, video { max-width: 100%; height: auto; }

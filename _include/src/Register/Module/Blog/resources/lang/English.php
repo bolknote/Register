@@ -128,6 +128,8 @@ return [
     'Post media has changed' => 'An attachment has changed in another window. Try saving again.',
 
     'Editor context menu' => 'Editor context menu',
+    'Editor tools' => 'Editor tools',
+    'Close editor menu' => 'Close editor menu',
     'Editor' => 'Editor',
     'Selected text' => 'Selected text',
     'Cursor position' => 'Cursor position',

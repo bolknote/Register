@@ -128,6 +128,8 @@ return [
     'Post media has changed' => 'Вложение изменилось в другом окне. Повторите сохранение.',
 
     'Editor context menu' => 'Контекстное меню редактора',
+    'Editor tools' => 'Инструменты редактора',
+    'Close editor menu' => 'Закрыть меню редактора',
     'Editor' => 'Редактор',
     'Selected text' => 'Выделенный текст',
     'Cursor position' => 'Позиция курсора',

@@ -44,7 +44,8 @@ final class PostInplaceCest
         $source = '<style>body{color:red}</style><!-- exact -->'
             . '<svg><circle r="5" /></svg><script>document.body.dataset.test="ok"</script>';
         $data = ['inplace_action' => 'html_preview', 'html_source' => $source,
-            'html_preview_key' => '0123456789abcdef', 'html_base' => 'https://localhost/html-preview'];
+            'html_preview_key' => '0123456789abcdef', 'html_base' => 'https://localhost/html-preview',
+            'html_backgroundColor' => 'rgb(39, 36, 31)', 'html_colorScheme' => 'dark'];
         $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $id, $data);
         $I->seeResponseCodeIs(Response::HTTP_FORBIDDEN);
         $I->login('author', 'author');
@@ -54,6 +55,8 @@ final class PostInplaceCest
         $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $id, $data);
         $I->seeResponseCodeIs(Response::HTTP_OK);
         $I->assertStringContainsString($source, $I->grabResponse());
+        $I->assertStringContainsString('&quot;backgroundColor&quot;:&quot;rgb(39, 36, 31)&quot;', $I->grabResponse());
+        $I->assertStringContainsString('&quot;colorScheme&quot;:&quot;dark&quot;', $I->grabResponse());
         $I->seeHttpHeader('Content-Security-Policy', SandboxedHtmlResponse::POLICY);
         $I->seeHttpHeader('Cache-Control', 'no-store, private');
         $I->assertSame($original, $this->contentRow($dbLayer, $id));

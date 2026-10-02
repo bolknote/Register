@@ -208,7 +208,7 @@ final readonly class PostInplaceController implements ControllerInterface
         }
 
         $theme = [];
-        foreach (['font', 'color', 'backgroundColor'] as $property) {
+        foreach (['font', 'color', 'backgroundColor', 'colorScheme'] as $property) {
             $theme[$property] = mb_substr($request->request->getString('html_' . $property), 0, 500);
         }
 

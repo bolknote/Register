@@ -398,6 +398,7 @@
         tools.querySelector('.post-delete-start')?.toggleAttribute('hidden', editing);
         tools.querySelector('.post-edit-save')?.toggleAttribute('hidden', !editing);
         tools.querySelector('.post-edit-cancel')?.toggleAttribute('hidden', !editing);
+        tools.querySelector('.post-edit-menu')?.toggleAttribute('hidden', !editing);
     }
 
     function localDateTimeValue(timestamp) {
@@ -882,8 +883,8 @@
         clone.querySelectorAll('[data-post-editor-nowrap]').forEach((wrapper) => {
             wrapper.replaceWith(...wrapper.childNodes);
         });
-        clone.querySelectorAll('.post-editor-body-paragraph').forEach((paragraph) => {
-            paragraph.classList.remove('post-editor-body-paragraph');
+        clone.querySelectorAll('.post-editor-body-paragraph, .post-editor-empty-paragraph').forEach((paragraph) => {
+            paragraph.classList.remove('post-editor-body-paragraph', 'post-editor-empty-paragraph');
             if (paragraph.getAttribute('class') === '') {
                 paragraph.removeAttribute('class');
             }
@@ -3378,6 +3379,7 @@
         const range = context.range.cloneRange();
         context.anchor.remove();
         state.contextMenu = null;
+        state.card.querySelector('.post-edit-menu')?.setAttribute('aria-expanded', 'false');
         if (restoreSelection) {
             selectRange(state, range);
         }
@@ -3509,7 +3511,7 @@
         if (imageMode) {
             context.imagePanel.querySelector('button, input')?.focus({preventScroll: true});
         } else {
-            visibleContextButtons(context.menu)[0]?.focus({preventScroll: true});
+            visibleContextButtons(context.main)[0]?.focus({preventScroll: true});
         }
         positionContextMenu(context);
     }
@@ -4695,6 +4697,10 @@
     }
 
     function handleContextAction(state, action) {
+        if (action === 'close-menu') {
+            closeContextMenu(state, true);
+            return;
+        }
         if (action === 'html') {
             const context = detachContextMenu(state);
             insertHtmlBlock(state, '', context?.range);
@@ -4772,13 +4778,15 @@
         }
     }
 
-    function openContextMenu(state, event = null, targetOverride = null) {
+    function openContextMenu(state, event = null, targetOverride = null, rangeOverride = null) {
         const template = editorTemplate('.post-editor-context-menu-template');
         if (!(template instanceof HTMLTemplateElement)) {
             return false;
         }
         const selection = window.getSelection();
-        let range = selection && selection.rangeCount > 0 ? selection.getRangeAt(0).cloneRange() : null;
+        let range = rangeOverride instanceof Range
+            ? rangeOverride.cloneRange()
+            : (selection && selection.rangeCount > 0 ? selection.getRangeAt(0).cloneRange() : null);
         const selected = range instanceof Range
             && rangeIsInside(state.body, range)
             && !range.collapsed
@@ -4900,6 +4908,7 @@
                 ? targetLink
                 : null,
         };
+        state.card.querySelector('.post-edit-menu')?.setAttribute('aria-expanded', 'true');
 
         if (targetImage) {
             imageAltInput.addEventListener('input', () => {
@@ -4911,7 +4920,8 @@
 
         menu.addEventListener('pointerdown', (pointerEvent) => {
             if (
-                !(pointerEvent.target instanceof HTMLInputElement)
+                pointerEvent.pointerType === 'mouse'
+                && !(pointerEvent.target instanceof HTMLInputElement)
                 && !(pointerEvent.target instanceof HTMLTextAreaElement)
             ) {
                 pointerEvent.preventDefault();
@@ -4994,7 +5004,7 @@
         if (targetImage) {
             imageLinkButton.focus({preventScroll: true});
         } else {
-            visibleContextButtons(menu)[0]?.focus({preventScroll: true});
+            visibleContextButtons(main)[0]?.focus({preventScroll: true});
         }
         return true;
     }
@@ -5223,8 +5233,19 @@
         const target = event.target instanceof Element ? event.target : null;
         const clickedCard = cardFor(target);
         const clickedEditorState = clickedCard ? editorStates.get(clickedCard) : null;
+        if (clickedEditorState && target?.closest('.post-edit-menu')) {
+            // Snapshot before native button focus can clear a touch selection.
+            // Do not cancel pointerdown: WebKit would suppress the tap's click.
+            const selection = window.getSelection();
+            const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+            clickedEditorState.menuButtonRange = range && rangeIsInside(clickedEditorState.body, range)
+                ? range.cloneRange()
+                : null;
+            return;
+        }
         document.querySelectorAll('.post-card.is-editing').forEach((card) => {
             const state = editorStates.get(card);
+            if (state) state.menuButtonRange = null;
             state?.mediaCaptionEditors.forEach((_controller, caption) => {
                 if (!caption.contains(target)) {
                     finishInlineMediaCaption(state, caption, false);
@@ -5279,6 +5300,18 @@
             return;
         }
         const toolsToggle = target?.closest('.post-tools-menu-toggle');
+        const editorMenu = target?.closest('.post-edit-menu');
+        if (editorMenu && inlineCaptionState) {
+            event.preventDefault();
+            const range = inlineCaptionState.menuButtonRange;
+            inlineCaptionState.menuButtonRange = null;
+            if (inlineCaptionState.contextMenu) {
+                closeContextMenu(inlineCaptionState, true);
+            } else {
+                openContextMenu(inlineCaptionState, null, null, range);
+            }
+            return;
+        }
         if (toolsToggle) {
             const tools = toolsToggle.closest('.post-inplace-tools');
             if (tools instanceof HTMLElement) {
@@ -5547,7 +5580,9 @@
         document.querySelectorAll('.post-card.is-editing').forEach((card) => {
             const state = editorStates.get(card);
             if (state?.contextMenu) {
-                closeContextMenu(state, false);
+                // Mobile keyboards and rotation resize the viewport. Keep
+                // the tools open and inside the new available space.
+                positionContextMenu(state.contextMenu);
             }
         });
         syncBoundaryCaret();

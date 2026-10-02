@@ -5,6 +5,99 @@ import {readFile} from 'node:fs/promises';
 import {createFixtureServer} from './server.mjs';
 import {formData} from './save-tests.mjs';
 
+async function fulfillPreview(route, data) {
+    const previewScript = (await readFile(new URL('../../../_assets/register/editor/html-preview.js', import.meta.url))).toString('base64');
+    const previewCss = (await readFile(new URL('../../../_assets/register/editor/html-preview.css', import.meta.url))).toString('base64');
+    const attribute = value => value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;');
+    // Match the isolated document contract; PHP integration tests cover the real endpoint.
+    await route.fulfill({contentType: 'text/html', headers: {
+        'Content-Security-Policy': "sandbox allow-scripts allow-forms; default-src * data: blob: 'unsafe-inline' 'unsafe-eval'; frame-ancestors 'self'",
+    }, body: `<!doctype html><head><meta charset="utf-8"><link rel="stylesheet" href="data:text/css;base64,${previewCss}"></head><body>`
+        + `<script src="data:text/javascript;base64,${previewScript}" data-preview-options="${attribute(JSON.stringify({
+            key: data.get('html_preview_key'), theme: {font: data.get('html_font'), color: data.get('html_color'),
+                backgroundColor: data.get('html_backgroundColor'), colorScheme: data.get('html_colorScheme')},
+        }))}"></script>` + data.get('html_source')});
+}
+
+export async function runHtmlBlockAppearanceRegressions(browser, origin) {
+    for (const colorScheme of ['dark', 'light']) {
+        for (const mobile of [false, true]) {
+            const context = await browser.newContext({colorScheme, hasTouch: mobile,
+                viewport: mobile ? {width: 390, height: 844} : {width: 1280, height: 900}});
+            const page = await context.newPage();
+            page.setDefaultTimeout(10000);
+            const errors = [];
+            let previews = 0;
+            page.on('pageerror', error => errors.push(String(error)));
+            await page.route('**/recovery-fixture.css', route => route.fulfill({contentType: 'text/css',
+                body: 'body { margin: 24px; } #content { width: min(960px, 100%); } @view-transition { navigation: none; }'}));
+            await page.route('**/_inplace/tags', route => route.fulfill({json: {tags: []}}));
+            await page.route('**/_inplace/post/9', async route => {
+                const data = await formData(route);
+                assert.equal(data.get('inplace_action'), 'html_preview');
+                previews++;
+                await fulfillPreview(route, data);
+            });
+            try {
+                await page.goto(origin + '/recovery.html');
+                await page.getByRole('button', {name: 'Edit', exact: true}).click();
+                await page.locator('[data-post-inplace-body]').click();
+                await page.keyboard.press('Shift+F10');
+                await page.getByRole('button', {name: 'HTML block', exact: true}).click();
+                const block = page.locator('.post-html-block');
+                const preview = block.locator('iframe');
+                const code = page.getByRole('textbox', {name: 'HTML code', exact: true});
+                assert.equal(await preview.isVisible(), false, 'An empty insertion has no blank preview strip');
+                assert.equal(previews, 0, 'An empty insertion does not request a document');
+                const controls = await block.locator('button').evaluateAll(buttons => buttons.map(button => {
+                    const style = getComputedStyle(button);
+                    const bounds = button.getBoundingClientRect();
+                    const panel = button.closest('.post-html-block').getBoundingClientRect();
+                    return {border: style.borderTopWidth, height: bounds.height, fits: bounds.left >= panel.left && bounds.right <= panel.right};
+                }));
+                assert.ok(controls.every(control => control.border === '0px'), 'HTML controls use the editor toolbar style, not outlined browser-like buttons');
+                assert.ok(controls.every(control => control.fits && control.height >= (mobile ? 44 : 34)), 'Controls fit the block and have usable touch targets');
+                if (process.env.EDITOR_HTML_APPEARANCE_DIR) await block.screenshot({
+                    path: `${process.env.EDITOR_HTML_APPEARANCE_DIR}/${browser.browserType().name()}-${colorScheme}-${mobile ? 'mobile' : 'desktop'}-empty.png`,
+                });
+
+                const source = '<p id="sample">Preview content</p>';
+                await code.fill(source);
+                const frame = page.frameLocator('.post-html-block-preview');
+                await frame.locator('#sample').waitFor();
+                assert.equal(await preview.isVisible(), true);
+                const theme = await block.evaluate(element => ({background: getComputedStyle(element).backgroundColor,
+                    colorScheme: getComputedStyle(element).colorScheme}));
+                assert.notEqual(theme.background, 'rgba(0, 0, 0, 0)');
+                assert.deepEqual(await frame.locator('html').evaluate(element => ({background: getComputedStyle(element).backgroundColor,
+                    colorScheme: getComputedStyle(element).colorScheme})), theme, 'A transparent document shares the block background and color scheme');
+                assert.equal(await block.getAttribute('data-post-html-source'), source);
+
+                await code.fill(' \n\t');
+                assert.equal(await preview.isVisible(), false, 'Clearing the source immediately removes the empty area');
+                assert.equal(await block.getAttribute('data-post-html-source'), ' \n\t', 'Hiding a blank preview never trims the author source');
+
+                const authored = '<style>html { background: rgb(22, 44, 66); } body { background: rgb(90, 80, 70); }</style>\n<p id="authored">Authored background</p>';
+                await code.fill(authored);
+                await frame.locator('#authored').waitFor();
+                assert.equal(await frame.locator('html').evaluate(element => getComputedStyle(element).backgroundColor), 'rgb(22, 44, 66)', 'Author styles override preview defaults');
+                assert.equal(await frame.locator('body').evaluate(element => getComputedStyle(element).backgroundColor), 'rgb(90, 80, 70)');
+                const done = block.getByRole('button', {name: 'Done', exact: true});
+                if (mobile) await done.tap(); else await done.click();
+                assert.equal(await code.isVisible(), false);
+                await frame.locator('#authored').waitFor();
+                assert.equal(await block.getAttribute('data-post-html-source'), authored);
+                assert.ok(await page.evaluate(source => {
+                    const state = editorTest.editorStates.get(document.querySelector('.post-card.is-editing'));
+                    return editorTest.editableBodyHtml(state).includes(source);
+                }, authored));
+                assert.deepEqual(errors, []);
+            } finally { await context.close(); }
+        }
+    }
+    console.log(`${browser.browserType().name()}: HTML preview appearance, empty blocks, authored styles and touch controls passed in dark/light themes`);
+}
+
 export async function runHtmlBlockRegressions(browser, origin) {
     const context = await browser.newContext();
     const page = await context.newPage();
@@ -22,20 +115,11 @@ export async function runHtmlBlockRegressions(browser, origin) {
     let savedBody = null;
     let rejectSave = true;
     let previewCount = 0;
-    const previewScript = (await readFile(new URL('../../../_assets/register/editor/html-preview.js', import.meta.url))).toString('base64');
-    const previewCss = (await readFile(new URL('../../../_assets/register/editor/html-preview.css', import.meta.url))).toString('base64');
-    const attribute = value => value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;');
     await page.route('**/_inplace/post/9', async route => {
         const data = await formData(route);
         if (data.get('inplace_action') === 'html_preview') {
             previewCount++;
-            // Match the isolated document contract; PHP integration tests cover the real endpoint.
-            await route.fulfill({contentType: 'text/html', headers: {
-                'Content-Security-Policy': "sandbox allow-scripts allow-forms; default-src * data: blob: 'unsafe-inline' 'unsafe-eval'; frame-ancestors 'self'",
-            }, body: `<!doctype html><head><link rel="stylesheet" href="data:text/css;base64,${previewCss}"></head><body>`
-                + `<script src="data:text/javascript;base64,${previewScript}" data-preview-options="${attribute(JSON.stringify({
-                    key: data.get('html_preview_key'), theme: {font: data.get('html_font'), color: data.get('html_color'), backgroundColor: data.get('html_backgroundColor')},
-                }))}"></script>` + data.get('html_source')});
+            await fulfillPreview(route, data);
             return;
         }
         if (data.get('inplace_action') === 'ai') {
@@ -226,6 +310,7 @@ export async function runHtmlBlockRegressions(browser, origin) {
         assert.deepEqual(errors, []);
         console.log(`${browser.browserType().name()}: HTML insertion, isolated rendering, failed save, recovery, undo and reopen passed`);
     } finally { await context.close(); }
+    await runHtmlBlockAppearanceRegressions(browser, origin);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

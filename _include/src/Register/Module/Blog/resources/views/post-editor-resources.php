@@ -69,6 +69,7 @@ $config = [
             <strong data-context-selection-only><?php echo $trans('Selected text'); ?></strong>
             <strong data-context-caret-only><?php echo $trans('Cursor position'); ?></strong>
             <strong data-context-image-only hidden><?php echo $trans('Image'); ?></strong>
+            <button class="post-editor-context-close" type="button" data-context-action="close-menu" aria-label="<?php echo register_htmlencode($trans('Close editor menu')); ?>" title="<?php echo register_htmlencode($trans('Close editor menu')); ?>"><span aria-hidden="true">×</span></button>
         </header>
 
         <div class="post-editor-context-main">
