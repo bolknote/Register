@@ -3,11 +3,12 @@
 declare(strict_types = 1);
 
 return [
-    'Post editor mode' => 'Режим редактирования',
-    'Post visual editor' => 'Редактор',
-    'Post HTML pending' => 'Дождитесь завершения загрузки файлов и правок ИИ, чтобы открыть HTML.',
-    'Post HTML load failed' => 'Не удалось открыть редактор HTML. Попробуйте ещё раз.',
-    'Post HTML unsupported' => 'Этот HTML содержит элементы, которые нельзя открыть в визуальном редакторе. Продолжайте правку в режиме HTML; исходный код сохранён.',
+    'HTML block' => 'HTML-вставка',
+    'Edit HTML code' => 'Изменить код',
+    'Finish editing HTML code' => 'Готово',
+    'HTML code' => 'HTML-код',
+    'Remove HTML block' => 'Удалить вставку',
+    'HTML preview' => 'Предпросмотр HTML',
     'Post save timeout' => 'Сервер не ответил вовремя. Черновик сохранён на этом устройстве; попробуйте сохранить снова.',
     'Post creation recovered' => 'Пост уже был создан. Проверьте и сохраните последующие изменения.',
 

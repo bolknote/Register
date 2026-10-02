@@ -30,6 +30,7 @@ use Register\Url\ContentSlugService;
 use Register\Url\PostUrlNamespace;
 use Register\Url\ContentUrlGenerator;
 use Register\Core\Framework\ControllerInterface;
+use Register\Core\Http\SandboxedHtmlResponse;
 use Register\Core\Model\AuthenticatedPublicUser;
 use Register\Core\Model\UrlBuilder;
 use Register\Core\Pdo\DbLayer;
@@ -91,6 +92,7 @@ final readonly class PostInplaceController implements ControllerInterface
         private TranslatorInterface        $translator,
         private \Register\Url\UrlHistoryService $urlHistory,
         private PostCreateOperations       $createOperations,
+        private string                     $publicRootDir,
         ContentDeletionGuardInterface ...$deletionGuards,
     ) {
         $this->deletionGuards = array_values($deletionGuards);
@@ -131,6 +133,10 @@ final readonly class PostInplaceController implements ControllerInterface
         }
 
         $action = $request->request->getString('inplace_action');
+        if ($action === 'html_preview') {
+            return $this->htmlPreview($request);
+        }
+
         $publicationAt = $this->storedPublicationAt($post);
         if ($action === 'media') {
             return $this->uploadMedia($request, $editor, $publicationAt);
@@ -176,6 +182,7 @@ final readonly class PostInplaceController implements ControllerInterface
         }
 
         return match ($request->request->getString('inplace_action')) {
+            'html_preview'  => $this->htmlPreview($request),
             'media'         => $this->uploadMedia($request, $editor, time()),
             'media_redate'  => $this->redateMedia($request, $editor, time()),
             'media_release' => $this->releaseMedia($request, $editor),
@@ -184,6 +191,35 @@ final readonly class PostInplaceController implements ControllerInterface
             'create'        => $this->create($request, $editor),
             default         => $this->error($request, 'Invalid post mutation request', Response::HTTP_BAD_REQUEST),
         };
+    }
+
+    /** Preview only: the authenticated author's code never shares the editor's origin. */
+    private function htmlPreview(Request $request): SandboxedHtmlResponse
+    {
+        $source = $request->request->getString('html_source');
+        $key = $request->request->getString('html_preview_key');
+        if (strlen($source) > self::MAX_BODY_BYTES || !preg_match('/^[a-zA-Z0-9_-]{16,80}$/D', $key)) {
+            return new SandboxedHtmlResponse('Invalid HTML preview', Response::HTTP_BAD_REQUEST);
+        }
+
+        $base = $request->request->getString('html_base');
+        if (!filter_var($base, FILTER_VALIDATE_URL) || !in_array(parse_url($base, PHP_URL_SCHEME), ['http', 'https'], true)) {
+            $base = $request->getSchemeAndHttpHost() . $request->getBaseUrl() . '/';
+        }
+
+        $theme = [];
+        foreach (['font', 'color', 'backgroundColor'] as $property) {
+            $theme[$property] = mb_substr($request->request->getString('html_' . $property), 0, 500);
+        }
+
+        $options = json_encode(['key' => $key, 'theme' => $theme], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR);
+        $head = '<!doctype html><html><head><meta charset="utf-8"><base href="'
+            . htmlspecialchars($base, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
+            . '"><link rel="stylesheet" href="data:text/css;base64,' . base64_encode((string)file_get_contents($this->publicRootDir . '/_assets/register/editor/html-preview.css'))
+            . '"></head><body><script src="data:text/javascript;base64,' . base64_encode((string)file_get_contents($this->publicRootDir . '/_assets/register/editor/html-preview.js'))
+            . '" data-preview-options="' . htmlspecialchars($options, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"></script>';
+
+        return new SandboxedHtmlResponse($head . $source . '</body></html>', Response::HTTP_OK, ['Content-Type' => 'text/html; charset=utf-8']);
     }
 
     private function uploadMedia(

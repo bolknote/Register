@@ -266,6 +266,7 @@ final class ServiceModule implements ContainerModuleInterface
             $container->get('register_blog_translator'),
             $container->get(\Register\Url\UrlHistoryService::class),
             $container->get(Inplace\PostCreateOperations::class),
+            $container->getStringParameter('public_root_dir'),
             ...$container->getByTag(ContentDeletionGuardInterface::class),
         ));
         $container->set(PostTagSuggestionsController::class, static fn(Container $container): PostTagSuggestionsController => new PostTagSuggestionsController(

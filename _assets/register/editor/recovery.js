@@ -79,7 +79,6 @@
             return {
                 title: state.title.textContent || '',
                 body: editableBodyHtml({...state, body}),
-                ...(state.bodyDirty && typeof state.sourceEditor?.html === 'string' ? {htmlSource: true} : {}),
                 tags: state.tagEditor.snapshot(),
                 date: state.dateInput.value,
                 slug: state.form.elements.namedItem('slug')?.value || '',
@@ -182,9 +181,17 @@
             state.history?.before();
             state.titleHistory?.before();
             state.title.textContent = snapshot.title;
-            const safeBody = window.RegisterPostRecovery.cleanBody(snapshot.body);
-            state.body.innerHTML = safeBody;
+            const legacyHtml = snapshot.htmlSource === true;
+            const safeBody = legacyHtml ? snapshot.body : window.RegisterPostRecovery.cleanBody(snapshot.body);
+            const comparison = document.createElement('template');
+            comparison.innerHTML = snapshot.body;
+            window.RegisterEditorHtmlBlocks.strip(comparison.content);
+            const markupChanged = !legacyHtml && safeBody !== comparison.innerHTML;
+            if (legacyHtml) state.body.replaceChildren(window.RegisterEditorHtmlBlocks.block(snapshot.body));
+            else state.body.innerHTML = safeBody;
+            window.RegisterEditorHtmlBlocks.strip(state.body);
             prepareEditableMedia(state.body);
+            state.htmlBlocks?.prepare();
             state.tagEditor.restore(snapshot.tags);
             state.dateInput.value = snapshot.date;
             const slug = state.form.elements.namedItem('slug');
@@ -192,14 +199,13 @@
             state.uploadedMediaIds = new Set(snapshot.mediaIds);
             snapshot.mediaIds.forEach(mediaId => state.recoveryMediaIds.add(mediaId));
             state.titleDirty = state.bodyDirty = state.tagsDirty = state.dateDirty = true;
-            if (snapshot.htmlSource === true) state.sourceEditor?.restore(snapshot.body);
             state.history?.record();
             state.titleHistory?.record();
             state.recovery?.restored(record);
             showEditorStatus(state, [
                 editorConfig().recoveryRestored || 'Text restored. Review it before saving.',
                 snapshot.pendingMedia || snapshot.mediaIds.length > 0 ? editorConfig().recoveryMedia : '',
-                !snapshot.htmlSource && safeBody !== snapshot.body ? editorConfig().recoveryMarkup : '',
+                markupChanged ? editorConfig().recoveryMarkup : '',
             ].filter(Boolean).join(' '), false, 5000);
             focusEdge(state.body, true);
             refreshPostRecoveryOffers();

@@ -13,12 +13,12 @@ $config = [
     'listLabel' => $trans('Post list'),
     'titleLabel' => $trans('Post title'),
     'bodyLabel' => $trans('Post text'),
-    'editorModeLabel' => $trans('Post editor mode'),
-    'visualLabel' => $trans('Post visual editor'),
-    'htmlLabel' => 'HTML',
-    'htmlPending' => $trans('Post HTML pending'),
-    'htmlLoadFailed' => $trans('Post HTML load failed'),
-    'htmlUnsupported' => $trans('Post HTML unsupported'),
+    'htmlBlockLabel' => $trans('HTML block'),
+    'htmlBlockEdit' => $trans('Edit HTML code'),
+    'htmlBlockDone' => $trans('Finish editing HTML code'),
+    'htmlBlockCode' => $trans('HTML code'),
+    'htmlBlockRemove' => $trans('Remove HTML block'),
+    'htmlBlockPreview' => $trans('HTML preview'),
     'tagsLabel' => $trans('Post tags'),
     'tagSuggestionsLabel' => $trans('Post tag suggestions'),
     'removeTagLabel' => $trans('Remove post tag'),
@@ -139,6 +139,9 @@ $config = [
             <section class="post-editor-context-section" data-context-caret-only>
                 <h3><?php echo $trans('Insert entity'); ?></h3>
                 <div class="post-editor-entity-grid">
+                    <button type="button" role="menuitem" data-context-action="html">
+                        <span aria-hidden="true">&lt;/&gt;</span><span><?php echo $trans('HTML block'); ?></span>
+                    </button>
                     <button type="button" role="menuitem" data-context-action="media">
                         <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="13" height="12" rx="2" /><path d="m5.5 13 3-3 4.8 4.8M12.5 7.5h.01M19 8v9.5a2.5 2.5 0 1 1-2-2.45V10l4-1" /></svg>
                         <span><?php echo $trans('Media'); ?></span>

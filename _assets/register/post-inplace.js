@@ -86,21 +86,12 @@
 
     const {createEditorFieldSurfaces} = window.RegisterEditorFields.create({});
 
-    const {createSourceEditor} = window.RegisterEditorSource.create({
-        editableBodyHtml, editorConfig, prepareEditableMedia, showEditorStatus,
-        clearError, clearStatus, closeContextMenu, editorStates,
-        finishCaptions: state => {
-            finishImageCaptionEditing(state, true, false);
-            finishInlineMediaCaptions(state);
-        },
-    });
-
     const {clearBoundaryCaret, clearSyntheticBoundaryCaret, boundaryNodeIsEmpty, isMediaBoundaryElement, editorBoundaryParagraphIsEmpty, topLevelBodyChild, hoistMediaFromParagraph, normalizeLeadingNestedMedia, leadingMediaIndex, prepareMediaInsertionRange, focusBeforeLeadingMedia, focusAfterMedia, mediaBoundaryAtRange, syncBoundaryCaret, moveInsertionBeforeMediaBoundary, protectSelectedMediaBoundary, collapseEmptyParagraphBesideMedia, expandCollapsedBoundaryParagraph, collapseEmptyLeadingParagraphAfterDelete, isMediaOwnedDirectChild, normalizeMediaBodyStructure} = window.RegisterEditorBoundaries.create({
         rangeIsInside, editorStates,
     });
 
     const {createBodyHistory, createFieldHistory} = window.RegisterEditorHistory.create({
-        clearBoundaryCaret, clearError, clearStatus, closeContextMenu, editableBodyHtml, focusEdge, selectionIsInside, syncBoundaryCaret, updateMediaUrls, getPendingMediaClipboard: () => pendingMediaClipboard, editorPlatform,
+        clearBoundaryCaret, clearError, clearStatus, closeContextMenu, focusEdge, selectionIsInside, syncBoundaryCaret, updateMediaUrls, getPendingMediaClipboard: () => pendingMediaClipboard, editorPlatform,
     });
 
     const {normalizeTags, loadTagSuggestions, createTagEditor} = window.RegisterEditorTags.create({
@@ -817,6 +808,7 @@
             }
 
             nodes.forEach((node) => {
+                if (node.parentElement?.closest('[data-post-html-source]')) return;
                 const start = offset;
                 offset += node.data.length;
                 segments.push({node, start, end: offset});
@@ -878,10 +870,9 @@
         }
     }
 
-    function editableBodyHtml(state, visualOnly = false) {
-        const source = visualOnly ? null : state.sourceEditor?.html;
-        if (typeof source === 'string') return source;
+    function editableBodyHtml(state) {
         const clone = state.body.cloneNode(true);
+        window.RegisterEditorHtmlBlocks.strip(clone);
         normalizeMediaBodyStructure(clone);
         removeInlineCodeExitMarkers(clone);
         clone.querySelectorAll('p.post-editor-collapsed-boundary-paragraph').forEach((paragraph) => {
@@ -945,7 +936,7 @@
             }
             if (span.attributes.length === 0) span.replaceWith(...span.childNodes);
         });
-        return clone.innerHTML;
+        return window.RegisterEditorHtmlBlocks.serialize(clone);
     }
 
     function restoreHeadingLink(state) {
@@ -1060,7 +1051,7 @@
         if (pendingMediaClipboard?.state === state) pendingMediaClipboard = null;
         if (activeMediaDrag?.state === state) activeMediaDrag = null;
         state.recovery?.stop();
-        state.sourceEditor?.destroy();
+        state.htmlBlocks?.destroy();
         state.history?.destroy();
         state.titleHistory?.destroy();
         closeDiscardChangesDialog(state, false);
@@ -1309,12 +1300,10 @@
         };
 
         destroyWidgets(elements.body);
-        elements.body.innerHTML = state.originalBody;
+        elements.body.innerHTML = window.RegisterEditorHtmlBlocks.editableHtml(state.originalBody);
         restoreTypographicNoBreaks(elements.body, state.originalNoBreaks);
         prepareEditableMedia(elements.body);
         state.originalEditableBodyHtml = editableBodyHtml(state);
-        state.htmlSource = {html: state.originalBody, rendered: state.body.innerHTML, canonical: state.originalEditableBodyHtml};
-        state.originalEditableBodyHtml = state.originalBody;
         elements.tags.replaceChildren();
         if (state.titleLinkHadHref) {
             titleLink.removeAttribute('href');
@@ -1347,8 +1336,12 @@
         applyShortcutHints(card);
         toggleEditingTools(card, true);
         document.execCommand('defaultParagraphSeparator', false, 'p');
-        state.history = createBodyHistory(state);
-        state.sourceEditor = createSourceEditor(state);
+        state.htmlBlocks = window.RegisterEditorHtmlBlocks.create(state, {
+            config: editorConfig,
+            focusAfter: node => focusAfterHtmlBlock(state, node),
+        });
+        state.htmlBlocks.prepare();
+        state.history = createBodyHistory(state, () => state.htmlBlocks.prepare());
         state.titleHistory = createFieldHistory(state, elements.title, new AbortController(), () => {
             state.titleDirty = true;
         });
@@ -1443,7 +1436,7 @@
         finishImageCaptionEditing(state, true, false);
         finishInlineMediaCaptions(state);
         closeContextMenu(state, false);
-        if (!state.sourceEditor?.active && normalizeMediaBodyStructure(state.body)) {
+        if (normalizeMediaBodyStructure(state.body)) {
             state.bodyDirty = true;
         }
         const titleSource = state.titleDirty ? (state.title.textContent || '') : state.originalTitle;
@@ -2255,9 +2248,7 @@
         }
 
         const mediaById = new Map(payload.media.map((media) => [Number(media.media_id), media]));
-        const sourceHtml = state.sourceEditor?.html;
         updateMediaUrls(state.body, mediaById);
-        await state.sourceEditor?.redateMedia(mediaById, sourceHtml);
         state.history?.redateMedia(mediaById);
     }
 
@@ -2398,7 +2389,7 @@
         range.deleteContents();
     }
 
-    function copyPendingMedia(event) {
+    function copyEditorBlocks(event) {
         if (event.defaultPrevented || !event.clipboardData) return;
         pendingMediaClipboard = null;
         const state = bodyDropState(event.target);
@@ -2409,7 +2400,8 @@
         const container = document.createElement('div');
         container.append(range.cloneContents());
         const uploads = state.history.clipboardUploads(container);
-        if (uploads.size === 0) return;
+        if (uploads.size === 0 && !container.querySelector('div[data-post-html-source]')) return;
+        window.RegisterEditorHtmlBlocks.strip(container);
         removeTrailingEditorArtifacts(container);
 
         // Native clipboard HTML can omit blob images and noneditable audio
@@ -2428,8 +2420,11 @@
             references.set(id, pending);
         });
         const html = container.innerHTML;
+        const plain = container.cloneNode(true);
+        const htmlBlocks = plain.querySelectorAll('div[data-post-html-source]');
+        htmlBlocks.forEach(node => node.replaceWith(document.createTextNode(node.dataset.postHtmlSource)));
         event.clipboardData.setData('text/html', html);
-        event.clipboardData.setData('text/plain', range.toString());
+        event.clipboardData.setData('text/plain', htmlBlocks.length > 0 ? plain.textContent : range.toString());
         event.preventDefault();
         pendingMediaClipboard = {state, html, root: container, uploads: references};
         if (event.type === 'cut') {
@@ -2441,24 +2436,25 @@
         }
     }
 
-    function pastePendingMedia(event) {
+    function pasteEditorBlocks(event) {
         if (event.defaultPrevented) return;
         const state = bodyDropState(event.target);
         const html = event.clipboardData?.getData('text/html') || '';
-        if (!state || !/data-post-(?:clipboard|history)-upload/u.test(html)) return;
+        if (!state || !/data-post-(?:(?:clipboard|history)-upload|html-source)/u.test(html)) return;
         const template = document.createElement('template');
         template.innerHTML = html;
-        if (!template.content.querySelector('[data-post-clipboard-upload], [data-post-history-upload]')) return;
+        const hasUploads = Boolean(template.content.querySelector('[data-post-clipboard-upload], [data-post-history-upload]'));
+        if (!hasUploads && !template.content.querySelector('div[data-post-html-source]')) return;
         event.preventDefault();
         const clipboard = pendingMediaClipboard;
-        if (!clipboard || clipboard.state !== state || clipboard.html !== html
-            || Array.from(clipboard.uploads.values()).some(pending => pending.settled && !pending.completed)) {
+        if (hasUploads && (!clipboard || clipboard.state !== state || clipboard.html !== html
+            || Array.from(clipboard.uploads.values()).some(pending => pending.settled && !pending.completed))) {
             showEditorStatus(state, editorConfig().mediaClipboardUnavailable
                 || 'Copy the attachment again after it finishes uploading.', true);
             return;
         }
-        // Only insert the HTML that this session put on the clipboard. Other
-        // tabs and closed sessions cannot supply a live request for these slots.
+        // Pending slots require this session's cached DOM and live requests.
+        // Self-contained HTML blocks can also come from another editing session.
         const completedImages = [];
         state.history.transact(() => {
             protectSelectedMediaBoundary(state.body);
@@ -2471,7 +2467,10 @@
             deleteMediaClipboardRange(state.body, range);
             range = prepareMediaInsertionRange(state.body, range);
             const fragment = document.createDocumentFragment();
-            fragment.append(...clipboard.root.cloneNode(true).childNodes);
+            fragment.append(...(hasUploads ? clipboard.root : template.content).cloneNode(true).childNodes);
+            // HTML source is inert until its isolated preview is rebuilt. Never
+            // paste copied iframe names, controls or active author styles here.
+            window.RegisterEditorHtmlBlocks.strip(fragment);
             let last = fragment.lastChild;
             range.insertNode(fragment);
             state.body.querySelectorAll('[data-post-clipboard-upload]').forEach(slot => {
@@ -2489,6 +2488,7 @@
                 if (slot === last) last = media;
             });
             prepareEditableMedia(state.body);
+            state.htmlBlocks?.prepare();
             markBodyChanged(state);
             if (!focusAfterMedia(state.body, last)) {
                 if (last) range.setStartAfter(last);
@@ -2890,7 +2890,7 @@
                 // inert. Explicitly end editing on each surface as well.
                 const editable = Array.from(card.querySelectorAll('[contenteditable="true"]'));
                 const inputs = [state.dateInput, ...state.tags.querySelectorAll('input, button'),
-                    ...card.querySelectorAll('.post-editor-source textarea, .post-editor-mode-tabs button')];
+                    ...state.body.querySelectorAll('.post-html-block-code, .post-html-block-tools button')];
                 lockedFields = {editable, inputs: inputs.map(input => [input, input.disabled])};
                 editable.forEach(element => element.setAttribute('contenteditable', 'false'));
                 inputs.forEach(input => { input.disabled = true; });
@@ -3549,6 +3549,7 @@
     function markBodyChanged(state) {
         clearAiChangeMarks(state.body);
         state.bodyDirty = true;
+        state.htmlBlocks?.prepare();
         clearError(state.form);
         clearStatus(state.card);
         state.history?.schedule();
@@ -4226,6 +4227,7 @@
         const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
         let node;
         while ((node = walker.nextNode()) !== null) {
+            if (node.parentElement?.closest('[data-post-html-source]')) continue;
             if (!range.intersectsNode(node)) {
                 continue;
             }
@@ -4466,6 +4468,7 @@
     function htmlForRange(range) {
         const container = document.createElement('div');
         container.append(range.cloneContents());
+        window.RegisterEditorHtmlBlocks.strip(container);
         removeInlineCodeExitMarkers(container);
         clearAiChangeMarks(container);
         container.querySelectorAll('[data-register-audio-native]').forEach((audio) => {
@@ -4473,7 +4476,7 @@
         });
         container.querySelectorAll('.post-editor-context-anchor').forEach((anchor) => anchor.remove());
         container.querySelectorAll('.post-media-caption-toolbar').forEach((toolbar) => toolbar.remove());
-        return container.innerHTML;
+        return window.RegisterEditorHtmlBlocks.serialize(container);
     }
 
     function replaceRangeHtml(state, range, html) {
@@ -4481,6 +4484,7 @@
             return null;
         }
         const fragment = range.createContextualFragment(html);
+        window.RegisterEditorHtmlBlocks.strip(fragment);
         const insertedNodes = Array.from(fragment.childNodes);
         const lastNode = fragment.lastChild;
         range.deleteContents();
@@ -4492,6 +4496,7 @@
             selectRange(state, after);
         }
         prepareEditableMedia(state.body);
+        state.htmlBlocks?.prepare();
         markBodyChanged(state);
         return insertedNodes;
     }
@@ -4517,7 +4522,8 @@
             return;
         }
         const source = sourceRange ? htmlForRange(sourceRange) : editableBodyHtml(state);
-        const sourceText = textFromHtml(source);
+        const protectedSource = window.RegisterEditorHtmlBlocks.protectForAi(source);
+        const sourceText = textFromHtml(protectedSource.prose);
         const wholeSource = editableBodyHtml(state);
         const targetValue = action === 'title' ? state.title.textContent
             : action === 'tags' ? state.tagEditor.snapshot() : null;
@@ -4539,7 +4545,7 @@
         data.set('inplace_token', token instanceof HTMLInputElement ? token.value : '');
         data.set('ai_action', action);
         data.set('title', state.title.textContent || '');
-        data.set('text', source);
+        data.set('text', protectedSource.text);
 
         try {
             const {response, data: payload} = await window.RegisterEditorRequest.requestJson(state.form.action, {
@@ -4565,6 +4571,12 @@
             }
             if (editorStates.get(state.card) !== state || state.aiController !== controller) {
                 return;
+            }
+
+            if (!['tags', 'title'].includes(action)) {
+                const restored = protectedSource.restore(payload.result);
+                if (restored === null) throw new Error(editorConfig().aiSourceChanged || 'The source text has changed.');
+                payload.result = restored;
             }
 
             if ((action === 'title' && state.title.textContent !== targetValue)
@@ -4629,8 +4641,9 @@
                 }
                 markAiChanges(insertedNodes, sourceText);
             } else {
-                state.body.innerHTML = payload.result;
+                state.body.innerHTML = window.RegisterEditorHtmlBlocks.editableHtml(payload.result);
                 prepareEditableMedia(state.body);
+                state.htmlBlocks?.prepare();
                 markBodyChanged(state);
                 markAiChanges(Array.from(state.body.childNodes), sourceText);
                 focusEdge(state.body, false);
@@ -4657,7 +4670,36 @@
         }
     }
 
+    function focusAfterHtmlBlock(state, block) {
+        let paragraph = block.nextElementSibling;
+        if (!(paragraph instanceof HTMLParagraphElement)) {
+            paragraph = document.createElement('p');
+            paragraph.append(document.createElement('br'));
+            block.after(paragraph);
+        }
+        focusEdge(paragraph, false);
+    }
+
+    function insertHtmlBlock(state, source = '', suppliedRange = null) {
+        finishImageCaptionEditing(state, true, false);
+        state.history?.before();
+        const range = prepareMediaInsertionRange(state.body, bodyRange(state, suppliedRange));
+        const block = window.RegisterEditorHtmlBlocks.block(source);
+        range.insertNode(block);
+        focusAfterHtmlBlock(state, block);
+        state.bodyDirty = true;
+        state.htmlBlocks.prepare();
+        state.history?.record();
+        state.htmlBlocks.edit(block);
+        return block;
+    }
+
     function handleContextAction(state, action) {
+        if (action === 'html') {
+            const context = detachContextMenu(state);
+            insertHtmlBlock(state, '', context?.range);
+            return;
+        }
         const formats = {
             'bold': ['bold'],
             'italic': ['italic'],
@@ -4972,13 +5014,9 @@
         if (handleEditingSaveShortcut(event, state)) {
             return true;
         }
-        if (state.sourceEditor?.active && event.target instanceof Element
-            && event.target.closest('.post-editor-source')) {
-            return false;
-        }
         // Caption sessions handle their own typing history until commit adds
         // a single operation to the post's history.
-        if (event.target instanceof Element && event.target.closest('.is-editing-caption, .is-editing-inline-caption')) {
+        if (event.target instanceof Element && event.target.closest('.is-editing-caption, .is-editing-inline-caption, .post-html-block-code')) {
             return false;
         }
         if (event.isComposing) {
@@ -5013,8 +5051,7 @@
 
         if (state.title.contains(event.target) && event.key === 'Enter') {
             event.preventDefault();
-            if (state.sourceEditor?.active) state.sourceEditor.focus();
-            else focusEdge(state.body, false);
+            focusEdge(state.body, false);
             return true;
         }
 
@@ -5423,9 +5460,9 @@
         closeConfirmation(card, true);
     }, false);
 
-    document.addEventListener('copy', copyPendingMedia, false);
-    document.addEventListener('cut', copyPendingMedia, false);
-    document.addEventListener('paste', pastePendingMedia, false);
+    document.addEventListener('copy', copyEditorBlocks, false);
+    document.addEventListener('cut', copyEditorBlocks, false);
+    document.addEventListener('paste', pasteEditorBlocks, false);
     document.addEventListener('paste', pasteMediaFiles, false);
 
     document.addEventListener('paste', pasteMultilineText, false);
@@ -5477,6 +5514,7 @@
             state.bodyDirty = true;
             clearAiChangeMarks(state.body);
             normalizeMediaBodyStructure(state.body);
+            state.htmlBlocks?.prepare();
             state.body.querySelectorAll('p.post-editor-collapsed-boundary-paragraph').forEach((paragraph) => {
                 if (!editorBoundaryParagraphIsEmpty(paragraph)) {
                     paragraph.classList.remove('post-editor-collapsed-boundary-paragraph');

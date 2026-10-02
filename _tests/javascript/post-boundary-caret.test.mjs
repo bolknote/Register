@@ -7,7 +7,7 @@ const editorSource = await readFile(
     new URL('../../_assets/register/post-inplace.js', import.meta.url),
     'utf8'
 );
-const editorModulesSource = (await Promise.all(['fields', 'boundaries', 'history', 'tags', 'recovery', 'source'].map(module => readFile(new URL(`../../_assets/register/editor/${module}.js`, import.meta.url), 'utf8')))).join('\n');
+const editorModulesSource = (await Promise.all(['fields', 'boundaries', 'html-blocks', 'history', 'tags', 'recovery'].map(module => readFile(new URL(`../../_assets/register/editor/${module}.js`, import.meta.url), 'utf8')))).join('\n');
 const testableEditorSource = editorModulesSource + '\n' + editorSource.replace(
     /\n\}\)\(\);\s*$/u,
     [

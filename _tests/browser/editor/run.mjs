@@ -1,9 +1,9 @@
 import {chromium, firefox, webkit} from 'playwright';
 import assert from 'node:assert/strict';
 import {createFixtureServer} from './server.mjs';
-import {runSourceRegressions} from './source-tests.mjs';
 import {runDurabilityRegressions} from './durability-tests.mjs';
 import {runRecoveryRegressions} from './recovery-tests.mjs';
+import {runHtmlBlockRegressions} from './html-block-tests.mjs';
 import {runSaveRegressions, runAdminDirtyFieldRegressions} from './save-tests.mjs';
 import {runReviewRegressions} from './review-tests.mjs';
 import {runRecoveryPreviewRegressions} from './recovery-preview-tests.mjs';
@@ -431,6 +431,7 @@ try {
         const browser = await engine.launch();
         try {
             await runDurabilityRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runHtmlBlockRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             for (const fixture of ['/', '/comment.html', '/live.html']) {
                 const page = await browser.newPage();
                 const errors = [];
@@ -447,7 +448,6 @@ try {
             }
             await runAuthorWorkflowRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runRecoveryRegressions(browser, `http://127.0.0.1:${server.address().port}`);
-            await runSourceRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runSaveRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runReviewRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runRecoveryPreviewRegressions(browser, `http://127.0.0.1:${server.address().port}`);

@@ -999,108 +999,6 @@ h2.preview,
     fill: var(--post-editor-field-surface);
 }
 
-.post-editor-mode-tabs {
-    position: absolute;
-    right: -2.8rem;
-    z-index: 2;
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
-}
-
-.post-editor-mode-tabs button {
-    writing-mode: vertical-rl;
-    padding: 0.85rem 0.45rem;
-    border: 1px solid var(--border-color);
-    border-radius: 0 0.55rem 0.55rem 0;
-    background: var(--page-background);
-    color: var(--quiet-color);
-    font: 600 0.78rem/1.25 var(--ui-font);
-    cursor: pointer;
-}
-
-.post-editor-mode-tabs button[aria-selected="true"] {
-    border-color: var(--accent-color);
-    background: var(--surface-background);
-    color: var(--accent-color);
-}
-
-.post-editor-mode-tabs button:focus-visible {
-    outline: 2px solid var(--accent-color);
-    outline-offset: 3px;
-}
-
-.post-editor-source {
-    position: relative;
-    margin-block: 0 0.6rem;
-    border-radius: 4px;
-    background: var(--post-editor-field-surface, var(--surface-background));
-    overflow: hidden;
-}
-
-.post-editor-source[hidden],
-.post-card.is-html-editing > .post.body,
-.post-card.is-html-editing [data-editor-field-surface="body"] {
-    display: none !important;
-}
-
-.post-editor-source .CodeMirror {
-    position: relative;
-    inset: auto;
-    height: auto;
-    background: transparent;
-    color: var(--text-color);
-    font: 0.8rem/1.6 monospace;
-    text-wrap: initial;
-}
-
-.post-editor-source .CodeMirror-scroll {
-    min-height: 18rem;
-    max-height: 70vh;
-    max-height: 70svh;
-}
-
-.post-editor-source .CodeMirror-gutters {
-    border: 0;
-    background: transparent;
-}
-
-.post-editor-source .CodeMirror-linenumber { color: var(--quiet-color); }
-.post-editor-source .CodeMirror-cursor { border-left-color: var(--accent-color); }
-.post-editor-source .CodeMirror-selected { background: color-mix(in srgb, var(--accent-color) 25%, transparent); }
-.post-editor-source .cm-s-default .cm-tag { color: var(--accent-color); }
-.post-editor-source .cm-s-default .cm-attribute { color: var(--link-color); }
-.post-editor-source .cm-s-default .cm-string { color: var(--text-color); }
-.post-editor-source .cm-s-default .cm-comment { color: var(--quiet-color); }
-
-@media (max-width: 1100px) and (min-width: 761px) {
-    .post-editor-mode-tabs { right: 0; }
-    .post-card.is-editing > .post.body,
-    .post-editor-source { box-sizing: border-box; width: calc(100% - 3rem); }
-}
-
-@media (max-width: 760px) {
-    .post-editor-mode-tabs {
-        position: static;
-        flex-direction: row;
-        margin-block: 0.5rem;
-    }
-    .post-editor-mode-tabs button {
-        writing-mode: horizontal-tb;
-        padding: 0.55rem 0.85rem;
-        border-radius: 0.5rem;
-    }
-    .post-card.is-editing {
-        display: flex;
-        flex-direction: column;
-    }
-    .post-editor-mode-tabs { order: 1; }
-    .post-card.is-editing > .post.body,
-    .post-editor-source { order: 2; }
-    .post-card.is-editing > .post.foot { order: 3; }
-    .post-card.is-editing > .see-also { order: 4; }
-}
-
 .post-card.is-editing .post-title-text {
     display: block;
     width: 100%;
@@ -4439,4 +4337,49 @@ ul.back_forward .empty {
         color: #000;
         text-decoration: underline;
     }
+}
+.post-html-block.is-editing-html-block {
+    margin: 1em 0;
+    border: 1px solid var(--border-color);
+    border-radius: .5em;
+    overflow: hidden;
+}
+.post-html-block-tools {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .75em;
+    align-items: center;
+    padding: .5em .75em;
+    font: 14px/1.5 sans-serif;
+}
+.post-html-block-tools strong { margin-right: auto; }
+.post-html-block-tools button {
+    color: inherit;
+    background: transparent;
+    border: 1px solid currentColor;
+    border-radius: .4em;
+    padding: .25em .5em;
+    font: inherit;
+    cursor: pointer;
+}
+.post-html-block-code {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 12em;
+    padding: .75em;
+    border: 0;
+    border-top: 1px solid var(--border-color);
+    resize: vertical;
+    font: 14px/1.5 monospace;
+    color: inherit;
+    background: transparent;
+}
+.post-html-block-code[hidden] { display: none; }
+.post-html-block-preview {
+    display: block;
+    width: 100%;
+    height: 40px;
+    min-height: 40px;
+    border: 0;
+    background: transparent;
 }

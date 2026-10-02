@@ -67,7 +67,6 @@ export async function runCaptionBoundaryRegressions(browser, origin) {
                 await route.fulfill({response, body: (await response.text()).replace(
                     '<div class="post-editor-context-main">',
                     '<div class="post-editor-context-main">'
-                        + '<button type="button" data-context-ai-action="proofread">Proofread</button>'
                         + '<button type="button" data-context-action="cut" data-context-selection-only>Cut</button>',
                 )});
             });

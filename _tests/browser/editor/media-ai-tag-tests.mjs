@@ -65,13 +65,6 @@ export async function runMediaAiRegressions(browser, origin) {
             await withPage(browser, async page => {
                 await page.emulateMedia({reducedMotion: 'reduce'});
                 await page.route('**/media-ai.png', route => route.fulfill({contentType: 'image/png', body: Buffer.from(png, 'base64')}));
-                await page.route('**/recovery.html', async route => {
-                    const response = await route.fetch();
-                    await route.fulfill({response, body: (await response.text()).replace(
-                        '<div class="post-editor-context-main">',
-                        '<div class="post-editor-context-main"><button type="button" data-context-ai-action="proofread">Proofread</button>',
-                    )});
-                });
                 const requests = holdRequests(page, '**/_inplace/post/9');
                 await requests.installed;
                 await page.goto(origin + '/recovery.html');

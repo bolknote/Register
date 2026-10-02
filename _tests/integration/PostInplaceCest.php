@@ -23,6 +23,7 @@ use Register\Content\ContentViewSchema;
 use Register\Content\TagRepository;
 use Register\Core\HttpClient\HttpClient;
 use Register\Core\HttpClient\HttpResponse;
+use Register\Core\Http\SandboxedHtmlResponse;
 use Register\Core\Pdo\DbLayer;
 use Register\Core\Template\PartialPageResponse;
 use Register\Live\LiveUpdateRepository;
@@ -35,6 +36,40 @@ use Symfony\Component\HttpFoundation\Response;
 final class PostInplaceCest
 {
     private const string ONE_PIXEL_PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQAAAAA3bvkkAAAACklEQVR4AWNgAAAAAgABc3UBGAAAAABJRU5ErkJggg==';
+
+    public function htmlBlockPreviewIsAuthorizedIsolatedAndDoesNotSaveThePost(\IntegrationTester $I): void
+    {
+        $dbLayer = $I->grabService(DbLayer::class);
+        $id = $this->insertPost($dbLayer, 'html-preview', $this->userId($dbLayer, 'author'));
+        $source = '<style>body{color:red}</style><!-- exact -->'
+            . '<svg><circle r="5" /></svg><script>document.body.dataset.test="ok"</script>';
+        $data = ['inplace_action' => 'html_preview', 'html_source' => $source,
+            'html_preview_key' => '0123456789abcdef', 'html_base' => 'https://localhost/html-preview'];
+        $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $id, $data);
+        $I->seeResponseCodeIs(Response::HTTP_FORBIDDEN);
+        $I->login('author', 'author');
+        $I->amOnPage('https://localhost/html-preview');
+        $data['inplace_token'] = $I->grabAttributeFrom('.post-card[data-post-id="' . $id . '"] .post-inplace-edit-form input[name="inplace_token"]', 'value');
+        $original = $this->contentRow($dbLayer, $id);
+        $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $id, $data);
+        $I->seeResponseCodeIs(Response::HTTP_OK);
+        $I->assertStringContainsString($source, $I->grabResponse());
+        $I->seeHttpHeader('Content-Security-Policy', SandboxedHtmlResponse::POLICY);
+        $I->seeHttpHeader('Cache-Control', 'no-store, private');
+        $I->assertSame($original, $this->contentRow($dbLayer, $id));
+        $data['inplace_token'] = 'invalid';
+        $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $id, $data);
+        $I->seeResponseCodeIs(Response::HTTP_UNPROCESSABLE_ENTITY);
+        $I->assertSame($original, $this->contentRow($dbLayer, $id));
+    }
+
+    public function htmlBlockSourceAndSurroundingParagraphsAreSavedExactly(\IntegrationTester $I): void
+    {
+        $source = '<style>span{color:red}</style><!-- " & -->' . "\n" . '<svg><circle r="5" /></svg><script>example()</script>';
+        $body = '<p>Before</p><div class="post-html-block" data-post-html-source="'
+            . htmlspecialchars($source, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '">' . $source . '</div><p>After</p>';
+        $this->assertCreatedPostMetadata($I, 'HTML block preserves author source', $body, 'Before After');
+    }
 
     public function generatedMetadataPreservesLiteralTextAndJoiningCharacters(\IntegrationTester $I): void
     {
@@ -159,8 +194,6 @@ final class PostInplaceCest
         $I->seeElement('.post-recovery-discard-template [data-recovery-discard-action="cancel"]');
         $I->dontSeeElement('.post-editor-context-menu-template [data-context-ai-action]');
         $I->seeElement('script[src^="/_assets/register/post-inplace.js?v="]');
-        $I->seeElement('script[src^="/_assets/register/editor/source.js?v="]');
-        $I->dontSeeElement('script[src*="codemirror.min.js"]');
         $I->dontSeeElement('script[src*="image-optimizer"]');
         $I->dontSeeElement('link[href*="image-optimizer"]');
 
@@ -1546,6 +1579,11 @@ final class PostInplaceCest
             ->execute()
             ->result());
         $I->assertGreaterThan($cursor, $updates->currentCursor());
+    }
+
+    private function contentRow(DbLayer $dbLayer, int $id): array
+    {
+        return $dbLayer->select('*')->from(ContentSchema::TABLE_NAME)->where('id = :id')->setParameter('id', $id)->execute()->fetchAssoc();
     }
 
     private function insertPost(DbLayer $dbLayer, string $slug, int $authorId, ?int $publishedAt = null): int

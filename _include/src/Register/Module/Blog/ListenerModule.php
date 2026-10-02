@@ -174,10 +174,10 @@ final readonly class ListenerModule implements ContainerAwareListenerModuleInter
                 ->addJs($assetUrl->versioned('/_assets/register/post-recovery.js'), [AssetPack::OPTION_DEFER])
                 ->addJs($assetUrl->versioned('/_assets/register/editor/fields.js'), [AssetPack::OPTION_DEFER])
                 ->addJs($assetUrl->versioned('/_assets/register/editor/boundaries.js'), [AssetPack::OPTION_DEFER])
+                ->addJs($assetUrl->versioned('/_assets/register/editor/html-blocks.js'), [AssetPack::OPTION_DEFER])
                 ->addJs($assetUrl->versioned('/_assets/register/editor/history.js'), [AssetPack::OPTION_DEFER])
                 ->addJs($assetUrl->versioned('/_assets/register/editor/tags.js'), [AssetPack::OPTION_DEFER])
                 ->addJs($assetUrl->versioned('/_assets/register/editor/recovery.js'), [AssetPack::OPTION_DEFER])
-                ->addJs($assetUrl->versioned('/_assets/register/editor/source.js'), [AssetPack::OPTION_DEFER])
                 ->addJs($assetUrl->versioned('/_assets/register/post-inplace.js'), [AssetPack::OPTION_DEFER])
             ;
         });

@@ -22,10 +22,12 @@
         const template = document.createElement('template');
         template.innerHTML = html;
         const root = template.content;
+        // Only the source attribute is editable state; preview children are rebuilt in isolation.
+        root.querySelectorAll('div[data-post-html-source]').forEach(node => node.replaceChildren());
         root.querySelectorAll('script, style, iframe, object, embed, link, meta, base, form, input, button, textarea, select, svg, math, template, .post-media-upload, .post-media-picture.is-processing')
             .forEach(node => node.remove());
         const elements = new Set('p br div span a b strong i em s del u tt code pre blockquote h1 h2 h3 h4 h5 h6 ul ol li hr img picture source figure figcaption audio video table thead tbody tfoot tr th td caption sub sup small mark abbr q nobr'.split(' '));
-        const attributes = new Set('class title alt width height colspan rowspan start reversed type controls preload loop muted playsinline data-post-media-id data-title data-post-media-overlay data-caption-font data-caption-background'.split(' '));
+        const attributes = new Set('class title alt width height colspan rowspan start reversed type controls preload loop muted playsinline data-post-media-id data-title data-post-media-overlay data-caption-font data-caption-background data-post-html-source'.split(' '));
         root.querySelectorAll('*').forEach(node => {
             if (!elements.has(node.localName)) {
                 node.replaceWith(...node.childNodes);

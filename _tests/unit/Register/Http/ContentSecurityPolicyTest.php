@@ -11,10 +11,23 @@ namespace unit\Register\Http;
 
 use Codeception\Test\Unit;
 use Register\Core\Http\ContentSecurityPolicy;
+use Register\Core\Http\SandboxedHtmlResponse;
 use Symfony\Component\HttpFoundation\Response;
 
 final class ContentSecurityPolicyTest extends Unit
 {
+    public function testAuthorHtmlPreviewHasAnOpaqueOriginWithoutRestrictingItsMarkup(): void
+    {
+        $response = new SandboxedHtmlResponse('<script>example()</script>');
+        ContentSecurityPolicy::apply($response, '/.well-known/csp-report', 'AbCdEfGhIjKlMnOpQrStUvWx');
+        self::assertSame(SandboxedHtmlResponse::POLICY, $response->headers->get(ContentSecurityPolicy::HEADER_NAME));
+        self::assertStringContainsString('sandbox allow-scripts', SandboxedHtmlResponse::POLICY);
+        self::assertStringContainsString("'unsafe-inline' 'unsafe-eval'", SandboxedHtmlResponse::POLICY);
+        self::assertStringNotContainsString('allow-same-origin', SandboxedHtmlResponse::POLICY);
+        self::assertFalse($response->headers->has(ContentSecurityPolicy::REPORT_ONLY_HEADER_NAME));
+        self::assertSame('no-store, private', $response->headers->get('Cache-Control'));
+    }
+
     public function testAppliesEnforcedScriptAndStylePolicies(): void
     {
         $response = new Response();

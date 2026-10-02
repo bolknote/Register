@@ -98,6 +98,16 @@ final class ContentSecurityPolicy
 
     public static function apply(Response $response, string $reportUri = '', ?string $scriptNonce = null): void
     {
+        if ($response instanceof SandboxedHtmlResponse) {
+            $response->headers->set(self::HEADER_NAME, SandboxedHtmlResponse::POLICY);
+            $response->headers->remove(self::REPORT_ONLY_HEADER_NAME);
+            $response->headers->set('Cache-Control', 'no-store, private');
+            $response->headers->set('X-Content-Type-Options', 'nosniff');
+            $response->headers->set('Referrer-Policy', 'no-referrer');
+
+            return;
+        }
+
         self::applyHeaders(
             $response,
             self::withScriptNonce(self::POLICY, $scriptNonce),
