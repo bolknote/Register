@@ -14,6 +14,7 @@ use Register\Content\ContentType;
 use Register\Module\Reactions\Manifest;
 use Register\Module\Reactions\ReactionAggregate;
 use Register\Module\Reactions\ReactionAggregateRepository;
+use Register\Module\Reactions\ReactionAggregateSchema;
 use Register\Module\Reactions\ReactionAggregateTargetType;
 use Register\Module\VisitorIdentity\VisitorIdentityManager;
 use Register\Module\VisitorIdentity\Manifest as VisitorIdentityManifest;
@@ -28,18 +29,27 @@ final class ReactionsCest
         /** @var ReactionAggregateRepository $aggregateRepository */
         $aggregateRepository = $I->grabService(ReactionAggregateRepository::class);
         $contentId = $this->insertPost($dbLayer, 'stable-reaction-control-post');
-        foreach ([['like', '👍', 1], ['love', '❤️', 1], ['haha', '😂', 2], ['', '🔥', 3]] as [$reaction, $emoji, $count]) {
+        // Use archive record IDs like the importers; emoji-only keys collide under MySQL's default collation.
+        foreach ([['like', '👍', 1], ['love', '❤️', 1], ['haha', '😂', 2], ['', '🔥', 3]] as $index => [$reaction, $emoji, $count]) {
             $aggregateRepository->store(new ReactionAggregate(
                 ReactionAggregateTargetType::POST,
                 $contentId,
                 'test-archive',
-                $emoji,
+                'entry:' . $index,
                 $reaction,
                 $emoji,
                 $count,
                 time(),
             ));
         }
+
+        // Archive identities address separate records, independently of their displayed emoji.
+        $I->assertSame(4, (int)$dbLayer->select('COUNT(*)')
+            ->from(ReactionAggregateSchema::TABLE_NAME)
+            ->where('target_type = :target_type')->setParameter('target_type', ReactionAggregateTargetType::POST->value)
+            ->andWhere('target_id = :target_id')->setParameter('target_id', $contentId)
+            ->andWhere('source = :source')->setParameter('source', 'test-archive')
+            ->execute()->result());
 
         $widget = '[data-endpoint="/_reactions/post/' . $contentId . '"]';
         $I->amOnPage('https://localhost/stable-reaction-control-post');
@@ -52,7 +62,7 @@ final class ReactionsCest
         $I->seeElement($widget . ' [data-reaction="🔥"][data-count="3"]');
 
         // Removing the imported like total must not remove the palette control.
-        $I->assertTrue($aggregateRepository->remove(ReactionAggregateTargetType::POST, $contentId, 'test-archive', '👍'));
+        $I->assertTrue($aggregateRepository->remove(ReactionAggregateTargetType::POST, $contentId, 'test-archive', 'entry:0'));
         $I->amOnPage('https://localhost/stable-reaction-control-post');
         $I->seeElement($widget . ' .register-reaction-toolbar > button:first-child[data-reaction="like"].register-reaction-primary[aria-haspopup="menu"]:not([hidden])');
         $I->seeElement($widget . ' [data-reaction="like"][data-count="0"] .register-reaction-count[hidden]');
