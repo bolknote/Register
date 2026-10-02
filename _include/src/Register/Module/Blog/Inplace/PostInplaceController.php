@@ -198,12 +198,12 @@ final readonly class PostInplaceController implements ControllerInterface
     {
         $source = $request->request->getString('html_source');
         $key = $request->request->getString('html_preview_key');
-        if (strlen($source) > self::MAX_BODY_BYTES || !preg_match('/^[a-zA-Z0-9_-]{16,80}$/D', $key)) {
+        if (strlen($source) > self::MAX_BODY_BYTES || preg_match('/^[a-zA-Z0-9_-]{16,80}$/D', $key) !== 1) {
             return new SandboxedHtmlResponse('Invalid HTML preview', Response::HTTP_BAD_REQUEST);
         }
 
         $base = $request->request->getString('html_base');
-        if (!filter_var($base, FILTER_VALIDATE_URL) || !in_array(parse_url($base, PHP_URL_SCHEME), ['http', 'https'], true)) {
+        if (filter_var($base, FILTER_VALIDATE_URL) === false || !in_array(parse_url($base, PHP_URL_SCHEME), ['http', 'https'], true)) {
             $base = $request->getSchemeAndHttpHost() . $request->getBaseUrl() . '/';
         }
 

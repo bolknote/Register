@@ -1581,9 +1581,15 @@ final class PostInplaceCest
         $I->assertGreaterThan($cursor, $updates->currentCursor());
     }
 
+    /** @return array<mixed> */
     private function contentRow(DbLayer $dbLayer, int $id): array
     {
-        return $dbLayer->select('*')->from(ContentSchema::TABLE_NAME)->where('id = :id')->setParameter('id', $id)->execute()->fetchAssoc();
+        $row = $dbLayer->select('*')->from(ContentSchema::TABLE_NAME)->where('id = :id')->setParameter('id', $id)->execute()->fetchAssoc();
+        if ($row === false) {
+            throw new \RuntimeException('Test post not found: ' . $id);
+        }
+
+        return $row;
     }
 
     private function insertPost(DbLayer $dbLayer, string $slug, int $authorId, ?int $publishedAt = null): int
