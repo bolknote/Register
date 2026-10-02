@@ -12,9 +12,19 @@ $root = dirname(__DIR__, 3);
 require $root . '/_include/functions.php';
 /** @var array<string, string> $messages */
 $messages = require $root . '/_include/src/Register/Module/Blog/resources/lang/Russian.php';
-$trans = static fn(string $message): string => $messages[$message] ?? $message;
-$editor_config = [
-    'tag_suggestions_url' => '/_inplace/tags',
-    'ai_enabled' => true, 'ai_alt_enabled' => true, 'recovery_user_id' => 1,
-];
-require $root . '/_include/src/Register/Module/Blog/resources/views/post-editor-resources.php';
+
+/**
+ * @param array<string, string> $messages
+ * @psalm-suppress UnusedVariable Variables are consumed by the included editor resources template.
+ */
+function renderEditorMenuFixture(string $root, array $messages): void
+{
+    $trans = static fn(string $message): string => $messages[$message] ?? $message;
+    $editor_config = [
+        'tag_suggestions_url' => '/_inplace/tags',
+        'ai_enabled' => true, 'ai_alt_enabled' => true, 'recovery_user_id' => 1,
+    ];
+    require $root . '/_include/src/Register/Module/Blog/resources/views/post-editor-resources.php';
+}
+
+renderEditorMenuFixture($root, $messages);
