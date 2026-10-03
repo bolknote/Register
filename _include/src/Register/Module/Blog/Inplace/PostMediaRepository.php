@@ -11,6 +11,7 @@ namespace Register\Module\Blog\Inplace;
 
 use Register\Content\ContentMediaSchema;
 use Register\Content\ContentMediaIdentitySchema;
+use Register\Content\ContentSchema;
 use Register\Core\Pdo\DbLayer;
 
 /** Keeps the media registry in sync with media ids embedded by the post editor. */
@@ -218,15 +219,30 @@ final readonly class PostMediaRepository
 
     public function deleteUnused(int $mediaId): bool
     {
+        $media = $this->find($mediaId);
+        if ($media === null) {
+            return false;
+        }
+
+        // Pages and authored HTML can reuse a file without editor media ids.
+        // Be conservative at the destructive boundary: a stored path anywhere
+        // in content still owns the file, even without a post-usage relation.
+        $path = '%' . str_replace(['!', '%', '_'], ['!!', '!%', '!_'], (string)$media['storage_path']) . '%';
+        $fileTable = $this->dbLayer->getPrefix() . ContentMediaSchema::FILE_TABLE;
+        $usageTable = $this->dbLayer->getPrefix() . ContentMediaSchema::USAGE_TABLE;
+        $contentTable = $this->dbLayer->getPrefix() . ContentSchema::TABLE_NAME;
+
         return $this->dbLayer
             ->delete(ContentMediaSchema::FILE_TABLE)
             ->where('id = :id')->setParameter('id', $mediaId)
             ->andWhere('usage_count = 0')
             ->andWhere(
-                'NOT EXISTS (SELECT 1 FROM ' . ContentMediaSchema::USAGE_TABLE
-                . ' WHERE ' . ContentMediaSchema::USAGE_TABLE . '.media_id = '
-                . ContentMediaSchema::FILE_TABLE . '.id)',
+                'NOT EXISTS (SELECT 1 FROM ' . $usageTable
+                . ' WHERE ' . $usageTable . '.media_id = ' . $fileTable . '.id)',
             )
+            ->andWhere('NOT EXISTS (SELECT 1 FROM ' . $contentTable . " WHERE body LIKE :body_media_path ESCAPE '!' OR social_image LIKE :social_media_path ESCAPE '!')")
+            ->setParameter('body_media_path', $path)
+            ->setParameter('social_media_path', $path)
             ->execute()
             ->affectedRows() === 1
         ;
@@ -469,8 +485,8 @@ final readonly class PostMediaRepository
             $id = $node->getAttribute('data-post-media-id');
             if (preg_match('/^[1-9][0-9]*$/D', $id) === 1) {
                 $media[(int)$id][] = $node->getAttribute('src');
-                if (\count($media) >= self::MAX_MEDIA_PER_POST) {
-                    break;
+                if (\count($media) > self::MAX_MEDIA_PER_POST) {
+                    throw new PostMediaConflictException('Too many post media');
                 }
             }
         }

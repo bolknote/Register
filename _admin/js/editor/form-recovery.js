@@ -43,7 +43,7 @@ export function createFormRecovery(form, options, onRestore) {
                     && field.every(value => typeof value === 'string')));
         }
     } catch (_) { /* Blocked storage must not block editing. */ }
-    const id = store ? window.RegisterEditorStorage.recordId() : '';
+    let id = store ? window.RegisterEditorStorage.recordId() : '';
     let record = null;
     let last = JSON.stringify(saved);
     let lastRevision = revision;
@@ -51,14 +51,15 @@ export function createFormRecovery(form, options, onRestore) {
     panel.className = 'editor-recovery';
     panel.setAttribute('aria-live', 'polite');
     const labels = options.labels || {};
+    let unavailable = false;
 
-    function persist() {
+    function persist(force = false) {
         if (!store) return false;
         const current = snapshot();
         const serialized = JSON.stringify(current);
         // Another tab can restore/remove this copy, and storage limits can prune it.
         // Unchanged form values are safe only while their own snapshot still exists.
-        if (serialized === last && lastRevision === revision
+        if (force !== true && serialized === last && lastRevision === revision
             && (!record || store.list(options.target).some(copy => copy.id === id && copy.savedAt === record.savedAt))) return true;
         if (serialized === JSON.stringify(saved)) {
             if (record) store.remove(record);
@@ -66,18 +67,28 @@ export function createFormRecovery(form, options, onRestore) {
         } else {
             const next = {version: 1, id, target: options.target, revision, savedAt: Date.now(), snapshot: current};
             if (!store.save(next)) {
-                panel.textContent = labels.unavailable || 'The local draft could not be saved.';
-                if (!panel.isConnected) form.before(panel);
+                unavailable = true;
+                render();
                 return false;
             }
             record = next;
         }
         last = serialized;
         lastRevision = revision;
+        if (unavailable) {
+            unavailable = false;
+            render();
+        }
         return true;
     }
 
     function restore(copy) {
+        // Restoring is a new editing session. Keep every current field under the
+        // previous id so the replacement does not destroy an independent draft.
+        if (!persist(true)) return;
+        id = window.RegisterEditorStorage.recordId();
+        record = null;
+        last = null;
         const values = new Map();
         copy.snapshot.forEach(([name, value]) => {
             if (!values.has(name)) values.set(name, []);
@@ -102,6 +113,11 @@ export function createFormRecovery(form, options, onRestore) {
 
     function render() {
         panel.replaceChildren();
+        if (unavailable) {
+            const warning = document.createElement('p');
+            warning.textContent = labels.unavailable || 'The local draft could not be saved.';
+            panel.append(warning);
+        }
         const copies = store?.list(options.target).filter(copy => copy.id !== id) || [];
         copies.forEach(copy => {
             const row = document.createElement('div');
@@ -122,7 +138,7 @@ export function createFormRecovery(form, options, onRestore) {
             row.append(description, restoreButton, discardButton);
             panel.append(row);
         });
-        if (copies.length) form.before(panel);
+        if (copies.length || unavailable) form.before(panel);
         else panel.remove();
     }
 

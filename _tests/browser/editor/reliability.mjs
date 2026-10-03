@@ -4,6 +4,7 @@ import {runAdminRecoveryPresenceRegressions} from './admin-recovery-presence-tes
 import {runAdminAsyncDeadlineRegressions} from './admin-async-deadline-tests.mjs';
 import {runHtmlContentLayoutRegressions} from './html-content-layout-tests.mjs';
 import {runExpiredMediaRecoveryRegressions} from './expired-media-recovery-tests.mjs';
+import {runPublicRecoveryWarningRegressions, runHtmlReloadLifecycleRegressions} from './review-followup-tests.mjs';
 
 const engines = [chromium, firefox, webkit];
 const selectedEngine = process.env.EDITOR_TEST_BROWSER;
@@ -22,6 +23,8 @@ try {
             await runAdminAsyncDeadlineRegressions(browser, origin);
             await runHtmlContentLayoutRegressions(browser, origin);
             await runExpiredMediaRecoveryRegressions(browser, origin);
+            await runPublicRecoveryWarningRegressions(browser, origin);
+            await runHtmlReloadLifecycleRegressions(browser, origin);
         } finally { await browser.close(); }
     }
 } finally { await new Promise(resolve => server.close(resolve)); }

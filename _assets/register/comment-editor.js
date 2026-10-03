@@ -687,6 +687,11 @@
             rememberSelection(state);
             updateToolbar(state);
         }, {signal: controller.signal});
+        source.addEventListener('input', () => {
+            surface.innerHTML = sourceHtml(source.value);
+            renderCompleteFormulas(state);
+            syncSource(state);
+        }, {signal: controller.signal});
         surface.addEventListener('keydown', (event) => handleKeydown(state, event), {signal: controller.signal});
         surface.addEventListener('paste', (event) => insertPastedContent(state, event), {signal: controller.signal});
         surface.addEventListener('drop', (event) => {

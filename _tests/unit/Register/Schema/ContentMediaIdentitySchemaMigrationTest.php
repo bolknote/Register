@@ -62,9 +62,9 @@ final class ContentMediaIdentitySchemaMigrationTest extends Unit
         $pdo = new \PDO('sqlite::memory:');
         $pdo->exec('PRAGMA foreign_keys = ON');
         $pdo->exec('CREATE TABLE users (id INTEGER PRIMARY KEY)');
-        $pdo->exec('CREATE TABLE content (id INTEGER PRIMARY KEY)');
+        $pdo->exec("CREATE TABLE content (id INTEGER PRIMARY KEY, body TEXT DEFAULT '', social_image TEXT DEFAULT '')");
         $pdo->exec('INSERT INTO users VALUES (1)');
-        $pdo->exec('INSERT INTO content VALUES (25)');
+        $pdo->exec('INSERT INTO content (id) VALUES (25)');
 
         $db = new DbLayerSqlite($pdo);
         ContentMediaSchema::create($db);
@@ -118,9 +118,9 @@ final class ContentMediaIdentitySchemaMigrationTest extends Unit
     {
         $pdo = new \PDO('sqlite::memory:');
         $pdo->exec('CREATE TABLE users (id INTEGER PRIMARY KEY)');
-        $pdo->exec('CREATE TABLE content (id INTEGER PRIMARY KEY)');
+        $pdo->exec("CREATE TABLE content (id INTEGER PRIMARY KEY, body TEXT DEFAULT '', social_image TEXT DEFAULT '')");
         $pdo->exec('INSERT INTO users VALUES (1)');
-        $pdo->exec('INSERT INTO content VALUES (25)');
+        $pdo->exec('INSERT INTO content (id) VALUES (25)');
 
         $db = new DbLayerSqlite($pdo);
         ContentMediaSchema::create($db);

@@ -201,12 +201,13 @@
             state.titleDirty = state.bodyDirty = state.tagsDirty = state.dateDirty = true;
             state.history?.record();
             state.titleHistory?.record();
-            state.recovery?.restored(record);
-            showEditorStatus(state, [
+            const persisted = state.recovery?.restored(record);
+            if (persisted) showEditorStatus(state, [
                 editorConfig().recoveryRestored || 'Text restored. Review it before saving.',
                 snapshot.pendingMedia || snapshot.mediaIds.length > 0 ? editorConfig().recoveryMedia : '',
                 markupChanged ? editorConfig().recoveryMarkup : '',
             ].filter(Boolean).join(' '), false, 5000);
+            else showEditorStatus(state, editorConfig().recoveryUnavailable || 'Unable to save a local copy. Keep this tab open.', true);
             focusEdge(state.body, true);
             refreshPostRecoveryOffers();
         }

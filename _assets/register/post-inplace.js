@@ -2731,7 +2731,11 @@
         // CSP may not authorize newly added inline scripts or styles. A full
         // load lets the server grant its nonce and the browser initialize the
         // author's program normally, rather than leaving a non-working block.
-        const requiresDocumentLoad = replacementBody.querySelector('script, style') !== null;
+        const previousBody = document.createElement('template');
+        previousBody.innerHTML = state?.originalBody || '';
+        // Removing a program's DOM does not remove its global listeners/timers.
+        const requiresDocumentLoad = replacementBody.querySelector('script, style') !== null
+            || previousBody.content.querySelector('script, style') !== null;
 
         if (state) {
             state.recovery?.stop(true);

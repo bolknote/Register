@@ -105,5 +105,52 @@ export async function runAdminRecoveryPresenceRegressions(browser, origin) {
             assert.equal(await page.locator('.editor-recovery').count(), 0);
         });
         console.log(`admin recovery: explicit discard stays removed from an unchanged clean form (${mode})`);
+
+        await withContext(browser, async context => {
+            const abandoned = await open(context);
+            await setBody(abandoned, 'Older draft body');
+            await abandoned.locator('[name="title"]').fill('Older draft title');
+            await abandoned.close();
+            const page = await open(context);
+            await setBody(page, 'Current independent body');
+            await page.locator('[name="title"]').fill('Current independent title');
+            await page.getByRole('button', {name: 'Restore draft', exact: true}).click();
+            assert.equal(await page.locator('[name="body"]').inputValue(), 'Older draft body');
+            assert.equal(await page.locator('[name="title"]').inputValue(), 'Older draft title');
+            const current = await page.evaluate(() => window.adminDrafts.list('9').find(copy => (
+                copy.snapshot.some(([name, value]) => name === 'body' && value === 'Current independent body')
+            )));
+            assert.ok(current, 'Restoring another version must retain the current independent copy');
+            assert.equal(current.snapshot.find(([name]) => name === 'title')[1], 'Current independent title');
+            await page.getByRole('button', {name: 'Restore draft', exact: true}).click();
+            assert.equal(await page.locator('[name="body"]').inputValue(), 'Current independent body');
+            assert.equal(await page.locator('[name="title"]').inputValue(), 'Current independent title');
+        });
+        console.log(`admin recovery: Restore preserves and can recover all fields of the current independent draft (${mode})`);
+
+        await withContext(browser, async context => {
+            const abandoned = await open(context);
+            await setBody(abandoned, 'Copy retained when restored storage fails');
+            await abandoned.close();
+            const page = await open(context);
+            await page.evaluate(() => {
+                const setItem = Storage.prototype.setItem;
+                Storage.prototype.setItem = function (key, value) {
+                    if (key.startsWith('register:admin-recovery:')) throw new DOMException('Quota exceeded', 'QuotaExceededError');
+                    return setItem.call(this, key, value);
+                };
+            });
+            await page.getByRole('button', {name: 'Restore draft', exact: true}).click();
+            await page.evaluate(() => window.dispatchEvent(new Event('storage')));
+            assert.match(await page.locator('.editor-recovery').textContent(), /local draft could not be saved/iu);
+            assert.equal(await page.evaluate(() => window.adminDrafts.list('9').length), 1);
+            assert.equal(await page.locator('[name="body"]').inputValue(), 'Copy retained when restored storage fails');
+            await setBody(page, 'Current text that could not be persisted');
+            await page.getByRole('button', {name: 'Restore draft', exact: true}).click();
+            assert.equal(await page.locator('[name="body"]').inputValue(), 'Current text that could not be persisted',
+                'Restore must not replace the current draft when its independent copy cannot be written');
+            assert.match(await page.locator('.editor-recovery').textContent(), /local draft could not be saved/iu);
+        });
+        console.log(`admin recovery: a failed restored-copy write keeps its warning through rendering and further Restore (${mode})`);
     }
 }

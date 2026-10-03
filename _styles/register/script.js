@@ -64,19 +64,25 @@
         var textKey = 'comment_text_' + idField.value;
 
         function save() {
-            if (textField.value) {
-                localStorage.setItem(textKey, textField.value);
-            } else {
-                localStorage.removeItem(textKey);
-            }
+            try {
+                if (textField.value) {
+                    localStorage.setItem(textKey, textField.value);
+                } else {
+                    localStorage.removeItem(textKey);
+                }
 
-            if (nameField) {
-                localStorage.setItem('comment_name', nameField.value);
-            }
-            if (emailField) {
-                localStorage.setItem('comment_email', emailField.value);
+                if (nameField) {
+                    localStorage.setItem('comment_name', nameField.value);
+                }
+                if (emailField) {
+                    localStorage.setItem('comment_email', emailField.value);
+                }
+                return true;
+            } catch (error) {
+                return false;
             }
         }
+        commentStorageSaves.set(form, save);
 
         try {
             if (!window.localStorage) {
@@ -90,7 +96,9 @@
                 document.cookie = 'comment_form_sent=0; expires=Thu, 01 Jan 1970 00:00:01 GMT; path=/';
                 localStorage.removeItem(textKey);
             } else {
+                var initialText = textField.value;
                 textField.value = textField.value || localStorage.getItem(textKey) || '';
+                if (textField.value !== initialText) textField.dispatchEvent(new Event('input', {bubbles: true}));
             }
 
             if (nameField) {
@@ -103,7 +111,7 @@
                 field.addEventListener('change', save, false);
             });
             form.addEventListener('submit', save, false);
-            commentStorageSaves.set(form, save);
+            form.addEventListener('input', save, false);
             if (commentStorageTimer === null) {
                 commentStorageTimer = window.setInterval(function () {
                     var activeSave = activeCommentStorageForm
@@ -118,6 +126,19 @@
             // Browsers may disable local storage. Commenting must still work.
         }
     }
+
+    function flushCommentStorage() {
+        var save = activeCommentStorageForm ? commentStorageSaves.get(activeCommentStorageForm) : null;
+        return !save || save() || !activeCommentStorageForm.querySelector('.comment-editor-source').value;
+    }
+
+    window.addEventListener('beforeunload', function (event) {
+        if (!flushCommentStorage()) {
+            event.preventDefault();
+            event.returnValue = '';
+        }
+    });
+    window.addEventListener('pagehide', flushCommentStorage);
 
     initCspSafeInteractions();
 
@@ -700,7 +721,7 @@
     }, false);
 
     document.addEventListener('register:navigation-will-update', function () {
-        activeCommentStorageForm = null;
+        if (flushCommentStorage()) activeCommentStorageForm = null;
         closeOtherCommentToolsMenus(null);
     }, false);
 }());

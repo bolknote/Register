@@ -51,6 +51,10 @@ export async function runHtmlContentLayoutRegressions(browser, origin) {
         await expectHeight(100);
         await page.waitForTimeout(150);
         assert.equal(await height(), 100, 'Shrinking must not retain the old iframe viewport or restart a resize loop');
+        for (const size of [170, 270, 370, 270, 170, 70]) {
+            await frame.locator('#positioned').evaluate((element, value) => { element.style.height = value + 'px'; }, size);
+            await expectHeight(size + 30);
+        }
 
         await code.fill('<div id="wrapper" style="height:20px"><div id="overflow" style="height:280px">Overflowing content</div></div>');
         await frame.locator('#overflow').waitFor();
@@ -69,6 +73,37 @@ export async function runHtmlContentLayoutRegressions(browser, origin) {
         await expectHeight(40);
         await frame.locator('#wrapper').evaluate(element => { element.style.overflow = 'visible'; });
         await expectHeight(60);
+
+        for (const portion of [100, 50]) {
+            await code.fill(`<div id="viewport-${portion}" style="height:${portion}vh;padding-bottom:20px">Viewport content</div>`);
+            const content = frame.locator(`#viewport-${portion}`);
+            await content.waitFor();
+            await page.waitForFunction(() => document.querySelector('.post-html-block-preview').clientHeight === innerHeight);
+            const viewportHeight = await height();
+            await page.waitForTimeout(300);
+            assert.equal(await height(), viewportHeight, 'Viewport-dependent CSS must converge instead of growing or shrinking the iframe repeatedly');
+            assert.ok(Math.abs(await content.evaluate(element => element.getBoundingClientRect().height)
+                - (viewportHeight * portion / 100 + 20)) <= 1);
+            await page.setViewportSize({width: 1280, height: 640});
+            await expectHeight(640);
+            await page.setViewportSize({width: 1280, height: 720});
+            await expectHeight(720);
+        }
+        for (const css of [true, false]) {
+            const id = css ? 'viewport-css-program' : 'viewport-js-program';
+            await code.fill(`<div id="${id}" ${css ? 'style="height:100vh;padding-bottom:20px"' : ''}>Responsive program</div>`
+                + `<script>const panel = document.getElementById('${id}'); function resizePanel() {
+                    panel.dataset.viewport = String(innerHeight);
+                    ${css ? '' : "panel.style.height = (innerHeight + 20) + 'px';"}
+                } addEventListener('resize', resizePanel); resizePanel();</script>`);
+            await frame.locator('#' + id).waitFor();
+            await expectHeight(720);
+            await page.waitForTimeout(300);
+            assert.equal(await height(), 720, 'Author resize handlers must not restart the viewport feedback loop');
+        }
+        await code.fill('<div id="intrinsic" style="height:80px">Intrinsic layout after viewport CSS</div>');
+        await frame.locator('#intrinsic').waitFor();
+        await expectHeight(80);
 
         const source = '<style>.sample { color: red; }</style>\n<!-- author spacing -->\n<div class="sample">HTML &amp; text</div>\n';
         await code.fill(source);
@@ -98,6 +133,6 @@ export async function runHtmlContentLayoutRegressions(browser, origin) {
         assert.ok(!/post-html-block-tools|post-html-block-preview|contenteditable/.test(whole.html));
         assert.equal((await copy(true)).text, source, 'Copying a block alone retains its exact source including the final newline');
         assert.deepEqual(errors, []);
-        console.log(`${browser.browserType().name()}: HTML preview positioned/overflowing growth and shrink, DOM changes and multiline source clipboard passed`);
+        console.log(`${browser.browserType().name()}: HTML preview intrinsic/viewport layout, growth and shrink, DOM changes and multiline source clipboard passed`);
     } finally { await context.close(); }
 }

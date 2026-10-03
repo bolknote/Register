@@ -127,6 +127,7 @@ return [
     'Post has changed in another window' => 'The post has changed in another window. Reload it before saving or deleting.',
     'Post media has changed' => 'An attachment has changed in another window. Try saving again.',
     'Post media is unavailable' => 'An attachment is no longer available. Remove it or upload it again before saving.',
+    'Too many post media' => 'A post can contain at most 1000 registered attachments. Remove extra attachments before saving.',
 
     'Editor context menu' => 'Editor context menu',
     'Editor tools' => 'Editor tools',

@@ -6,7 +6,7 @@ import {readFile} from 'node:fs/promises';
 import {createFixtureServer} from './server.mjs';
 import {formData} from './save-tests.mjs';
 
-async function fulfillPreview(route, data) {
+export async function fulfillPreview(route, data) {
     const previewScript = (await readFile(new URL('../../../_assets/register/editor/html-preview.js', import.meta.url))).toString('base64');
     const previewCss = (await readFile(new URL('../../../_assets/register/editor/html-preview.css', import.meta.url))).toString('base64');
     const attribute = value => value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;');

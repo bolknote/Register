@@ -139,12 +139,13 @@
                 form.action = state.form.action;
                 form.target = frame.name;
                 document.body.append(form);
-                const session = {controller, form, timer: null, key: null, code, edit};
+                const session = {controller, form, timer: null, key: null, code, edit, viewportSized: false};
                 sessions.set(node, session);
                 function preview() {
                     clearTimeout(session.timer);
                     if (!state.body.contains(node)) return;
                     session.key = crypto.randomUUID();
+                    session.viewportSized = false;
                     frame.hidden = node.dataset.postHtmlSource.trim() === '';
                     if (frame.hidden) return;
                     const theme = getComputedStyle(state.body);
@@ -170,8 +171,12 @@
                 }
                 listen(window, 'message', event => {
                     if (event.source !== frame.contentWindow || event.data?.registerHtmlPreview !== session.key) return;
-                    const height = Number(event.data.height);
+                    session.viewportSized = event.data.viewportSized === true;
+                    const height = session.viewportSized ? window.innerHeight : Number(event.data.height);
                     if (Number.isFinite(height)) frame.style.height = `${Math.max(40, Math.min(height, 20000))}px`;
+                });
+                listen(window, 'resize', () => {
+                    if (session.viewportSized) frame.style.height = `${Math.max(40, Math.min(window.innerHeight, 20000))}px`;
                 });
                 listen(edit, 'click', () => {
                     code.hidden = !code.hidden;

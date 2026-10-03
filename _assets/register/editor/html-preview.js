@@ -9,6 +9,10 @@
     document.documentElement.style.setProperty('--register-html-preview-color-scheme', colorScheme);
     Object.assign(document.body.style, typography);
     let queued = false;
+    let previousMeasurement = null;
+    let viewportSized = false;
+    let contentChanged = false;
+    let resizeTimer = null;
     const sizes = new ResizeObserver(measure);
     function observeTree(node, added) {
         if (!(node instanceof Element)) return;
@@ -44,14 +48,33 @@
             // retain a tall frame after its contents shrink. Measure descendants
             // outside body's box too, respecting explicit overflow clipping.
             const bottom = contentBottom(body, document.createRange());
+            const height = Math.ceil(bottom + scrollY);
+            // Auto-height cannot converge when the author's layout itself depends
+            // on the iframe height (vh, percentages or resize handlers). Use a
+            // stable viewport in that case; intrinsic layouts still grow/shrink.
+            if (previousMeasurement && !contentChanged && innerWidth === previousMeasurement.width
+                && innerHeight !== previousMeasurement.viewport) {
+                const heightChange = height - previousMeasurement.height;
+                const viewportChange = innerHeight - previousMeasurement.viewport;
+                if (Math.abs(heightChange) > 1 && heightChange * viewportChange > 0) viewportSized = true;
+            }
+            // A resize observer may run before the author's resize event handler.
+            // Keep the prior baseline until that handler has changed the height.
+            if (!previousMeasurement || contentChanged || innerWidth !== previousMeasurement.width
+                || Math.abs(height - previousMeasurement.height) > 1) {
+                previousMeasurement = {height, viewport: innerHeight, width: innerWidth};
+            }
+            contentChanged = false;
             parent.postMessage({
                 registerHtmlPreview: options.key,
-                height: Math.ceil(bottom + scrollY),
+                height,
+                viewportSized,
             }, '*');
         });
     }
     observeTree(document.body, true);
     new MutationObserver(records => {
+        if (resizeTimer === null) contentChanged = true;
         records.forEach(record => {
             record.removedNodes.forEach(node => observeTree(node, false));
             record.addedNodes.forEach(node => observeTree(node, true));
@@ -59,6 +82,12 @@
         measure();
     }).observe(document.documentElement, {childList: true, subtree: true, attributes: true, characterData: true});
     addEventListener('load', measure);
-    addEventListener('resize', measure);
+    addEventListener('resize', () => {
+        // DOM changes made by synchronous author resize handlers belong to the
+        // viewport response, rather than to an independent content edit.
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => { resizeTimer = null; }, 0);
+        measure();
+    });
     measure();
 })();
