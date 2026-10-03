@@ -2727,6 +2727,12 @@
             throw new Error(editorConfig().applyError || 'Unable to apply the updated post.');
         }
 
+        // Fragment insertion leaves scripts inert, and the current document's
+        // CSP may not authorize newly added inline scripts or styles. A full
+        // load lets the server grant its nonce and the browser initialize the
+        // author's program normally, rather than leaving a non-working block.
+        const requiresDocumentLoad = replacementBody.querySelector('script, style') !== null;
+
         if (state) {
             state.recovery?.stop(true);
             stopEditing(state);
@@ -2805,6 +2811,17 @@
         if (status && typeof payload.message === 'string') {
             status.textContent = payload.message;
             status.hidden = false;
+        }
+        if (requiresDocumentLoad) {
+            // Stop pending fragment requests before leaving this document;
+            // there is no need to request a live patch before a full load.
+            dispatch('register:navigation-will-update', card);
+            if (payload.url_changed === true && typeof payload.url === 'string') {
+                window.location.assign(payload.url);
+            } else {
+                window.location.reload();
+            }
+            return;
         }
         // Editing an existing card is fully represented by the local DOM update,
         // so the matching live patch would only replace the same card again. A

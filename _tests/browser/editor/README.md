@@ -42,6 +42,12 @@ check selection preservation, responsive menu bounds, scrolling only in short
 viewports, and visibility before editing and after resizing. The PHP end-to-end
 suite also checks keyboard and touch access using the actual server-rendered controls.
 
+Saving a post containing a script or style element performs a full document load:
+fragment insertion cannot initialize scripts or grant the document's CSP nonce.
+The HTML-block and PHP end-to-end suites check immediately usable published
+controls, authored styles, repeated saves, and exact stored source. Plain prose and
+static HTML insertions keep the existing in-place update without a document load.
+
 For interactive inspection in Opera or another local browser:
 
 ```sh

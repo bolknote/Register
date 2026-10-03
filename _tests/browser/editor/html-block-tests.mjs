@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
+import {execFileSync} from 'node:child_process';
 import {chromium, firefox, webkit} from 'playwright';
-import {pathToFileURL} from 'node:url';
+import {fileURLToPath, pathToFileURL} from 'node:url';
 import {readFile} from 'node:fs/promises';
 import {createFixtureServer} from './server.mjs';
 import {formData} from './save-tests.mjs';
@@ -113,8 +114,24 @@ export async function runHtmlBlockRegressions(browser, origin) {
 <section class="sample"><svg width="12" height="12"><circle cx="6" cy="6" r="5" /></svg><strong id="result">Before script</strong></section>
 <script>document.getElementById('result').textContent = 'Rendered'; try { parent.document.body.dataset.leaked = 'yes'; } catch (_) { document.body.dataset.isolated = 'yes'; }</script>`;
     let savedBody = null;
+    let initialCard = null;
+    let publishedCard = null;
     let rejectSave = true;
     let previewCount = 0;
+    // A successful save of executable HTML loads the authoritative document.
+    // Model that GET too; returning the fixture's old post would lose the
+    // saved body, and inserting its scripts with innerHTML would keep them inert.
+    await page.route('**/recovery.html', async route => {
+        if (publishedCard === null) return route.continue();
+        const response = await route.fetch();
+        const trusted = execFileSync(process.env.PHP_BIN || 'php', ['-r',
+            'require $argv[1]; $response = new Symfony\\Component\\HttpFoundation\\Response(Register\\Core\\Http\\TrustedScriptNonceInjector::markTrustedHtml($argv[2]), 200, ["Content-Type" => "text/html"]); (new Register\\Core\\Http\\TrustedScriptNonceInjector())->injectIntoResponse($response, "HtmlSaveFixtureNonce"); echo $response->getContent();',
+            fileURLToPath(new URL('../../../_vendor/autoload.php', import.meta.url)), publishedCard], {encoding: 'utf8'});
+        await route.fulfill({response, headers: {...response.headers(),
+            'content-security-policy': "default-src 'self'; script-src 'self' 'nonce-HtmlSaveFixtureNonce'; style-src 'self' 'nonce-HtmlSaveFixtureNonce'; img-src 'self' data: blob:; object-src 'none'"},
+        body: (await response.text()).replace('<div class="live-post-feed"></div>',
+            `<div class="live-post-feed">${trusted}</div>`)});
+    });
     await page.route('**/_inplace/post/9', async route => {
         const data = await formData(route);
         if (data.get('inplace_action') === 'html_preview') {
@@ -134,6 +151,18 @@ export async function runHtmlBlockRegressions(browser, origin) {
             await route.fulfill({status: 503, contentType: 'application/json', body: JSON.stringify({success: false, message: 'Save failed'})});
             return;
         }
+        publishedCard = await page.evaluate(({html, body}) => {
+            const template = document.createElement('template');
+            template.innerHTML = html;
+            const card = template.content.firstElementChild;
+            const content = card.querySelector('[data-post-inplace-body]');
+            content.innerHTML = body;
+            card.querySelector('[name="body"]').textContent = body;
+            card.querySelector('[name="revision"]').value = '2';
+            card.querySelector('[data-post-inplace-title]').textContent = 'Server title';
+            card.querySelector('[name="title"]').value = 'Server title';
+            return card.outerHTML;
+        }, {html: initialCard, body: savedBody});
         await route.fulfill({contentType: 'application/json', body: JSON.stringify({
             success: true, action: 'edit', title: 'Server title', revision: 2,
             body_html: `<div class="post body" data-post-inplace-body>${savedBody}</div>`,
@@ -148,6 +177,7 @@ export async function runHtmlBlockRegressions(browser, origin) {
     const sourceValue = () => page.locator('[data-post-html-source]').getAttribute('data-post-html-source');
     try {
         await open();
+        initialCard = await page.locator('.post-card').evaluate(card => card.outerHTML);
         await page.evaluate(() => {
             const body = document.querySelector('[data-post-inplace-body]');
             body.innerHTML = '<p>LeftRight</p><p>Last paragraph</p>';
@@ -213,9 +243,16 @@ export async function runHtmlBlockRegressions(browser, origin) {
         assert.equal(await sourceValue(), source);
 
         rejectSave = false;
-        await page.getByRole('button', {name: 'Save', exact: true}).click();
+        await Promise.all([
+            page.waitForNavigation({waitUntil: 'load'}),
+            page.getByRole('button', {name: 'Save', exact: true}).click(),
+        ]);
         await page.waitForFunction(() => !document.querySelector('.post-card.is-editing'));
         assert.equal(await page.locator('.post-html-block-tools').count(), 0);
+        assert.equal(await page.locator('[data-post-inplace-body] #result').textContent(), 'Rendered',
+            'Saving loads a working program without a manual refresh');
+        assert.equal(await page.locator('[data-post-inplace-body] .sample').evaluate(element => getComputedStyle(element).color),
+            'rgb(12, 34, 56)', 'Authored styles are authorized by the document CSP');
         await page.getByRole('button', {name: 'Edit', exact: true}).click();
         await frame.getByText('Rendered', {exact: true}).waitFor();
         assert.equal(await sourceValue(), source);

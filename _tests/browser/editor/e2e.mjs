@@ -37,6 +37,7 @@ async function login(page, account = 'editor') {
 }
 
 async function runMediaBoundarySaveRegression(page, browserName) {
+    await page.goto(origin + '/');
     await page.locator('.post-create-start').click();
     let card = page.locator('[data-post-creating]');
     await card.locator('[data-post-inplace-title]').fill(`Media boundary ${browserName}`);
@@ -147,6 +148,51 @@ async function runMediaBoundarySaveRegression(page, browserName) {
     assert.equal(database(`SELECT body FROM content WHERE id=${postId}`)[0].body, stored,
         'A second save after reopening leaves all text, blank lines, image and caption unchanged');
     console.log('media E2E: real upload, edge click, repeated Enter, typing, save/reload/reopen and second save retain the entire post');
+}
+
+async function runPublishedHtmlBlockRegression(page, postId) {
+    const card = page.locator(`.post-card[data-post-id="${postId}"]`);
+    const source = '<div id="e2e-interactive-html"><button type="button">Advance counter</button><output>Inactive</output></div>'
+        + '<style>#e2e-interactive-html output { color: rgb(12, 34, 56); }</style>'
+        + '<script>(() => { const root = document.getElementById("e2e-interactive-html");'
+        + 'let count = 0; const output = root.querySelector("output"); output.textContent = String(count);'
+        + 'root.querySelector("button").addEventListener("click", () => { output.textContent = String(++count); }); })();</script>';
+    await card.locator('.post-edit-start').click();
+    await card.locator('.post-html-block-edit').click();
+    await card.locator('.post-html-block-code').fill(source);
+    const preview = card.frameLocator('.post-html-block-preview');
+    await preview.locator('#e2e-interactive-html output').getByText('0', {exact: true}).waitFor();
+    await preview.getByRole('button', {name: 'Advance counter', exact: true}).click();
+    assert.equal(await preview.locator('output').textContent(), '1', 'The authored script works in the editing preview');
+    await card.getByRole('button', {name: 'Done', exact: true}).click();
+
+    for (let save = 0; save < 2; save++) {
+        const documentId = await page.evaluate(() => window.e2eDocumentId = crypto.randomUUID());
+        const response = page.waitForResponse(async response => response.request().method() === 'POST'
+            && new URL(response.url()).pathname === `/_inplace/post/${postId}`
+            && response.headers()['content-type']?.includes('application/json')
+            && (await response.json()).action === 'edit');
+        await card.locator('.post-edit-save').click();
+        assert.equal((await (await response).json()).success, true);
+        await page.waitForFunction(id => !document.querySelector(`.post-card[data-post-id="${id}"]`)?.classList.contains('is-editing'), postId);
+        const output = card.locator('#e2e-interactive-html output');
+        await output.waitFor();
+        await page.waitForFunction(() => document.querySelector('#e2e-interactive-html output')?.textContent === '0', null, {timeout: 5000});
+        assert.notEqual(await page.evaluate(() => window.e2eDocumentId), documentId,
+            'Executable HTML gets a full document load, not an inert fragment or an eval fallback');
+        assert.equal(await output.evaluate(element => getComputedStyle(element).color), 'rgb(12, 34, 56)',
+            'The saved block retains its authored stylesheet under the real CSP');
+        await card.getByRole('button', {name: 'Advance counter', exact: true}).click();
+        assert.equal(await output.textContent(), '1', 'The published button works immediately after save without a manual reload');
+        const stored = database(`SELECT body FROM content WHERE id=${postId}`)[0].body;
+        assert.ok(stored.includes(source), 'The exact source is stored, not the running widget DOM');
+        assert.match(stored, /Updated through the real server/u);
+        if (save === 0) {
+            await card.locator('.post-edit-start').click();
+            await card.locator('[data-post-inplace-title]').fill('Interactive block saved again');
+        }
+    }
+    console.log('HTML E2E: preview, save and repeated save retain an active script, click handler and authored styles under real CSP');
 }
 
 try {
@@ -321,8 +367,11 @@ try {
                 background: getComputedStyle(element).backgroundColor, colorScheme: getComputedStyle(element).colorScheme,
             })), panelTheme, 'The real preview endpoint receives the editor theme');
             await htmlBlock.getByRole('button', {name: 'Done', exact: true}).click();
+            const staticDocumentId = await page.evaluate(() => window.e2eDocumentId = crypto.randomUUID());
             await savedCard.locator('.post-edit-save').click();
             await page.waitForFunction(id => !document.querySelector(`.post-card[data-post-id="${id}"]`)?.classList.contains('is-editing'), postId);
+            assert.equal(await page.evaluate(() => window.e2eDocumentId), staticDocumentId,
+                'Static HTML keeps the in-place save without a full document load');
             const savedBody = database(`SELECT body FROM content WHERE id=${postId}`)[0].body;
             assert.match(savedBody, /Updated through the real server/u);
             assert.ok(savedBody.includes(htmlSource), 'The real save retains the exact HTML source and surrounding text');
@@ -331,6 +380,7 @@ try {
             assert.match(await page.locator(`.post-card[data-post-id="${postId}"] [data-post-inplace-body]`).textContent(), /Updated through the real server/u);
             assert.equal(await savedCard.locator('[data-post-html-source]').getAttribute('data-post-html-source'), htmlSource);
 
+            await runPublishedHtmlBlockRegression(page, postId);
             await runMediaBoundarySaveRegression(page, engine.name());
 
             const editUrl = `${origin}/_admin/index.php?entity=Article&action=edit&id=${pageId}`;

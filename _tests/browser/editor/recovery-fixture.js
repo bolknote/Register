@@ -52,7 +52,8 @@
         if (!user) card.querySelector('.post-inplace-tools').remove();
         return card;
     }
-    document.querySelector('.live-post-feed').append(post(false));
+    const feed = document.querySelector('.live-post-feed');
+    if (!feed.childElementCount) feed.append(post(false));
     if (user) {
         const slot = document.createElement('div');
         slot.dataset.postCreateSlot = '';
