@@ -811,6 +811,92 @@ final class LinkHealthCest
         );
     }
 
+    public function republishesStaleRepairAndUsesTheRefreshedRevisionNextTime(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $postId  = $this->insertPost(
+            $dbLayer,
+            'stale-repair-source',
+            '<p><a href="https://broken.example/stale">Original</a></p>',
+        );
+
+        /** @var LinkInventory $inventory */
+        $inventory = $I->grabService(LinkInventory::class);
+        $inventory->synchronize(ContentId::post($postId), 1_800_000_000);
+
+        $targetId  = $this->targetId($dbLayer, 'https://broken.example/stale');
+        $archiveUrl = 'https://web.archive.org/web/20250102030405/https://broken.example/stale';
+        $this->markBrokenWithArchive($dbLayer, $targetId, $archiveUrl);
+
+        $dbLayer->update(ContentSchema::TABLE_NAME)
+            ->set('body', ':body')->setParameter(
+                'body',
+                '<p>Edited</p><p><a href="https://broken.example/stale#current">Current</a></p>',
+            )
+            ->set('revision', 'revision + 1')
+            ->where('id = :id')->setParameter('id', $postId)
+            ->execute();
+
+        /** @var LinkRepairQueueHandler $handler */
+        $handler = $I->grabService(LinkRepairQueueHandler::class);
+        /** @var QueuePublisher $publisher */
+        $publisher = $I->grabService(QueuePublisher::class);
+        /** @var \PDO $pdo */
+        $pdo = $I->grabService(\PDO::class);
+        $pdo->exec('DELETE FROM queue');
+
+        $now = time();
+        $publisher->publish(
+            LinkQueue::targetJobId($targetId),
+            LinkQueue::REPAIR_CODE,
+            ['target_id' => $targetId],
+            $now,
+            QueuePublisher::PRIORITY_HIGH,
+        );
+        $consumer = new QueueConsumer($pdo, '', new NullLogger(), new QueueHandlerRegistry($handler));
+
+        $I->assertTrue($consumer->runQueue($now, new QueueExecutionBudget(5.0)));
+        $I->assertSame(
+            2,
+            (int)$dbLayer->select('revision')->from(ContentSchema::TABLE_NAME)
+                ->where('id = :id')->setParameter('id', $postId)
+                ->execute()->result(),
+        );
+        $I->assertSame(
+            2,
+            (int)$dbLayer->select('generation')->from('queue')
+                ->where('id = :id')->setParameter('id', LinkQueue::targetJobId($targetId))
+                ->andWhere('code = :code')->setParameter('code', LinkQueue::REPAIR_CODE)
+                ->execute()->result(),
+        );
+
+        $I->assertTrue($consumer->runQueue($now, new QueueExecutionBudget(5.0)));
+
+        $row = $dbLayer->select('body, revision')->from(ContentSchema::TABLE_NAME)
+            ->where('id = :id')->setParameter('id', $postId)
+            ->execute()->fetchAssoc();
+        $I->assertIsArray($row);
+        $I->assertSame(3, (int)$row['revision']);
+        $I->assertSame(
+            '<p>Edited</p><p><a href="' . $archiveUrl . '#current">Current</a></p>',
+            (string)$row['body'],
+        );
+        $I->assertSame(
+            1,
+            (int)$dbLayer->select('occurrence_count')->from(Manifest::REPAIR_TABLE)
+                ->where('target_id = :target_id')->setParameter('target_id', $targetId)
+                ->execute()->result(),
+        );
+        $I->assertSame(
+            0,
+            (int)$dbLayer->select('COUNT(*)')->from('queue')
+                ->where('id = :id')->setParameter('id', LinkQueue::targetJobId($targetId))
+                ->andWhere('code = :code')->setParameter('code', LinkQueue::REPAIR_CODE)
+                ->execute()->result(),
+        );
+    }
+
     public function pacesWaybackLookupsThroughDurableQueueDeferral(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */

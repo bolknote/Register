@@ -11,12 +11,14 @@ namespace Register\Module\LinkHealth;
 
 use Register\Core\Queue\QueueExecutionBudget;
 use Register\Core\Queue\QueueHandlerInterface;
+use Register\Core\Queue\QueuePublisher;
 
 final readonly class LinkRepairQueueHandler implements QueueHandlerInterface
 {
     public function __construct(
         private LinkHealthRepository $repository,
         private LinkRepairService     $repairService,
+        private QueuePublisher        $queuePublisher,
     ) {
     }
 
@@ -61,9 +63,20 @@ final readonly class LinkRepairQueueHandler implements QueueHandlerInterface
             return;
         }
 
+        $retry = false;
         foreach ($this->repository->repairUsages($targetId) as $usage) {
             $budget->checkpoint($this->minimumExecutionTime());
-            $this->repairService->repair($usage, $targetId, $target->url, $target->archiveUrl);
+            $outcome = $this->repairService->repair($usage, $targetId, $target->url, $target->archiveUrl);
+            if ($outcome === LinkRepairOutcome::STALE) {
+                $retry = true;
+            }
+        }
+
+        // A stale attempt synchronously refreshes the inventory through ContentChangedEvent. Publish
+        // another generation so the current one remains a safe no-op and the refreshed revision is
+        // repaired only by a later queue execution.
+        if ($retry && $this->repository->repairUsages($targetId) !== []) {
+            $this->queuePublisher->publish($id, $code, $payload);
         }
     }
 }

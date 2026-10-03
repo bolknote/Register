@@ -132,6 +132,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
         $container->set(LinkRepairQueueHandler::class, static fn(Container $container): LinkRepairQueueHandler => new LinkRepairQueueHandler(
             $container->get(LinkHealthRepository::class),
             $container->get(LinkRepairService::class),
+            $container->get(QueuePublisher::class),
         ), [QueueHandlerInterface::class]);
         $container->set(LinkMaintenanceTask::class, static fn(Container $container): LinkMaintenanceTask => new LinkMaintenanceTask(
             $container->get(DbLayer::class),
