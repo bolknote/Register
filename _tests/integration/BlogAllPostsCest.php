@@ -9,6 +9,7 @@ use Register\Content\ContentId;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Core\Pdo\DbLayer;
+use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Response;
 
 final class BlogAllPostsCest
@@ -58,6 +59,64 @@ final class BlogAllPostsCest
             ->result()
         ;
         $I->assertSame(0, (int)$configuredPrefix);
+    }
+
+    public function testRussianTitleQuotesAreTheSameForGuestsAndAuthors(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $titles = [
+            '«Первый»: заголовок',
+            '«Второй»: заголовок',
+            '"Старый заголовок"',
+            'Книга: "Мир «слов»"',
+        ];
+        $ids = [];
+        foreach ($titles as $index => $title) {
+            $ids[] = $this->insertPost($dbLayer, $title, 'quoted-title-' . $index, 1_700_000_004 - $index, true);
+        }
+        $I->setConfigValue('REGISTER_LANGUAGE', 'Russian');
+        $expected = ['«Первый»: заголовок', '«Второй»: заголовок', '«Старый заголовок»', 'Книга: «Мир „слов“»'];
+
+        $I->amOnPage('https://localhost/all/');
+        $I->seeResponseCodeIs(Response::HTTP_OK);
+        $I->assertSame($expected, $I->grabMultiple('.blog-all-posts-list p'));
+        $I->dontSeeElement('.post-create-template');
+        $this->assertPartialIndexTitleQuotes($I, $expected);
+
+        // The login helper expects the English administration labels.
+        $I->setConfigValue('REGISTER_LANGUAGE', 'English');
+        $I->login('admin', 'admin');
+        $I->setConfigValue('REGISTER_LANGUAGE', 'Russian');
+        $I->amOnPage('https://localhost/all/');
+        $I->seeResponseCodeIs(Response::HTTP_OK);
+        $I->seeElement('.post-create-template');
+        $I->assertSame($expected, $I->grabMultiple('.blog-all-posts-list p'));
+        $this->assertPartialIndexTitleQuotes($I, $expected);
+
+        foreach ($ids as $index => $id) {
+            $storedTitle = $dbLayer->select('title')->from(ContentSchema::TABLE_NAME)
+                ->where('id = :id')->setParameter('id', $id)->execute()->result();
+            $I->assertSame($titles[$index], $storedTitle, 'Rendering must not rewrite stored titles.');
+        }
+    }
+
+    /** @param list<string> $expected */
+    private function assertPartialIndexTitleQuotes(\IntegrationTester $I, array $expected): void
+    {
+        $I->sendRequestWithHeaders('https://localhost/all/', [
+            'User-Agent' => 'Mozilla/5.0 integration browser',
+            'X-Register-Navigation' => 'partial',
+        ]);
+        $I->seeResponseCodeIs(Response::HTTP_OK);
+        $payload = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
+        $I->assertIsArray($payload);
+        $I->assertIsString($payload['fragment']);
+        $crawler = new Crawler();
+        $crawler->addHtmlContent($payload['fragment'], 'UTF-8');
+        $I->assertSame($expected, $crawler->filter('.blog-all-posts-list p')->each(
+            static fn(Crawler $node): string => $node->text(),
+        ));
     }
 
     public function testContentChangeInvalidatesTheCachedIndex(\IntegrationTester $I): void

@@ -106,6 +106,58 @@ final class TypographTest extends Unit
             '<a href="/lj-299046">«ОБС» или «Один Британский учёный Сказал»</a>',
             '<a href="/lj-299046">«ОБС» или «Один Британский учёный Сказал»</a>',
         ];
+        yield 'empty quotation in a dormant template cannot quote following titles' => [
+            '<template><p>Удалить запись &quot;&quot;?</p></template>'
+            . '<p><a href="/first">«Первый заголовок»</a></p>'
+            . '<p><a href="/second">«Второй заголовок»</a></p>'
+            . '<p><a href="/third">&quot;Третий заголовок&quot;</a></p>',
+            '<template><p>Удалить запись «»?</p></template>'
+            . '<p>«<a href="/first">Первый заголовок</a>»</p>'
+            . '<p>«<a href="/second">Второй заголовок</a>»</p>'
+            . '<p>«<a href="/third">Третий заголовок</a>»</p>',
+        ];
+        yield 'empty quotation does not borrow another quotation in the same block' => [
+            '<p>Пустая ""; затем <em>"цитата"</em>.</p>',
+            '<p>Пустая «»; затем <em>«цитата»</em>.</p>',
+        ];
+        foreach (['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'dt', 'dd', 'td', 'th', 'figcaption', 'summary'] as $tag) {
+            yield 'straight quotations cannot cross ' . $tag . ' boundaries' => [
+                '<' . $tag . ' class="first">"Незакрытая цитата</' . $tag . '>'
+                . '<' . $tag . '>Другая цитата"</' . $tag . '>',
+                '<' . $tag . ' class="first">"Незакрытая цитата</' . $tag . '>'
+                . '<' . $tag . '>Другая цитата"</' . $tag . '>',
+            ];
+            yield 'unclosed guillemet cannot nest the next ' . $tag => [
+                '<' . $tag . ' class="first">«Незакрытая цитата</' . $tag . '>'
+                . '<' . $tag . '>«Отдельная цитата»; затем "ещё одна".</' . $tag . '>',
+                '<' . $tag . ' class="first">«Незакрытая цитата</' . $tag . '>'
+                . '<' . $tag . '>«Отдельная цитата»; затем «ещё одна».</' . $tag . '>',
+            ];
+        }
+        yield 'inline markup and soft line breaks preserve real quotation nesting' => [
+            '<p>"Слова <em>«внутри»</em><br>продолжение".</p>',
+            '<p>«Слова <em>„внутри“</em><br>продолжение».</p>',
+        ];
+        yield 'uppercase block markup also separates quotations' => [
+            '<DIV CLASS="first">"Незакрытая цитата</DIV><H2>Другая цитата"</H2>',
+            '<DIV CLASS="first">"Незакрытая цитата</DIV><H2>Другая цитата"</H2>',
+        ];
+        yield 'typography-sensitive block does not connect surrounding quotations' => [
+            '"Незакрытая цитата<pre>"raw code"</pre>Другая цитата"',
+            '"Незакрытая цитата<pre>"raw code"</pre>Другая цитата"',
+        ];
+        yield 'protected block opening retains its quotation boundary' => [
+            '"Незакрытая цитата<p class="next">Другая цитата"</p>',
+            '"Незакрытая цитата<p class="next">Другая цитата"</p>',
+        ];
+        yield 'genuine nesting is independent of straight quotation marks elsewhere' => [
+            '<p>«Книга «Внутри»»</p>',
+            '<p>«Книга „Внутри“»</p>',
+        ];
+        yield 'quotation characters inside attributes are preserved' => [
+            '<p title="&quot;«Подсказка»&quot;">"Цитата"</p>',
+            '<p title="&quot;«Подсказка»&quot;">«Цитата»</p>',
+        ];
         yield ['"First level "second level "and third level"" and "second" level again".', '«First level „second level „and third level““ and „second“ level again».'];
         yield ['
   <title>Приключения Кода и Типо-графа</title>

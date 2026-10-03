@@ -18,6 +18,9 @@ namespace Register\Module\Typography;
 
 final class Typograph
 {
+    private const string QUOTATION_BLOCK_TAG_REGEX = '#^</?(?:address|article|aside|blockquote|body|caption|dd|details|dialog|div|dl|dt|fieldset|figcaption|figure|footer|form'
+        . '|h[1-6]|head|header|hgroup|hr|html|legend|li|main|menu|nav|ol|optgroup|option|p|pre|search|section|select|summary|table|tbody|td|template|textarea|tfoot|th|thead|title|tr|ul)\b#i';
+
     public static function process(string $contents, string $locale, bool $soft = false): string
     {
         $language = strtolower(explode('-', str_replace('_', '-', trim($locale)), 2)[0]);
@@ -45,37 +48,7 @@ final class Typograph
 
         $contents = "\n" . str_replace('&quot;', '"', $contents);
 
-        // Quotation marks
-        $quotationMarksRegex = '#(?<=[(\s">]|^)"([^"]*[^\s"(])"#S';
-
-        while (str_contains($contents, '"')) {
-            $previousQuotationContents = $contents;
-            $contents = preg_replace($quotationMarksRegex, '«\\1»', $contents)
-                ?? throw new \RuntimeException('Unable to replace quotation marks.');
-
-            // Nested quotation marks
-            while (true) {
-                /**
-                 * This regex is a logical equivalent of '#«([^«»]*+)«([^»]*+)»#u'.
-                 * Since the 'u' modifier is a bit slower, there are some optimizations here.
-                 *
-                 * '[^«»]' stands for any bytes that are not in byte representation of "«»".
-                 * The other bytes that do not form '«' or '»' together are matched with lookahead '(?!«|»).'.
-                 *
-                 * @see https://www.rexegg.com/regex-quantifiers.html#explicit_greed for optimization tips
-                 */
-                $previousContents = $contents;
-                $contents = preg_replace('#«((?:[^«»]++|(?!«|»).)*+)«((?:[^»]++|(?!»).)*+)»#', '«\\1„\\2“', $contents)
-                    ?? throw new \RuntimeException('Unable to normalize nested quotation marks.');
-                if ($contents === $previousContents) {
-                    break;
-                }
-            }
-
-            if ($contents === $previousQuotationContents) {
-                break;
-            }
-        }
+        $contents = self::processQuotationBlocks($contents, $savedSubstrings);
 
         $replace  = [
             // Some special chars
@@ -149,5 +122,84 @@ final class Typograph
         ) ?? throw new \RuntimeException('Unable to move quotation marks outside links.');
 
         return trim($contents);
+    }
+
+    /** @param array<int, string> $savedSubstrings */
+    private static function processQuotationBlocks(string $contents, array $savedSubstrings): string
+    {
+        if (!str_contains($contents, '"') && !str_contains($contents, '«')) {
+            return $contents;
+        }
+
+        $parts = preg_split('#(<[^>]*>)#', $contents, flags: PREG_SPLIT_DELIM_CAPTURE);
+        if ($parts === false) {
+            throw new \RuntimeException('Unable to split quotation blocks.');
+        }
+        $result = '';
+        $inline = '';
+
+        foreach ($parts as $part) {
+            if (!str_starts_with($part, '<')) {
+                $inline .= $part;
+                continue;
+            }
+
+            $markup = $part;
+            if (preg_match('#^<¬(\d+)¬>$#', $part, $matches) === 1) {
+                $markup = $savedSubstrings[(int)$matches[1]] ?? $part;
+            }
+
+            // Protected attributes and sensitive blocks must retain their original
+            // boundaries. Inline tags stay in the same quotation scope.
+            if (preg_match(self::QUOTATION_BLOCK_TAG_REGEX, $markup) === 1) {
+                $result .= self::processInlineQuotationMarks($inline) . $part;
+                $inline = '';
+            } else {
+                $inline .= $part;
+            }
+        }
+
+        return $result . self::processInlineQuotationMarks($inline);
+    }
+
+    private static function processInlineQuotationMarks(string $contents): string
+    {
+        if (!str_contains($contents, '"') && !str_contains($contents, '«')) {
+            return $contents;
+        }
+
+        // Recognize an empty pair itself instead of borrowing a later closing mark.
+        $quotationMarksRegex = '#(?<=[(\s">]|^)"((?:[^"]*[^\s"(])?)"#S';
+
+        do {
+            $previousQuotationContents = $contents;
+            $contents = preg_replace($quotationMarksRegex, '«\\1»', $contents)
+                ?? throw new \RuntimeException('Unable to replace quotation marks.');
+
+            // Normalize genuine nesting even when a block already uses guillemets.
+            while (true) {
+                /**
+                 * This regex is a logical equivalent of '#«([^«»]*+)«([^»]*+)»#u'.
+                 * Since the 'u' modifier is a bit slower, there are some optimizations here.
+                 *
+                 * '[^«»]' stands for any bytes that are not in byte representation of "«»".
+                 * The other bytes that do not form '«' or '»' together are matched with lookahead '(?!«|»).'.
+                 *
+                 * @see https://www.rexegg.com/regex-quantifiers.html#explicit_greed for optimization tips
+                 */
+                $previousContents = $contents;
+                $contents = preg_replace('#«((?:[^«»]++|(?!«|»).)*+)«((?:[^»]++|(?!»).)*+)»#', '«\\1„\\2“', $contents)
+                    ?? throw new \RuntimeException('Unable to normalize nested quotation marks.');
+                if ($contents === $previousContents) {
+                    break;
+                }
+            }
+
+            if ($contents === $previousQuotationContents) {
+                break;
+            }
+        } while (str_contains($contents, '"'));
+
+        return $contents;
     }
 }
