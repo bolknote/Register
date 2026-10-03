@@ -55,7 +55,7 @@ async function runMediaBoundarySaveRegression(page, browserName) {
         drawing.fillText('Editor image fixture', 20, 90);
         return canvas.toDataURL('image/png').split(',')[1];
     });
-    await card.getByRole('button', {name: 'Editor tools', exact: true}).click();
+    await body.press('Shift+F10');
     const chooserPromise = page.waitForEvent('filechooser');
     await page.locator('.post-editor-context-menu [data-context-action="media"]').click();
     await (await chooserPromise).setFiles({name: 'editor-fixture.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64')});
@@ -224,11 +224,12 @@ try {
             await savedCard.locator('.post-edit-start').focus();
             await savedCard.locator('.post-edit-start').press('Enter');
 
-            // Exercise the real server-rendered toolbar button and resources,
-            // not only the isolated browser fixture's copy of the controls.
-            const editorTools = savedCard.getByRole('button', {name: 'Editor tools', exact: true});
+            // Exercise desktop keyboard access with real server resources;
+            // resizing a mouse context must not expose the touch-only button.
+            const editorTools = savedCard.getByRole('button', {name: 'Editor tools', exact: true, includeHidden: true});
             for (const width of [320, 390]) {
                 await page.setViewportSize({width, height: 844});
+                assert.equal(await editorTools.isVisible(), false, 'A narrow mouse viewport has no extra editor-menu button');
                 const geometry = await savedCard.evaluate(card => {
                     const tools = card.querySelector('.post-inplace-tools').getBoundingClientRect();
                     const time = card.querySelector('.post.time time').getBoundingClientRect();
@@ -243,19 +244,70 @@ try {
                         minWidth: getComputedStyle(card.querySelector('.post.time time')).minWidth};
                 });
                 if (!geometry.clear) await page.screenshot({path: resolve(directory, `../../_output/editor-e2e-${engine.name()}-${width}px.png`)});
-                assert.equal(geometry.clear, true, `Mobile editor controls leave room for the publication date at ${width}px: ${JSON.stringify(geometry)}`);
+                assert.equal(geometry.clear, true, `Narrow editor controls leave room for the publication date at ${width}px: ${JSON.stringify(geometry)}`);
             }
-            await editorTools.click();
+            await savedCard.locator('[data-post-inplace-body]').press('Shift+F10');
             await page.getByRole('menu', {name: 'Editor context menu'}).waitFor();
             assert.equal(await editorTools.getAttribute('aria-expanded'), 'true');
             await page.getByRole('button', {name: 'Close editor menu', exact: true}).click();
             assert.equal(await page.locator('.post-editor-context-menu').count(), 0);
             assert.equal(await editorTools.getAttribute('aria-expanded'), 'false');
             await page.setViewportSize({width: 1280, height: 720});
+            assert.equal(await editorTools.isVisible(), false, 'A desktop mouse viewport has no extra editor-menu button');
+
+            // The same real server-rendered button remains usable on phones
+            // and wide touch devices, with the current text selection intact.
+            const touchContext = await browser.newContext({hasTouch: true,
+                viewport: {width: 390, height: 844}, storageState: await context.storageState()});
+            try {
+                const touchPage = await touchContext.newPage();
+                touchPage.setDefaultTimeout(15000);
+                touchPage.on('pageerror', error => errors.push(String(error)));
+                await touchPage.goto(origin + '/');
+                const touchCard = touchPage.locator(`.post-card[data-post-id="${postId}"]`);
+                const touchTools = touchCard.getByRole('button', {name: 'Editor tools', exact: true, includeHidden: true});
+                assert.equal(await touchTools.isVisible(), false, 'Touch tools are hidden outside editing');
+                await touchCard.locator('.post-tools-menu-toggle').tap();
+                await touchCard.locator('.post-edit-start').tap();
+                const touchBody = touchCard.locator('[data-post-inplace-body]');
+                for (const width of [320, 390, 1360]) {
+                    await touchPage.setViewportSize({width, height: 844});
+                    assert.equal(await touchTools.isVisible(), true, 'Touch menu access does not depend on viewport width');
+                    const clear = await touchCard.evaluate(card => {
+                        const tools = card.querySelector('.post-inplace-tools').getBoundingClientRect();
+                        return ['.post.time time', '.post-inplace-date-button'].every(selector => {
+                            const rect = card.querySelector(selector).getBoundingClientRect();
+                            return !(rect.left < tools.right && rect.right > tools.left
+                                && rect.top < tools.bottom && rect.bottom > tools.top);
+                        });
+                    });
+                    assert.equal(clear, true, `Touch controls leave room for the publication date at ${width}px`);
+                    await touchBody.evaluate(body => {
+                        body.focus();
+                        const text = document.createTreeWalker(body, NodeFilter.SHOW_TEXT).nextNode();
+                        const range = document.createRange();
+                        range.setStart(text, 0);
+                        range.setEnd(text, 7);
+                        getSelection().removeAllRanges();
+                        getSelection().addRange(range);
+                    });
+                    await touchTools.tap();
+                    const menu = touchPage.getByRole('menu', {name: 'Editor context menu'});
+                    await menu.waitFor();
+                    assert.equal(await touchTools.getAttribute('aria-expanded'), 'true');
+                    assert.equal(await menu.locator('[data-context-selection-only]').first().textContent(), 'Selected text');
+                    await menu.getByRole('button', {name: 'Close editor menu', exact: true}).tap();
+                    assert.equal(await touchTools.getAttribute('aria-expanded'), 'false');
+                    assert.equal(await touchBody.evaluate(body => body.contains(getSelection().anchorNode)
+                        && getSelection().toString()), 'Created', 'Touch menu access preserves the selected text');
+                }
+                await touchCard.locator('.post-edit-cancel').tap();
+                assert.equal(await touchTools.isVisible(), false, 'Cancelling editing hides the touch tools again');
+            } finally { await touchContext.close(); }
 
             await savedCard.locator('[data-post-inplace-body]').fill('Updated through the real server.');
             await savedCard.locator('[data-post-inplace-body]').press('End');
-            await editorTools.click();
+            await savedCard.locator('[data-post-inplace-body]').press('Shift+F10');
             await page.locator('.post-editor-context-menu [data-context-action="html"]').click();
             const htmlBlock = savedCard.locator('[data-post-html-source]');
             assert.equal(await htmlBlock.locator('iframe').isVisible(), false);

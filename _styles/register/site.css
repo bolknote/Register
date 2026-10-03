@@ -848,6 +848,10 @@ h2.preview,
     display: none;
 }
 
+.post-inplace-button.post-edit-menu {
+    display: none;
+}
+
 .post-tools-menu-toggle svg {
     fill: currentColor;
     stroke: none;
@@ -2662,6 +2666,10 @@ h2.preview,
     .post-inplace-tools {
         opacity: 1;
         pointer-events: auto;
+    }
+
+    .post-inplace-button.post-edit-menu:not([hidden]) {
+        display: grid;
     }
 }
 

@@ -35,6 +35,13 @@ hyphenated words. Without client JavaScript, the tests measure real interword sp
 widths, continuous visible labels, pill height/centering, and mobile wrapping in
 light and dark themes in all three engines. No configured blog or database is used.
 
+Editor-menu regressions also run independently with `node context-menu-tests.mjs`.
+The extra menu button is available only with touch input, independently of viewport
+width. Mouse contexts use a real right click and Shift+F10 instead. All three engines
+check selection preservation, responsive menu bounds, scrolling only in short
+viewports, and visibility before editing and after resizing. The PHP end-to-end
+suite also checks keyboard and touch access using the actual server-rendered controls.
+
 For interactive inspection in Opera or another local browser:
 
 ```sh
