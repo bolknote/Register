@@ -28,6 +28,13 @@ through CDP; Firefox/WebKit exercise the touch pointer timer followed by a real
 touchscreen tap, since Playwright exposes no held-touch API for those engines.
 `REACTIONS_TEST_REVISION=<git ref> node reactions-tests.mjs` uses an older reaction
 asset to reproduce the pre-fix primary-control regression.
+
+Tag display regressions also run independently with `node tag-display-tests.mjs`.
+The actual PHP post/search views and Russian typography render multiword tags with
+hyphenated words. Without client JavaScript, the tests measure real interword space
+widths, continuous visible labels, pill height/centering, and mobile wrapping in
+light and dark themes in all three engines. No configured blog or database is used.
+
 For interactive inspection in Opera or another local browser:
 
 ```sh

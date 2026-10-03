@@ -10,6 +10,12 @@ export function createFixtureServer() {
         response.setHeader('Cache-Control', 'no-store');
         response.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' data: blob:; media-src 'self'; object-src 'none'");
         try {
+            if (request.url === '/tag-display.html') {
+                response.setHeader('Content-Type', 'text/html; charset=utf-8');
+                response.end(execFileSync(process.env.PHP_BIN || 'php',
+                    [new URL('./tag-display-fixture.php', import.meta.url).pathname], {encoding: 'utf8'}));
+                return;
+            }
             if (new URL(request.url, 'http://127.0.0.1').pathname === '/reactions.html') {
                 const zero = new URL(request.url, 'http://127.0.0.1').searchParams.has('zero');
                 const widget = execFileSync(process.env.PHP_BIN || 'php',
