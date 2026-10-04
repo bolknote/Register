@@ -134,6 +134,7 @@ final class TypographTest extends Unit
                 . '<' . $tag . '>«Отдельная цитата»; затем «ещё одна».</' . $tag . '>',
             ];
         }
+
         yield 'inline markup and soft line breaks preserve real quotation nesting' => [
             '<p>"Слова <em>«внутри»</em><br>продолжение".</p>',
             '<p>«Слова <em>„внутри“</em><br>продолжение».</p>',

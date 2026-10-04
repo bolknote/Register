@@ -75,6 +75,7 @@ final class BlogAllPostsCest
         foreach ($titles as $index => $title) {
             $ids[] = $this->insertPost($dbLayer, $title, 'quoted-title-' . $index, 1_700_000_004 - $index, true);
         }
+
         $I->setConfigValue('REGISTER_LANGUAGE', 'Russian');
         $expected = ['«Первый»: заголовок', '«Второй»: заголовок', '«Старый заголовок»', 'Книга: «Мир „слов“»'];
 
@@ -109,11 +110,14 @@ final class BlogAllPostsCest
             'X-Register-Navigation' => 'partial',
         ]);
         $I->seeResponseCodeIs(Response::HTTP_OK);
+
         $payload = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
         $I->assertIsArray($payload);
         $I->assertIsString($payload['fragment']);
+
         $crawler = new Crawler();
         $crawler->addHtmlContent($payload['fragment'], 'UTF-8');
+
         $I->assertSame($expected, $crawler->filter('.blog-all-posts-list p')->each(
             static fn(Crawler $node): string => $node->text(),
         ));

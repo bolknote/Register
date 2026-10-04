@@ -135,6 +135,7 @@ final class Typograph
         if ($parts === false) {
             throw new \RuntimeException('Unable to split quotation blocks.');
         }
+
         $result = '';
         $inline = '';
 
