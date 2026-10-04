@@ -105,6 +105,30 @@ export async function runHtmlContentLayoutRegressions(browser, origin) {
         await frame.locator('#intrinsic').waitFor();
         await expectHeight(80);
 
+        await code.fill('<style>@keyframes grow {0%,100% {height:80px} 50% {height:400px}}'
+            + '#animated {height:80px;animation:grow 1s linear 0.3s 1}</style>'
+            + '<div id="animated">Intrinsic animated content</div>');
+        await frame.locator('#animated').waitFor();
+        await page.waitForTimeout(1700);
+        await expectHeight(80);
+        assert.equal(await frame.locator('#animated').evaluate(element => element.getBoundingClientRect().height), 80);
+
+        await code.fill('<div id="transition" style="height:80px;transition:height .4s linear">Intrinsic transition</div>');
+        await frame.locator('#transition').waitFor();
+        await expectHeight(80);
+        await frame.locator('#transition').evaluate(element => { element.style.height = '300px'; });
+        await expectHeight(300);
+        await frame.locator('#transition').evaluate(element => { element.style.height = '80px'; });
+        await expectHeight(80);
+
+        await code.fill('<style>@keyframes fade {from {opacity:0.5} to {opacity:1}}'
+            + '#fading {height:100vh;padding-bottom:20px;animation:fade .3s infinite alternate}</style>'
+            + '<div id="fading">Viewport content with an unrelated animation</div>');
+        await frame.locator('#fading').waitFor();
+        await expectHeight(720);
+        await page.waitForTimeout(300);
+        assert.equal(await height(), 720);
+
         const source = '<style>.sample { color: red; }</style>\n<!-- author spacing -->\n<div class="sample">HTML &amp; text</div>\n';
         await code.fill(source);
         await frame.locator('.sample').waitFor();

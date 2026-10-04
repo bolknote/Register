@@ -218,14 +218,19 @@ final readonly class BulkListActionController
     private function transactional(callable $callback): int
     {
         $outerTransaction = $this->pdo->inTransaction();
+        $savepoint = 'admin_bulk_action_' . bin2hex(random_bytes(6));
         if (!$outerTransaction) {
             $this->pdo->beginTransaction();
+        } else {
+            $this->pdo->exec('SAVEPOINT ' . $savepoint);
         }
 
         try {
             $result = $callback();
             if (!$outerTransaction) {
                 $this->pdo->commit();
+            } else {
+                $this->pdo->exec('RELEASE SAVEPOINT ' . $savepoint);
             }
 
             return $result;
@@ -233,6 +238,9 @@ final readonly class BulkListActionController
             $this->contentChangeDispatcher->clearState();
             if (!$outerTransaction && $this->pdo->inTransaction()) {
                 $this->pdo->rollBack();
+            } elseif ($this->pdo->inTransaction()) {
+                $this->pdo->exec('ROLLBACK TO SAVEPOINT ' . $savepoint);
+                $this->pdo->exec('RELEASE SAVEPOINT ' . $savepoint);
             }
 
             throw $throwable;

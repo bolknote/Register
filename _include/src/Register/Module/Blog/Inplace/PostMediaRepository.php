@@ -188,6 +188,15 @@ final readonly class PostMediaRepository
         return $this->unusedRows($mediaIds);
     }
 
+    /** Keep unreferenced files eligible for cleanup after an enclosing transaction commits. */
+    public function deferUnusedCleanup(int $mediaId): void
+    {
+        $this->dbLayer->update(ContentMediaSchema::FILE_TABLE)
+            ->set('pending', '1')
+            ->where('id = :id')->setParameter('id', $mediaId)
+            ->andWhere('usage_count = 0')->execute();
+    }
+
     /**
      * @param list<int> $mediaIds
      *

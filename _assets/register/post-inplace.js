@@ -5719,6 +5719,15 @@
             if (state.recovery?.stop()) state.uploadedMediaIds.clear();
         });
     });
+    document.addEventListener('register:navigation-requested', event => {
+        document.querySelectorAll('.post-card.is-editing').forEach(card => {
+            const state = editorStates.get(card);
+            if (state && editorHasUnsavedChanges(state) && !state.recovery?.persist()) {
+                showEditorStatus(state, editorConfig().recoveryUnavailable || 'Unable to save a local copy. Keep this tab open.', true);
+                event.preventDefault();
+            }
+        });
+    });
     window.addEventListener('storage', () => refreshPostRecoveryOffers());
 
     function openEditorFromUrl() {

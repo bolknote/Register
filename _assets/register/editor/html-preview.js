@@ -13,6 +13,25 @@
     let viewportSized = false;
     let contentChanged = false;
     let resizeTimer = null;
+    function intrinsicAnimations() {
+        // Auto-height follows animations too. Their progress is independent of
+        // the preceding iframe resize; opacity/color animations do not affect it.
+        const animations = new Map();
+        for (const animation of document.getAnimations()) {
+            const frames = animation.effect?.getKeyframes?.() || [];
+            const geometry = frames.flatMap(frame => Object.entries(frame).filter(([property]) => (
+                /^(?:height|width|(?:min|max)?(?:Height|Width|BlockSize|InlineSize)|blockSize|inlineSize|top|bottom|left|right|inset.*|padding.*|margin.*|border.*Width|font.*|lineHeight|letterSpacing|wordSpacing|transform|translate|scale|rotate|zoom|flex.*|grid.*|gap|rowGap|columnGap|--.*)$/u.test(property)
+            )));
+            if (geometry.length && !geometry.some(([, value]) => /(?:\d|\.)\s*(?:%|[sld]?v(?:h|w|b|i|min|max)\b)/iu.test(String(value)))) {
+                animations.set(animation, animation.currentTime);
+            }
+        }
+        return animations;
+    }
+    function animationsChanged(previous, current) {
+        return previous.size !== current.size
+            || Array.from(current).some(([animation, time]) => previous.get(animation) !== time);
+    }
     const sizes = new ResizeObserver(measure);
     function observeTree(node, added) {
         if (!(node instanceof Element)) return;
@@ -49,10 +68,12 @@
             // outside body's box too, respecting explicit overflow clipping.
             const bottom = contentBottom(body, document.createRange());
             const height = Math.ceil(bottom + scrollY);
+            const animations = intrinsicAnimations();
+            const animated = previousMeasurement && animationsChanged(previousMeasurement.animations, animations);
             // Auto-height cannot converge when the author's layout itself depends
             // on the iframe height (vh, percentages or resize handlers). Use a
             // stable viewport in that case; intrinsic layouts still grow/shrink.
-            if (previousMeasurement && !contentChanged && innerWidth === previousMeasurement.width
+            if (previousMeasurement && !contentChanged && !animated && innerWidth === previousMeasurement.width
                 && innerHeight !== previousMeasurement.viewport) {
                 const heightChange = height - previousMeasurement.height;
                 const viewportChange = innerHeight - previousMeasurement.viewport;
@@ -60,9 +81,9 @@
             }
             // A resize observer may run before the author's resize event handler.
             // Keep the prior baseline until that handler has changed the height.
-            if (!previousMeasurement || contentChanged || innerWidth !== previousMeasurement.width
+            if (!previousMeasurement || contentChanged || animated || innerWidth !== previousMeasurement.width
                 || Math.abs(height - previousMeasurement.height) > 1) {
-                previousMeasurement = {height, viewport: innerHeight, width: innerWidth};
+                previousMeasurement = {height, viewport: innerHeight, width: innerWidth, animations};
             }
             contentChanged = false;
             parent.postMessage({

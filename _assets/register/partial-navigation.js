@@ -35,6 +35,9 @@
     let busyTimer = 0;
     let currentUrl = window.location.href;
     let currentKey = history.state?.registerNavigationKey || createKey();
+    let currentIndex = Number.isSafeInteger(history.state?.registerNavigationIndex)
+        ? history.state.registerNavigationIndex : 0;
+    let returningToKey = null;
     let baselineAssets = collectDocumentAssets();
 
     if (
@@ -157,9 +160,23 @@
         }
     }
 
-    function historyState(key) {
+    function historyState(key, index = currentIndex) {
         const previous = history.state && typeof history.state === 'object' ? history.state : {};
-        return {...previous, registerNavigationKey: key};
+        return {...previous, registerNavigationKey: key, registerNavigationIndex: index};
+    }
+
+    function navigationAllowed() {
+        return document.dispatchEvent(new CustomEvent('register:navigation-requested', {cancelable: true}));
+    }
+
+    function restoreHistory(index) {
+        if (Number.isSafeInteger(index) && index !== currentIndex) {
+            returningToKey = currentKey;
+            history.go(currentIndex - index);
+        } else {
+            returningToKey = null;
+            history.replaceState(historyState(currentKey), '', currentUrl);
+        }
     }
 
     function sameDocumentHash(target) {
@@ -426,16 +443,24 @@
                 return;
             }
 
+            // Check after the fetch too: the editor can change while it is in flight.
+            if (!navigationAllowed()) {
+                if (options.mode === 'pop') restoreHistory(options.index);
+                return;
+            }
+
             cacheCurrentPage();
             const mode = options.mode || 'push';
             if (mode === 'push') {
                 currentKey = createKey();
+                currentIndex++;
                 history.pushState(historyState(currentKey), '', finalUrl.href);
             } else if (mode === 'replace') {
                 currentKey = options.key || createKey();
                 history.replaceState(historyState(currentKey), '', finalUrl.href);
             } else {
                 currentKey = options.key || history.state?.registerNavigationKey || createKey();
+                currentIndex = Number.isSafeInteger(options.index) ? options.index : currentIndex;
                 if (!history.state?.registerNavigationKey) {
                     history.replaceState(historyState(currentKey), '', finalUrl.href);
                 }
@@ -520,17 +545,29 @@
     window.addEventListener('popstate', (event) => {
         const target = new URL(window.location.href);
         const key = event.state?.registerNavigationKey;
+        const index = event.state?.registerNavigationIndex;
+        if (returningToKey) {
+            if (key === returningToKey) returningToKey = null;
+            else restoreHistory(index);
+            return;
+        }
         if (key === currentKey && sameDocumentHash(target)) {
             currentUrl = target.href;
             scrollToTarget(target, null, false);
             return;
         }
 
-        cacheCurrentPage();
         activeRequest?.abort();
+        endBusy();
+        if (!navigationAllowed()) {
+            restoreHistory(index);
+            return;
+        }
+        cacheCurrentPage();
         const cached = key ? pageCache.get(key) : null;
         if (cached) {
             currentKey = key;
+            currentIndex = Number.isSafeInteger(index) ? index : currentIndex;
             currentUrl = target.href;
             swapPage(cached.payload).then(() => {
                 baselineAssets = normalizeAssets(cached.payload.assets);
@@ -540,11 +577,11 @@
             return;
         }
 
-        navigate(target, {mode: 'pop', key});
+        navigate(target, {mode: 'pop', key, index});
     }, false);
 
     window.addEventListener('hashchange', () => {
-        currentUrl = window.location.href;
+        if (!returningToKey) currentUrl = window.location.href;
     }, false);
 
     history.scrollRestoration = 'manual';

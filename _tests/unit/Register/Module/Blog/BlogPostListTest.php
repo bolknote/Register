@@ -18,6 +18,7 @@ use Register\AdminYard\TemplateRenderer;
 use Register\AdminYard\Transformer\ViewTransformer;
 use Register\AdminYard\Translator;
 use Register\Content\ContentChangeDispatcher;
+use Register\Content\ContentMediaSchema;
 use Register\Content\ContentSchema;
 use Register\Content\ContentTagSchema;
 use Register\Content\TagRepository;
@@ -31,6 +32,7 @@ use Register\Module\Blog\Admin\AdminConfigExtender;
 use Register\Module\Blog\Admin\BlogPostListController;
 use Register\Module\Blog\Admin\BlogPostListControllerFactory;
 use Register\Module\Blog\BlogUrlBuilder;
+use Register\Module\Blog\Inplace\PostMediaRepository;
 use Register\Module\Blog\Model\BlogPageCache;
 use Register\Url\ContentUrlGenerator;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
@@ -113,8 +115,106 @@ final class BlogPostListTest extends Unit
         }
     }
 
-    /** @return array{BlogPostListController, BlogPostListTestRenderer} */
-    private function harness(bool $admin, bool $canWrite = true): array
+    public function testCommittedDeletionRemovesOnlyUnsharedMedia(): void
+    {
+        foreach ([null, 'page', 'post'] as $shared) {
+            $directory = sys_get_temp_dir() . '/register-list-media-' . bin2hex(random_bytes(6));
+            mkdir($directory);
+            $file = $directory . '/1901.01.01.png';
+            try {
+                [$controller, $renderer, $pdo, $repository] = $this->harness(true, true, $directory);
+                [$id, $body] = $this->attachMedia($pdo, $repository, $file);
+                if ($shared !== null) {
+                    $target = $shared === 'page' ? 9 : 1;
+                    $update = $pdo->prepare('UPDATE content SET body = ? WHERE id = ?');
+                    self::assertInstanceOf(\PDOStatement::class, $update);
+                    $update->execute([$body, $target]);
+                    if ($shared === 'post') {
+                        $repository->syncPost($target, $body, [], 7);
+                    }
+                }
+
+                $controller->listAction(Request::create('/_admin/?state=published'));
+                $request = Request::create('/_admin/?id=2', 'POST', ['csrf_token' => $renderer->listData['rows'][0]['csrf_token']],
+                    server: ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+                self::assertSame(200, $controller->deleteAction($request)->getStatusCode());
+                self::assertSame(0, $this->countRows($pdo, 'SELECT COUNT(*) FROM content WHERE id = 2'));
+                if ($shared === null) {
+                    self::assertNull($repository->find($id));
+                    self::assertFileDoesNotExist($file);
+                } else {
+                    $media = $repository->find($id);
+                    self::assertNotNull($media);
+                    self::assertSame($shared === 'post' ? 1 : 0, (int)$media['usage_count']);
+                    self::assertFileExists($file);
+                    self::assertFalse($repository->deleteUnused($id));
+                }
+            } finally {
+                if (is_file($file)) {
+                    unlink($file);
+                }
+
+                rmdir($directory);
+            }
+        }
+    }
+
+    public function testRejectedDeletionRollsBackMediaRelations(): void
+    {
+        foreach ([true, false] as $admin) {
+            $directory = sys_get_temp_dir() . '/register-list-media-' . bin2hex(random_bytes(6));
+            mkdir($directory);
+            $file = $directory . '/1901.01.01.png';
+            try {
+                [$controller, $renderer, $pdo, $repository] = $this->harness($admin, true, $directory);
+                [$id] = $this->attachMedia($pdo, $repository, $file);
+                $controller->listAction(Request::create('/_admin/?state=published'));
+                $request = Request::create('/_admin/?id=2', 'POST', ['csrf_token' => $admin ? 'invalid' : $renderer->listData['rows'][0]['csrf_token']],
+                    server: ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+                self::assertSame($admin ? 422 : 500, $controller->deleteAction($request)->getStatusCode());
+                self::assertSame(1, $this->countRows($pdo, 'SELECT COUNT(*) FROM content WHERE id = 2'));
+                $media = $repository->find($id);
+                self::assertNotNull($media);
+                self::assertSame(1, (int)$media['usage_count']);
+                self::assertSame(0, (int)$media['pending']);
+                self::assertSame(1, $this->countRows($pdo, 'SELECT COUNT(*) FROM content_media_usage WHERE post_id = 2'));
+                self::assertFileExists($file);
+            } finally {
+                if (is_file($file)) {
+                    unlink($file);
+                }
+
+                rmdir($directory);
+            }
+        }
+    }
+
+    /** @return array{int, string} */
+    private function attachMedia(\PDO $pdo, PostMediaRepository $repository, string $file): array
+    {
+        file_put_contents($file, 'Registered image fixture');
+        $id = $repository->register(['original_name' => basename($file), 'normalized_name' => basename($file),
+            'storage_path' => '/1901.01.01.png', 'mime_type' => 'image/png', 'kind' => 'image', 'byte_size' => 24,
+            'width' => 1, 'height' => 1, 'uploaded_by' => 8]);
+        $body = '<img src="/images/1901.01.01.png" data-post-media-id="' . $id . '" data-post-media-identity="1">';
+        $update = $pdo->prepare('UPDATE content SET body = ? WHERE id = 2');
+        self::assertInstanceOf(\PDOStatement::class, $update);
+        $update->execute([$body]);
+        $repository->syncPost(2, $body, [$id], 8);
+
+        return [$id, $body];
+    }
+
+    private function countRows(\PDO $pdo, string $sql): int
+    {
+        $rows = $pdo->query($sql);
+        self::assertInstanceOf(\PDOStatement::class, $rows);
+
+        return (int)$rows->fetchColumn();
+    }
+
+    /** @return array{BlogPostListController, BlogPostListTestRenderer, \PDO, PostMediaRepository} */
+    private function harness(bool $admin, bool $canWrite = true, ?string $mediaDirectory = null): array
     {
         $pdo = new \PDO('sqlite::memory:');
         $db = new DbLayerSqlite($pdo);
@@ -125,6 +225,7 @@ final class BlogPostListTest extends Unit
         $pdo->exec("INSERT INTO comments VALUES (1, 'post', 2, 1, 0), (2, 'post', 2, 0, 0), (3, 'post', 2, 1, 1), (4, 'post', 2, 0, 1)");
         ContentSchema::create($db);
         ContentTagSchema::create($db);
+        ContentMediaSchema::create($db);
         $now = time();
         $insert = $pdo->prepare('INSERT INTO content (id, content_type, slug_scope, slug, title, excerpt, body, author_id, published, published_at, scheduled_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
         self::assertInstanceOf(\PDOStatement::class, $insert);
@@ -149,8 +250,17 @@ final class BlogPostListTest extends Unit
         $configProvider = new DynamicConfigProvider();
         $urlBuilder = new UrlBuilder('/blog', 'https://example.test/blog', '');
         $blogUrls = new BlogUrlBuilder($urlBuilder, new StringProxy($configProvider, 'tags'), new StringProxy($configProvider, 'favorites'));
-        $factory = new BlogPostListControllerFactory(new ContentUrlGenerator($db, $urlBuilder), $blogUrls, $permissions);
         $translator = new Translator([], 'en');
+        $repository = new PostMediaRepository($db, '/images');
+        $factory = new BlogPostListControllerFactory(
+            new ContentUrlGenerator($db, $urlBuilder), $blogUrls, $permissions, $pdo,
+            $repository,
+            new \Register\Module\Blog\Inplace\PostInplaceMediaStorage(
+                new \Register\Admin\Picture\PictureFileNameHelper($translator, 'png'),
+                new \Register\Admin\Picture\PictureStorageQuota($translator, sys_get_temp_dir(), sys_get_temp_dir() . '/register-list-quota.lock', 1_000_000),
+                $translator, $mediaDirectory ?? sys_get_temp_dir(), '', sys_get_temp_dir(),
+            ),
+        );
         $events = new EventDispatcher();
         $config = new AdminConfig();
         foreach (['User' => 'users', 'Comment' => 'comments', 'Tag' => 'tags'] as $name => $table) {
@@ -183,7 +293,7 @@ final class BlogPostListTest extends Unit
             new FormFactory(new FormControlFactory(), $translator, $dataProvider),
             new SessionSettingStorage(new Session(new MockArraySessionStorage())),
         );
-        return [$controller, $renderer];
+        return [$controller, $renderer, $pdo, $repository];
     }
 
     /** @return list<int> */

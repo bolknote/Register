@@ -23,6 +23,8 @@ use Register\AdminYard\Transformer\ViewTransformer;
 use Register\AdminYard\Translator;
 use Register\Core\Model\PermissionChecker;
 use Register\Module\Blog\BlogUrlBuilder;
+use Register\Module\Blog\Inplace\PostInplaceMediaStorage;
+use Register\Module\Blog\Inplace\PostMediaRepository;
 use Register\Url\ContentUrlGenerator;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\HttpFoundation\Request;
@@ -43,8 +45,79 @@ final class BlogPostListController extends EntityController
         private readonly ContentUrlGenerator $urls,
         private readonly BlogUrlBuilder $blogUrls,
         private readonly PermissionChecker $permissions,
+        private readonly \PDO $pdo,
+        private readonly PostMediaRepository $mediaRepository,
+        private readonly PostInplaceMediaStorage $mediaStorage,
     ) {
         parent::__construct($entityConfig, $eventDispatcher, $dataProvider, $viewTransformer, $translator, $templateRenderer, $formFactory, $settingStorage);
+    }
+
+    #[\Override]
+    public function deleteAction(Request $request): Response
+    {
+        $ownsTransaction = !$this->pdo->inTransaction();
+        $savepoint = 'admin_post_delete_' . bin2hex(random_bytes(6));
+        if ($ownsTransaction) {
+            $this->pdo->beginTransaction();
+        } else {
+            $this->pdo->exec('SAVEPOINT ' . $savepoint);
+        }
+
+        try {
+            $postId = $this->getEntityPrimaryKeyFromRequest($request)->getIntId();
+            // Capture relations before the content foreign key cascades. A failed
+            // CSRF/permission check or SQL delete rolls these changes back too.
+            $unused = $this->mediaRepository->releasePost($postId);
+            $response = parent::deleteAction($request);
+            if (!$response->isSuccessful() && !$response->isRedirection()) {
+                $this->rollbackDelete($ownsTransaction, $savepoint);
+
+                return $response;
+            }
+
+            foreach ($unused as $media) {
+                $this->mediaRepository->deferUnusedCleanup((int)$media['id']);
+            }
+
+            if ($ownsTransaction) {
+                $this->pdo->commit();
+            } else {
+                $this->pdo->exec('RELEASE SAVEPOINT ' . $savepoint);
+            }
+        } catch (\Throwable $exception) {
+            $this->rollbackDelete($ownsTransaction, $savepoint);
+            throw $exception;
+        }
+
+        // Bulk deletion owns the outer transaction: leave files in the registry
+        // for garbage collection so a later item can still roll everything back.
+        if ($ownsTransaction) {
+            foreach ($unused as $media) {
+                try {
+                    if ($this->mediaRepository->deleteUnused((int)$media['id'])) {
+                        $this->mediaStorage->delete((string)$media['storage_path']);
+                    }
+                } catch (\Throwable $exception) {
+                    $this->logger?->warning('Unable to remove deleted post media.', ['exception' => $exception]);
+                }
+            }
+        }
+
+        return $response;
+    }
+
+    private function rollbackDelete(bool $ownsTransaction, string $savepoint): void
+    {
+        if (!$this->pdo->inTransaction()) {
+            return;
+        }
+
+        if ($ownsTransaction) {
+            $this->pdo->rollBack();
+        } else {
+            $this->pdo->exec('ROLLBACK TO SAVEPOINT ' . $savepoint);
+            $this->pdo->exec('RELEASE SAVEPOINT ' . $savepoint);
+        }
     }
 
     #[\Override]
