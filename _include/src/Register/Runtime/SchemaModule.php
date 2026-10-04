@@ -20,6 +20,7 @@ use Register\Schema\ContentMediaSchemaMigration;
 use Register\Schema\ContentMediaIdentitySchemaMigration;
 use Register\Schema\ContentViewSpoolSchemaMigration;
 use Register\Schema\PendingCommentSpamSchemaMigration;
+use Register\Schema\PendingCommentRecoverySchemaMigration;
 use Register\Schema\ExternalImportSchemaMigration;
 use Register\Schema\FuturePublicationSchemaMigration;
 use Register\Schema\PublicAuthSchemaMigration;
@@ -161,6 +162,7 @@ final readonly class SchemaModule implements ContainerModuleInterface
         );
         $container->set(PostCreateOperationSchemaMigration::class, new PostCreateOperationSchemaMigration(), [SchemaMigrationInterface::class]);
         $container->set(ContentMediaIdentitySchemaMigration::class, new ContentMediaIdentitySchemaMigration(), [SchemaMigrationInterface::class]);
+        $container->set(PendingCommentRecoverySchemaMigration::class, new PendingCommentRecoverySchemaMigration(), [SchemaMigrationInterface::class]);
         $container->set(SchemaMigrator::class, fn(Container $container): SchemaMigrator => new SchemaMigrator(
             $container->get(DbLayer::class),
             $container->getByTag(SchemaMigrationInterface::class),

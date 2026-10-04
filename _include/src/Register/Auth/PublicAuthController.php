@@ -19,6 +19,7 @@ use Register\Core\Security\Audit\SecurityAuditLogger;
 use Register\Core\Template\HtmlTemplateProvider;
 use Register\Module\VisitorIdentity\VisitorIdentityManager;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -61,10 +62,7 @@ final readonly class PublicAuthController implements ControllerInterface
                 'oauth_start'    => $this->oauthStart($request),
                 'oauth_callback' => $this->oauthCallback($request),
                 'unread'         => $this->unread($request),
-                'check_email'    => $this->messagePage(
-                    $this->translator->trans('Check your email'),
-                    '<p>' . register_htmlencode($this->translator->trans('We sent a one-time sign-in link. It is valid for 15 minutes.')) . '</p>',
-                ),
+                'check_email'    => $this->checkEmail($request),
                 default => new Response('Not found.', Response::HTTP_NOT_FOUND),
             };
         } catch (MagicLinkRateLimitException $exception) {
@@ -83,6 +81,14 @@ final readonly class PublicAuthController implements ControllerInterface
                 'action'    => $action,
                 'exception' => $throwable,
             ]);
+
+            if ($action === 'email_callback' && PendingCommentRecovery::fromRequest($request) !== null) {
+                return $this->checkEmail(
+                    $request,
+                    $this->translator->trans('This confirmation link is invalid or has expired. Request a new link below; your comment is still saved.'),
+                    Response::HTTP_GONE,
+                );
+            }
 
             return $this->error(
                 $request,
@@ -157,6 +163,80 @@ final readonly class PublicAuthController implements ControllerInterface
         return new RedirectResponse($checkEmailUrl);
     }
 
+    private function checkEmail(Request $request, string $error = '', int $status = Response::HTTP_OK): Response
+    {
+        $recovery = PendingCommentRecovery::fromRequest($request);
+        $draft = $recovery === null ? null : $this->repository->pendingComment($recovery->hash());
+        if ($draft === null || $recovery === null) {
+            $missingDraft = $request->isMethod(Request::METHOD_POST) || $request->query->has('draft');
+            $message = $missingDraft
+                ? 'This saved comment is not available in this browser.'
+                : 'We sent a one-time sign-in link. It is valid for 15 minutes.';
+            $response = $this->messagePage($this->translator->trans('Check your email'), '<p>' . register_htmlencode($this->translator->trans($message)) . '</p>');
+            $response->setStatusCode($missingDraft ? Response::HTTP_NOT_FOUND : Response::HTTP_OK);
+
+            return $this->privateResponse($response);
+        }
+
+        if ($request->isMethod(Request::METHOD_POST)) {
+            return $this->resendPendingComment($request, $draft, $recovery);
+        }
+
+        if ($error === '') {
+            $error = match ($request->query->getString('delivery')) {
+                'limited' => $this->translator->trans('Too many sign-in links. Try again later.'),
+                'failed' => $this->translator->trans('Unable to send the confirmation email. Your comment is saved; try again.'),
+                default => '',
+            };
+        }
+
+        return $this->pendingCommentPage($draft, $recovery, (string)$draft['email'], $error, $status);
+    }
+
+    /** @param array<string, mixed> $draft */
+    private function resendPendingComment(Request $request, array $draft, PendingCommentRecovery $recovery): Response
+    {
+        $email = $request->request->getString('email');
+        if (!$recovery->matchesFormToken($request->request->getString('auth_token'))) {
+            return $this->pendingCommentPage($draft, $recovery, $email, $this->translator->trans('The form has expired. Reload the page.'), Response::HTTP_FORBIDDEN);
+        }
+
+        try {
+            $this->magicLinkService->resendVerification($request, $recovery, $email);
+        } catch (MagicLinkRateLimitException $exception) {
+            $response = $this->pendingCommentPage($draft, $recovery, $email, $this->translator->trans('Too many sign-in links. Try again later.'), Response::HTTP_TOO_MANY_REQUESTS);
+            $response->headers->set('Retry-After', (string)$exception->retryAfter);
+
+            return $response;
+        } catch (\InvalidArgumentException $exception) {
+            return $this->pendingCommentPage($draft, $recovery, $email, $exception->getMessage(), Response::HTTP_UNPROCESSABLE_ENTITY);
+        } catch (\RuntimeException $exception) {
+            $this->logger->error('Pending comment email delivery failed.', ['exception' => $exception]);
+
+            return $this->pendingCommentPage($draft, $recovery, $email, $this->translator->trans('Unable to send the confirmation email. Your comment is saved; try again.'), Response::HTTP_BAD_GATEWAY);
+        }
+
+        return $this->privateResponse(new RedirectResponse($this->urlBuilder->rawLink('/auth/check-email', ['draft=' . $recovery->draftId]), Response::HTTP_SEE_OTHER));
+    }
+
+    /** @param array<string, mixed> $draft */
+    private function pendingCommentPage(array $draft, PendingCommentRecovery $recovery, string $email, string $error, int $status): Response
+    {
+        $response = $this->messagePage($this->translator->trans('Confirm your comment'), $this->renderer->renderPendingComment($draft, $recovery, $email, $error));
+        $response->setStatusCode($status);
+
+        return $this->privateResponse($response);
+    }
+
+    private function privateResponse(Response $response): Response
+    {
+        $response->headers->set('Cache-Control', 'no-store, private');
+        $response->headers->set('Referrer-Policy', 'no-referrer');
+        $response->headers->set('X-Robots-Tag', 'noindex, nofollow');
+
+        return $response;
+    }
+
     private function emailCallback(Request $request): \Symfony\Component\HttpFoundation\RedirectResponse
     {
         $result = $this->magicLinkService->consume($request->query->getString('token'));
@@ -174,7 +254,14 @@ final readonly class PublicAuthController implements ControllerInterface
         );
         $this->visitorIdentityManager->recordInteraction($request, $result['user_id']);
 
-        return $this->redirectWithCookies($session, $returnPath);
+        $response = $this->redirectWithCookies($session, $returnPath);
+        if ($result['comment_id'] !== null) {
+            // Use the same marker and path as the normal comment submit; the
+            // browser storage handler clears it only after a confirmed save.
+            $response->headers->setCookie(Cookie::create('comment_form_sent', (string)$result['comment_id'], httpOnly: false));
+        }
+
+        return $response;
     }
 
     private function oauthStart(Request $request): Response

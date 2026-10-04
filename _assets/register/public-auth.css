@@ -649,6 +649,14 @@
     pointer-events: none;
 }
 
+.pending-comment-preview {
+    overflow-wrap: anywhere;
+}
+
+.public-auth-panel.pending-comment-panel {
+    max-width: 52rem;
+}
+
 .public-auth-panel {
     max-width: 31rem;
     margin: 0;

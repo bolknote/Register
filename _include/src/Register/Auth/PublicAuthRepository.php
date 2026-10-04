@@ -209,6 +209,7 @@ final readonly class PublicAuthRepository
         ?array $pendingComment = null,
         int $lifetime = 900,
         ?string $visitorId = null,
+        ?string $recoveryHash = null,
     ): void {
         $this->cleanupExpired();
         $now = time();
@@ -216,6 +217,7 @@ final readonly class PublicAuthRepository
             ->insert(PublicAuthSchema::MAGIC_LINKS_TABLE)
             ->values([
                 'token_hash'   => ':token_hash',
+                'recovery_hash' => ':recovery_hash',
                 'email'        => ':email',
                 'display_name' => ':display_name',
                 'return_path'  => ':return_path',
@@ -235,6 +237,7 @@ final readonly class PublicAuthRepository
             ])
             ->execute([
                 'token_hash'   => self::tokenHash($token),
+                'recovery_hash' => $recoveryHash,
                 'email'        => mb_strtolower(mb_substr(trim($email), 0, 80)),
                 'display_name' => mb_substr(trim($displayName), 0, 80),
                 'return_path'  => mb_substr($returnPath, 0, 1024),
@@ -290,6 +293,40 @@ final readonly class PublicAuthRepository
     }
 
     /** @return array<string, mixed>|null */
+    public function pendingComment(string $recoveryHash): ?array
+    {
+        $row = $this->dbLayer
+            ->select('*')
+            ->from(PublicAuthSchema::MAGIC_LINKS_TABLE)
+            ->where('recovery_hash = :recovery_hash')->setParameter('recovery_hash', $recoveryHash)
+            ->andWhere('used_at IS NULL')
+            ->andWhere('content_id IS NOT NULL')
+            ->execute()
+            ->fetchAssoc()
+        ;
+
+        return $row === false ? null : $row;
+    }
+
+    /** Replacing the token also invalidates every previously emailed link for this draft. */
+    public function renewPendingComment(string $recoveryHash, string $token, string $email): bool
+    {
+        $now = time();
+
+        return $this->dbLayer
+            ->update(PublicAuthSchema::MAGIC_LINKS_TABLE)
+            ->set('token_hash', ':token_hash')->setParameter('token_hash', self::tokenHash($token))
+            ->set('email', ':email')->setParameter('email', mb_strtolower(mb_substr(trim($email), 0, 80)))
+            ->set('created_at', ':now')->setParameter('now', $now)
+            ->set('expires_at', ':expires_at')->setParameter('expires_at', $now + 900)
+            ->where('recovery_hash = :recovery_hash')->setParameter('recovery_hash', $recoveryHash)
+            ->andWhere('used_at IS NULL')
+            ->andWhere('content_id IS NOT NULL')
+            ->execute()
+            ->affectedRows() === 1;
+    }
+
+    /** @return array<string, mixed>|null */
     private function identity(string $provider, string $subject): ?array
     {
         $row = $this->dbLayer
@@ -342,6 +379,8 @@ final readonly class PublicAuthRepository
         $this->dbLayer
             ->delete(PublicAuthSchema::MAGIC_LINKS_TABLE)
             ->where('expires_at < :expired')->setParameter('expired', $now - 86400)
+            // Authentication links expire; unconfirmed comment text does not.
+            ->andWhere('(content_id IS NULL OR used_at IS NOT NULL)')
             ->execute()
         ;
     }

@@ -2,6 +2,6 @@
   "name": "register-editor-regressions",
   "private": true,
   "type": "module",
-  "scripts": {"test": "node reliability.mjs && node run.mjs", "test:reliability": "node reliability.mjs", "test:durability": "node durability.mjs", "test:e2e": "node e2e.mjs"},
+  "scripts": {"test": "node reliability.mjs && node run.mjs", "test:reliability": "node reliability.mjs", "test:durability": "node durability.mjs", "test:e2e": "node e2e.mjs && node guest-comment-e2e.mjs", "test:guest-comments": "node guest-comment-e2e.mjs"},
   "devDependencies": {"playwright": "1.62.1"}
 }

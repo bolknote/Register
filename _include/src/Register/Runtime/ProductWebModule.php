@@ -320,7 +320,7 @@ final readonly class ProductWebModule implements ContainerAwareListenerModuleInt
         $routes->add('register_public_auth_check_email', new Route(
             '/auth/check-email',
             ['_controller' => PublicAuthController::class, 'auth_action' => 'check_email'],
-            methods: ['GET'],
+            methods: ['GET', 'POST'],
         ), $authPriority);
         $routes->add('register_public_auth_oauth_start', new Route(
             '/auth/oauth/{provider<vk|mail_ru|ok_ru|yandex>}',

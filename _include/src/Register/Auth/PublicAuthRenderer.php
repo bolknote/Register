@@ -12,6 +12,7 @@ namespace Register\Auth;
 use Register\Core\Model\AuthenticatedPublicUser;
 use Register\Core\Model\AuthProvider;
 use Register\Core\Model\UrlBuilder;
+use Register\Core\Comment\CommentHtml;
 use Register\Core\Template\Viewer;
 use Register\Live\LiveUpdateContext;
 use Symfony\Component\HttpFoundation\Request;
@@ -75,6 +76,20 @@ final readonly class PublicAuthRenderer
     public function renderPanel(Request $request): string
     {
         return $this->viewer->render('public_auth_panel', $this->dialogVariables($request));
+    }
+
+    /** @param array<string, mixed> $draft */
+    public function renderPendingComment(array $draft, PendingCommentRecovery $recovery, string $email, string $error): string
+    {
+        return $this->viewer->render('pending_comment', [
+            'comment_html' => CommentHtml::render((string)$draft['comment_text'], ''),
+            'email' => $email,
+            'error' => $error,
+            'draft_id' => $recovery->draftId,
+            'form_token' => $recovery->formToken(),
+            'submit_url' => $this->urlBuilder->rawLink('/auth/check-email'),
+            'return_url' => PublicReturnPath::normalize((string)$draft['return_path']),
+        ]);
     }
 
     /** @return array<string, mixed> */

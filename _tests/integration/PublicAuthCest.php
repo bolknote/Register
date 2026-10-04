@@ -10,10 +10,15 @@ declare(strict_types = 1);
 namespace integration;
 
 use Register\Auth\CommentNotificationRepository;
+use Register\Auth\MagicLinkRateLimiter;
 use Register\Auth\PublicAuthFormToken;
 use Register\Auth\PublicAuthRepository;
 use Register\Auth\PublicAuthSchema;
 use Register\Auth\PublicAuthSettings;
+use Register\Auth\PendingCommentRecovery;
+use Register\Core\Comment\CommentHtml;
+use Register\Core\Comment\Antispam\CommentFormTokenManager;
+use Symfony\Component\HttpFoundation\Request;
 use Register\Comment\CommentSchema;
 use Register\Comment\Antispam\SpamFeedbackService;
 use Register\Content\ContentId;
@@ -371,6 +376,202 @@ final class PublicAuthCest
             ->where('state_hash = :raw_state')->setParameter('raw_state', $state)
             ->execute()
             ->result());
+    }
+
+    public function testGuestCanCorrectEmailWithoutLosingOrDuplicatingLongComment(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $db */
+        $db = $I->grabService(DbLayer::class);
+        $articleId = $this->insertContent($db, 'pending-comment-recovery');
+        $text = '<p>First paragraph <strong>with formatting</strong>.</p>'
+            . '<p>' . str_repeat('Long comment content. ', 200) . '</p>'
+            . '<blockquote><p>Last paragraph.</p></blockquote>';
+        $stored = CommentHtml::sanitizeForStorage($text);
+        $I->sendPost('https://localhost/pending-comment-recovery', [
+            'name' => 'Guest author', 'email' => 'reader@examplw.test', 'text' => $text,
+        ]);
+        $I->seeResponseCodeIs(302);
+
+        $waitingUrl = 'https://localhost' . (string)$I->grabHttpHeader('Location');
+        $firstMailUrl = $this->localCallbackUrl($I->grabPublicAuthMails()[0]['message']);
+        $I->followRedirect();
+        $I->see('Last paragraph.', '.pending-comment-preview');
+        $I->seeElement('.pending-comment-preview strong');
+        $I->assertSame('reader@examplw.test', $I->grabValueFrom('.pending-comment-email-form [name="email"]'));
+        $I->assertStringContainsString('no-store', (string)$I->grabHttpHeader('Cache-Control'));
+        $I->assertSame('no-referrer', $I->grabHttpHeader('Referrer-Policy'));
+        $I->assertNotNull($I->grabTestCookie(PendingCommentRecovery::COOKIE_NAME));
+
+        $draft = (string)$I->grabValueFrom('.pending-comment-email-form [name="draft"]');
+        $token = (string)$I->grabValueFrom('.pending-comment-email-form [name="auth_token"]');
+
+        /** @var CommentFormTokenManager $tokenManager */
+        $tokenManager = $I->grabService(CommentFormTokenManager::class);
+        $I->sendPostWithAntispamVisitor('https://localhost/auth/check-email', [
+            'draft' => $draft, 'auth_token' => $token, 'email' => 'reader@example.test',
+            'text' => 'Untrusted replacement must not overwrite the validated comment.',
+        ], $tokenManager->getOrCreateVisitorToken(Request::create('https://localhost/')), mutateCommentFields: false);
+        $I->assertSame([], $I->grabMultiple('.public-auth-status.is-error'));
+        $I->seeResponseCodeIs(303);
+        $I->followRedirect();
+        $I->see('Last paragraph.', '.pending-comment-preview');
+        $I->assertSame('reader@example.test', $I->grabValueFrom('.pending-comment-email-form [name="email"]'));
+        $I->assertCount(2, $I->grabPublicAuthMails());
+        $I->assertCount(0, $I->grabModeratorMails());
+        $I->assertSame(0, (int)$db->select('COUNT(*)')->from(CommentSchema::TABLE_NAME)->where('content_id = :id')->setParameter('id', $articleId)->execute()->result());
+
+        $I->amOnPage($firstMailUrl);
+        $I->seeResponseCodeIs(410);
+        $I->see('Last paragraph.', '.pending-comment-preview');
+        $I->amOnPage($this->localCallbackUrl($I->grabPublicAuthMails()[1]['message']));
+        $I->seeResponseCodeIs(302);
+        $I->assertNotNull($I->grabTestCookie('comment_form_sent'));
+
+        $comment = $db->select('text', 'email', 'shown')->from(CommentSchema::TABLE_NAME)->where('content_id = :id')->setParameter('id', $articleId)->execute()->fetchAssoc();
+        $I->assertIsArray($comment);
+        $I->assertSame($stored, $comment['text']);
+        $I->assertSame('reader@example.test', $comment['email']);
+        $I->assertSame(0, (int)$comment['shown']);
+        $I->assertCount(2, $I->grabModeratorMails());
+        $I->amOnPage($waitingUrl);
+        $I->seeResponseCodeIs(404);
+        $I->dontSeeElement('.pending-comment-email-form');
+        $I->assertSame(1, (int)$db->select('COUNT(*)')->from(CommentSchema::TABLE_NAME)->where('content_id = :id')->setParameter('id', $articleId)->execute()->result());
+    }
+
+    public function testExpiredConfirmationAndCleanupRetainThePendingComment(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $db */
+        $db = $I->grabService(DbLayer::class);
+        /** @var PublicAuthRepository $repository */
+        $repository = $I->grabService(PublicAuthRepository::class);
+        $this->insertContent($db, 'expired-pending-comment');
+        $I->sendPost('https://localhost/expired-pending-comment', [
+            'name' => 'Patient reader', 'email' => 'patient@example.test', 'text' => '<p>Keep this draft after expiry.</p>',
+        ]);
+        $waitingUrl = 'https://localhost' . (string)$I->grabHttpHeader('Location');
+        $callbackUrl = $this->localCallbackUrl($I->grabPublicAuthMails()[0]['message']);
+        $db->update(PublicAuthSchema::MAGIC_LINKS_TABLE)->set('expires_at', '1')->where("email = 'patient@example.test'")->execute();
+        $repository->storeMagicLink(str_repeat('z', 48), 'login@example.test', 'Login', '/');
+        $db->update(PublicAuthSchema::MAGIC_LINKS_TABLE)->set('expires_at', '1')->where("email = 'login@example.test'")->execute();
+        $repository->storeFlow('cleanup-trigger', 'vk', '', '', '/');
+        $I->assertSame(0, (int)$db->select('COUNT(*)')->from(PublicAuthSchema::MAGIC_LINKS_TABLE)->where("email = 'login@example.test'")->execute()->result());
+        $I->amOnPage($callbackUrl);
+        $I->seeResponseCodeIs(410);
+        $I->see('Keep this draft after expiry.', '.pending-comment-preview');
+        $I->amOnPage($waitingUrl);
+        $I->seeResponseCodeIs(200);
+        $I->sendPost('https://localhost/auth/check-email', [
+            'draft' => $I->grabValueFrom('.pending-comment-email-form [name="draft"]'),
+            'auth_token' => $I->grabValueFrom('.pending-comment-email-form [name="auth_token"]'),
+            'email' => 'patient@example.test',
+        ]);
+        $I->seeResponseCodeIs(303);
+        $I->amOnPage($this->localCallbackUrl($I->grabPublicAuthMails()[1]['message']));
+        $I->seeResponseCodeIs(302);
+        $I->assertSame(CommentHtml::sanitizeForStorage('<p>Keep this draft after expiry.</p>'), $db->select('text')->from(CommentSchema::TABLE_NAME)->where("email = 'patient@example.test'")->execute()->result());
+    }
+
+    public function testPendingCommentErrorsAndRateLimitNeverHideTheText(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $db */
+        $db = $I->grabService(DbLayer::class);
+        $this->insertContent($db, 'pending-comment-errors');
+        $I->sendPost('https://localhost/pending-comment-errors', [
+            'name' => 'Careful reader', 'email' => 'careful@example.test', 'text' => '<p>Recoverable draft text.</p>',
+        ]);
+        $I->followRedirect();
+
+        $draft = (string)$I->grabValueFrom('.pending-comment-email-form [name="draft"]');
+        $token = (string)$I->grabValueFrom('.pending-comment-email-form [name="auth_token"]');
+        $I->sendPost('https://localhost/auth/check-email', ['draft' => $draft, 'auth_token' => 'forged', 'email' => 'other@example.test']);
+        $I->seeResponseCodeIs(403);
+        $I->see('Recoverable draft text.', '.pending-comment-preview');
+        $I->sendPost('https://localhost/auth/check-email', ['draft' => $draft, 'auth_token' => $token, 'email' => 'not an email']);
+        $I->seeResponseCodeIs(422);
+        $I->see('Recoverable draft text.', '.pending-comment-preview');
+        $I->assertSame('not an email', $I->grabValueFrom('.pending-comment-email-form [name="email"]'));
+        for ($attempt = 0; $attempt < 2; ++$attempt) {
+            $I->sendPost('https://localhost/auth/check-email', ['draft' => $draft, 'auth_token' => $token, 'email' => 'careful@example.test']);
+            $I->seeResponseCodeIs(303);
+        }
+
+        $I->sendPost('https://localhost/auth/check-email', ['draft' => $draft, 'auth_token' => $token, 'email' => 'careful@example.test']);
+        $I->seeResponseCodeIs(429);
+        $I->see('Recoverable draft text.', '.pending-comment-preview');
+        $I->assertGreaterThan(0, (int)$I->grabHttpHeader('Retry-After'));
+        $I->assertCount(3, $I->grabPublicAuthMails());
+        $I->setConfigValue(PublicAuthSettings::EMAIL_ENABLED_CONFIG_KEY, '0');
+        $I->sendPost('https://localhost/auth/check-email', ['draft' => $draft, 'auth_token' => $token, 'email' => 'corrected@example.test']);
+        $I->seeResponseCodeIs(502);
+        $I->see('Recoverable draft text.', '.pending-comment-preview');
+        $I->assertCount(3, $I->grabPublicAuthMails());
+    }
+
+    public function testFirstSubmissionRetainsTheCommentWhenMailIsUnavailableOrRateLimited(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $db */
+        $db = $I->grabService(DbLayer::class);
+        /** @var MagicLinkRateLimiter $rateLimiter */
+        $rateLimiter = $I->grabService(MagicLinkRateLimiter::class);
+        $this->insertContent($db, 'pending-comment-delivery-errors');
+        for ($attempt = 0; $attempt < MagicLinkRateLimiter::EMAIL_LIMIT; ++$attempt) {
+            $rateLimiter->consume('127.0.0.1', 'limited@example.test');
+        }
+
+        $I->sendPost('https://localhost/pending-comment-delivery-errors', [
+            'name' => 'Limited reader', 'email' => 'limited@example.test', 'text' => '<p>Keep the rate-limited comment.</p>',
+        ]);
+        $I->seeResponseCodeIs(302);
+        $I->assertStringContainsString('delivery=limited', (string)$I->grabHttpHeader('Location'));
+        $I->followRedirect();
+        $I->see('Keep the rate-limited comment.', '.pending-comment-preview');
+        $I->seeElement('.public-auth-status.is-error');
+        $I->assertNotNull($I->grabTestCookie(PendingCommentRecovery::COOKIE_NAME));
+        $I->assertCount(0, $I->grabPublicAuthMails());
+        $I->sendPost('https://localhost/auth/check-email', [
+            'draft' => $I->grabValueFrom('.pending-comment-email-form [name="draft"]'),
+            'auth_token' => $I->grabValueFrom('.pending-comment-email-form [name="auth_token"]'),
+            'email' => 'corrected@example.test',
+        ]);
+        $I->seeResponseCodeIs(303);
+        $I->followRedirect();
+        $I->see('Keep the rate-limited comment.', '.pending-comment-preview');
+        $I->assertCount(1, $I->grabPublicAuthMails());
+
+        $I->setConfigValue(PublicAuthSettings::EMAIL_ENABLED_CONFIG_KEY, '0');
+        $I->sendPost('https://localhost/pending-comment-delivery-errors', [
+            'name' => 'Patient reader', 'email' => 'unavailable@example.test', 'text' => '<p>Keep the undelivered comment.</p>',
+        ]);
+        $I->seeResponseCodeIs(302);
+        $I->assertStringContainsString('delivery=failed', (string)$I->grabHttpHeader('Location'));
+        $I->followRedirect();
+        $I->see('Keep the undelivered comment.', '.pending-comment-preview');
+        $I->seeElement('.public-auth-status.is-error');
+        $I->assertCount(1, $I->grabPublicAuthMails());
+    }
+
+    public function testPendingCommentCannotBeReadOrResentFromAnotherBrowser(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $db */
+        $db = $I->grabService(DbLayer::class);
+        $this->insertContent($db, 'private-pending-comment');
+        $I->sendPost('https://localhost/private-pending-comment', [
+            'name' => 'Private reader', 'email' => 'private@example.test', 'text' => '<p>Private draft contents.</p>',
+        ]);
+        $waitingUrl = (string)$I->grabHttpHeader('Location');
+        $I->followRedirect();
+        $draft = (string)$I->grabValueFrom('.pending-comment-email-form [name="draft"]');
+        $token = (string)$I->grabValueFrom('.pending-comment-email-form [name="auth_token"]');
+        $I->resetTestCookie(PendingCommentRecovery::COOKIE_NAME);
+        $I->amOnPage($waitingUrl);
+        $I->seeResponseCodeIs(404);
+        $I->dontSee('Private draft contents.');
+        $I->dontSee('private@example.test');
+        $I->sendPost('https://localhost/auth/check-email', ['draft' => $draft, 'auth_token' => $token, 'email' => 'attacker@example.test']);
+        $I->seeResponseCodeIs(404);
+        $I->assertCount(1, $I->grabPublicAuthMails());
+        $I->assertSame('private@example.test', $db->select('email')->from(PublicAuthSchema::MAGIC_LINKS_TABLE)->where('content_id IS NOT NULL')->execute()->result());
     }
 
     public function testGuestFirstCommentIsVerifiedButHeldUntilModeration(\IntegrationTester $I): void
@@ -825,7 +1026,7 @@ final class PublicAuthCest
 
     private function callbackUrl(string $message): string
     {
-        if (preg_match('~https?://[^\s]+/auth/email/callback\?token=[A-Za-z0-9_-]+~', $message, $matches) !== 1) {
+        if (preg_match('~https?://[^\s]+/auth/email/callback\?token=[A-Za-z0-9_-]+(?:&draft=[a-f0-9]{32})?~', $message, $matches) !== 1) {
             throw new \RuntimeException('The test email contains no callback URL.');
         }
 
@@ -841,6 +1042,12 @@ final class PublicAuthCest
         }
 
         return $token;
+    }
+
+    private function localCallbackUrl(string $message): string
+    {
+        // Match the request origin, so the browser-owned Secure cookie is actually sent.
+        return 'https://localhost/auth/email/callback?' . (string)parse_url($this->callbackUrl($message), PHP_URL_QUERY);
     }
 
     private function userId(DbLayer $dbLayer, string $login): int

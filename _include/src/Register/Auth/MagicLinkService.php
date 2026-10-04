@@ -22,7 +22,6 @@ use Register\Core\Model\User\UserProvider;
 use Register\Module\VisitorIdentity\VisitorIdentityManager;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /** Issues and consumes one-time email links, optionally carrying one validated comment. */
@@ -59,10 +58,15 @@ final readonly class MagicLinkService implements PendingEmailCommentServiceInter
     }
 
     #[\Override]
-    public function requestVerification(Request $request, PendingEmailComment $comment): Response
+    public function requestVerification(Request $request, PendingEmailComment $comment): RedirectResponse
     {
-        try {
-            $this->request($request, $comment->email, $comment->name, $comment->returnPath, [
+        $recovery = PendingCommentRecovery::create($request);
+        $this->repository->storeMagicLink(
+            PendingCommentRecovery::randomToken(),
+            $comment->email,
+            $comment->name,
+            PublicReturnPath::normalize($comment->returnPath),
+            [
                 'content_type'        => $comment->contentType->value,
                 'content_id'          => $comment->targetId,
                 'parent_id'           => $comment->parentId,
@@ -72,16 +76,55 @@ final readonly class MagicLinkService implements PendingEmailCommentServiceInter
                 'moderation_required' => $comment->moderationRequired,
                 'spam_assessment_id'  => $comment->spamAssessmentId,
                 'spam_status'         => $comment->spamStatus,
-            ], $comment->visitorId);
-        } catch (MagicLinkRateLimitException $exception) {
-            return new Response(
-                $this->translator->trans('Too many sign-in links. Try again later.'),
-                Response::HTTP_TOO_MANY_REQUESTS,
-                ['Retry-After' => (string)$exception->retryAfter],
-            );
+            ],
+            visitorId: $comment->visitorId ?? $this->visitorIdentityManager->recordInteraction($request),
+            recoveryHash: $recovery->hash(),
+        );
+        $query = ['draft=' . $recovery->draftId];
+        try {
+            $this->resendVerification($request, $recovery, $comment->email);
+        } catch (MagicLinkRateLimitException) {
+            $query[] = 'delivery=limited';
+        } catch (\RuntimeException) {
+            $query[] = 'delivery=failed';
         }
 
-        return new RedirectResponse($this->urlBuilder->rawLink('/auth/check-email'));
+        $response = new RedirectResponse($this->urlBuilder->rawLink('/auth/check-email', $query));
+        $recovery->remember($response, $request, $this->urlBuilder->rawLink('/'));
+        $response->headers->set('Cache-Control', 'no-store, private');
+
+        return $response;
+    }
+
+    public function resendVerification(Request $request, PendingCommentRecovery $recovery, string $email): void
+    {
+        $draft = $this->repository->pendingComment($recovery->hash());
+        if ($draft === null) {
+            throw new \InvalidArgumentException('The pending comment is no longer available.');
+        }
+
+        if (!$this->settings->emailEnabled()) {
+            throw new \RuntimeException('Email sign-in is disabled.');
+        }
+
+        $email = mb_strtolower(trim($email));
+        if (!StringHelper::isValidEmail($email)) {
+            throw new \InvalidArgumentException($this->translator->trans('Enter a valid email address'));
+        }
+
+        $this->rateLimiter->consume($request->getClientIp() ?? '', $email);
+        $token = PendingCommentRecovery::randomToken();
+        if (!$this->repository->renewPendingComment($recovery->hash(), $token, $email)) {
+            throw new \InvalidArgumentException('The pending comment is no longer available.');
+        }
+
+        $url = html_entity_decode($this->urlBuilder->absLink('/auth/email/callback', [
+            'token=' . rawurlencode($token),
+            'draft=' . $recovery->draftId,
+        ]));
+        if (!$this->mailer->sendMagicLink($email, $url, true)) {
+            throw new \RuntimeException('Unable to send the sign-in email.');
+        }
     }
 
     /**

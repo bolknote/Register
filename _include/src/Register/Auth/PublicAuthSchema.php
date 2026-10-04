@@ -88,6 +88,7 @@ final class PublicAuthSchema
         });
         self::ensureMagicLinkModerationRequirement($dbLayer);
         self::ensurePendingCommentSpamAssessment($dbLayer);
+        self::ensurePendingCommentRecovery($dbLayer);
 
         $dbLayer->createTable(self::NOTIFICATION_USERS_TABLE, static function (SchemaBuilderInterface $table): void {
             $table
@@ -191,5 +192,17 @@ final class PublicAuthSchema
             '',
             'spam_assessment_id',
         );
+    }
+
+    public static function ensurePendingCommentRecovery(DbLayer $dbLayer): void
+    {
+        $dbLayer->addField(
+            self::MAGIC_LINKS_TABLE,
+            'recovery_hash',
+            SchemaBuilderInterface::TYPE_STRING,
+            64,
+            true,
+        );
+        $dbLayer->addIndex(self::MAGIC_LINKS_TABLE, 'recovery_idx', ['recovery_hash']);
     }
 }

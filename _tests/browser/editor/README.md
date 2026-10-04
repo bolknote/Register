@@ -15,6 +15,12 @@ npm test
 ```
 
 The Quality workflow runs Chromium, Firefox and WebKit and blocks releases on failure.
+`npm run test:guest-comments` starts a disposable PHP/SQLite installation and captures
+real MIME mail locally without delivery. Chromium, Firefox and WebKit exercise long
+guest comments with and without JavaScript: missing email, typo correction, reload,
+rich-editor recovery through partial navigation, expired links, browser-bound draft
+access, exact stored text, normal moderation and duplicate prevention. The same
+tests are included in `npm run test:e2e` and the Quality workflow.
 To diagnose one engine locally, run `EDITOR_TEST_BROWSER=webkit npm test` (or
 `chromium` / `firefox`); the default runs all three.
 The reaction-control regressions also run independently with
