@@ -121,6 +121,11 @@
     color: var(--minor-color, currentColor);
 }
 
+.comment-editor-surface.is-changing-quote blockquote {
+    color: inherit;
+    font: inherit;
+}
+
 .comment-editor-surface :where(ul, ol) {
     padding-left: 1.5em;
 }

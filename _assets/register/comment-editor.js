@@ -487,6 +487,111 @@
         syncSource(state);
     }
 
+    function rangeElement(range) {
+        const node = range?.commonAncestorContainer;
+
+        return node instanceof Element ? node : node?.parentElement;
+    }
+
+    function activeQuotation(state) {
+        const quotation = rangeElement(currentRange(state))?.closest('blockquote');
+
+        return quotation && state.surface.contains(quotation) ? quotation : null;
+    }
+
+    function quotationLineText(node) {
+        if (node.nodeType === Node.TEXT_NODE) {
+            return node.nodeValue || '';
+        }
+        if (node instanceof HTMLBRElement) {
+            return '\n';
+        }
+        if (node instanceof Element && node.hasAttribute('data-comment-formula-source')) {
+            return '\uFFFC';
+        }
+        const text = Array.from(node.childNodes, quotationLineText).join('');
+
+        return node instanceof Element && node.matches('p, div, blockquote, li') ? '\n' + text + '\n' : text;
+    }
+
+    function emptyQuotationLine(state) {
+        const range = currentRange(state);
+        const element = rangeElement(range);
+        const quotation = activeQuotation(state);
+        if (!range?.collapsed || !element || !quotation) {
+            return false;
+        }
+        const structure = element.closest('li, pre, code');
+        if (structure && quotation.contains(structure)) {
+            return false;
+        }
+        const block = element.closest('p, div, blockquote');
+        if (!block || !quotation.contains(block)) {
+            return false;
+        }
+        if (
+            block === quotation
+            && range.startContainer === quotation
+            && Array.from(quotation.children).some(child => child.matches('p, div, blockquote, ul, ol, pre'))
+        ) {
+            // A container-edge caret is not an empty line inside one of its
+            // paragraphs. Let the browser resolve that structural boundary.
+            return false;
+        }
+        const before = range.cloneRange();
+        before.selectNodeContents(block);
+        before.setEnd(range.startContainer, range.startOffset);
+        const after = range.cloneRange();
+        after.selectNodeContents(block);
+        after.setStart(range.endContainer, range.endOffset);
+        const left = quotationLineText(before.cloneContents()).split('\n').at(-1) || '';
+        const right = quotationLineText(after.cloneContents()).split('\n')[0] || '';
+
+        return (left + right).replace(/[\u00a0\u200b]/gu, ' ').trim() === '';
+    }
+
+    function leaveQuotation(state) {
+        let quotation = activeQuotation(state);
+        if (!quotation) {
+            return false;
+        }
+
+        // Native outdent preserves the browser's editing history and splits only
+        // the current line/paragraph. Neutralize decoration while it runs so the
+        // browser does not copy the quote's computed color/font into inline HTML.
+        state.surface.classList.add('is-changing-quote');
+        try {
+            while (quotation) {
+                if (!document.execCommand('outdent', false)) {
+                    break;
+                }
+                const next = activeQuotation(state);
+                if (next === quotation) {
+                    break;
+                }
+                quotation = next;
+            }
+        } finally {
+            state.surface.classList.remove('is-changing-quote');
+        }
+        renderCompleteFormulas(state);
+        syncSource(state);
+        rememberSelection(state);
+        updateToolbar(state);
+
+        return !activeQuotation(state);
+    }
+
+    function handleQuotationParagraph(state, event) {
+        if (!event.cancelable || event.isComposing || !emptyQuotationLine(state)) {
+            return false;
+        }
+        event.preventDefault();
+        leaveQuotation(state);
+
+        return true;
+    }
+
     function runCommand(state, button) {
         const command = button.getAttribute('data-comment-command') || '';
         if (command === 'link') {
@@ -497,6 +602,22 @@
             state.surface.focus();
         }
         let value = button.getAttribute('data-comment-command-value');
+        const quotation = activeQuotation(state);
+        const range = currentRange(state);
+        const listItem = rangeElement(range)?.closest('li');
+        const selectedList = quotation && range && !range.collapsed && range.cloneContents().querySelector('li');
+        if (
+            command === 'formatBlock'
+            && value === 'blockquote'
+            && quotation
+            // Outdent targets a list item before the surrounding quotation.
+            // Keep the existing list-formatting command instead of unlisting it.
+            && (!listItem || !quotation.contains(listItem))
+            && !selectedList
+        ) {
+            leaveQuotation(state);
+            return;
+        }
         if (command === 'formatBlock' && String(document.queryCommandValue('formatBlock')).toLowerCase() === value) {
             value = 'p';
         }
@@ -510,6 +631,10 @@
     function updateToolbar(state) {
         state.toolbar.querySelectorAll('[data-comment-command]').forEach((button) => {
             const command = button.getAttribute('data-comment-command') || '';
+            if (command === 'formatBlock' && button.getAttribute('data-comment-command-value') === 'blockquote') {
+                button.setAttribute('aria-pressed', activeQuotation(state) ? 'true' : 'false');
+                return;
+            }
             if (!toggleCommands.has(command)) {
                 return;
             }
@@ -591,6 +716,9 @@
             && !event.altKey
             && !event.isComposing
         ) {
+            if (handleQuotationParagraph(state, event)) {
+                return;
+            }
             const range = currentRange(state);
             const rangeNode = range?.startContainer;
             const rangeElement = rangeNode instanceof Element ? rangeNode : rangeNode?.parentElement;
@@ -656,6 +784,7 @@
             linkRemove,
             form: root.closest('form'),
             range: null,
+            paragraphKeyDown: false,
             controller,
         };
         states.set(root, state);
@@ -668,6 +797,7 @@
         updateShortcutTitles(state);
         renderCompleteFormulas(state);
         syncSource(state);
+        updateToolbar(state);
 
         toolbar.addEventListener('pointerdown', (event) => {
             if (event.target.closest('button')) {
@@ -680,8 +810,12 @@
                 runCommand(state, button);
             }
         }, {signal: controller.signal});
-        surface.addEventListener('focus', () => rememberSelection(state), {signal: controller.signal});
+        surface.addEventListener('focus', () => {
+            rememberSelection(state);
+            updateToolbar(state);
+        }, {signal: controller.signal});
         surface.addEventListener('input', () => {
+            state.paragraphKeyDown = false;
             renderCompleteFormulas(state);
             syncSource(state);
             rememberSelection(state);
@@ -692,7 +826,20 @@
             renderCompleteFormulas(state);
             syncSource(state);
         }, {signal: controller.signal});
-        surface.addEventListener('keydown', (event) => handleKeydown(state, event), {signal: controller.signal});
+        surface.addEventListener('keydown', (event) => {
+            state.paragraphKeyDown = event.key === 'Enter';
+            handleKeydown(state, event);
+        }, {signal: controller.signal});
+        surface.addEventListener('keyup', () => {
+            state.paragraphKeyDown = false;
+        }, {signal: controller.signal});
+        surface.addEventListener('beforeinput', (event) => {
+            // A real keyboard's keydown already handled (or deliberately left)
+            // Enter. Some WebKit versions also call Shift+Enter insertParagraph.
+            if (event.inputType === 'insertParagraph' && !state.paragraphKeyDown) {
+                handleQuotationParagraph(state, event);
+            }
+        }, {signal: controller.signal});
         surface.addEventListener('paste', (event) => insertPastedContent(state, event), {signal: controller.signal});
         surface.addEventListener('drop', (event) => {
             event.preventDefault();

@@ -80,6 +80,13 @@ Comment coverage includes normalizing a legacy empty browser paragraph, one-line
 Enter behavior, immediate optimistic rendering after save, and rollback after a
 failed request.
 
+`node comment-quote-tests.mjs` also runs the quote-exit regressions independently.
+They use real keyboard Enter, toolbar clicks, typing and native undo/redo in all
+three engines. The first Enter continues a nonempty quote; Enter on its empty
+line exits to normal text. The tests retain neighboring paragraphs, nested quotes,
+inline formatting and submitted HTML, and check quote-button state, soft breaks,
+quoted lists/preformatted text, selections, IME and virtual-keyboard `beforeinput`.
+
 The runner also opens `/recovery.html` for nine integration scenarios against the
 real public editor and browser storage. These cover actual page reloads, offline
 typing, new untitled posts, explicit recovery versus a newer server revision,

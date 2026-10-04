@@ -28,7 +28,9 @@ function setupComment(editorHtml, bodyHtml = 'Старый текст') {
         <div class="comment-actions"><button class="comment-reply" type="button">Reply</button></div>
         <form class="comment-edit-form" method="post" action="/comment-edit">
             <div class="comment-editor" data-comment-editor>
-                <div class="comment-editor-toolbar" role="toolbar" hidden></div>
+                <div class="comment-editor-toolbar" role="toolbar" hidden>
+                    <button type="button" data-comment-command="formatBlock" data-comment-command-value="blockquote">Quote</button>
+                </div>
                 <div class="comment-editor-link-panel" data-comment-link-panel hidden>
                     <input type="url" data-comment-link-input>
                     <button type="button" data-comment-link-remove>Remove</button>
