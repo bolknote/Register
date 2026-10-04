@@ -104,6 +104,7 @@
         "shipmonk/composer-dependency-analyser": "^1.8",
         "slevomat/coding-standard": "^8.31",
         "squizlabs/php_codesniffer": "^4.0",
+        "symfony/dom-crawler": "^7.0",
         "vimeo/psalm": "^6.16"
     },
     "scripts": {
