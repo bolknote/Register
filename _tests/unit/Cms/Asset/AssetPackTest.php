@@ -410,7 +410,7 @@ final class AssetPackTest extends Unit
                 . ':where\(\.post-picture, \.post-media-picture, figure\)'
                 . '\.has-leading-boundary-caret:has\(img, video, audio\)::before\s*,\s*'
                 . '\.post-card\.is-editing\s*>\s*\.post\.body\[data-post-inplace-body\]\s*'
-                . '>\s*p\.has-leading-boundary-caret::before\s*'
+                . 'p\.has-leading-boundary-caret::before\s*'
                 . '\{[^}]*position:\s*absolute;[^}]*left:\s*0;'
                 . '[^}]*height:\s*1em;'
                 . '[^}]*background:\s*var\(--accent-color\);/s',
@@ -440,7 +440,7 @@ final class AssetPackTest extends Unit
         );
         self::assertStringContainsString("nextElement.classList.add('has-leading-boundary-caret')", $script);
         self::assertStringContainsString("document.createElement('p')", $script);
-        self::assertStringContainsString('body.insertBefore(paragraph, boundary)', $script);
+        self::assertStringContainsString('boundary.parentNode.insertBefore(paragraph, boundary)', $script);
         self::assertStringContainsString('range.setStart(paragraph, 0)', $script);
         self::assertStringContainsString(
             "document.addEventListener('beforeinput', moveInsertionBeforeMediaBoundary",
