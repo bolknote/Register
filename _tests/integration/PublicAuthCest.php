@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace integration;
 
 use Register\Auth\CommentNotificationRepository;
+use Register\Auth\MagicLinkService;
 use Register\Auth\MagicLinkRateLimiter;
 use Register\Auth\PublicAuthFormToken;
 use Register\Auth\PublicAuthRepository;
@@ -24,6 +25,7 @@ use Register\Comment\Antispam\SpamFeedbackService;
 use Register\Content\ContentId;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
+use Register\Controller\Comment\PendingEmailComment;
 use Register\Core\Model\AuthenticatedPublicUser;
 use Register\Core\Model\SessionAudience;
 use Register\Core\Comment\SpamDetectorReport;
@@ -376,6 +378,54 @@ final class PublicAuthCest
             ->where('state_hash = :raw_state')->setParameter('raw_state', $state)
             ->execute()
             ->result());
+    }
+
+    public function testPendingCommentCookieUsesInstallationPathWithQueryBasedUrls(\IntegrationTester $I): void
+    {
+        // This test needs storage, not delivery; never use a real mailer in the additional applications.
+        $I->setConfigValue(PublicAuthSettings::EMAIL_ENABLED_CONFIG_KEY, '0');
+        /** @var \PDO $pdo */
+        $pdo = $I->grabService(\PDO::class);
+        /** @var DbLayer $db */
+        $db = $I->grabService(DbLayer::class);
+        $articleId = $this->insertContent($db, 'pending-comment-query-urls');
+
+        foreach (['', '/journal'] as $basePath) {
+            $app = $I->createApplication(['base_path' => $basePath, 'url_prefix' => '/index.php?']);
+            $app->container->decorate(\PDO::class, static fn(): \PDO => $pdo);
+            $response = $app->container->get(MagicLinkService::class)->requestVerification(
+                Request::create('https://localhost' . $basePath . '/index.php?/pending-comment-query-urls'),
+                new PendingEmailComment(
+                    contentType: ContentType::PAGE,
+                    targetId: $articleId,
+                    name: 'Guest author',
+                    email: 'reader@example.test',
+                    subscribed: false,
+                    text: '<p>The entire pending comment.</p>',
+                    ip: '127.0.0.1',
+                    parentId: null,
+                    returnPath: '/pending-comment-query-urls',
+                    moderationRequired: true,
+                    spamAssessmentId: null,
+                    spamStatus: '',
+                    visitorId: null,
+                ),
+            );
+            $cookies = $response->headers->getCookies();
+            $I->assertCount(1, $cookies);
+            $cookie = $cookies[0];
+            $I->assertSame(PendingCommentRecovery::COOKIE_NAME, $cookie->getName());
+            $I->assertSame($basePath . '/', $cookie->getPath());
+            $I->assertStringStartsWith($basePath . '/index.php?/auth/check-email&draft=', $response->getTargetUrl());
+            $recovery = PendingCommentRecovery::fromRequest(Request::create(
+                'https://localhost' . $response->getTargetUrl(),
+                cookies: [PendingCommentRecovery::COOKIE_NAME => $cookie->getValue()],
+            ));
+            $I->assertNotNull($recovery);
+            $draft = $app->container->get(PublicAuthRepository::class)->pendingComment($recovery->hash());
+            $I->assertIsArray($draft);
+            $I->assertSame('<p>The entire pending comment.</p>', $draft['comment_text']);
+        }
     }
 
     public function testGuestCanCorrectEmailWithoutLosingOrDuplicatingLongComment(\IntegrationTester $I): void

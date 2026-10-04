@@ -113,7 +113,9 @@ class AcceptanceTester extends Actor
         $I->click('submit');
 
         $I->seeResponseCodeIs(200);
-        $I->see('Check your email');
+        $I->see('Confirm your comment');
+        $I->see($text, '.pending-comment-preview');
+        $I->seeInField('.pending-comment-email-form [name="email"]', $email);
 
         $emails = $I->waitForEmails(1);
         $I->assertCount(1, $emails);
@@ -140,7 +142,7 @@ class AcceptanceTester extends Actor
             'UTF-8',
         );
         if (preg_match(
-            '~https?://[^\s<>"\']*/auth/email/callback(?:\?|&)token=[A-Za-z0-9_-]{40,100}~',
+            '~https?://[^\s<>"\']*/auth/email/callback(?:\?|&)token=[A-Za-z0-9_-]{40,100}(?:&draft=[a-f0-9]{32})?~',
             $decoded,
             $matches,
         ) !== 1) {

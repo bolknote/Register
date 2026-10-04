@@ -42,6 +42,7 @@ final readonly class MagicLinkService implements PendingEmailCommentServiceInter
         private CommentMailPublisher $commentMailPublisher,
         private UserProvider         $userProvider,
         private CommentPublicationTrustPolicy $publicationTrustPolicy,
+        private string $basePath,
         CommentStrategyInterface ...$strategies,
     ) {
         $indexed = [];
@@ -90,7 +91,7 @@ final readonly class MagicLinkService implements PendingEmailCommentServiceInter
         }
 
         $response = new RedirectResponse($this->urlBuilder->rawLink('/auth/check-email', $query));
-        $recovery->remember($response, $request, $this->urlBuilder->rawLink('/'));
+        $recovery->remember($response, $request, rtrim($this->basePath, '/') . '/');
         $response->headers->set('Cache-Control', 'no-store, private');
 
         return $response;
