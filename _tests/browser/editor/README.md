@@ -42,6 +42,18 @@ check selection preservation, responsive menu bounds, scrolling only in short
 viewports, and visibility before editing and after resizing. The PHP end-to-end
 suite also checks keyboard and touch access using the actual server-rendered controls.
 
+Image-arrow regressions also run independently with `node media-navigation-tests.mjs`.
+They create a new post through the public UI, insert a file through the normal paste
+handler or the menu's file chooser, then send real Up/Down keys and type character by character. Each engine
+checks both caret sides while optimization, upload and AI description are held,
+after completion, and with a picture taller than the viewport in light/dark themes. Tests inspect actual
+rendered caret pixels, scrolling and insertion order, not just the selection/CSS
+class. Repeated navigation adds no saved empty lines; completion cannot steal the
+caret or text. Undo/redo, the recovery copy, submitted HTML and saved view must retain every
+character. Additional cases cover completion at an untouched boundary, navigation
+from an empty caption, and native navigation within a multiline paragraph beside
+the picture.
+
 Saving a post containing a script or style element performs a full document load:
 fragment insertion cannot initialize scripts or grant the document's CSP nonce.
 The HTML-block and PHP end-to-end suites check immediately usable published

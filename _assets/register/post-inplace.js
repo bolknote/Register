@@ -86,7 +86,7 @@
 
     const {createEditorFieldSurfaces} = window.RegisterEditorFields.create({});
 
-    const {clearBoundaryCaret, clearSyntheticBoundaryCaret, boundaryNodeIsEmpty, isMediaBoundaryElement, editorBoundaryParagraphIsEmpty, topLevelBodyChild, hoistMediaFromParagraph, normalizeLeadingNestedMedia, leadingMediaIndex, prepareMediaInsertionRange, focusBeforeLeadingMedia, focusAfterMedia, mediaBoundaryAtRange, syncBoundaryCaret, moveInsertionBeforeMediaBoundary, protectSelectedMediaBoundary, collapseEmptyParagraphBesideMedia, expandCollapsedBoundaryParagraph, collapseEmptyLeadingParagraphAfterDelete, isMediaOwnedDirectChild, normalizeMediaBodyStructure} = window.RegisterEditorBoundaries.create({
+    const {clearBoundaryCaret, clearSyntheticBoundaryCaret, boundaryNodeIsEmpty, isMediaBoundaryElement, editorBoundaryParagraphIsEmpty, topLevelBodyChild, hoistMediaFromParagraph, normalizeLeadingNestedMedia, leadingMediaIndex, prepareMediaInsertionRange, focusBeforeLeadingMedia, focusBeforeMedia, focusAfterMedia, mediaBesideCaret, revealBoundaryCaret, mediaBoundaryAtRange, syncBoundaryCaret, moveInsertionBeforeMediaBoundary, protectSelectedMediaBoundary, collapseEmptyParagraphBesideMedia, expandCollapsedBoundaryParagraph, collapseEmptyLeadingParagraphAfterDelete, isMediaOwnedDirectChild, normalizeMediaBodyStructure} = window.RegisterEditorBoundaries.create({
         rangeIsInside, editorStates,
     });
 
@@ -1897,6 +1897,7 @@
         event.stopPropagation();
         finishInlineMediaCaption(state, caption, false);
         focusBeforeLeadingMedia(state.body, media);
+        revealBoundaryCaret(state.body);
         return true;
     }
 
@@ -1925,12 +1926,13 @@
         event.stopPropagation();
         finishInlineMediaCaption(state, caption, false);
         focusAfterMedia(state.body, media);
+        revealBoundaryCaret(state.body);
         return true;
     }
 
     function moveFromBodyMediaBoundary(event, state) {
         if (
-            (event.key !== 'ArrowDown' && event.key !== 'ArrowRight')
+            (event.key !== 'ArrowUp' && event.key !== 'ArrowDown' && event.key !== 'ArrowRight')
             || event.altKey
             || event.ctrlKey
             || event.metaKey
@@ -1945,15 +1947,25 @@
         if (!selection || selection.rangeCount !== 1) {
             return false;
         }
-        const media = mediaBoundaryAtRange(state.body, selection.getRangeAt(0));
+        const range = selection.getRangeAt(0);
+        const media = event.key === 'ArrowUp'
+            ? mediaBesideCaret(state.body, range, -1)
+            : mediaBoundaryAtRange(state.body, range)
+                || (event.key === 'ArrowDown' ? mediaBesideCaret(state.body, range, 1) : null);
         if (!(media instanceof HTMLElement)) {
             return false;
         }
 
         event.preventDefault();
         event.stopPropagation();
+        if (event.key === 'ArrowUp') {
+            focusBeforeMedia(state.body, media);
+            revealBoundaryCaret(state.body);
+            return true;
+        }
         if (event.key === 'ArrowDown') {
             focusAfterMedia(state.body, media);
+            revealBoundaryCaret(state.body);
             return true;
         }
         const caption = media.querySelector(
@@ -2009,6 +2021,7 @@
         selection.removeAllRanges();
         selection.addRange(caret);
         syncBoundaryCaret();
+        revealBoundaryCaret(state.body);
         return true;
     }
 
@@ -2206,6 +2219,9 @@
                 pending.completed = completed;
                 pending.settled = true;
                 state.history?.resolveUpload(pending, completed);
+                if (kind === 'image' && completed) {
+                    revealBoundaryCaret(state.body, completed);
+                }
                 state.mediaControllers.delete(controller);
             }
         };

@@ -99,7 +99,9 @@
 
             const children = Array.from(body.childNodes);
             const index = children.indexOf(expectedMedia);
-            return index >= 0 && children.slice(0, index).every(boundaryNodeIsEmpty)
+            return index >= 0 && children.slice(0, index).every(node => boundaryNodeIsEmpty(node)
+                || (editorBoundaryParagraphIsEmpty(node)
+                    && node.classList.contains('post-editor-collapsed-boundary-paragraph')))
                 ? index
                 : -1;
         }
@@ -181,19 +183,129 @@
 
         function focusBeforeLeadingMedia(body, expectedMedia) {
             const index = leadingMediaIndex(body, expectedMedia);
+            if (index < 0) {
+                return null;
+            }
+            return focusBeforeMedia(body, expectedMedia);
+        }
+
+        function focusBeforeMedia(body, media) {
             const selection = window.getSelection();
-            if (index < 0 || !selection) {
+            if (!isMediaBoundaryElement(body, media) || !selection) {
                 return null;
             }
 
             body.focus({preventScroll: true});
             const range = document.createRange();
-            range.setStart(body, index);
+            let paragraph = media.previousSibling;
+            if (media.getAttribute('contenteditable') === 'false' && !editorBoundaryParagraphIsEmpty(paragraph)) {
+                // Before a noneditable upload Chromium can paint a root caret
+                // but emit no text input at all. Give it a real editable block,
+                // collapsed until input so navigation adds no content or gap.
+                paragraph = document.createElement('p');
+                paragraph.className = 'post-editor-body-paragraph post-editor-collapsed-boundary-paragraph';
+                paragraph.append(document.createElement('br'));
+                media.parentNode.insertBefore(paragraph, media);
+            }
+            if (editorBoundaryParagraphIsEmpty(paragraph)) {
+                range.selectNodeContents(paragraph);
+            } else {
+                range.setStartBefore(media);
+            }
             range.collapse(true);
             selection.removeAllRanges();
             selection.addRange(range);
             syncBoundaryCaret();
-            return expectedMedia;
+            return media;
+        }
+
+        function mediaBesideCaret(body, range, direction) {
+            if (!range.collapsed || !body.contains(range.startContainer)) {
+                return null;
+            }
+            const element = range.startContainer instanceof Element
+                ? range.startContainer : range.startContainer.parentElement;
+            const block = element?.closest('p, h1, h2, h3, h4, h5, h6, pre');
+            if (!(block instanceof HTMLElement) || !body.contains(block)
+                || element.closest('.post-caption, figcaption, .post-media-picture, .post-picture')) {
+                return null;
+            }
+            let sibling = direction < 0 ? block.previousSibling : block.nextSibling;
+            while (sibling && boundaryNodeIsEmpty(sibling)) {
+                sibling = direction < 0 ? sibling.previousSibling : sibling.nextSibling;
+            }
+            if (!isMediaBoundaryElement(body, sibling)) {
+                return null;
+            }
+            if (editorBoundaryParagraphIsEmpty(block)) {
+                return sibling;
+            }
+
+            // Only cross the attachment from the adjoining visual line. An up
+            // key in the middle of a wrapped paragraph must still move one line,
+            // not jump past all of its text to the preceding picture.
+            const caret = Array.from(range.getClientRects()).find(rect => rect.height > 0);
+            const remaining = document.createRange();
+            remaining.selectNodeContents(block);
+            if (direction < 0) {
+                remaining.setEnd(range.startContainer, range.startOffset);
+            } else {
+                remaining.setStart(range.startContainer, range.startOffset);
+            }
+            if (!caret) {
+                return remaining.toString() === '' ? sibling : null;
+            }
+            const hasAnotherLine = Array.from(remaining.getClientRects()).some(rect => rect.height > 0 && (
+                direction < 0 ? rect.bottom < caret.bottom - caret.height / 2
+                    : rect.top > caret.top + caret.height / 2
+            ));
+            return hasAnotherLine ? null : sibling;
+        }
+
+        function revealBoundaryCaret(body, changedMedia = null) {
+            if (document.activeElement !== body) {
+                return;
+            }
+            const selection = window.getSelection();
+            const range = selection?.rangeCount === 1 ? selection.getRangeAt(0) : null;
+            if (changedMedia) {
+                if (!range?.collapsed || !body.contains(changedMedia)) {
+                    return;
+                }
+                const element = range.startContainer instanceof Element
+                    ? range.startContainer : range.startContainer.parentElement;
+                const paragraph = element?.closest('p');
+                const atEmptyLine = editorBoundaryParagraphIsEmpty(paragraph)
+                    && (paragraph.previousSibling === changedMedia || paragraph.nextSibling === changedMedia);
+                if (!atEmptyLine && mediaBoundaryAtRange(body, range) !== changedMedia) {
+                    // A background upload must not scroll the user away from a
+                    // different paragraph, another field, or a text selection.
+                    return;
+                }
+                syncBoundaryCaret();
+            }
+            const painted = Array.from(document.querySelectorAll('.has-leading-boundary-caret'))
+                .find(element => body.contains(element));
+            let rect;
+            if (painted instanceof HTMLElement) {
+                const box = painted.getBoundingClientRect();
+                const style = getComputedStyle(painted, '::before');
+                const top = box.top + parseFloat(style.top);
+                rect = {top, bottom: top + parseFloat(style.height)};
+            } else if (range?.collapsed && body.contains(range.startContainer)) {
+                rect = Array.from(range.getClientRects()).find(rect => rect.height > 0);
+            }
+            if (!rect) {
+                return;
+            }
+            // Prevented arrow defaults do not scroll a programmatic Selection.
+            // Reveal the caret itself, not the entire (possibly very tall) image.
+            const top = (window.visualViewport?.offsetTop || 0) + 16;
+            const bottom = top + (window.visualViewport?.height || window.innerHeight) - 32;
+            const distance = rect.top < top ? rect.top - top : rect.bottom > bottom ? rect.bottom - bottom : 0;
+            if (distance) {
+                window.scrollBy({top: distance, behavior: 'instant'});
+            }
         }
 
         function focusAfterMedia(body, media) {
@@ -268,9 +380,9 @@
             }
 
             const boundary = range.startContainer;
-            if (boundary === body) {
-                for (let index = range.startOffset; index < body.childNodes.length; ++index) {
-                    const child = body.childNodes[index];
+            if (boundary instanceof HTMLElement && !boundary.closest('.post-picture, .post-media-picture, figure')) {
+                for (let index = range.startOffset; index < boundary.childNodes.length; ++index) {
+                    const child = boundary.childNodes[index];
                     if (boundaryNodeIsEmpty(child)) {
                         continue;
                     }
@@ -278,7 +390,13 @@
                 }
                 return null;
             }
-            const media = topLevelBodyChild(body, boundary);
+            const element = boundary instanceof Element ? boundary : boundary.parentElement;
+            let media = null;
+            for (let parent = element; parent instanceof HTMLElement && parent !== body; parent = parent.parentElement) {
+                if (isMediaBoundaryElement(body, parent)) media = parent;
+            }
+            // The outer media block owns its caption, even when its visual has
+            // another media wrapper. Typing must stay outside that entire block.
             if (!isMediaBoundaryElement(body, media)) {
                 return null;
             }
@@ -341,19 +459,19 @@
                         // empty <p><br></p> without painting its native caret.
                         // This also happens when Enter creates the trailing line
                         // after an ordinary last paragraph. Reuse the synthetic
-                        // caret for every active empty top-level paragraph.
+                        // caret for every active empty body paragraph, including
+                        // gapless boundaries and paragraphs in a quote/list.
                         if (!nextElement) {
                             let paragraph = range.startContainer instanceof HTMLElement
                                 ? range.startContainer
                                 : range.startContainer.parentElement;
-                            while (paragraph instanceof HTMLElement && paragraph.parentElement !== active) {
+                            while (paragraph instanceof HTMLElement && paragraph !== active && paragraph.tagName !== 'P') {
                                 paragraph = paragraph.parentElement;
                             }
                             if (
                                 paragraph instanceof HTMLElement
                                 && editorBoundaryParagraphIsEmpty(paragraph)
-                                && paragraph.parentElement === active
-                                && !paragraph.classList.contains('post-editor-collapsed-boundary-paragraph')
+                                && active.contains(paragraph)
                             ) {
                                 nextElement = paragraph;
                             }
@@ -464,11 +582,11 @@
             paragraph.className = 'post-editor-body-paragraph';
             paragraph.append(document.createElement('br'));
             if (before) {
-                body.insertBefore(paragraph, boundary);
+                boundary.parentNode.insertBefore(paragraph, boundary);
             } else {
                 // A body caret between the image and caption is an after-image
                 // boundary, never permission to split their shared wrapper.
-                body.insertBefore(paragraph, boundary.nextSibling);
+                boundary.parentNode.insertBefore(paragraph, boundary.nextSibling);
             }
             const range = document.createRange();
             range.setStart(paragraph, 0);
@@ -618,12 +736,12 @@
             let paragraph = currentRange.startContainer instanceof HTMLElement
                 ? currentRange.startContainer
                 : currentRange.startContainer.parentNode;
-            while (paragraph instanceof HTMLElement && paragraph.parentNode !== body) {
+            while (paragraph instanceof HTMLElement && paragraph !== body && paragraph.tagName !== 'P') {
                 paragraph = paragraph.parentNode;
             }
             if (
                 !(paragraph instanceof HTMLElement)
-                || paragraph.parentNode !== body
+                || !body.contains(paragraph)
                 || !paragraph.classList.contains('post-editor-collapsed-boundary-paragraph')
             ) {
                 return false;
@@ -778,7 +896,7 @@
             return changed;
         }
 
-        return {clearBoundaryCaret, clearSyntheticBoundaryCaret, boundaryNodeIsEmpty, isMediaBoundaryElement, editorBoundaryParagraphIsEmpty, topLevelBodyChild, hoistMediaFromParagraph, normalizeLeadingNestedMedia, leadingMediaIndex, prepareMediaInsertionRange, focusBeforeLeadingMedia, focusAfterMedia, mediaBoundaryAtRange, syncBoundaryCaret, moveInsertionBeforeMediaBoundary, protectSelectedMediaBoundary, collapseEmptyParagraphBesideMedia, expandCollapsedBoundaryParagraph, collapseEmptyLeadingParagraphAfterDelete, isMediaOwnedDirectChild, normalizeMediaBodyStructure};
+        return {clearBoundaryCaret, clearSyntheticBoundaryCaret, boundaryNodeIsEmpty, isMediaBoundaryElement, editorBoundaryParagraphIsEmpty, topLevelBodyChild, hoistMediaFromParagraph, normalizeLeadingNestedMedia, leadingMediaIndex, prepareMediaInsertionRange, focusBeforeLeadingMedia, focusBeforeMedia, focusAfterMedia, mediaBesideCaret, revealBoundaryCaret, mediaBoundaryAtRange, syncBoundaryCaret, moveInsertionBeforeMediaBoundary, protectSelectedMediaBoundary, collapseEmptyParagraphBesideMedia, expandCollapsedBoundaryParagraph, collapseEmptyLeadingParagraphAfterDelete, isMediaOwnedDirectChild, normalizeMediaBodyStructure};
     }
 
     window.RegisterEditorBoundaries = Object.freeze({create});

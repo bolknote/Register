@@ -985,16 +985,19 @@ h2.preview,
 }
 
 #content .post-card.is-editing > .post.body[data-post-inplace-body]
-    > :is(p.post-editor-body-paragraph, p.post-editor-empty-paragraph) + .post-media-picture {
+    > :is(p.post-editor-body-paragraph, p.post-editor-empty-paragraph):not(.post-editor-collapsed-boundary-paragraph) + .post-media-picture {
     margin-top: 0;
 }
 
 #content .post-card.is-editing > .post.body[data-post-inplace-body]
-    > p.post-editor-collapsed-boundary-paragraph {
+    p.post-editor-collapsed-boundary-paragraph {
+    /* Like a DOM boundary, this editable placeholder contributes no layout. */
+    position: absolute;
     height: 0;
     min-height: 0;
     margin-block: 0;
-    overflow: hidden;
+    /* Its caret must remain visible outside the zero-height placeholder. */
+    overflow: visible;
     line-height: 0;
 }
 
@@ -1105,7 +1108,7 @@ h2.preview,
 .post-card.is-editing > .post.body[data-post-inplace-body]
     :where(.post-picture, .post-media-picture, figure).has-leading-boundary-caret:has(img, video, audio),
 .post-card.is-editing > .post.body[data-post-inplace-body]
-    > p.has-leading-boundary-caret {
+    p.has-leading-boundary-caret {
     position: relative;
 }
 
@@ -1113,7 +1116,7 @@ h2.preview,
 .post-card.is-editing > .post.body[data-post-inplace-body]
     :where(.post-picture, .post-media-picture, figure).has-leading-boundary-caret:has(img, video, audio)::before,
 .post-card.is-editing > .post.body[data-post-inplace-body]
-    > p.has-leading-boundary-caret::before {
+    p.has-leading-boundary-caret::before {
     position: absolute;
     z-index: 2;
     top: 0.3em;

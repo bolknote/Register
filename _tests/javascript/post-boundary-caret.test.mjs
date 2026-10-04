@@ -81,6 +81,11 @@ class FakeNode {
         return index >= 0 ? (this.parentNode.childNodes[index + 1] || null) : null;
     }
 
+    get previousSibling() {
+        const index = this.parentNode?.childNodes.indexOf(this) ?? -1;
+        return index > 0 ? this.parentNode.childNodes[index - 1] : null;
+    }
+
     get parentElement() {
         return this.parentNode instanceof FakeHTMLElement ? this.parentNode : null;
     }
@@ -123,6 +128,14 @@ class FakeHTMLElement extends FakeNode {
         this.rect = rect;
         this.tagName = tagName;
         this.attributes = new Map();
+    }
+
+    get className() {
+        return Array.from(this.classList.names).join(' ');
+    }
+
+    set className(value) {
+        this.classList = new FakeClassList(...String(value).split(/\s+/u).filter(Boolean));
     }
 
     get firstChild() {
@@ -210,6 +223,13 @@ class FakeHTMLElement extends FakeNode {
     }
 
     matches(selector) {
+        if (selector === 'p, h1, h2, h3, h4, h5, h6, pre') {
+            return ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'PRE'].includes(this.tagName);
+        }
+        if (selector === '.post-caption, figcaption, .post-media-picture, .post-picture') {
+            return this.isMediaWrapper === true || this.tagName === 'FIGCAPTION'
+                || this.classList.contains('post-caption');
+        }
         if (selector === '.post-card.is-editing > .post.body[data-post-inplace-body]') {
             return this.isEditingBody === true;
         }
@@ -380,7 +400,9 @@ function createHarness() {
         getSelection: function () { return selection; },
         requestAnimationFrame: function (callback) { callback(); },
         setTimeout: setTimeout,
-        clearTimeout: clearTimeout
+        clearTimeout: clearTimeout,
+        innerHeight: 1000,
+        scrollBy() {},
     };
     const context = vm.createContext({
         AbortController,
@@ -395,6 +417,7 @@ function createHarness() {
         console,
         document,
         navigator: {platform: 'Linux'},
+        getComputedStyle: () => ({top: '6px', height: '20px'}),
         setTimeout,
         window
     });
@@ -986,6 +1009,36 @@ test('leading media can receive a caret before it without adding layout content'
     assert.equal(body.classList.contains('uses-synthetic-boundary-caret'), true);
 });
 
+test('leading media navigation ignores only an empty transient processing boundary', () => {
+    const harness = createHarness();
+    const body = new FakeHTMLElement();
+    body.isEditingBody = true;
+    body.focus = () => { harness.document.activeElement = body; };
+    const paragraph = new FakeHTMLElement({tagName: 'P'});
+    paragraph.className = 'post-editor-body-paragraph post-editor-collapsed-boundary-paragraph';
+    paragraph.append(new FakeHTMLBRElement());
+    const media = new FakeHTMLElement({media: true});
+    media.isMediaWrapper = true;
+    body.append(paragraph);
+    body.append(media);
+    harness.elements.push(body, paragraph, media);
+    harness.select(media, 0);
+
+    assert.equal(harness.helpers.focusBeforeLeadingMedia(body, media), media);
+    assert.equal(harness.currentRange().startContainer, paragraph);
+    assert.equal(paragraph.classList.contains('has-leading-boundary-caret'), true);
+    assert.equal(body.childNodes.length, 2);
+    const range = harness.currentRange();
+
+    paragraph.classList.remove('post-editor-collapsed-boundary-paragraph');
+    assert.equal(harness.helpers.focusBeforeLeadingMedia(body, media), null, 'A normal empty paragraph is real body content');
+    paragraph.classList.add('post-editor-collapsed-boundary-paragraph');
+    paragraph.textContent = 'Typed text';
+    assert.equal(harness.helpers.focusBeforeLeadingMedia(body, media), null, 'A nonempty boundary must not be skipped');
+    assert.equal(harness.currentRange(), range);
+    assert.equal(paragraph.textContent, 'Typed text');
+});
+
 test('moving after media creates one real editor paragraph and keeps focus in the body', function () {
     const harness = createHarness();
     const body = new FakeHTMLElement();
@@ -1187,6 +1240,89 @@ test('arrow down from an image boundary starts a visible body paragraph', functi
         harness.elements.filter((element) => element.classList.contains('has-leading-boundary-caret')).length,
         1,
     );
+});
+
+for (const processing of [false, true]) {
+    test(`up/down cross an inserted image without entering its caption (${processing ? 'processing' : 'complete'})`, () => {
+        const harness = createHarness();
+        const body = new FakeHTMLElement();
+        body.isEditingBody = true;
+        body.focus = () => { harness.document.activeElement = body; };
+        const media = new FakeHTMLElement({parentNode: body, media: true});
+        media.isMediaWrapper = true;
+        if (processing) media.setAttribute('contenteditable', 'false');
+        const paragraph = new FakeHTMLElement({parentNode: body, tagName: 'P'});
+        paragraph.append(new FakeHTMLBRElement());
+        body.append(media);
+        body.append(paragraph);
+        harness.elements.push(body, media, paragraph);
+        harness.document.activeElement = body;
+        harness.select(paragraph, 0);
+        const event = {target: body, preventDefault() {}, stopPropagation() {}};
+        const state = {body};
+        for (let repeat = 0; repeat < 3; ++repeat) {
+            assert.equal(harness.helpers.moveFromBodyMediaBoundary({...event, key: 'ArrowUp'}, state), true);
+            const before = harness.currentRange();
+            if (processing) {
+                assert.equal(before.startContainer, media.previousSibling);
+                assert.equal(before.startOffset, 0);
+                assert.equal(before.startContainer.tagName, 'P');
+                assert.equal(before.startContainer.classList.contains('has-leading-boundary-caret'), true);
+                assert.equal(before.startContainer.classList.contains('post-editor-collapsed-boundary-paragraph'), true);
+            } else {
+                assert.equal(before.startContainer, body);
+                assert.equal(before.startOffset, 0);
+                assert.equal(body.classList.contains('has-leading-boundary-caret'), true);
+            }
+            assert.equal(harness.helpers.moveFromBodyMediaBoundary({...event, key: 'ArrowDown'}, state), true);
+            assert.equal(harness.currentRange().startContainer, paragraph);
+            assert.equal(paragraph.classList.contains('has-leading-boundary-caret'), true);
+            assert.equal(body.classList.contains('uses-synthetic-boundary-caret'), true);
+        }
+        assert.equal(body.childNodes.length, processing ? 3 : 2, 'Repeated navigation must not accumulate boundary paragraphs');
+    });
+}
+
+test('typing at a nested visual boundary stays before the complete outer media block', () => {
+    const harness = createHarness();
+    const body = new FakeHTMLElement();
+    body.isEditingBody = true;
+    const outer = new FakeHTMLElement({media: true});
+    const inner = new FakeHTMLElement({media: true, tagName: 'FIGURE'});
+    outer.isMediaWrapper = inner.isMediaWrapper = true;
+    outer.append(inner);
+    body.append(outer);
+    harness.elements.push(body, outer, inner);
+    harness.document.activeElement = body;
+    harness.select(inner, 0);
+    harness.beforeInput(body);
+    assert.equal(body.childNodes.length, 2);
+    assert.equal(body.firstChild.tagName, 'P');
+    assert.equal(body.lastChild, outer);
+    assert.equal(outer.firstChild, inner);
+    assert.equal(harness.currentRange().startContainer, body.firstChild);
+});
+
+test('media arrow routing leaves selection, modifiers and composition to the browser', () => {
+    const harness = createHarness();
+    const body = new FakeHTMLElement();
+    const media = new FakeHTMLElement({media: true});
+    media.isMediaWrapper = true;
+    const paragraph = new FakeHTMLElement({tagName: 'P'});
+    paragraph.append(new FakeHTMLBRElement());
+    body.append(media);
+    body.append(paragraph);
+    harness.select(paragraph, 0);
+    const range = harness.currentRange();
+    const event = {key: 'ArrowUp', target: body,
+        preventDefault() { assert.fail('This key must keep its native default'); }, stopPropagation() {}};
+    for (const modifier of ['altKey', 'ctrlKey', 'metaKey', 'shiftKey', 'isComposing']) {
+        assert.equal(harness.helpers.moveFromBodyMediaBoundary({...event, [modifier]: true}, {body}), false);
+        assert.equal(harness.currentRange(), range);
+    }
+    range.collapsed = false;
+    assert.equal(harness.helpers.moveFromBodyMediaBoundary(event, {body}), false);
+    assert.equal(harness.currentRange(), range);
 });
 
 test('arrow down on the final empty body line keeps its visible caret', function () {
