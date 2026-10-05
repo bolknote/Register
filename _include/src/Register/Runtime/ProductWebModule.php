@@ -22,6 +22,7 @@ use Register\Controller\CommentModerationController;
 use Register\Controller\CommentSentController;
 use Register\Controller\CommentUnsubscribeController;
 use Register\Controller\NotFoundController;
+use Register\Controller\ObsoleteCommentReplyController;
 use Register\Controller\PageCommon;
 use Register\Controller\PageFavorite;
 use Register\Controller\PageTag;
@@ -38,6 +39,7 @@ use Register\Admin\Event\AdminAjaxControllerMapEvent;
 use Register\Core\Asset\AssetPack;
 use Register\Core\Asset\PublicAssetUrl;
 use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\Comment\ObsoleteReplyUrl;
 use Register\Core\Framework\Container;
 use Register\Core\Framework\ContainerAwareListenerModuleInterface;
 use Register\Core\Framework\ContainerAwareRoutingModuleInterface;
@@ -72,6 +74,10 @@ final readonly class ProductWebModule implements ContainerAwareListenerModuleInt
         });
 
         $eventDispatcher->addListener(NotFoundEvent::class, static function (NotFoundEvent $event) use ($container): void {
+            if ($event->request->attributes->get('_route') === ObsoleteCommentReplyController::ROUTE) {
+                return;
+            }
+
             $aliasResponse = $container->get(\Register\Url\TagUrlAliasRedirector::class)->redirect($event->request);
             if ($aliasResponse !== null) {
                 $event->response = $aliasResponse;
@@ -226,6 +232,16 @@ final readonly class ProductWebModule implements ContainerAwareListenerModuleInt
     #[\Override]
     public function registerRoutes(RouteCollection $routes, Container $container): void
     {
+        $routes->add(ObsoleteCommentReplyController::ROUTE, new Route(
+            '/{path<.*>}',
+            ['_controller' => ObsoleteCommentReplyController::class],
+            methods: ['GET'],
+            condition: implode(' or ', array_map(
+                static fn(string $name): string => "request.query.has('" . $name . "')",
+                ObsoleteReplyUrl::QUERY_PARAMETERS,
+            )),
+        ), 1024);
+
         $configProvider = $container->get(DynamicConfigProvider::class);
         $favoriteUrl    = $configProvider->getStringProxy('REGISTER_FAVORITE_URL')->get();
         $tagsUrl        = $configProvider->getStringProxy('REGISTER_TAGS_URL')->get();

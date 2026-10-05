@@ -14,6 +14,7 @@ use Psr\Log\NullLogger;
 use Register\Core\Queue\BackgroundWorkRunnerInterface;
 use Register\Core\Queue\ShutdownRuntimeInterface;
 use Register\Core\Queue\ShutdownWorkCoordinator;
+use Symfony\Component\HttpFoundation\Response;
 
 final class ShutdownWorkCoordinatorTest extends Unit
 {
@@ -127,6 +128,16 @@ final class ShutdownWorkCoordinatorTest extends Unit
 
         self::assertSame([], $runner->calls);
         self::assertSame(1, $runtime->finishCalls);
+    }
+
+    public function testNotFoundResponsesDoNotWakeTheBackgroundQueue(): void
+    {
+        [$coordinator, $runtime, $runner] = $this->coordinator();
+        $coordinator->register();
+        $coordinator->finishResponse(response: new Response('Not Found', Response::HTTP_NOT_FOUND));
+
+        $runtime->invokeShutdown();
+        self::assertSame([], $runner->calls);
     }
 
     /** @return array{ShutdownWorkCoordinator, FakeShutdownRuntime, FakeBackgroundWorkRunner} */

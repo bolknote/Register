@@ -37,11 +37,6 @@ $isDeleted      = $moderationState === 'deleted';
 $hasUserpic     = !$isDeleted;
 $avatarInitials = $userpicUrl === null ? \Register\Core\Helper\StringHelper::nameInitials($nick) : '';
 $avatarColor    = $userpicUrl === null ? \Register\Core\Helper\StringHelper::stablePaletteIndex($nick, 24) : 0;
-$replyQuery = $isPreview ? '' : http_build_query([
-    'reply_to'     => $id,
-    'reply_number' => $i,
-    'reply_name'   => $nick,
-]);
 $reactionSummary = $reaction_summary ?? [];
 $authorUrl       = $presentation_author_url ?? null;
 $sourceUrl       = $presentation_source_url ?? null;
@@ -217,10 +212,13 @@ $moderationMenuId = 'comment-tools-menu-' . $id;
     <?php if (!$isPreview): ?>
         <div class="comment-actions">
             <?php if ($allow_replies ?? true): ?>
-            <a class="comment-reply" href="?<?php echo register_htmlencode($replyQuery); ?>#add-comment"
+            <form class="comment-reply-form" method="post">
+            <input type="hidden" name="reply_number" value="<?php echo $i; ?>">
+            <button class="comment-reply" type="submit" name="comment_reply" value="<?php echo $id; ?>"
                data-reply-comment="<?php echo $id; ?>"
                data-reply-number="<?php echo $i; ?>"
-               data-reply-name="<?php echo $encodedNick; ?>"<?php if ($moderationState !== 'visible'): ?> hidden aria-disabled="true" tabindex="-1"<?php endif; ?>><?php echo $trans('Reply'); ?></a>
+               data-reply-name="<?php echo $encodedNick; ?>"<?php if ($moderationState !== 'visible'): ?> hidden aria-disabled="true" tabindex="-1"<?php endif; ?>><?php echo $trans('Reply'); ?></button>
+            </form>
             <?php endif; ?>
             <?php if ($sourceUrl !== null && $sourceLabel !== ''): ?>
                 <a class="comment-source" href="<?php echo register_htmlencode($sourceUrl); ?>" rel="nofollow ugc noopener noreferrer" referrerpolicy="no-referrer"><?php echo register_htmlencode($sourceLabel); ?></a>

@@ -11,7 +11,7 @@ namespace Register\Core\Pdo;
 
 class PdoSqliteFactory
 {
-    public static function create(string $dbFilename, bool $persistentConnection): PDO
+    public static function create(string $dbFilename, bool $persistentConnection, bool $lazy = false): PDO
     {
         if (!file_exists($dbFilename)) {
             register_call_without_warnings(static fn(): bool => touch($dbFilename));
@@ -37,23 +37,25 @@ class PdoSqliteFactory
         }
 
         if ($persistentConnection) {
-            $pdo = new PDO('sqlite:' . $dbFilename, "", "", [\PDO::ATTR_PERSISTENT => true]);
+            $pdo = new PDO('sqlite:' . $dbFilename, "", "", [\PDO::ATTR_PERSISTENT => true], $lazy);
         } else {
-            $pdo = new PDO('sqlite:' . $dbFilename);
+            $pdo = new PDO('sqlite:' . $dbFilename, lazy: $lazy);
         }
 
         // A new request may overlap the previous request's shutdown phase. WAL keeps readers
         // moving, while the busy timeout gives short competing writes time to serialize.
-        $pdo->exec('PRAGMA busy_timeout = 60000;');
-        $pdo->exec('PRAGMA journal_mode = WAL;');
-        $pdo->exec('PRAGMA synchronous = NORMAL;');
-        $pdo->exec('PRAGMA foreign_keys = ON;');
+        $pdo->addConnectionCallback(static function () use ($pdo, $dbFilename): void {
+            $pdo->exec('PRAGMA busy_timeout = 60000;');
+            $pdo->exec('PRAGMA journal_mode = WAL;');
+            $pdo->exec('PRAGMA synchronous = NORMAL;');
+            $pdo->exec('PRAGMA foreign_keys = ON;');
 
-        foreach ([$dbFilename . '-wal', $dbFilename . '-shm'] as $sqliteSidecar) {
-            if (is_file($sqliteSidecar)) {
-                register_call_without_warnings(static fn(): bool => chmod($sqliteSidecar, 0600));
+            foreach ([$dbFilename . '-wal', $dbFilename . '-shm'] as $sqliteSidecar) {
+                if (is_file($sqliteSidecar)) {
+                    register_call_without_warnings(static fn(): bool => chmod($sqliteSidecar, 0600));
+                }
             }
-        }
+        });
 
         return $pdo;
     }

@@ -17,6 +17,32 @@ use Symfony\Component\HttpFoundation\Request;
 
 final class CommentAgeCest
 {
+    public function replySelectionWorksForPostsAndRespectsTheAgeLimit(\IntegrationTester $I): void
+    {
+        $postId = $this->insertContent($I, 'reply-selection-post', time() - 60);
+        /** @var CommentRepository $comments */
+        $comments = $I->grabService(CommentRepository::class);
+        $parentId = $comments->save(ContentId::post($postId), 'Reply recipient', '', false, 'Visible parent', '', null);
+        $comments->publish($parentId, ContentType::POST);
+        $I->sendPost('/reply-selection-post', ['comment_reply' => (string)$parentId, 'reply_number' => '1']);
+        $I->seeResponseCodeIs(200);
+        $I->see('Reply recipient', '.comment-reply-context');
+        $I->assertSame((string)$parentId, $I->grabAttributeFrom('.comment-parent-id', 'value'));
+
+        $I->sendPost('/', ['comment_reply' => (string)$parentId]);
+        $I->seeResponseCodeIs(404);
+        $I->dontSeeElement('#comment-form');
+
+        $I->setConfigValue(CommentAgePolicy::CONFIG_KEY, '1');
+        /** @var DbLayer $db */
+        $db = $I->grabService(DbLayer::class);
+        $db->update(ContentSchema::TABLE_NAME)->set('published_at', '1')->where('id = :id')->setParameter('id', $postId)->execute();
+        $I->sendPost('/reply-selection-post', ['comment_reply' => (string)$parentId]);
+        $I->seeResponseCodeIs(403);
+        $I->see('The discussion is closed');
+        $I->dontSeeElement('#comment-form');
+    }
+
     public function oldDiscussionsStayVisibleButRejectNewCommentsAndPreview(\IntegrationTester $I): void
     {
         $I->setConfigValue(CommentAgePolicy::CONFIG_KEY, '14');

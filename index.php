@@ -19,6 +19,22 @@ use Register\Core\Model\AuthProvider;
 use Register\Core\Queue\ShutdownWorkCoordinator;
 use Register\Core\Security\Monitoring\SecurityTelemetryRecorder;
 use Symfony\Component\HttpFoundation\Request;
+use Register\Core\Comment\ObsoleteReplyUrl;
+
+require_once __DIR__ . '/_include/src/Comment/ObsoleteReplyUrl.php';
+if (ObsoleteReplyUrl::matches($_SERVER['REQUEST_METHOD'] ?? 'GET', $_GET)) {
+    http_response_code(404);
+    header_remove('X-Powered-By');
+    foreach (ObsoleteReplyUrl::HEADERS as $name => $value) {
+        header($name . ': ' . $value);
+    }
+
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'HEAD') {
+        echo ObsoleteReplyUrl::BODY;
+    }
+
+    exit;
+}
 
 $app = require __DIR__ . '/_include/common.php';
 $shutdownCoordinator = $app->container->get(ShutdownWorkCoordinator::class);

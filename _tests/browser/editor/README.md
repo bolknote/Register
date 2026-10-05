@@ -21,6 +21,9 @@ guest comments with and without JavaScript: missing email, typo correction, relo
 rich-editor recovery through partial navigation, expired links, browser-bound draft
 access, exact stored text, normal moderation and duplicate prevention. The same
 tests are included in `npm run test:e2e` and the Quality workflow.
+The suite also checks replying by button, preserved drafts, addressee selection
+and cancellation with and without JavaScript. Reply selection never creates query
+URLs or publishes comments; obsolete reply query URLs return a plain 404.
 To diagnose one engine locally, run `EDITOR_TEST_BROWSER=webkit npm test` (or
 `chromium` / `firefox`); the default runs all three.
 The reaction-control regressions also run independently with

@@ -81,6 +81,7 @@ use Register\Core\Model\UrlBuilder;
 use Register\Core\Model\User\UserProvider;
 use Register\Core\Monitoring\RequestPerformanceInspector;
 use Register\Core\Monitoring\RequestPerformanceMonitor;
+use Register\Core\Monitoring\RequestResourceUsage;
 use Register\Core\Monitoring\QueryProfilerInspector;
 use Register\Core\Monitoring\QueryProfilerLog;
 use Register\Core\Monitoring\QueryProfilerState;
@@ -159,9 +160,9 @@ class CmsExtension implements ExtensionInterface
             }
 
             return match ($db_type) {
-                'mysql' => new PDO("mysql:host=$db_host;dbname=$db_name;charset=utf8mb4", $db_username, $db_password),
-                'sqlite' => PdoSqliteFactory::create($container->getStringParameter('root_dir') . $db_name, $p_connect),
-                'pgsql' => new PDO("pgsql:host=$db_host;dbname=$db_name", $db_username, $db_password),
+                'mysql' => new PDO("mysql:host=$db_host;dbname=$db_name;charset=utf8mb4", $db_username, $db_password, lazy: true),
+                'sqlite' => PdoSqliteFactory::create($container->getStringParameter('root_dir') . $db_name, $p_connect, lazy: true),
+                'pgsql' => new PDO("pgsql:host=$db_host;dbname=$db_name", $db_username, $db_password, lazy: true),
                 default => throw new \RuntimeException(\sprintf('Unsupported db_type="%s"', $db_type)),
             };
         }, [StatefulServiceInterface::class]);
@@ -179,10 +180,20 @@ class CmsExtension implements ExtensionInterface
             $container->getStringParameter('image_dir'),
         ), [QueueHandlerInterface::class]);
         $container->set(LoggerInterface::class, fn(Container $container): \Register\Core\Logger\Logger => new Logger($container->getStringParameter('log_dir') . 'app.log', 'app', LogLevel::INFO));
+        $container->set(RequestResourceUsage::class, static function (Container $container): RequestResourceUsage {
+            try {
+                $snapshot = $container->getNullableParameter('boot_resource_usage');
+            } catch (\Register\Core\Framework\Exception\ParameterNotFoundException) {
+                $snapshot = null;
+            }
+
+            return new RequestResourceUsage($container->getFloatParameter('boot_timestamp'), $snapshot);
+        });
         $container->set(RequestPerformanceMonitor::class, fn(Container $container): RequestPerformanceMonitor => new RequestPerformanceMonitor(
             $container->get(\PDO::class),
             $container->getStringParameter('log_dir') . 'performance.jsonl',
             $container->getFloatParameter('boot_timestamp'),
+            $container->get(RequestResourceUsage::class),
         ));
         $container->set(RequestPerformanceInspector::class, fn(Container $container): RequestPerformanceInspector => new RequestPerformanceInspector(
             $container->getStringParameter('log_dir') . 'performance.jsonl',
@@ -203,6 +214,7 @@ class CmsExtension implements ExtensionInterface
             $container->get(QueryProfilerLog::class),
             $container->get(SqlQueryTemplateSanitizer::class),
             $container->getFloatParameter('boot_timestamp'),
+            $container->get(RequestResourceUsage::class),
         ), [StatefulServiceInterface::class]);
         $container->set(
             VolatileCacheEncryptionKeyProvider::class,
@@ -352,6 +364,9 @@ class CmsExtension implements ExtensionInterface
             $container->get(RequestPerformanceMonitor::class),
             $container->get(RequestQueryProfiler::class),
             webQueueCooldownSeconds: getenv('APP_ENV') === 'test' ? 0 : 30,
+            wakeupThrottle: new \Register\Core\Queue\WebQueueWakeupThrottle(
+                $container->getStringParameter('cache_dir') . 'web-queue-wakeup.time',
+            ),
         ));
 
         $container->set(UrlBuilder::class, fn(Container $container): \Register\Core\Model\UrlBuilder => new UrlBuilder(

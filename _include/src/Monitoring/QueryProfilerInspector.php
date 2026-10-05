@@ -35,9 +35,10 @@ final readonly class QueryProfilerInspector
      *         average_queries:float,
      *         zero_query_percent:float,
      *         total_ms:float,
-     *         db_ms:float
+     *         db_ms:float,
+     *         cpu_ms:?float
      *     }>,
-     *     paths:list<array{method:string,path:string,count:int,total_ms:float,average_ms:float,max_ms:float,db_ms:float}>,
+     *     paths:list<array{method:string,path:string,count:int,total_ms:float,average_ms:float,max_ms:float,db_ms:float,cpu_ms:?float,cpu_samples:int}>,
      *     templates:list<array{template:string,count:int,total_ms:float,average_ms:float,max_ms:float,path_count:int}>,
      *     recent:list<array{
      *         at:string,
@@ -49,6 +50,11 @@ final readonly class QueryProfilerInspector
      *         query_count:int,
      *         truncated_queries:int,
      *         peak_memory_bytes:int,
+     *         cpu_ms:?float,
+     *         bootstrap_ms:?float,
+     *         bootstrap_cpu_ms:?float,
+     *         bootstrap_db_queries:int,
+     *         db_connected:?bool,
      *         request_context:array{
      *             client_group:string,
      *             agent:string,
@@ -94,6 +100,7 @@ final readonly class QueryProfilerInspector
 
             $duration = $this->number($record['duration_ms'] ?? null);
             $database = $this->number($record['db_ms'] ?? null);
+            $cpu = $this->number($record['cpu_ms'] ?? null);
             if ($duration === null || $database === null) {
                 continue;
             }
@@ -112,12 +119,16 @@ final readonly class QueryProfilerInspector
                 'zero_query_count' => 0,
                 'total_ms' => 0.0,
                 'db_ms' => 0.0,
+                'cpu_ms' => 0.0,
+                'cpu_samples' => 0,
             ];
             ++$contextAggregate['count'];
             $contextAggregate['query_count'] += $recordQueryCount;
             $contextAggregate['zero_query_count'] += (int)($recordQueryCount === 0);
             $contextAggregate['total_ms'] += $duration;
             $contextAggregate['db_ms'] += $database;
+            $contextAggregate['cpu_ms'] += $cpu ?? 0.0;
+            $contextAggregate['cpu_samples'] += (int)($cpu !== null);
             $contexts[$contextKey] = $contextAggregate;
 
             $method = mb_substr($record['method'], 0, 12);
@@ -130,11 +141,15 @@ final readonly class QueryProfilerInspector
                 'total_ms' => 0.0,
                 'max_ms' => 0.0,
                 'db_ms' => 0.0,
+                'cpu_ms' => 0.0,
+                'cpu_samples' => 0,
             ];
             ++$pathAggregate['count'];
             $pathAggregate['total_ms'] += $duration;
             $pathAggregate['max_ms'] = max($pathAggregate['max_ms'], $duration);
             $pathAggregate['db_ms'] += $database;
+            $pathAggregate['cpu_ms'] += $cpu ?? 0.0;
+            $pathAggregate['cpu_samples'] += (int)($cpu !== null);
             $paths[$pathKey] = $pathAggregate;
 
             $safeQueries = [];
@@ -184,6 +199,11 @@ final readonly class QueryProfilerInspector
                 'query_count'       => $recordQueryCount,
                 'truncated_queries' => $truncatedQueries,
                 'peak_memory_bytes' => $peakMemory,
+                'cpu_ms'            => $cpu,
+                'bootstrap_ms'      => $this->number($record['bootstrap_ms'] ?? null),
+                'bootstrap_cpu_ms'  => $this->number($record['bootstrap_cpu_ms'] ?? null),
+                'bootstrap_db_queries' => \is_int($record['bootstrap_db_queries'] ?? null) ? $record['bootstrap_db_queries'] : 0,
+                'db_connected'      => \is_bool($record['db_connected'] ?? null) ? $record['db_connected'] : null,
                 'request_context'   => $requestContext,
                 'queries'           => $safeQueries,
             ];
@@ -208,6 +228,7 @@ final readonly class QueryProfilerInspector
                 'zero_query_percent' => round(100.0 * (float)$aggregate['zero_query_count'] / (float)$aggregate['count'], 1),
                 'total_ms'           => round($aggregate['total_ms'], 1),
                 'db_ms'              => round($aggregate['db_ms'], 1),
+                'cpu_ms'             => $aggregate['cpu_samples'] > 0 ? round($aggregate['cpu_ms'], 3) : null,
             ];
         }
 
@@ -218,6 +239,7 @@ final readonly class QueryProfilerInspector
             $aggregate['total_ms'] = round($aggregate['total_ms'], 1);
             $aggregate['max_ms'] = round($aggregate['max_ms'], 1);
             $aggregate['db_ms'] = round($aggregate['db_ms'], 1);
+            $aggregate['cpu_ms'] = $aggregate['cpu_samples'] > 0 ? round($aggregate['cpu_ms'], 3) : null;
             $pathReport[] = $aggregate;
         }
 

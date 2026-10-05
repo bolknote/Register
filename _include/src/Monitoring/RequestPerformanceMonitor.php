@@ -26,6 +26,7 @@ final readonly class RequestPerformanceMonitor
         private \PDO   $pdo,
         private string $logFile,
         private float  $requestStartedAt,
+        private ?RequestResourceUsage $resourceUsage = null,
     ) {
     }
 
@@ -71,6 +72,7 @@ final readonly class RequestPerformanceMonitor
                 'db_ms' => round($metrics['total_seconds'] * 1000.0, 1),
                 'db_slowest_ms' => round($metrics['slowest_seconds'] * 1000.0, 1),
                 'peak_memory_bytes' => memory_get_peak_usage(true),
+                ...($this->resourceUsage?->metrics() ?? []),
             ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             $this->append($line . "\n");
         } catch (\Throwable) {

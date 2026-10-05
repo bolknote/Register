@@ -16,9 +16,45 @@ use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Core\Pdo\DbLayer;
 use Register\Core\Pdo\PDO;
+use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\Queue\ShutdownWorkCoordinator;
+use Register\Schema\SchemaManager;
+use Symfony\Component\HttpFoundation\Request;
 
 final class BlogPageResponseCacheCest
 {
+    public function aWarmRequestBootstrapsAndServesContentWithoutOpeningADatabaseConnection(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $this->insertPost($dbLayer, 'Disconnected cached post', 'disconnected-cached-post');
+        $headers = ['User-Agent' => 'SyntheticTestBot/1.0'];
+        $I->sendRequestWithHeaders('/disconnected-cached-post', $headers);
+        $I->seeHttpHeader('X-Register-Page-Cache', 'miss');
+
+        $application = $I->createApplication();
+        $pdo = new PDO('sqlite:/nonexistent-register-test-directory/database.sqlite', lazy: true);
+        $application->container->decorate(\PDO::class, static fn(): PDO => $pdo);
+        /** @var SchemaManager $schema */
+        $schema = $application->container->get(SchemaManager::class);
+        $I->assertFalse($schema->ensureCurrent($application->container->get(DynamicConfigProvider::class)));
+        $application->container->get(ShutdownWorkCoordinator::class);
+
+        $request = Request::create('/disconnected-cached-post');
+        $request->headers->set('User-Agent', 'SyntheticTestBot/1.0');
+
+        $response = $application->handle($request);
+        $I->assertSame(200, $response->getStatusCode());
+        $I->assertSame('hit', $response->headers->get('X-Register-Page-Cache'));
+        $I->assertStringContainsString('Disconnected cached post', (string)$response->getContent());
+        $I->assertFalse($pdo->isConnected());
+        $I->assertSame([], $pdo->getQueryLog());
+
+        $response = $application->handle(Request::create('/disconnected-cached-post?reply_to=42'));
+        $I->assertSame(404, $response->getStatusCode());
+        $I->assertFalse($pdo->isConnected());
+    }
+
     public function servesTheAnonymousFirstPageHitWithoutDatabaseQueries(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */
@@ -133,7 +169,7 @@ final class BlogPageResponseCacheCest
         $I->assertSame([], $pdo->getQueryLog());
     }
 
-    public function hydratesReplyStateAfterReusingTheBrowserContentShell(\IntegrationTester $I): void
+    public function hydratesAFreshFormAfterReusingTheBrowserContentShell(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabService(DbLayer::class);
@@ -149,15 +185,15 @@ final class BlogPageResponseCacheCest
         $I->assertStringNotContainsString('register-deferred-comment-form', $I->grabResponse());
 
         $I->sendRequestWithHeaders(
-            '/cached-browser-post?reply_to=20583&reply_number=19&reply_name=vrann.livejournal.com',
+            '/cached-browser-post?utm_source=test',
             $headers,
         );
         $I->seeHttpHeader('X-Register-Page-Cache', 'hit');
         $I->seeElement('#comment-form');
         $I->see('0', '.post-foot-views-count');
-        $I->assertSame('20583', $I->grabAttributeFrom('.comment-parent-id', 'value'));
-        $I->assertSame('19', $I->grabAttributeFrom('.comment-reply-number', 'value'));
-        $I->assertSame('vrann.livejournal.com', $I->grabAttributeFrom('.comment-reply-name', 'value'));
+        $I->assertSame('', $I->grabAttributeFrom('.comment-parent-id', 'value'));
+        $I->assertSame('0', $I->grabAttributeFrom('.comment-reply-number', 'value'));
+        $I->assertSame('', $I->grabAttributeFrom('.comment-reply-name', 'value'));
         $I->assertNotSame($firstTextField, (string)$I->grabAttributeFrom('#comment-text', 'name'));
         $I->assertStringNotContainsString('register-deferred-comment-form', $I->grabResponse());
         $I->assertStringNotContainsString('register-deferred-view-count', $I->grabResponse());
@@ -167,7 +203,7 @@ final class BlogPageResponseCacheCest
         $I->assertSame([], $pdo->getQueryLog());
     }
 
-    public function hydratesAValidReplyFormInCachedPartialNavigation(\IntegrationTester $I): void
+    public function hydratesAValidFormInCachedPartialNavigation(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabService(DbLayer::class);
@@ -180,7 +216,7 @@ final class BlogPageResponseCacheCest
         $I->sendRequestWithHeaders('/cached-partial-post', $headers);
         $I->seeHttpHeader('X-Register-Page-Cache', 'miss');
 
-        $I->sendRequestWithHeaders('/cached-partial-post?reply_to=42&reply_number=7&reply_name=Reader', $headers);
+        $I->sendRequestWithHeaders('/cached-partial-post?utm_source=test', $headers);
         $I->seeHttpHeader('X-Register-Page-Cache', 'hit');
 
         $payload = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
@@ -189,9 +225,32 @@ final class BlogPageResponseCacheCest
         $I->assertIsString($fragment);
         $I->assertStringContainsString('id="comment-form"', $fragment);
         $I->assertStringContainsString('class="comment-parent-id"', $fragment);
-        $I->assertStringContainsString('value="42"', $fragment);
-        $I->assertStringContainsString('Reader', $fragment);
+        $I->assertStringContainsString('class="comment-parent-id"', $fragment);
         $I->assertStringNotContainsString('register-deferred-comment-form', $fragment);
+    }
+
+    public function rejectsObsoleteReplyUrlsBeforeRenderingOrRedirecting(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $this->insertPost($dbLayer, 'Reply URL test', 'reply-url-test');
+        $I->amOnPage('/reply-url-test');
+
+        foreach (['Mozilla/5.0 integration browser', 'SyntheticCrawlerBot/1.0'] as $agent) {
+            foreach (['reply_to=42', 'reply_number=7', 'reply_name=Reader', 'reply_to[]=', 'reply_to='] as $query) {
+                foreach (['/reply-url-test', '/reply-url-test/', '/', '/all/'] as $path) {
+                    $I->sendRequestWithHeaders($path . '?' . $query, ['User-Agent' => $agent]);
+                    $I->seeResponseCodeIs(404);
+                    $I->dontSeeElement('#comment-form');
+                    /** @var PDO $pdo */
+                    $pdo = $I->grabService(\PDO::class);
+                    $I->assertSame([], $pdo->getQueryLog());
+                }
+            }
+        }
+
+        $I->sendRequestWithMethod('HEAD', '/reply-url-test?reply_to=42');
+        $I->seeResponseCodeIs(404);
     }
 
     public function updatesCommentSidebarsWithoutCoolingAnUnrelatedCachedPage(\IntegrationTester $I): void

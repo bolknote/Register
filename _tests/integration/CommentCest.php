@@ -33,6 +33,73 @@ class CommentCest
         $I->setConfigValue(PublicAuthSettings::EMAIL_ENABLED_CONFIG_KEY, '1');
     }
 
+    public function testReplyButtonOpensAFormWithoutJavascriptAndDoesNotPublishAnything(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $articleId = $this->insertArticle($dbLayer);
+        $parentId = $this->insertComment($dbLayer, $articleId, 'Reply recipient', 'parent@example.test');
+        $countBefore = (int)$dbLayer->select('COUNT(*)')->from(CommentSchema::TABLE_NAME)->execute()->result();
+
+        $I->amOnPage('/thread-test');
+        $I->seeElement('form.comment-reply-form[method="post"] button.comment-reply[type="submit"]');
+        $I->dontSeeElement('a.comment-reply');
+        $I->assertSame((string)$parentId, $I->grabAttributeFrom('button.comment-reply', 'value'));
+
+        $I->sendPost('https://localhost/thread-test', ['comment_reply' => (string)$parentId, 'reply_number' => '1']);
+        $I->seeResponseCodeIs(200);
+        $I->seeElement('#comment-form');
+        $I->see('Reply recipient', '.comment-reply-context');
+        $I->assertSame((string)$parentId, $I->grabAttributeFrom('.comment-parent-id', 'value'));
+        $I->assertSame('1', $I->grabAttributeFrom('.comment-reply-number', 'value'));
+        $I->seeElement('a.comment-reply-cancel[href$="/thread-test"]');
+        $I->dontSee('Please enter your comment');
+        $I->assertSame($countBefore, (int)$dbLayer->select('COUNT(*)')->from(CommentSchema::TABLE_NAME)->execute()->result());
+        $I->assertSame([], $I->grabPublicAuthMails());
+
+        $I->login('admin', 'admin');
+        $I->sendPost('https://localhost/thread-test', ['comment_reply' => (string)$parentId, 'reply_number' => '1']);
+        $I->seeResponseCodeIs(200);
+        $I->see('admin', '.comment-public-auth');
+        $I->assertSame($countBefore, (int)$dbLayer->select('COUNT(*)')->from(CommentSchema::TABLE_NAME)->execute()->result());
+    }
+
+    public function testReplySelectionRejectsAnInvalidHiddenOrForeignParent(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $articleId = $this->insertArticle($dbLayer);
+        $parentId = $this->insertComment($dbLayer, $articleId, 'Reply recipient', 'parent@example.test');
+
+        foreach (['', 'invalid', '0', '99999999999999999999999999'] as $parent) {
+            $I->sendPost('/thread-test', ['comment_reply' => $parent]);
+            $I->seeResponseCodeIs(404);
+            $I->dontSeeElement('#comment-form');
+        }
+
+        $I->sendPost('/missing-page', ['comment_reply' => (string)$parentId]);
+        $I->seeResponseCodeIs(404);
+        $I->dontSeeElement('#comment-form');
+
+        $dbLayer->update(CommentSchema::TABLE_NAME)->set('shown', '0')->where('id = :id')->setParameter('id', $parentId)->execute();
+        $I->sendPost('/thread-test', ['comment_reply' => (string)$parentId]);
+        $I->seeResponseCodeIs(404);
+        $I->dontSeeElement('#comment-form');
+    }
+
+    public function testReplySelectionRespectsClosedComments(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $articleId = $this->insertArticle($dbLayer);
+        $parentId = $this->insertComment($dbLayer, $articleId, 'Reply recipient', 'parent@example.test');
+        $I->setConfigValue('REGISTER_ENABLED_COMMENTS', '0');
+
+        $I->sendPost('/thread-test', ['comment_reply' => (string)$parentId]);
+        $I->seeResponseCodeIs(403);
+        $I->dontSeeElement('#comment-form');
+    }
+
     public function testPreviewAcceptsAnEmptyParentId(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */

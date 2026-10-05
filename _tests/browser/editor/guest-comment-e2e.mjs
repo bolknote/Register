@@ -30,6 +30,55 @@ let server;
 let serverLog = '';
 let serverError;
 
+async function runReplyJourney(browser, javaScriptEnabled) {
+    const context = await browser.newContext({javaScriptEnabled, reducedMotion: 'reduce'});
+    // Exclude cross-document animation timing from the no-JS form checks,
+    // just as in the guest submission journey below.
+    await context.route('**/*', async route => {
+        if (route.request().resourceType() !== 'stylesheet') return route.continue();
+        const response = await route.fetch();
+        await route.fulfill({response, body: await response.text() + '\n@view-transition { navigation: none; }'});
+    });
+    const page = await context.newPage();
+    const parent = database("SELECT id FROM comments WHERE nick='Reply fixture parent'")[0].id;
+    const count = () => database('SELECT COUNT(*) AS count FROM comments')[0].count;
+    const before = count();
+    try {
+        await page.goto(article);
+        const reply = page.locator(`button.comment-reply[data-reply-comment="${parent}"]`);
+        assert.equal(await page.locator('a.comment-reply').count(), 0);
+        assert.equal(await reply.getAttribute('type'), 'submit');
+        assert.equal(await reply.evaluate(button => getComputedStyle(button).minHeight), '0px', 'Reply is a compact text action');
+        if (javaScriptEnabled) {
+            await page.locator('#comment-form .comment-editor-surface').fill('Preserved reply draft');
+            await reply.click();
+            assert.equal(await page.locator('#comment-form .comment-editor-surface').textContent(), 'Preserved reply draft');
+        } else {
+            await Promise.all([page.waitForNavigation(), reply.click()]);
+            assert.equal(await page.locator('.comment-reply-target').textContent(), 'Reply fixture parent');
+        }
+        assert.equal(await page.locator('.comment-parent-id').inputValue(), String(parent));
+        assert.equal(new URL(page.url()).search, '', 'Reply selection never creates query URLs');
+        assert.equal(count(), before, 'Selecting a reply is read-only');
+        const cancel = page.locator('.comment-reply-cancel');
+        if (javaScriptEnabled) {
+            await cancel.click();
+            assert.equal(await page.locator('#comment-form .comment-editor-surface').textContent(), 'Preserved reply draft');
+        } else {
+            await Promise.all([page.waitForNavigation(), cancel.click()]);
+        }
+        assert.equal(await page.locator('.comment-parent-id').inputValue(), '');
+        const old = await context.request.get(article + '?reply_to=' + parent);
+        assert.equal(old.status(), 404);
+        assert.equal(await old.text(), '404 Not Found');
+        assert.match(old.headers()['content-type'], /^text\/plain/);
+        const head = await context.request.head(article + '?reply_name=Reader');
+        assert.equal(head.status(), 404);
+        assert.equal(await head.text(), '');
+        console.log(`Reply E2E ${browser.browserType().name()}-${javaScriptEnabled ? 'js' : 'no-js'}: button, addressee, cancellation, no query URL and old URL 404`);
+    } finally { await context.close(); }
+}
+
 async function confirmationUrl() {
     const messages = (await readFile(mailLog, 'utf8')).trim().split('\n').map(line => JSON.parse(line));
     const mime = messages.at(-1).replace(/=\r?\n/g, '').replace(/=([A-Fa-f0-9]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
@@ -152,6 +201,8 @@ try {
         database('INSERT INTO config (name,value) VALUES (?,?) ON CONFLICT(name) DO UPDATE SET value=excluded.value', [name, value]);
     }
     database("INSERT INTO content (content_type,parent_id,slug_scope,title,excerpt,body,created_at,published_at,updated_at,revision,sort_order,published,featured,comments_enabled,slug,template) VALUES ('page',?,'root','Guest comment fixture','','<p>Page text</p>',?,?,?,1,0,1,0,1,'guest-comment-fixture','site.php')", [pageId, ...Array(3).fill(Math.floor(Date.now() / 1000))]);
+    const fixturePage = database("SELECT id FROM content WHERE slug='guest-comment-fixture'")[0].id;
+    database("INSERT INTO comments (content_type,content_id,time,nick,email,text,shown) VALUES ('page',?,?,'Reply fixture parent','','Visible reply parent',1)", [fixturePage, Math.floor(Date.now() / 1000)]);
     try { await unlink(resolve(scratch, 'cache/register_config.php')); } catch (error) { if (error.code !== 'ENOENT') throw error; }
     const quote = argument => "'" + argument.replace(/'/g, "'\\''") + "'";
     const sendmail = [php, resolve(directory, 'e2e-mail.php'), mailLog].map(quote).join(' ');
@@ -171,6 +222,8 @@ try {
     for (const engine of [chromium, firefox, webkit]) {
         const browser = await engine.launch();
         try {
+            await runReplyJourney(browser, true);
+            await runReplyJourney(browser, false);
             await runGuestJourney(browser, true);
             await runGuestJourney(browser, false);
         } finally { await browser.close(); }

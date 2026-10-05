@@ -23,9 +23,10 @@
  *         average_queries:float,
  *         zero_query_percent:float,
  *         total_ms:float,
- *         db_ms:float
+ *         db_ms:float,
+ *         cpu_ms:?float
  *     }>,
- *     paths:list<array{method:string,path:string,count:int,total_ms:float,average_ms:float,max_ms:float,db_ms:float}>,
+ *     paths:list<array{method:string,path:string,count:int,total_ms:float,average_ms:float,max_ms:float,db_ms:float,cpu_ms:?float,cpu_samples:int}>,
  *     templates:list<array{template:string,count:int,total_ms:float,average_ms:float,max_ms:float,path_count:int}>,
  *     recent:list<array{
  *         at:string,
@@ -37,6 +38,11 @@
  *         query_count:int,
  *         truncated_queries:int,
  *         peak_memory_bytes:int,
+ *         cpu_ms:?float,
+ *         bootstrap_ms:?float,
+ *         bootstrap_cpu_ms:?float,
+ *         bootstrap_db_queries:int,
+ *         db_connected:?bool,
  *         request_context:array{
  *             client_group:string,
  *             agent:string,
@@ -78,6 +84,7 @@
 
     <p class="technical-data"><?= $trans('Query profiler privacy note') ?></p>
     <p class="technical-data"><?= $trans('Query profiler overhead note') ?></p>
+    <p class="technical-data"><?= $trans('Request CPU measurement note') ?></p>
 
     <?php if ($profile['request_count'] === 0): ?>
         <p class="stat-status"><?= $trans('No query profiles captured') ?></p>
@@ -101,6 +108,7 @@
                         <th scope="col"><?= $trans('Requests without SQL') ?></th>
                         <th scope="col"><?= $trans('Total time') ?></th>
                         <th scope="col"><?= $trans('Database time') ?></th>
+                        <th scope="col"><?= $trans('CPU time') ?></th>
                     </tr>
                     </thead>
                     <tbody>
@@ -124,6 +132,7 @@
                             <td><?= number_format($context['zero_query_percent'], 1, '.', '') ?>%</td>
                             <td><?= number_format($context['total_ms'], 1, '.', '') ?> ms</td>
                             <td><?= number_format($context['db_ms'], 1, '.', '') ?> ms</td>
+                            <td><?= $context['cpu_ms'] !== null ? number_format($context['cpu_ms'], 3, '.', '') . ' ms' : '—' ?></td>
                         </tr>
                     <?php endforeach; ?>
                     </tbody>
@@ -143,6 +152,7 @@
                         <th scope="col"><?= $trans('Average time') ?></th>
                         <th scope="col"><?= $trans('Maximum time') ?></th>
                         <th scope="col"><?= $trans('Database time') ?></th>
+                        <th scope="col"><?= $trans('CPU time') ?></th>
                     </tr>
                     </thead>
                     <tbody>
@@ -154,6 +164,7 @@
                             <td><?= number_format($path['average_ms'], 1, '.', '') ?> ms</td>
                             <td><?= number_format($path['max_ms'], 1, '.', '') ?> ms</td>
                             <td><?= number_format($path['db_ms'], 1, '.', '') ?> ms</td>
+                            <td><?= $path['cpu_ms'] !== null ? number_format($path['cpu_ms'], 3, '.', '') . ' ms' : '—' ?></td>
                         </tr>
                     <?php endforeach; ?>
                     </tbody>
@@ -204,6 +215,19 @@
                             <time datetime="<?= register_htmlencode($request['at']) ?>" data-local-time><?= register_htmlencode($request['at']) ?></time>
                             · HTTP <?= $request['status'] ?>
                             · <?= $trans('Database time') ?> <?= number_format($request['db_ms'], 3, '.', '') ?> ms
+                            <?php if ($request['cpu_ms'] !== null): ?>
+                                · <?= $trans('CPU time') ?> <?= number_format($request['cpu_ms'], 3, '.', '') ?> ms
+                            <?php endif; ?>
+                            <?php if ($request['bootstrap_ms'] !== null): ?>
+                                · <?= $trans('Application startup') ?> <?= number_format($request['bootstrap_ms'], 3, '.', '') ?> ms
+                                <?php if ($request['bootstrap_cpu_ms'] !== null): ?>
+                                    (CPU <?= number_format($request['bootstrap_cpu_ms'], 3, '.', '') ?> ms)
+                                <?php endif; ?>
+                                · <?= $trans('Startup SQL entries') ?> <?= $request['bootstrap_db_queries'] ?>
+                            <?php endif; ?>
+                            <?php if ($request['db_connected'] !== null): ?>
+                                · <?= $trans($request['db_connected'] ? 'Database connection opened' : 'No database connection') ?>
+                            <?php endif; ?>
                             · <?= $friendlyFilesize($request['peak_memory_bytes']) ?>
                             · <code><?= register_htmlencode(sprintf(
                                 'client=%s agent=%s cache=%s policy=%s query=%s cookies=%s purpose=%s fetch=%s/%s',

@@ -49,7 +49,7 @@ readonly class FlatContentController implements ControllerInterface
         // the primary item for both hits and misses after the shared snapshot is selected.
         $request->attributes->set(self::DEFER_VIEW_RECORDING_ATTRIBUTE, true);
 
-        // Page pagination changes the shell; reply and tracking parameters are hydrated or ignored.
+        // Page pagination changes the shell; tracking parameters do not.
         $variant = $this->responseCachePolicy->variant(
             $request,
             QueryParameterDependencies::only('p'),

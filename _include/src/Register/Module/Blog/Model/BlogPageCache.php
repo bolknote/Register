@@ -41,9 +41,9 @@ final class BlogPageCache implements StatefulServiceInterface
 
     private const string RECENT_DISCUSSIONS_KEY = 'register_blog_recent_discussions_v2';
 
-    private const string FIRST_RESPONSE_PREFIX = 'register_blog_first_response_v3_';
+    private const string FIRST_RESPONSE_PREFIX = 'register_blog_first_response_v4_';
 
-    private const string ALL_RESPONSE_PREFIX = 'register_blog_all_response_v3_';
+    private const string ALL_RESPONSE_PREFIX = 'register_blog_all_response_v4_';
 
     private const string CONTENT_RESPONSE_GENERATION_KEY = 'register_content_response_generation_v1';
 
@@ -51,7 +51,7 @@ final class BlogPageCache implements StatefulServiceInterface
 
     private const string CONTENT_RESPONSE_PATH_PREFIX = 'register_content_response_path_v1_';
 
-    private const string CONTENT_RESPONSE_PREFIX = 'register_content_response_v3_';
+    private const string CONTENT_RESPONSE_PREFIX = 'register_content_response_v4_';
 
     /** Only crawler/prefetch HTML changed; keep ordinary reader responses warm. */
     private const string NON_INTERACTIVE_RESPONSE_SUFFIX = '_noninteractive_v2';

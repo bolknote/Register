@@ -3725,8 +3725,20 @@ h2.comment {
     font-size: 13px;
 }
 
+.comment-reply-form {
+    margin: 0;
+}
+
+.comment-reply {
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    cursor: pointer;
+}
+
 .comment-reply,
-.comment-reply:visited,
 .comment-source,
 .comment-source:visited {
     color: var(--minor-color);

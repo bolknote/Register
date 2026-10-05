@@ -54,6 +54,7 @@ final class ShutdownWorkCoordinator
         private readonly ?RequestPerformanceMonitor $performanceMonitor = null,
         private readonly ?RequestQueryProfiler      $queryProfiler = null,
         private readonly int                        $webQueueCooldownSeconds = self::WEB_QUEUE_COOLDOWN_SECONDS,
+        private readonly ?WebQueueWakeupThrottle     $wakeupThrottle = null,
     ) {
         if ($this->webQueueCooldownSeconds < 0) {
             throw new \InvalidArgumentException('Web queue cooldown must not be negative.');
@@ -86,6 +87,10 @@ final class ShutdownWorkCoordinator
     {
         if ($this->responseFinished) {
             return;
+        }
+
+        if ($response?->isNotFound() === true) {
+            $this->suppressBackgroundWork();
         }
 
         $this->performanceMonitor?->record();
@@ -136,7 +141,12 @@ final class ShutdownWorkCoordinator
                 return;
             }
 
-            ($this->runnerFactory)()->run($safeBudget, $maxJobs, $this->webQueueCooldownSeconds);
+            $run = fn(): int => ($this->runnerFactory)()->run($safeBudget, $maxJobs, $this->webQueueCooldownSeconds);
+            if ($this->wakeupThrottle !== null) {
+                $this->wakeupThrottle->run($this->webQueueCooldownSeconds, $run);
+            } else {
+                $run();
+            }
         } catch (\Throwable $throwable) {
             try {
                 $this->logger->error('Shutdown background work failed.', ['exception' => $throwable]);

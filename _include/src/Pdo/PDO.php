@@ -34,22 +34,95 @@ class PDO extends NativePdo implements StatefulServiceInterface
 
     private int $afterCommitSequence = 0;
 
+    /** @var \Closure(): void|null */
+    private ?\Closure $initializer = null;
+
+    private bool $connected = false;
+
+    private ?string $configuredDriver = null;
+
+    /** @var list<callable(): void> */
+    private array $connectionCallbacks = [];
+
+    private ?\Throwable $initializationFailure = null;
+
     /**
      * {@inheritdoc}
      * @param array<mixed>|null $options
      */
-    public function __construct(string $dsn, ?string $username = null, ?string $passwd = null, ?array $options = null)
+    public function __construct(
+        string $dsn,
+        ?string $username = null,
+        #[\SensitiveParameter] ?string $passwd = null,
+        ?array $options = null,
+        bool $lazy = false,
+    ) {
+        $driver = strstr($dsn, ':', true);
+        $this->configuredDriver = \is_string($driver) && \in_array($driver, ['mysql', 'pgsql', 'sqlite'], true)
+            ? $driver
+            : null;
+        if (!$lazy) {
+            $start = microtime(true);
+            parent::__construct($dsn, $username, $passwd, $options);
+            $this->configureConnection($start);
+        } else {
+            $this->initializer = function () use ($dsn, $username, $passwd, $options): void {
+                $start = microtime(true);
+                parent::__construct($dsn, $username, $passwd, $options);
+                $this->configureConnection($start);
+            };
+        }
+    }
+
+    private function configureConnection(float $startedAt): void
     {
-        $start = microtime(true);
-        parent::__construct($dsn, $username, $passwd, $options);
-        $this->setAttribute(self::ATTR_STATEMENT_CLASS, [PDOStatement::class, [$this]]);
-        $this->setAttribute(self::ATTR_ERRMODE, self::ERRMODE_EXCEPTION);
-        $this->addLog('PDO connect', microtime(true) - $start);
+        parent::setAttribute(self::ATTR_STATEMENT_CLASS, [PDOStatement::class, [$this]]);
+        parent::setAttribute(self::ATTR_ERRMODE, self::ERRMODE_EXCEPTION);
+        $this->connected = true;
+        $this->addLog('PDO connect', microtime(true) - $startedAt);
+    }
+
+    public function isConnected(): bool
+    {
+        return $this->connected;
     }
 
     public function addConnectionCallback(callable $callback): void
     {
-        $callback();
+        if ($this->connected) {
+            $callback();
+            return;
+        }
+
+        $this->connectionCallbacks[] = $callback;
+    }
+
+    private function initializeConnection(): void
+    {
+        if ($this->initializationFailure !== null) {
+            throw $this->initializationFailure;
+        }
+
+        if ($this->connected) {
+            return;
+        }
+
+        if ($this->initializer === null) {
+            throw new \LogicException('A database connection initializer is missing.');
+        }
+
+        ($this->initializer)();
+        $this->initializer = null;
+        $callbacks = $this->connectionCallbacks;
+        $this->connectionCallbacks = [];
+        try {
+            foreach ($callbacks as $callback) {
+                $callback();
+            }
+        } catch (\Throwable $throwable) {
+            $this->initializationFailure = $throwable;
+            throw $throwable;
+        }
     }
 
     /**
@@ -58,6 +131,7 @@ class PDO extends NativePdo implements StatefulServiceInterface
     #[\Override]
     public function beginTransaction(): bool
     {
+        $this->initializeConnection();
         $started = parent::beginTransaction();
         if ($started) {
             $this->afterCommitCallbacks = [];
@@ -133,6 +207,7 @@ class PDO extends NativePdo implements StatefulServiceInterface
     #[\Override]
     public function commit(): bool
     {
+        $this->initializeConnection();
         $committed = parent::commit();
         if (!$committed) {
             return false;
@@ -152,6 +227,7 @@ class PDO extends NativePdo implements StatefulServiceInterface
     #[\Override]
     public function rollBack(): bool
     {
+        $this->initializeConnection();
         $rolledBack = false;
         try {
             $rolledBack = parent::rollBack();
@@ -174,7 +250,48 @@ class PDO extends NativePdo implements StatefulServiceInterface
     #[\Override]
     public function getAttribute(int $attribute): mixed
     {
+        // Selecting a SQL dialect is metadata, not a reason to open a connection on a cache hit.
+        if (!$this->connected && $attribute === self::ATTR_DRIVER_NAME && $this->configuredDriver !== null) {
+            return $this->configuredDriver;
+        }
+
+        $this->initializeConnection();
         return parent::getAttribute($attribute);
+    }
+
+    #[\Override]
+    public function setAttribute(int $attribute, mixed $value): bool
+    {
+        $this->initializeConnection();
+        return parent::setAttribute($attribute, $value);
+    }
+
+    #[\Override]
+    public function inTransaction(): bool
+    {
+        return $this->connected && parent::inTransaction();
+    }
+
+    #[\Override]
+    public function lastInsertId(?string $name = null): string|false
+    {
+        $this->initializeConnection();
+        return parent::lastInsertId($name);
+    }
+
+    #[\Override]
+    public function errorCode(): ?string
+    {
+        $this->initializeConnection();
+        return parent::errorCode();
+    }
+
+    /** @return array<mixed> */
+    #[\Override]
+    public function errorInfo(): array
+    {
+        $this->initializeConnection();
+        return parent::errorInfo();
     }
 
     /**
@@ -184,6 +301,7 @@ class PDO extends NativePdo implements StatefulServiceInterface
     #[\Override]
     public function prepare(string $query, array $options = []): PDOStatement|false
     {
+        $this->initializeConnection();
         $statement = parent::prepare($query, $options);
         if ($statement === false || $statement instanceof PDOStatement) {
             return $statement;
@@ -198,6 +316,7 @@ class PDO extends NativePdo implements StatefulServiceInterface
     #[\Override]
     public function quote(string $string, int $type = \PDO::PARAM_STR): string|false
     {
+        $this->initializeConnection();
         return parent::quote($string, $type);
     }
 
@@ -207,6 +326,7 @@ class PDO extends NativePdo implements StatefulServiceInterface
     #[\Override]
     public function exec(string $statement): int|false
     {
+        $this->initializeConnection();
         $start  = microtime(true);
         $result = parent::exec($statement);
         $this->addLog($statement, microtime(true) - $start);
@@ -223,6 +343,7 @@ class PDO extends NativePdo implements StatefulServiceInterface
     #[\Override]
     public function query(string $query, ?int $fetchMode = null, mixed ...$fetchModeArgs): PDOStatement|false
     {
+        $this->initializeConnection();
         $start = microtime(true);
 
         // Here is a fix in this line.
@@ -261,7 +382,9 @@ class PDO extends NativePdo implements StatefulServiceInterface
         return $result;
     }
 
-    /** @return list<array{statement: string, template: string, time: float}> */
+    /**
+     * @return list<array{statement: string, template: string, time: float}>
+     */
     public function getQueryLog(): array
     {
         return $this->log;

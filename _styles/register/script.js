@@ -219,7 +219,7 @@
             }
 
             try {
-                window.history.replaceState(window.history.state, '', link.href);
+                window.history.replaceState(window.history.state, '', originLink.href);
             } catch (error) {
                 // Replying still works if the browser disallows History API updates.
             }
@@ -249,7 +249,8 @@
 
         if (cancelButton.dataset.commentReplyBound !== '1') {
             cancelButton.dataset.commentReplyBound = '1';
-            cancelButton.addEventListener('click', function () {
+            cancelButton.addEventListener('click', function (event) {
+                event.preventDefault();
                 parentField.value = '';
                 numberField.value = '0';
                 nameField.value = '';

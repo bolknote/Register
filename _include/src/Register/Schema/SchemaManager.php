@@ -15,6 +15,7 @@ use Register\Core\Controller\Rss\FeedSettings;
 use Register\Core\Mail\MailSettings;
 use Register\Module\BaseModuleInstaller;
 use Register\Core\Framework\Container;
+use Register\Core\Config\DynamicConfigProvider;
 use Register\Core\Model\ExtensionCache;
 use Register\Core\Pdo\DbLayer;
 
@@ -79,8 +80,12 @@ final readonly class SchemaManager
      *
      * @return bool Whether the fresh schema or its generation marker changed.
      */
-    public function ensureCurrent(): bool
+    public function ensureCurrent(?DynamicConfigProvider $cachedConfig = null): bool
     {
+        if ($cachedConfig !== null && $this->configIsCurrent($cachedConfig)) {
+            return false;
+        }
+
         $currentGeneration = $this->currentGeneration();
         if ($currentGeneration === self::CURRENT_GENERATION) {
             return $this->ensureConfigDefaults();
@@ -110,6 +115,26 @@ final readonly class SchemaManager
         }
 
         return true;
+    }
+
+    /** The config cache is regenerated after schema changes and records the completed generation. */
+    private function configIsCurrent(DynamicConfigProvider $config): bool
+    {
+        try {
+            if ($config->get(self::CONFIG_KEY) !== (string)self::CURRENT_GENERATION) {
+                return false;
+            }
+
+            // New defaults can be introduced without a schema-generation change.
+            foreach (array_keys(self::CONFIG_DEFAULTS) as $name) {
+                $config->get($name);
+            }
+
+            return true;
+        } catch (\LogicException) {
+            // Missing keys and fresh installations still take the normal database-backed path.
+            return false;
+        }
     }
 
     /** Applies the migration chain supplied by the newly installed release. */

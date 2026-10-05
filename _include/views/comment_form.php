@@ -16,6 +16,7 @@ declare(strict_types = 1);
 /** @var int|null $parent_id */
 /** @var int|null $reply_number */
 /** @var string|null $reply_name */
+/** @var string|null $reply_target_url */
 /** @var \Register\Core\Model\AuthenticatedPublicUser|null $authenticatedUser */
 
 $name         ??= '';
@@ -54,9 +55,9 @@ if ($authenticatedUser instanceof \Register\Core\Model\AuthenticatedPublicUser) 
     <h2 class="comment form" id="comment-form-title"><?php echo $trans('Post a comment'); ?></h2>
     <div class="comment-reply-context"<?php if ($parent_id === null): ?> hidden<?php endif; ?>>
         <span><?php echo $trans('Replying to'); ?>
-            <a class="comment-reply-target" href="<?php echo $reply_number > 0 ? '#' . $reply_number : '#comments-title'; ?>"><?php echo $reply_name !== '' ? register_htmlencode($reply_name) : '№&nbsp;' . $reply_number; ?></a>
+            <a class="comment-reply-target" href="<?php echo register_htmlencode($reply_target_url ?? ($reply_number > 0 ? '#' . $reply_number : '#comments-title')); ?>"><?php echo $reply_name !== '' ? register_htmlencode($reply_name) : '№&nbsp;' . $reply_number; ?></a>
         </span>
-        <button class="comment-reply-cancel" type="button"><?php echo $trans('Cancel reply'); ?></button>
+        <a class="comment-reply-cancel" href="<?php echo register_htmlencode($action); ?>"><?php echo $trans('Cancel reply'); ?></a>
     </div>
     <div class="comment-public-auth">
     <?php if ($authenticatedUser instanceof \Register\Core\Model\AuthenticatedPublicUser): ?>

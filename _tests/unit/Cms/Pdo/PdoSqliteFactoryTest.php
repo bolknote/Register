@@ -74,4 +74,18 @@ final class PdoSqliteFactoryTest extends Unit
             self::assertSame(0600, $permissions & 0777);
         }
     }
+
+    public function testLazyConnectionStillConfiguresSqliteBeforeQueries(): void
+    {
+        $path = tempnam(sys_get_temp_dir(), 'register_sqlite_lazy_');
+        self::assertIsString($path);
+        $this->temporaryFiles = [$path, $path . '-shm', $path . '-wal'];
+        $pdo = PdoSqliteFactory::create($path, false, lazy: true);
+        self::assertFalse($pdo->isConnected());
+        self::assertSame([], $pdo->getQueryLog());
+        $statement = $pdo->query('PRAGMA foreign_keys');
+        self::assertNotFalse($statement);
+        self::assertSame(1, $statement->fetchColumn());
+        self::assertTrue($pdo->isConnected());
+    }
 }

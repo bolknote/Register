@@ -14,6 +14,7 @@ use Register\Core\Monitoring\QueryProfilerInspector;
 use Register\Core\Monitoring\QueryProfilerLog;
 use Register\Core\Monitoring\QueryProfilerState;
 use Register\Core\Monitoring\RequestQueryProfiler;
+use Register\Core\Monitoring\RequestResourceUsage;
 use Register\Core\Monitoring\SqlQueryTemplateSanitizer;
 use Register\Core\Pdo\PDO;
 use Symfony\Component\HttpFoundation\Request;
@@ -175,5 +176,53 @@ final class QueryProfilerTest extends Unit
         $profiler->record(['REQUEST_URI' => '/_admin/ajax.php'], 303, 100.1);
 
         self::assertFileDoesNotExist($this->logFile);
+    }
+
+    public function testStartupQueriesAndCpuRemainVisibleAfterApplicationStateReset(): void
+    {
+        $state = new QueryProfilerState($this->stateFile);
+        $state->start(60, 100);
+
+        $pdo = new PDO('sqlite::memory:');
+        $pdo->query('SELECT 123');
+
+        $bootstrapCount = $pdo->getQueryCount();
+        $usage = ['ru_utime.tv_sec' => 10, 'ru_utime.tv_usec' => 0, 'ru_stime.tv_sec' => 2, 'ru_stime.tv_usec' => 0];
+        $resources = new RequestResourceUsage(100.0, $usage, static function () use (&$usage): array { return $usage; });
+        $profiler = new RequestQueryProfiler($pdo, $state, new QueryProfilerLog($this->logFile), new SqlQueryTemplateSanitizer(), 100.0, $resources);
+        $profiler->captureBootstrap();
+        $usage['ru_utime.tv_usec'] = 3000;
+        $resources->markBootstrap(100.1);
+        $pdo->clearState();
+        $profiler->clearState();
+        $usage['ru_utime.tv_usec'] = 9000;
+        $profiler->record(['REQUEST_URI' => '/cached'], 200, 100.2);
+        $contents = file_get_contents($this->logFile);
+        self::assertIsString($contents);
+        $record = json_decode($contents, true, flags: JSON_THROW_ON_ERROR);
+        self::assertIsArray($record);
+        self::assertSame($bootstrapCount, $record['query_count']);
+        self::assertSame($bootstrapCount, $record['bootstrap_db_queries']);
+        self::assertSame(9, $record['cpu_ms']);
+        self::assertSame(3, $record['bootstrap_cpu_ms']);
+        self::assertSame(100, $record['bootstrap_ms']);
+        $report = (new QueryProfilerInspector(new QueryProfilerLog($this->logFile)))->inspect();
+        self::assertSame(9.0, $report['paths'][0]['cpu_ms']);
+        self::assertSame(9.0, $report['contexts'][0]['cpu_ms']);
+        self::assertSame(3.0, $report['recent'][0]['bootstrap_cpu_ms']);
+    }
+
+    public function testProfilingACacheHitDoesNotOpenALazyConnection(): void
+    {
+        $state = new QueryProfilerState($this->stateFile);
+        $state->start(60, 100);
+
+        $pdo = new PDO('sqlite:/nonexistent-register-test-directory/database.sqlite', lazy: true);
+        $profiler = new RequestQueryProfiler($pdo, $state, new QueryProfilerLog($this->logFile), new SqlQueryTemplateSanitizer(), 100.0);
+        $profiler->captureBootstrap();
+        $profiler->record(['REQUEST_URI' => '/cached'], 200, 100.2);
+        self::assertFalse($pdo->isConnected());
+        $report = (new QueryProfilerInspector(new QueryProfilerLog($this->logFile)))->inspect();
+        self::assertSame(0, $report['query_count']);
     }
 }

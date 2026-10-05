@@ -50,15 +50,6 @@ final readonly class CommentFormRenderer
         array                    $comment,
         CommentFormRenderSession $session,
     ): string {
-        if (!array_key_exists('parent_id', $comment)) {
-            $replyId = $request->query->getInt('reply_to');
-            $comment += [
-                'parent_id'    => $replyId > 0 ? $replyId : null,
-                'reply_number' => max(0, $request->query->getInt('reply_number')),
-                'reply_name'   => mb_substr(trim($request->query->getString('reply_name')), 0, 50),
-            ];
-        }
-
         $event = new TemplatePreCommentRenderEvent([$this->translator->trans('Comment syntax info')]);
         $this->eventDispatcher->dispatch($event);
 

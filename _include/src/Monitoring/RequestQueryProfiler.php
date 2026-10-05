@@ -21,18 +21,28 @@ final class RequestQueryProfiler implements StatefulServiceInterface
 
     private bool $suppressed = false;
 
+    /** @var list<array{statement:string,template:string,time:float}> */
+    private array $bootstrapQueries = [];
+
     public function __construct(
         private readonly \PDO                      $pdo,
         private readonly QueryProfilerState        $state,
         private readonly QueryProfilerLog          $log,
         private readonly SqlQueryTemplateSanitizer $sanitizer,
         private readonly float                     $requestStartedAt,
+        private readonly ?RequestResourceUsage     $resourceUsage = null,
     ) {
     }
 
     public function suppress(): void
     {
         $this->suppressed = true;
+    }
+
+    /** Application::handle() clears per-response PDO logs; preserve startup work separately. */
+    public function captureBootstrap(): void
+    {
+        $this->bootstrapQueries = $this->pdo instanceof PDO ? $this->pdo->cleanLogs() : [];
     }
 
     /** @param array<string, mixed>|null $server */
@@ -50,7 +60,7 @@ final class RequestQueryProfiler implements StatefulServiceInterface
                 return;
             }
 
-            $queryLog = $this->pdo->getQueryLog();
+            $queryLog = [...$this->bootstrapQueries, ...$this->pdo->getQueryLog()];
             $queries = [];
             foreach (array_slice($queryLog, 0, self::MAX_QUERIES_PER_REQUEST) as $entry) {
                 $queries[] = [
@@ -74,6 +84,9 @@ final class RequestQueryProfiler implements StatefulServiceInterface
             }
 
             $metrics = $this->pdo->getQueryMetrics();
+            $bootstrapSeconds = array_sum(array_column($this->bootstrapQueries, 'time'));
+            $metrics['count'] += count($this->bootstrapQueries);
+            $metrics['total_seconds'] += $bootstrapSeconds;
             $requestContext = $this->requestContext($server, $request, $response, (int)$finishedAt);
 
             $this->log->append([
@@ -87,6 +100,10 @@ final class RequestQueryProfiler implements StatefulServiceInterface
                 'query_count' => $metrics['count'],
                 'truncated_queries' => max(0, $metrics['count'] - count($queries)),
                 'peak_memory_bytes' => memory_get_peak_usage(true),
+                'db_connected' => $this->pdo->isConnected(),
+                'bootstrap_db_queries' => count($this->bootstrapQueries),
+                'bootstrap_db_ms' => round($bootstrapSeconds * 1000.0, 3),
+                ...($this->resourceUsage?->metrics() ?? []),
                 'request_context' => $requestContext,
                 'queries' => $queries,
             ]);

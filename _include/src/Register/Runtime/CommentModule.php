@@ -19,6 +19,7 @@ use Register\Comment\CommentMailQueueHandler;
 use Register\Comment\CommentPublicationTrustPolicy;
 use Register\Comment\CommentPresentationEnricherInterface;
 use Register\Comment\CommentRepository;
+use Register\Comment\CommentReplyForm;
 use Register\Comment\CommentAgePolicy;
 use Register\Comment\CommentSubscriptionService;
 use Register\Comment\ContentCommentNotifier;
@@ -66,6 +67,14 @@ final readonly class CommentModule implements ContainerModuleInterface
     #[\Override]
     public function buildContainer(Container $container): void
     {
+        $container->set(\Register\Controller\ObsoleteCommentReplyController::class, new \Register\Controller\ObsoleteCommentReplyController());
+        $container->set(CommentReplyForm::class, static fn(Container $container): CommentReplyForm => new CommentReplyForm(
+            $container->get(CommentRepository::class),
+            $container->get(HtmlTemplateProvider::class),
+            $container->get('comments_translator'),
+            $container->get(DynamicConfigProvider::class)->getBoolProxy('REGISTER_ENABLED_COMMENTS'),
+            $container->get(UrlBuilder::class),
+        ));
         $container->set(CommentAgePolicy::class, static fn(Container $container): CommentAgePolicy => new CommentAgePolicy(
             $container->get(DynamicConfigProvider::class),
         ));
@@ -188,6 +197,7 @@ final readonly class CommentModule implements ContainerModuleInterface
                 $provider->getBoolProxy('REGISTER_ENABLED_COMMENTS'),
                 $provider->getBoolProxy('REGISTER_PREMODERATION'),
                 $container->get(PendingEmailCommentServiceInterface::class),
+                $container->get(CommentReplyForm::class),
             );
         }, ['dynamic_config_dependent']);
         $container->set(CommentSentController::class, static fn(Container $container): CommentSentController => new CommentSentController(

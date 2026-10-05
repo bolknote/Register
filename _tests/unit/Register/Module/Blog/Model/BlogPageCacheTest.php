@@ -33,8 +33,8 @@ final class BlogPageCacheTest extends TestCase
         $oldReader = CachedBlogResponse::fromResponse(new Response('warm reader HTML'));
         self::assertNotNull($oldCrawler);
         self::assertNotNull($oldReader);
-        $pool->get('register_blog_first_response_v3_full_bot', static fn(): CachedBlogResponse => $oldCrawler);
-        $pool->get('register_blog_first_response_v3_full_new_visitor', static fn(): CachedBlogResponse => $oldReader);
+        $pool->get('register_blog_first_response_v4_full_bot', static fn(): CachedBlogResponse => $oldCrawler);
+        $pool->get('register_blog_first_response_v4_full_new_visitor', static fn(): CachedBlogResponse => $oldReader);
 
         $cache = new BlogPageCache($pool);
         self::assertSame('new crawler HTML', $cache->firstResponse('full_bot', static fn(): Response => new Response('new crawler HTML'))->getContent());
@@ -521,7 +521,7 @@ final class BlogPageCacheTest extends TestCase
         self::assertContains('register_content_response_generation_v1', $memoryKeys);
         self::assertSame([], array_values(array_filter(
             $memoryKeys,
-            static fn(string $key): bool => str_starts_with($key, 'register_content_response_v3_'),
+            static fn(string $key): bool => str_starts_with($key, 'register_content_response_v4_'),
         )));
 
         $cache->invalidateFirstPage();
@@ -605,7 +605,7 @@ final class BlogPageCacheTest extends TestCase
     {
         $result = [];
         foreach (array_keys($pool->getValues()) as $key) {
-            if (\is_string($key) && str_starts_with($key, 'register_content_response_v3_')) {
+            if (\is_string($key) && str_starts_with($key, 'register_content_response_v4_')) {
                 $result[] = $key;
             }
         }

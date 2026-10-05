@@ -34,6 +34,8 @@ use Symfony\Component\ErrorHandler\ErrorHandler;
 use Symfony\Component\ErrorHandler\ErrorRenderer\HtmlErrorRenderer;
 
 $registerBootTimestamp = microtime(true);
+$registerBootResourceUsage = \function_exists('getrusage') ? getrusage() : null;
+$registerBootResourceUsage = \is_array($registerBootResourceUsage) ? $registerBootResourceUsage : null;
 
 // Uncomment these lines for debug
 //define('REGISTER_DEBUG', 1);
@@ -169,10 +171,11 @@ function register_build_base_static_parameters(array $config): array
 /** @return array<string, mixed> */
 function collectParameters(): array
 {
-    global $registerBootTimestamp, $registerBaseStaticParameters;
+    global $registerBootTimestamp, $registerBootResourceUsage, $registerBaseStaticParameters;
 
     $result                   = $registerBaseStaticParameters;
     $result['boot_timestamp'] = $registerBootTimestamp;
+    $result['boot_resource_usage'] = $registerBootResourceUsage;
 
     return $result;
 }
@@ -259,12 +262,15 @@ if (defined('REGISTER_ADMIN_MODE') && session_status() !== PHP_SESSION_ACTIVE) {
 }
 
 $registerSchemaManager = $app->container->get(SchemaManager::class);
-if (!$registerUpdateRequest && $registerSchemaManager->ensureCurrent()) {
+if (!$registerUpdateRequest && $registerSchemaManager->ensureCurrent($dynamicConfigProvider)) {
     $dynamicConfigProvider->regenerate();
 }
 
 if (!$registerUpdateRequest) {
     $app->container->get(ShutdownWorkCoordinator::class)->register();
 }
+
+$app->container->get(\Register\Core\Monitoring\RequestQueryProfiler::class)->captureBootstrap();
+$app->container->get(\Register\Core\Monitoring\RequestResourceUsage::class)->markBootstrap();
 
 return $app;

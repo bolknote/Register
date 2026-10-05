@@ -150,6 +150,7 @@ final class RegisterKernelTest extends Unit
         (new ProductModule(new BaseModuleRegistry()))->registerRoutes($routes, $container);
 
         self::assertSame([
+            'obsolete_comment_reply',
             'register_public_auth',
             'register_public_auth_password',
             'register_public_auth_logout',

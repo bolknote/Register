@@ -28,6 +28,7 @@ use Register\Core\Framework\ControllerInterface;
 use Register\Core\Helper\StringHelper;
 use Register\Core\Comment\CommentHtml;
 use Register\Comment\CommentMailPublisher;
+use Register\Comment\CommentReplyForm;
 use Register\Core\Model\AuthenticatedPublicUser;
 use Register\Core\Model\AuthProvider;
 use Register\Core\Model\UrlBuilder;
@@ -64,6 +65,7 @@ readonly class CommentController implements ControllerInterface
         private BoolProxy                     $commentsEnabled,
         private BoolProxy                     $premoderationEnabled,
         private ?PendingEmailCommentServiceInterface $pendingEmailCommentService = null,
+        private ?CommentReplyForm $replyForm = null,
     ) {
     }
 
@@ -81,6 +83,10 @@ readonly class CommentController implements ControllerInterface
     #[\Override]
     public function handle(Request $request): Response
     {
+        if ($request->request->has('comment_reply') && $this->replyForm !== null) {
+            return $this->replyForm->response($request, $this->commentStrategy);
+        }
+
         $authenticatedUser     = $this->authProvider->getAuthenticatedPublicUser($request);
         $isAuthenticatedAuthor = false;
         $formFieldError        = $this->restoreMutableFormFields($request);

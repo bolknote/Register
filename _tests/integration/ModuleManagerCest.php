@@ -31,10 +31,33 @@ use Register\Core\Model\SessionAudience;
 use Register\Core\Model\UserpicSchema;
 use Register\Core\Pdo\DbLayer;
 use Register\Core\Pdo\SchemaBuilderInterface;
+use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\Pdo\PDO;
 use Register\Schema\SessionAudienceSchemaMigration;
 
 final class ModuleManagerCest
 {
+    public function bootstrapUsesCurrentCachedConfigButStillAddsMissingDefaults(\IntegrationTester $I): void
+    {
+        /** @var SchemaManager $schema */
+        $schema = $I->grabAdminService(SchemaManager::class);
+        /** @var DynamicConfigProvider $config */
+        $config = $I->grabAdminService(DynamicConfigProvider::class);
+        /** @var PDO $pdo */
+        $pdo = $I->grabAdminService(\PDO::class);
+        $config->regenerate();
+        $pdo->cleanLogs();
+        $I->assertFalse($schema->ensureCurrent($config));
+        $I->assertSame([], $pdo->getQueryLog());
+
+        /** @var DbLayer $db */
+        $db = $I->grabAdminService(DbLayer::class);
+        $db->delete('config')->where('name = :name')->setParameter('name', 'REGISTER_MAIL_TIMEOUT')->execute();
+        $config->regenerate();
+        $I->assertTrue($schema->ensureCurrent($config));
+        $I->assertSame('8', $db->select('value')->from('config')->where('name = :name')->setParameter('name', 'REGISTER_MAIL_TIMEOUT')->execute()->result());
+    }
+
     /** @var list<string> */
     private const array OBSOLETE_PRODUCT_TABLES = [
         'articles',

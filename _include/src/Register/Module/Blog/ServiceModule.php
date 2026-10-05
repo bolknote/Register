@@ -585,6 +585,7 @@ final class ServiceModule implements ContainerModuleInterface
                 $provider->getBoolProxy('REGISTER_ENABLED_COMMENTS'),
                 $provider->getBoolProxy('REGISTER_PREMODERATION'),
                 $container->get(\Register\Controller\Comment\PendingEmailCommentServiceInterface::class),
+                $container->get(\Register\Comment\CommentReplyForm::class),
             );
         }, ['dynamic_config_dependent']);
         $container->set(FlatCommentController::class, static fn(Container $container): \Register\Module\Blog\Controller\FlatCommentController => new FlatCommentController(
