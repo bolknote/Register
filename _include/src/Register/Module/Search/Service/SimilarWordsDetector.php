@@ -67,10 +67,7 @@ final class SimilarWordsDetector
         if (\is_array($tokens)) {
             foreach ($tokens as $token) {
                 $token = mb_strtolower($token);
-                if (mb_strlen($token) < 3) {
-                    continue;
-                }
-
+                // Short tag names are valid exact matches; prefix matching has its own length limit.
                 $forms[$token] = $token;
                 foreach (StemmerHelper::stemWords($this->stemmer, $token) as $stem) {
                     $stem = mb_strtolower($stem);
