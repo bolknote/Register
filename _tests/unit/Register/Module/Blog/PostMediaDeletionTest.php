@@ -11,6 +11,45 @@ use Register\Module\Blog\Inplace\PostMediaRepository;
 
 final class PostMediaDeletionTest extends Unit
 {
+    public function testStaleMediaSkipsReferencesBeforeLimitWithoutChangingPublishedStatus(): void
+    {
+        foreach (['', 'cms_'] as $prefix) {
+            $pdo = new \PDO('sqlite::memory:');
+            $pdo->exec('PRAGMA foreign_keys = ON');
+            $pdo->exec('CREATE TABLE ' . $prefix . 'users (id INTEGER PRIMARY KEY)');
+            $pdo->exec('CREATE TABLE ' . $prefix . "content (id INTEGER PRIMARY KEY, body TEXT DEFAULT '', social_image TEXT DEFAULT '')");
+            $pdo->exec('INSERT INTO ' . $prefix . 'users VALUES (1)');
+            $pdo->exec('INSERT INTO ' . $prefix . 'content (id) VALUES (1)');
+            $db = new DbLayerSqlite($pdo, $prefix);
+            ContentMediaSchema::create($db);
+            $repository = new PostMediaRepository($db, '/media');
+            $body = $repository->register($this->media('/uploaded/body_1!%.png'));
+            $social = $repository->register($this->media('/uploaded/social.png'));
+            $orphan = $repository->register($this->media('/uploaded/published.png'));
+            $linked = $repository->register($this->media('/uploaded/linked.png'));
+            $pending = $repository->register($this->media('/uploaded/pending.png'));
+            $db->update('content')->set('body', ':body')->set('social_image', ':social')
+                ->setParameter('body', '<img src="/media/uploaded/body_1!%.png">')
+                ->setParameter('social', '/media/uploaded/social.png')->where('id = 1')->execute();
+            $db->update(ContentMediaSchema::FILE_TABLE)->set('created_at', '1')->execute();
+            $db->update(ContentMediaSchema::FILE_TABLE)->set('pending', '0')
+                ->where('id = :id')->setParameter('id', $orphan)->execute();
+            $db->insert(ContentMediaSchema::USAGE_TABLE)->values(['post_id' => '1', 'media_id' => ':media'])
+                ->execute(['media' => $linked]);
+
+            self::assertTrue($repository->hasStoredReferences('/uploaded/body_1!%.png'));
+            self::assertTrue($repository->hasStoredReferences('/uploaded/social.png'));
+            self::assertFalse($repository->hasStoredReferences('/uploaded/bodyX1!Z.png'));
+            self::assertSame([$orphan], array_column($repository->staleUnusedMedia(10, 1), 'id'));
+            self::assertSame([$orphan, $pending], array_column($repository->staleUnusedMedia(10), 'id'));
+            $media = $repository->find($orphan);
+            self::assertNotNull($media);
+            self::assertSame(0, (int)$media['pending']);
+            self::assertNotNull($repository->find($body));
+            self::assertNotNull($repository->find($social));
+        }
+    }
+
     public function testSharedPathsAndSocialMetadataProtectFilesWithAnyTablePrefix(): void
     {
         foreach (['', 'cms_'] as $prefix) {

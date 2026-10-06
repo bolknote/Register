@@ -75,10 +75,6 @@ final class BlogPostListController extends EntityController
                 return $response;
             }
 
-            foreach ($unused as $media) {
-                $this->mediaRepository->deferUnusedCleanup((int)$media['id']);
-            }
-
             if ($ownsTransaction) {
                 $this->pdo->commit();
             } else {

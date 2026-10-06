@@ -273,6 +273,7 @@ final class BlogPostListTest extends Unit
             $permissions,
             $translator,
             new TagRepository($db),
+            new \Register\Comment\CommentRepository($db, new LiveUpdateRepository($db), $events),
             new ContentChangeDispatcher($db, $events, new LiveUpdateRepository($db)),
             new BlogPageCache(new ArrayAdapter()),
             $factory,

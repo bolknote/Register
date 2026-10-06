@@ -129,6 +129,33 @@ export async function runHtmlContentLayoutRegressions(browser, origin) {
         await page.waitForTimeout(300);
         assert.equal(await height(), 720);
 
+        for (const portion of [100, 50]) {
+            for (const nested of [false, true]) {
+                const animated = '<div id="pulse" style="height:80px;animation:pulse .2s infinite alternate linear">Independent animation</div>';
+                await code.fill('<style>@keyframes pulse {from {height:80px} to {height:81px}}</style>'
+                    + `<section id="mixed" style="height:${portion}vh;padding-bottom:20px">Viewport region${nested ? animated : ''}</section>`
+                    + (nested ? '' : animated));
+                await frame.locator('#pulse').waitFor();
+                await expectHeight(720);
+                await page.waitForTimeout(350);
+                assert.equal(await height(), 720, 'An independent animation must not hide viewport-dependent layout in siblings or ancestors');
+                await page.setViewportSize({width: 1280, height: 640});
+                await expectHeight(640);
+                await page.setViewportSize({width: 1280, height: 720});
+                await expectHeight(720);
+            }
+        }
+        for (const margin of [false, true]) {
+            await code.fill('<style>@keyframes intrinsicPulse {from {height:80px} to {height:160px}}'
+                + '@keyframes marginPulse {from {margin-bottom:0} to {margin-bottom:40px}}</style>'
+                + `<div id="intrinsic-pulse" style="height:80px;animation:intrinsicPulse .5s infinite alternate linear${margin ? ',marginPulse .5s infinite alternate linear' : ''}">Intrinsic animation</div>`);
+            await frame.locator('#intrinsic-pulse').waitFor();
+            for (let sample = 0; sample < 8; ++sample) {
+                await page.waitForTimeout(80);
+                assert.ok(await height() >= 79 && await height() <= (margin ? 202 : 162), 'Intrinsic height/margin animations must retain auto-height');
+            }
+        }
+
         const source = '<style>.sample { color: red; }</style>\n<!-- author spacing -->\n<div class="sample">HTML &amp; text</div>\n';
         await code.fill(source);
         await frame.locator('.sample').waitFor();

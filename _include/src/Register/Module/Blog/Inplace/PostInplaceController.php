@@ -56,7 +56,7 @@ final readonly class PostInplaceController implements ControllerInterface
 
     private const int MAX_TAGS = 100;
 
-    private const int STALE_PENDING_MEDIA_AGE = 7 * 24 * 60 * 60;
+    private const int STALE_UNUSED_MEDIA_AGE = 7 * 24 * 60 * 60;
 
     private const string SAVEPOINT = 'register_post_inplace';
 
@@ -254,7 +254,7 @@ final readonly class PostInplaceController implements ControllerInterface
         }
 
         $this->purgeMedia(
-            $this->mediaRepository->stalePendingUploads(time() - self::STALE_PENDING_MEDIA_AGE),
+            $this->mediaRepository->staleUnusedMedia(time() - self::STALE_UNUSED_MEDIA_AGE),
             false,
         );
 
@@ -339,8 +339,11 @@ final readonly class PostInplaceController implements ControllerInterface
 
                     foreach ($uploads as $media) {
                         // Another tab may have renamed and published this upload.
-                        // Reconcile its URL without moving a file already used by a post.
-                        if (!(bool)$media['pending'] || (int)$media['usage_count'] !== 0) {
+                        // Stored page/HTML references also prevent moving a file,
+                        // including uploads previously marked pending by cleanup.
+                        if (!(bool)$media['pending'] || (int)$media['usage_count'] !== 0
+                            || $this->mediaRepository->hasStoredReferences((string)$media['storage_path'])
+                        ) {
                             $payload[] = $this->mediaPayload($media);
                             continue;
                         }

@@ -37,6 +37,7 @@ final class AdminModule implements ContainerModuleInterface, ContainerAwareListe
             $container->get(PermissionChecker::class),
             $container->get(Translator::class),
             $container->get(\Register\Content\TagRepository::class),
+            $container->get(\Register\Comment\CommentRepository::class),
             $container->get(ContentChangeDispatcher::class),
             $container->get(BlogPageCache::class),
             new BlogPostListControllerFactory(

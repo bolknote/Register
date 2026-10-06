@@ -24,6 +24,7 @@ use Register\AdminYard\Event\AfterSaveEvent;
 use Register\AdminYard\Event\BeforeDeleteEvent;
 use Register\AdminYard\Translator;
 use Register\Comment\CommentSchema;
+use Register\Comment\CommentRepository;
 use Register\Content\ContentChangeDispatcher;
 use Register\Content\ContentId;
 use Register\Content\ContentSchema;
@@ -41,6 +42,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
         private PermissionChecker       $permissionChecker,
         private Translator              $translator,
         private TagRepository           $tagRepository,
+        private CommentRepository       $commentRepository,
         private ContentChangeDispatcher $contentChangeDispatcher,
         private BlogPageCache           $pageCache,
         private BlogPostListControllerFactory $listControllerFactory,
@@ -261,6 +263,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
             )
             ->addListener(EntityConfig::EVENT_BEFORE_DELETE, function (BeforeDeleteEvent $event): void {
                 $contentId = ContentId::post($this->requirePrimaryKey($event->primaryKey)->getIntId());
+                $this->commentRepository->removeForContent($contentId);
                 $this->tagRepository->remove($contentId);
                 $this->contentChangeDispatcher->defer($contentId);
             })

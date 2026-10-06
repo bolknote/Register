@@ -188,13 +188,15 @@ final readonly class PostMediaRepository
         return $this->unusedRows($mediaIds);
     }
 
-    /** Keep unreferenced files eligible for cleanup after an enclosing transaction commits. */
-    public function deferUnusedCleanup(int $mediaId): void
+    /** Pages and authored HTML can own a file without a post-media relation. */
+    public function hasStoredReferences(string $storagePath): bool
     {
-        $this->dbLayer->update(ContentMediaSchema::FILE_TABLE)
-            ->set('pending', '1')
-            ->where('id = :id')->setParameter('id', $mediaId)
-            ->andWhere('usage_count = 0')->execute();
+        $path = $this->mediaPathPattern($storagePath);
+
+        return (int)$this->dbLayer->select('COUNT(*)')->from(ContentSchema::TABLE_NAME)
+            ->where("body LIKE :body_media_path ESCAPE '!' OR social_image LIKE :social_media_path ESCAPE '!'")
+            ->setParameter('body_media_path', $path)->setParameter('social_media_path', $path)
+            ->execute()->result() > 0;
     }
 
     /**
@@ -236,7 +238,7 @@ final readonly class PostMediaRepository
         // Pages and authored HTML can reuse a file without editor media ids.
         // Be conservative at the destructive boundary: a stored path anywhere
         // in content still owns the file, even without a post-usage relation.
-        $path = '%' . str_replace(['!', '%', '_'], ['!!', '!%', '!_'], (string)$media['storage_path']) . '%';
+        $path = $this->mediaPathPattern((string)$media['storage_path']);
         $fileTable = $this->dbLayer->getPrefix() . ContentMediaSchema::FILE_TABLE;
         $usageTable = $this->dbLayer->getPrefix() . ContentMediaSchema::USAGE_TABLE;
         $contentTable = $this->dbLayer->getPrefix() . ContentSchema::TABLE_NAME;
@@ -258,17 +260,24 @@ final readonly class PostMediaRepository
     }
 
     /** @return list<array<string, mixed>> */
-    public function stalePendingUploads(int $createdBefore, int $limit = 100): array
+    public function staleUnusedMedia(int $createdBefore, int $limit = 100): array
     {
         if ($createdBefore <= 0 || $limit <= 0) {
             return [];
         }
 
+        $fileTable = $this->dbLayer->getPrefix() . ContentMediaSchema::FILE_TABLE;
+        $usageTable = $this->dbLayer->getPrefix() . ContentMediaSchema::USAGE_TABLE;
+        $contentTable = $this->dbLayer->getPrefix() . ContentSchema::TABLE_NAME;
         $result = $this->dbLayer
             ->select('*')
             ->from(ContentMediaSchema::FILE_TABLE)
             ->where('usage_count = 0')
-            ->andWhere('pending = 1')
+            // Published orphans also need cleanup after a bulk-delete transaction.
+            // Exclude shared files before LIMIT so they cannot starve old uploads.
+            ->andWhere('NOT EXISTS (SELECT 1 FROM ' . $usageTable . ' WHERE media_id = ' . $fileTable . '.id)')
+            ->andWhere('NOT EXISTS (SELECT 1 FROM ' . $contentTable
+                . ' WHERE INSTR(body, ' . $fileTable . '.storage_path) > 0 OR INSTR(social_image, ' . $fileTable . '.storage_path) > 0)')
             ->andWhere('created_at < :created_before')->setParameter('created_before', $createdBefore)
             ->orderBy('created_at ASC, id ASC')
             ->limit(min($limit, 1000))
@@ -280,6 +289,11 @@ final readonly class PostMediaRepository
         }
 
         return $rows;
+    }
+
+    private function mediaPathPattern(string $storagePath): string
+    {
+        return '%' . str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $storagePath) . '%';
     }
 
     public function url(string $storagePath): string
