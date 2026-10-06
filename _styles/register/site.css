@@ -1033,6 +1033,10 @@ h2.preview,
     max-width: 100%;
 }
 
+.post-card.is-editing > .post.time {
+    translate: 0 var(--post-editor-date-offset, 0px);
+}
+
 .post-inplace-datetime {
     position: absolute;
     top: 0;

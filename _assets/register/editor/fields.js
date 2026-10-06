@@ -25,6 +25,10 @@
             });
             const context = document.createElement('canvas').getContext('2d');
             const fontMetrics = new Map();
+            const date = state.time.parentElement;
+            const dateOffsetProperty = '--post-editor-date-offset';
+            const originalDateOffset = date.style.getPropertyValue(dateOffsetProperty);
+            const originalDateOffsetPriority = date.style.getPropertyPriority(dateOffsetProperty);
             let pendingFrame = 0;
 
             function textEdge(node, atStart) {
@@ -111,6 +115,16 @@
                     rect.setAttribute('width', String(bounds.width + 2 * padding));
                     rect.setAttribute('height', String(Math.max(0, bounds.height - top - bottom) + 2 * padding));
                 });
+                // Field backgrounds extend beyond the text. Keep the date midway
+                // between their visible edges without moving either field's layout.
+                const titleRect = fields[0].rect;
+                const bodyRect = fields[1].rect;
+                const middle = (Number(titleRect.getAttribute('y')) + Number(titleRect.getAttribute('height'))
+                    + Number(bodyRect.getAttribute('y'))) / 2;
+                const dateBounds = date.getBoundingClientRect();
+                const currentOffset = Number.parseFloat(date.style.getPropertyValue(dateOffsetProperty)) || 0;
+                const dateMiddle = dateBounds.top - origin.top + dateBounds.height / 2 - currentOffset;
+                date.style.setProperty(dateOffsetProperty, `${middle - dateMiddle}px`);
             }
 
             function schedule() {
@@ -128,6 +142,8 @@
             const resizeObserver = new ResizeObserver(schedule);
             const mutationObserver = new MutationObserver(schedule);
             resizeObserver.observe(state.card);
+            resizeObserver.observe(date);
+            mutationObserver.observe(date, {childList: true, subtree: true, characterData: true});
             fields.forEach(({element}) => {
                 resizeObserver.observe(element);
                 mutationObserver.observe(element, {childList: true, subtree: true, characterData: true});
@@ -140,6 +156,8 @@
                     cancelAnimationFrame(pendingFrame);
                     resizeObserver.disconnect();
                     mutationObserver.disconnect();
+                    if (originalDateOffset) date.style.setProperty(dateOffsetProperty, originalDateOffset, originalDateOffsetPriority);
+                    else date.style.removeProperty(dateOffsetProperty);
                     document.fonts?.removeEventListener('loadingdone', fontsLoaded);
                     surface.remove();
                 },
