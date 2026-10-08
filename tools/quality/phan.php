@@ -20,6 +20,7 @@ return [
         'index.php',
         'tools/backup.php',
         'tools/build-shared-hosting.php',
+        'tools/deployment/ProductionAssetBuilder.php',
         'tools/deployment/SharedHostingDistributionBuilder.php',
         'tools/dev-bootstrap.php',
         'tools/dev-router.php',

@@ -57,7 +57,11 @@ final readonly class PrebuiltAssetManifest
     public function urlFor(string $filename): ?string
     {
         $resolved = realpath($filename);
-        if ($resolved === false || !str_starts_with($resolved, $this->publicRoot)) {
+        if ($resolved === false) {
+            return null;
+        }
+
+        if (!str_starts_with($resolved, $this->publicRoot)) {
             return null;
         }
 

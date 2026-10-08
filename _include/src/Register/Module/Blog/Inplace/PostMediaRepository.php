@@ -13,6 +13,7 @@ use Register\Content\ContentMediaSchema;
 use Register\Content\ContentMediaIdentitySchema;
 use Register\Content\ContentSchema;
 use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayerPostgres;
 
 /** Keeps the media registry in sync with media ids embedded by the post editor. */
 final readonly class PostMediaRepository
@@ -269,6 +270,7 @@ final readonly class PostMediaRepository
         $fileTable = $this->dbLayer->getPrefix() . ContentMediaSchema::FILE_TABLE;
         $usageTable = $this->dbLayer->getPrefix() . ContentMediaSchema::USAGE_TABLE;
         $contentTable = $this->dbLayer->getPrefix() . ContentSchema::TABLE_NAME;
+        $positionFunction = $this->dbLayer instanceof DbLayerPostgres ? 'STRPOS' : 'INSTR';
         $result = $this->dbLayer
             ->select('*')
             ->from(ContentMediaSchema::FILE_TABLE)
@@ -277,7 +279,8 @@ final readonly class PostMediaRepository
             // Exclude shared files before LIMIT so they cannot starve old uploads.
             ->andWhere('NOT EXISTS (SELECT 1 FROM ' . $usageTable . ' WHERE media_id = ' . $fileTable . '.id)')
             ->andWhere('NOT EXISTS (SELECT 1 FROM ' . $contentTable
-                . ' WHERE INSTR(body, ' . $fileTable . '.storage_path) > 0 OR INSTR(social_image, ' . $fileTable . '.storage_path) > 0)')
+                . ' WHERE ' . $positionFunction . '(body, ' . $fileTable . '.storage_path) > 0 OR '
+                . $positionFunction . '(social_image, ' . $fileTable . '.storage_path) > 0)')
             ->andWhere('created_at < :created_before')->setParameter('created_before', $createdBefore)
             ->orderBy('created_at ASC, id ASC')
             ->limit(min($limit, 1000))

@@ -94,8 +94,22 @@ function serveDevelopmentAsset(string $filename, string $requestPath): void
 
     arsort($choices, SORT_NUMERIC);
     $encoding = array_key_first($choices);
-    $suffix = ['br' => '.br', 'zstd' => '.zst', 'gzip' => '.gz'][$encoding ?? ''] ?? '';
-    $content = file_get_contents($filename . $suffix);
+    $suffix = match ($encoding) {
+        'br' => '.br',
+        'zstd' => '.zst',
+        'gzip' => '.gz',
+        default => '',
+    };
+    $representationPath = realpath($filename . $suffix);
+    // A sidecar must not resolve to a different, potentially private file.
+    if ($representationPath === false || is_link($representationPath)
+        || $representationPath !== $filename . $suffix
+    ) {
+        http_response_code(404);
+        return;
+    }
+
+    $content = file_get_contents($representationPath);
     if (!\is_string($content)) {
         http_response_code(500);
         return;

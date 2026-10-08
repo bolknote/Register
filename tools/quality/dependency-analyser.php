@@ -9,12 +9,14 @@ $config = new Configuration();
 $projectRoot = dirname(__DIR__, 2);
 foreach ([
     'SharedHostingDistributionBuilder.php',
+    'ProductionAssetBuilder.php',
     'ProductionDependencyInstaller.php',
     'ReleaseManifestBuilder.php',
     'ReleaseArchiveBuilder.php',
 ] as $deploymentFile) {
     require_once $projectRoot . '/tools/deployment/' . $deploymentFile;
 }
+require_once $projectRoot . '/tools/search/RelevanceBenchmark.php';
 
 $optionalExtensionShadowDependencies = [
     'ext-bz2',

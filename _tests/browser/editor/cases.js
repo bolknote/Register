@@ -74,6 +74,11 @@ test('new post fields stay separated and fixed after the first character', async
     s.card.classList.add('is-creating');
     s.card.style.setProperty('--post-editor-field-padding', '8px');
     s.card.style.setProperty('--post-editor-field-surface', '#24221f');
+    const date = document.createElement('p');
+    date.className = 'post time';
+    date.innerHTML = '<time datetime="2026-01-01T12:00:00Z">1 January 2026</time>';
+    s.title.after(date);
+    s.time = date.querySelector('time');
     const foot = document.createElement('div');
     foot.className = 'post foot';
     foot.innerHTML = `<div class="post-foot-meta"><span class="post-foot-tags">
