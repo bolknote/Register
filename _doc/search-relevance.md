@@ -44,6 +44,32 @@ Queries retain the existing limit of 64 distinct lookup terms. A required phrase
 checked within that limit returns no results rather than silently matching only its prefix.
 Phrase search uses the existing positions and needs no index rebuild.
 
+## Spelling and keyboard-layout suggestions
+
+The search page offers an explicit correction link when the original result set does not contain
+a match for every significant query term. The input, result count and original results remain
+unchanged until the reader selects that link. RSS and JSON feeds keep their original query semantics.
+
+Suggestions cover Russian / QWERTY keyboard-layout mistakes and a single insertion, deletion,
+substitution or adjacent transposition in one alphabetic word. Edits operate on Unicode characters.
+Spaces, paired quotes and capitalization are preserved; repeated occurrences of the same misspelled
+word are corrected together. Queries whose words are known but fail a phrase constraint are not
+relaxed into approximate phrases. Existing full matches, including unusual surnames, receive no
+correction prompt.
+
+The vocabulary lookup uses active index postings, not orphan word-table rows or an external
+dictionary of proposed search results. Russian dictionary lemmas can verify a correctly spelled
+base form even when only its inflections occur in the corpus. English candidates use source forms
+from the index rather than displaying bare Porter stems. Every proposed complete query is checked
+through the ordinary Finder, with the same phrase and instance constraints, before it is shown.
+
+Work is bounded to 256 input characters, six distinct search words, one misspelled word of 4–24
+letters, 4,096 lookup keys, five candidate validations and three displayed corrections. Only a
+uniformly Latin or Russian query receives a whole-query keyboard-layout alternative. The optional
+`IndexWordLookupInterface` performs indexed, batched existence checks without loading positions;
+the original storage-read interface remains compatible. SQL and file-backed storage implement it.
+No new index tables or rebuild are required.
+
 ## Reproducible comparisons
 
 Run the offline comparison with:

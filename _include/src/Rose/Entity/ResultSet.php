@@ -416,6 +416,21 @@ class ResultSet
         return count($this->data);
     }
 
+    /** Highest query coverage over all results, including those outside the current page. */
+    public function getMaxMatchedQueryTerms(): int
+    {
+        if (!$this->isFrozen) {
+            throw new ImmutableException('One cannot read a result before freezing it.');
+        }
+
+        $max = 0;
+        foreach (array_keys($this->data) as $id) {
+            $max = max($max, $this->queryTermMatchCount($id));
+        }
+
+        return $max;
+    }
+
     /**
      * @return array<string, float|int>
      *

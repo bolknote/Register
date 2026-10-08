@@ -12,6 +12,7 @@ declare(strict_types = 1);
  * @var $output string
  * @var $paging string
  * @var $tags ?string
+ * @var $suggestions list<array{query: string, url: string}>
  */
 
 ?>
@@ -28,6 +29,19 @@ declare(strict_types = 1);
 <?php
 
 echo $tags ?? '';
+
+if (!empty($suggestions)) {
+    echo '<p class="register_search_suggestions">', register_htmlencode($trans('Search suggestions')), ' ';
+    foreach ($suggestions as $position => $suggestion) {
+        if ($position > 0) {
+            echo ', ';
+        }
+
+        echo '<a href="', register_htmlencode($suggestion['url']), '">', register_htmlencode($suggestion['query']), '</a>';
+    }
+
+    echo '</p>';
+}
 
 if (isset($num)) {
     if ($num > 0) {

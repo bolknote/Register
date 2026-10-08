@@ -34,6 +34,7 @@ use Register\Rose\Stemmer\StemmerInterface;
 use Register\Rose\Storage\Exception\EmptyIndexException;
 use Register\Module\Search\Event\TagsSearchEvent;
 use Register\Module\Search\Service\SimilarWordsDetector;
+use Register\Module\Search\Service\QuerySuggester;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
@@ -63,6 +64,7 @@ readonly class SearchPageController implements ControllerInterface
         private bool                     $debugView,
         private StringProxy              $tagsUrl,
         private IntProxy                 $maxItems,
+        private ?QuerySuggester           $querySuggester = null,
     ) {
     }
 
@@ -111,6 +113,16 @@ readonly class SearchPageController implements ControllerInterface
             }
 
             $content += ['tags' => $this->findInTags($queryObj)];
+
+            if ($resultSet instanceof \Register\Rose\Entity\ResultSet && $this->querySuggester !== null) {
+                $content['suggestions'] = [];
+                foreach ($this->querySuggester->suggest($queryObj, $resultSet) as $suggestion) {
+                    $content['suggestions'][] = [
+                        'query' => $suggestion,
+                        'url' => $this->urlBuilder->link('/search', ['q=' . rawurlencode($suggestion)]),
+                    ];
+                }
+            }
 
             if ($content['num'] > 0 && $resultSet instanceof \Register\Rose\Entity\ResultSet) {
                 $content['num_info'] = $this->translator->trans('Found N pages', ['%count%' => $content['num'], '{{ pages }}' => $content['num']]);

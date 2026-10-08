@@ -43,7 +43,7 @@ class FulltextQuery
     }
 
     /**
-     * @return string[]
+     * @return list<string>
      */
     public function getWordsWithStems(): array
     {
@@ -89,6 +89,18 @@ class FulltextQuery
         }
 
         return $result;
+    }
+
+    public function getQueryTermCount(): int
+    {
+        $positions = [];
+        foreach ($this->getRankingWordPositions() as $wordPositions) {
+            foreach ($wordPositions as $position) {
+                $positions[$position] = true;
+            }
+        }
+
+        return \count($positions);
     }
 
     public function toWordPositionContainer(): WordPositionContainer

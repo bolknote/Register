@@ -9,6 +9,7 @@ return [
     'Found N pages'    => 'Found {{ pages }} page|Found {{ pages }} pages',
     'Found tags'       => 'Similar tags: %s',
     'No results found' => 'No results found for your query.',
+    'Search suggestions' => 'Perhaps you meant:',
     'Search feed title' => 'Search: %s',
     'Search feed description' => 'Search results for “%s”.',
     'Search page description' => 'Search results for “%s”.',

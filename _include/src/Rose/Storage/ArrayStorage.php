@@ -21,7 +21,7 @@ use Register\Rose\Finder;
 use Register\Rose\Storage\Dto\SnippetQuery;
 use Register\Rose\Storage\Dto\SnippetResult;
 
-abstract class ArrayStorage implements StorageReadInterface, StorageWriteInterface
+abstract class ArrayStorage implements StorageReadInterface, StorageWriteInterface, IndexWordLookupInterface
 {
     /** @var array<int|string, int> */
     protected array $excludedWords = [];
@@ -65,6 +65,32 @@ abstract class ArrayStorage implements StorageReadInterface, StorageWriteInterfa
                         isset($this->toc[$serializedExtId]) ? $this->toc[$serializedExtId]->getRelevanceRatio() : 1.0
                     ));
                 }
+            }
+        }
+
+        return $result;
+    }
+
+    #[\Override]
+    public function findExistingIndexWords(array $words, ?int $instanceId = null, int $limit = 128): array
+    {
+        if ($limit <= 0) {
+            return [];
+        }
+
+        $result = [];
+        foreach (array_unique($words) as $word) {
+            foreach ($this->fulltextProxy->getByWord($word) as $id => $positions) {
+                $externalId = $this->externalIdFromInternalId($id);
+                if ($positions !== [] && $externalId !== null && isset($this->toc[$externalId->toString()])
+                    && ($instanceId === null || $externalId->getInstanceId() === $instanceId)) {
+                    $result[] = $word;
+                    break;
+                }
+            }
+
+            if (\count($result) >= min(256, $limit)) {
+                break;
             }
         }
 

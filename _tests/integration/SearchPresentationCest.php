@@ -19,6 +19,44 @@ use Symfony\Component\HttpFoundation\Response;
 /** @group search */
 final class SearchPresentationCest
 {
+    public function testSpellingSuggestionsKeepTheOriginalSearchAndRequireAnExplicitClick(\IntegrationTester $I): void
+    {
+        $ids = [];
+        try {
+            $ids[] = $this->insertAndIndexContent($I, ContentType::POST, 'Поиск', 'search-layout-hint', '<p>Поиск по материалам.</p>');
+            $ids[] = $this->insertAndIndexContent($I, ContentType::POST, 'Истории театров', 'search-spelling-hint');
+
+            foreach (['English' => 'Perhaps you meant:', 'Russian' => 'Возможно, вы искали:'] as $language => $label) {
+                $I->setConfigValue('REGISTER_LANGUAGE', $language);
+                $I->amOnPage('https://localhost/search?q=gjbcr&p=2');
+                $I->seeResponseCodeIs(Response::HTTP_OK);
+                $I->assertSame('gjbcr', $I->grabAttributeFrom('#register_search_input_ext', 'value'));
+                $I->see($label, '.register_search_suggestions');
+                $I->assertSame(['поиск'], $I->grabMultiple('.register_search_suggestions a'));
+                $I->dontSeeElement('.search-result-title');
+                $link = $I->grabAttributeFrom('.register_search_suggestions a', 'href');
+                $I->assertSame('/search?q=' . rawurlencode('поиск'), $link);
+                $I->amOnPage('https://localhost' . $link);
+                $I->assertSame('поиск', $I->grabAttributeFrom('#register_search_input_ext', 'value'));
+                $I->seeElement('.search-result-title a[href="/all/search-layout-hint"]');
+                $I->dontSeeElement('.register_search_suggestions');
+            }
+
+            $I->amOnPage('https://localhost/search?q=' . rawurlencode('истроия театра'));
+            $I->assertSame('истроия театра', $I->grabAttributeFrom('#register_search_input_ext', 'value'));
+            $I->seeElement('.search-result-title a[href="/all/search-spelling-hint"]');
+            $I->assertContains('история театра', $I->grabMultiple('.register_search_suggestions a'));
+
+            $I->amOnPage('https://localhost/search/feed.json?q=gjbcr');
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+            $payload = $I->grabJson();
+            $I->assertIsArray($payload);
+            $I->assertSame([], $payload['items']);
+        } finally {
+            $this->removeIndexEntries($I, $ids);
+        }
+    }
+
     public function testQuotedPhrasesFilterSearchPagesAndFeeds(\IntegrationTester $I): void
     {
         $ids = [];

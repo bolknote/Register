@@ -168,6 +168,51 @@ abstract class AbstractRepository
         return $statement;
     }
 
+    /**
+     * @param list<string> $words
+     * @return list<string>
+     */
+    public function findExistingIndexWords(array $words, ?int $instanceId, int $limit): array
+    {
+        if ($words === [] || $limit <= 0) {
+            return [];
+        }
+
+        $sql = 'SELECT w.name FROM ' . $this->getTableName(self::WORD) . ' AS w'
+            . ' WHERE w.name IN (' . implode(',', array_fill(0, \count($words), '?')) . ')'
+            . ' AND EXISTS (SELECT 1 FROM ' . $this->getTableName(self::FULLTEXT_INDEX) . ' AS f'
+            . ' JOIN ' . $this->getTableName(self::TOC) . ' AS t ON t.id = f.toc_id'
+            . ' WHERE f.word_id = w.id';
+        $parameters = $words;
+        if ($instanceId !== null) {
+            $sql .= ' AND t.instance_id = ?';
+            $parameters[] = $instanceId;
+        }
+
+        $sql .= ') ORDER BY w.name LIMIT ' . min(256, $limit);
+        try {
+            $statement = $this->prepareStatement($sql);
+            $statement->execute($parameters);
+        } catch (\PDOException $exception) {
+            if ($this->isUnknownTableException($exception) || $this->isUnknownColumnException($exception)) {
+                throw new EmptyIndexException('The vocabulary lookup requires a current search index.', 0, $exception);
+            }
+
+            throw new UnknownException('Unable to look up active index words.', 0, $exception);
+        }
+
+        $result = [];
+        foreach ($statement->fetchAll(\PDO::FETCH_COLUMN) as $word) {
+            if (!\is_string($word)) {
+                throw new UnknownException('Index words must be stored as strings.');
+            }
+
+            $result[] = $word;
+        }
+
+        return $result;
+    }
+
     /** @return list<array<string, mixed>> */
     protected function fetchAssociativeRows(\PDOStatement $statement): array
     {

@@ -65,6 +65,7 @@ use Register\Module\Search\Service\SearchDocumentFactory;
 use Register\Module\Search\Service\SearchIndexMaintenance;
 use Register\Module\Search\Service\SearchIndexRepairer;
 use Register\Module\Search\Service\SimilarWordsDetector;
+use Register\Module\Search\Service\QuerySuggester;
 use Register\Module\Search\Service\SearchRssStrategy;
 use Register\Module\Analytics\BotDetector;
 use Register\Module\VisitorIdentity\VisitorIdentityManager;
@@ -183,6 +184,13 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $container->get(HistoricalRussianNormalizer::class),
         ));
 
+        $container->set(QuerySuggester::class, static fn(Container $container): QuerySuggester => new QuerySuggester(
+            $container->get(PdoStorage::class),
+            $container->get(Finder::class),
+            $container->get(StemmerInterface::class),
+            $container->get(HistoricalRussianNormalizer::class),
+        ));
+
         $container->set(SearchPageController::class, static function (Container $container): SearchPageController {
             $provider = $container->get(DynamicConfigProvider::class);
             return new SearchPageController(
@@ -201,6 +209,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->getBoolParameter('debug_view'),
                 $provider->getStringProxy('REGISTER_TAGS_URL'),
                 $provider->getIntProxy('REGISTER_MAX_ITEMS'),
+                $container->get(QuerySuggester::class),
             );
         });
         $container->set(SearchRssStrategy::class, static fn(Container $container): SearchRssStrategy => new SearchRssStrategy(

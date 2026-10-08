@@ -27,12 +27,13 @@ use Register\Rose\Storage\Exception\EmptyIndexException;
 use Register\Rose\Storage\Exception\InvalidEnvironmentException;
 use Register\Rose\Storage\FulltextIndexContent;
 use Register\Rose\Storage\FulltextIndexPositionBag;
+use Register\Rose\Storage\IndexWordLookupInterface;
 use Register\Rose\Storage\StorageEraseInterface;
 use Register\Rose\Storage\StorageReadInterface;
 use Register\Rose\Storage\StorageWriteInterface;
 use Register\Rose\Storage\TransactionalStorageInterface;
 
-class PdoStorage implements StorageWriteInterface, StorageReadInterface, StorageEraseInterface, TransactionalStorageInterface
+class PdoStorage implements StorageWriteInterface, StorageReadInterface, StorageEraseInterface, TransactionalStorageInterface, IndexWordLookupInterface
 {
     /**
      * @var array<int|string, int>
@@ -98,6 +99,25 @@ class PdoStorage implements StorageWriteInterface, StorageReadInterface, Storage
                 (int)$row['word_count'],
                 (float)$row['relevance_ratio']
             ));
+        }
+
+        return $result;
+    }
+
+    #[\Override]
+    public function findExistingIndexWords(array $words, ?int $instanceId = null, int $limit = 128): array
+    {
+        if ($words === [] || $limit <= 0) {
+            return [];
+        }
+
+        $limit = min(256, $limit);
+        $result = [];
+        foreach (array_chunk(array_values(array_unique($words)), 128) as $chunk) {
+            array_push($result, ...$this->getRepository()->findExistingIndexWords($chunk, $instanceId, $limit - \count($result)));
+            if (\count($result) >= $limit) {
+                break;
+            }
         }
 
         return $result;
