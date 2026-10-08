@@ -10,6 +10,8 @@ declare(strict_types = 1);
 namespace unit\Register\Module\Search;
 
 use Codeception\Test\Unit;
+use Register\Core\Framework\Container;
+use Register\Module\Search\Module;
 use Register\Module\Search\Morphology\ChurchSlavonicNormalizer;
 use Register\Module\Search\Morphology\HistoricalRussianNormalizer;
 use Register\Module\Search\Morphology\HybridWordNormalizer;
@@ -20,7 +22,6 @@ use Register\Rose\Entity\ExternalIdCollection;
 use Register\Rose\Entity\FulltextResult;
 use Register\Rose\Entity\Indexable;
 use Register\Rose\Entity\Query;
-use Register\Rose\Entity\RankingProfile;
 use Register\Rose\Entity\ResultItem;
 use Register\Rose\Entity\ResultSet;
 use Register\Rose\Exception\ImmutableException;
@@ -28,6 +29,7 @@ use Register\Rose\Finder;
 use Register\Rose\Indexer;
 use Register\Rose\Stemmer\PorterStemmerEnglish;
 use Register\Rose\Stemmer\PorterStemmerRussian;
+use Register\Rose\Stemmer\StemmerInterface;
 use Register\Rose\Storage\Database\PdoStorage;
 use Register\Rose\Storage\Dto\SnippetQuery;
 use Register\Rose\Storage\Dto\SnippetResult;
@@ -39,7 +41,7 @@ require_once dirname(__DIR__, 5) . '/tools/search/RelevanceBenchmark.php';
 final class RarityRankingTest extends Unit
 {
     /** @dataProvider storageProvider */
-    public function testOptInProfileOvercomesIncidentalCompleteMatches(string $storageType): void
+    public function testDefaultFinderOvercomesIncidentalCompleteMatches(string $storageType): void
     {
         $documents = [
             new Indexable('focused', 'Quartz guide', 'Specialized reference.'),
@@ -49,10 +51,8 @@ final class RarityRankingTest extends Unit
             $documents[] = new Indexable('noise-' . $i, 'Archive', 'Common reference.');
         }
 
-        $native = $this->finder($storageType, $documents, RankingProfile::Coverage)->find(new Query('quartz archive'));
         $rarity = $this->finder($storageType, $documents)->find(new Query('quartz archive'), true);
 
-        self::assertSame('complete', $native->getItems()[0]->getId());
         self::assertSame('focused', $rarity->getItems()[0]->getId());
         self::assertSame(102, $rarity->getTotalCount());
         self::assertSame(2, $rarity->getMaxMatchedQueryTerms());
@@ -62,6 +62,27 @@ final class RarityRankingTest extends Unit
         self::assertGreaterThan(0.5, $trace['weightedQueryCoverage']);
         self::assertLessThan(1.0, $trace['weightedQueryCoverage']);
         self::assertGreaterThan(0.0, $trace['relevance']);
+    }
+
+    public function testApplicationContainerUsesRarityWithoutAnyOptIn(): void
+    {
+        $container = new Container(['db_prefix' => 'default_rarity_']);
+        $container->set(\PDO::class, new \PDO('sqlite::memory:'));
+        (new Module())->buildContainer($container);
+        $storage = $container->get(PdoStorage::class);
+        $storage->erase();
+
+        $indexer = new Indexer($storage, $container->get(StemmerInterface::class));
+        $indexer->index(new Indexable('focused', 'Quartz guide', 'Specialized reference.'));
+        $indexer->index(new Indexable('complete', 'General notes', 'Quartz ' . str_repeat('unrelated ', 80) . 'archive.'));
+        for ($i = 0; $i < 100; ++$i) {
+            $indexer->index(new Indexable('noise-' . $i, 'Archive', 'Common reference.'));
+        }
+
+        $result = $container->get(Finder::class)->find((new Query('quartz archive'))->setLimit(1), true);
+        self::assertSame('focused', $result->getItems()[0]->getId());
+        self::assertSame(102, $result->getTotalCount());
+        self::assertSame('rarity', $result->getTrace()[':focused']['rankingProfile']);
     }
 
     /** @dataProvider storageProvider */
@@ -234,7 +255,7 @@ final class RarityRankingTest extends Unit
 
         $storage->resetReadCounts();
 
-        $finder = new Finder($storage, $normalizer, RankingProfile::Rarity);
+        $finder = new Finder($storage, $normalizer);
         $page = $finder->find((new Query('quartz archive'))->setLimit(1)->setOffset(1000));
         self::assertSame(1001, $page->getTotalCount());
         self::assertSame(['entry-1000'], $this->ids($page->getItems()));
@@ -274,7 +295,7 @@ final class RarityRankingTest extends Unit
     }
 
     /** @param list<Indexable> $documents */
-    private function finder(string $storageType, array $documents, RankingProfile $profile = RankingProfile::Rarity): Finder
+    private function finder(string $storageType, array $documents): Finder
     {
         $normalizer = new HybridWordNormalizer(
             new HistoricalRussianNormalizer(
@@ -296,7 +317,7 @@ final class RarityRankingTest extends Unit
             $indexer->index($document);
         }
 
-        return new Finder($storage, $normalizer, $profile);
+        return new Finder($storage, $normalizer);
     }
 
     /**

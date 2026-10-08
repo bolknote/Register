@@ -79,7 +79,9 @@ final class PhraseSearchTest extends Unit
             new Indexable('gap', 'Ребёнок весело играл', 'Описание игры.'),
         ]);
 
-        self::assertSame(['literal', 'inflected'], $this->ids($finder->find(new Query('"дети играют"'))->getItems()));
+        // Both adjacent normalized phrases qualify; the focused title wins over
+        // an exact body occurrence under the standard rarity ranking.
+        self::assertSame(['inflected', 'literal'], $this->ids($finder->find(new Query('"дети играют"'))->getItems()));
     }
 
     public function testEnglishApostrophesInsideCurlyQuotesDoNotEndThePhrase(): void

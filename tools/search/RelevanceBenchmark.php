@@ -12,10 +12,8 @@ namespace Register\Tools\Search;
 use Register\Rose\Entity\ExactWord;
 use Register\Rose\Entity\ExternalId;
 use Register\Rose\Entity\FulltextQuery;
-use Register\Rose\Entity\FulltextResult;
 use Register\Rose\Entity\Indexable;
 use Register\Rose\Entity\Query;
-use Register\Rose\Entity\RankingProfile;
 use Register\Rose\Entity\ResultSet;
 use Register\Rose\Extractor\ExtractorInterface;
 use Register\Rose\Finder;
@@ -25,6 +23,7 @@ use Register\Rose\Storage\Database\PdoStorage;
 use Register\Rose\Storage\FulltextIndexContent;
 
 require_once __DIR__ . '/RankingExperiment.php';
+require_once __DIR__ . '/CoverageReference.php';
 
 /**
  * Offline comparisons over one corpus and one set of relevance judgments.
@@ -138,9 +137,8 @@ final readonly class RelevanceBenchmark
         }
 
         $finder = new BenchmarkFinder($storage, $this->normalizer);
-        $rarityFinder = $this->experiments ? new BenchmarkFinder($storage, $this->normalizer, RankingProfile::Rarity) : null;
         $zero = ['hit1' => 0.0, 'hit3' => 0.0, 'mrr' => 0.0, 'ndcg10' => 0.0];
-        $totals = ['legacy' => $zero, 'coverage' => $zero, 'bm25f' => $zero];
+        $totals = ['legacy' => $zero, 'coverage' => $zero, 'bm25f' => $zero, 'rarity' => $zero];
         if ($this->experiments) {
             foreach (RankingExperiment::MODELS as $model) {
                 $totals[$model] = $zero;
@@ -153,7 +151,10 @@ final readonly class RelevanceBenchmark
             $fulltextQuery = new FulltextQuery($query->getSearchWords(), $this->normalizer);
             $index = $storage->fulltextResultByWords($fulltextQuery->getWordsWithStems());
             $result = $finder->find($query);
-            $scores = $result->getSortedRelevanceByExternalId();
+            $scores = array_intersect_key(
+                (new CoverageReference())->scores($fulltextQuery, $index, $storage->getTocSize(null)),
+                $result->getSortedRelevanceByExternalId(),
+            );
             [$legacyScores, $legacyExact] = $this->legacyScores($query, $storage);
             $exact = [];
             $coverage = [];
@@ -179,17 +180,14 @@ final readonly class RelevanceBenchmark
 
             $rankings = [
                 'legacy' => array_map(static fn(string $id): string => ExternalId::fromString($id)->getId(), $legacy),
-                'coverage' => array_map(static fn(\Register\Rose\Entity\ResultItem $item): string => $item->getId(), $result->getItems()),
+                'coverage' => array_map(static fn(string $id): string => ExternalId::fromString($id)->getId(), $this->rank($scores, $coverage, $exact, $dates)),
                 'bm25f' => array_map(static fn(string $id): string => ExternalId::fromString($id)->getId(), $bm25),
+                'rarity' => array_map(static fn(\Register\Rose\Entity\ResultItem $item): string => $item->getId(), $result->getItems()),
             ];
             if ($this->experiments) {
                 foreach ((new RankingExperiment())->run($fulltextQuery, $index, $scores, $storage->getTocSize(null), $dates) as $model => $ranking) {
                     $rankings[$model] = array_map(static fn(string $id): string => ExternalId::fromString($id)->getId(), $ranking);
                 }
-            }
-
-            if ($rarityFinder !== null) {
-                $rankings['rarity'] = array_map(static fn(\Register\Rose\Entity\ResultItem $item): string => $item->getId(), $rarityFinder->find($query)->getItems());
             }
 
             $metrics = [];
@@ -230,9 +228,7 @@ final readonly class RelevanceBenchmark
     {
         $fulltextQuery = new FulltextQuery($query->valueToArray(), $this->normalizer);
         $index = $storage->fulltextResultByWords($fulltextQuery->getWordsWithStems());
-        $result = new ResultSet();
-        (new FulltextResult($fulltextQuery, $index, $storage->getTocSize(null)))->fillResultSet($result);
-        $result->freeze();
+        $scores = (new CoverageReference())->scores($fulltextQuery, $index, $storage->getTocSize(null));
 
         $exact = [];
         foreach ($index->toArray() as $word => $bags) {
@@ -246,7 +242,7 @@ final readonly class RelevanceBenchmark
             }
         }
 
-        return [$result->getSortedRelevanceByExternalId(), $exact];
+        return [$scores, $exact];
     }
 
     /**

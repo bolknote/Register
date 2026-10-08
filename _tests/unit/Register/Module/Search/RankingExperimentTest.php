@@ -126,7 +126,7 @@ final class RankingExperimentTest extends Unit
             'documents' => [['id' => 'example', 'title' => 'Archive', 'content' => 'Common reference.', 'keywords' => '']],
             'queries' => [['query' => 'archive', 'relevance' => ['example' => 3]]],
         ]);
-        self::assertSame(['legacy', 'coverage', 'bm25f'], array_keys($report['models']));
+        self::assertSame(['legacy', 'coverage', 'bm25f', 'rarity'], array_keys($report['models']));
     }
 
     public function testAnUnsatisfiedPhraseDoesNotInventExperimentalCandidates(): void

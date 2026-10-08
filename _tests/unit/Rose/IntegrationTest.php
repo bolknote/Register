@@ -43,7 +43,10 @@ final class IntegrationTest extends Unit
     #[\Override]
     protected function _before(): void
     {
-        @unlink($this->getTempFilename());
+        $filename = $this->getTempFilename();
+        if (is_file($filename)) {
+            unlink($filename);
+        }
     }
 
     /**
@@ -89,10 +92,12 @@ final class IntegrationTest extends Unit
         // Query 2
         $resultSet2 = $finder->find(new Query('content'));
 
+        // IDF(content) = log(6 / 3.5) / log(4), for N=5 and df=3.
+        // Native field coefficients, entry size and the external ratio still apply.
         self::assertEquals([
-            '20:id_2' => 2.5953804134970615,
-            '20:id_1' => 0.12932092968696407,
-            '10:id_1' => 0.08569157515491249,
+            '20:id_2' => 12.208438985017771,
+            '20:id_1' => 0.6083141690361152,
+            '10:id_1' => 0.4030855597770343,
         ], $resultSet2->getSortedRelevanceByExternalId());
 
         $items = $resultSet2->getItems();
@@ -102,18 +107,18 @@ final class IntegrationTest extends Unit
         self::assertEquals('url1', $items[2]->getUrl());
         self::assertEquals('Description can be used in snippets', $items[2]->getDescription());
         self::assertEquals(new \DateTime('2016-08-24 00:00:00'), $items[2]->getDate());
-        self::assertEqualsWithDelta(0.08569157515491249, $items[2]->getRelevance(), PHP_FLOAT_EPSILON);
+        self::assertEqualsWithDelta(0.4030855597770343, $items[2]->getRelevance(), 1.0e-12);
         self::assertEquals('I have changed the <i>content</i>.', $items[2]->getSnippet());
 
-        self::assertEqualsWithDelta(2.5953804134970615, $items[0]->getRelevance(), PHP_FLOAT_EPSILON);
+        self::assertEqualsWithDelta(12.208438985017771, $items[0]->getRelevance(), 1.0e-12);
         self::assertEquals(new \DateTime('2016-08-20 00:00:00+00:00'), $items[0]->getDate());
         self::assertEquals('This is the second page to be indexed. Let&#039;s compose something new.', $items[0]->getSnippet(), 'No snippets due to keyword match, no description provided, first sentences are used.');
 
         $resultSet2 = $finder->find((new Query('content'))->setLimit(2));
 
         self::assertEquals([
-            '20:id_2' => 2.5953804134970615,
-            '20:id_1' => 0.12932092968696407
+            '20:id_2' => 12.208438985017771,
+            '20:id_1' => 0.6083141690361152
         ], $resultSet2->getSortedRelevanceByExternalId());
 
         self::assertSame(3, $resultSet2->getTotalCount());
@@ -122,7 +127,7 @@ final class IntegrationTest extends Unit
 
         $resultItems = $resultSet2->getItems();
         self::assertCount(3, $resultItems);
-        self::assertEqualsWithDelta(2.5953804134970615, $resultItems[0]->getRelevance(), PHP_FLOAT_EPSILON, 'Setting relevance ratio or sorting by relevance is not working');
+        self::assertEqualsWithDelta(12.208438985017771, $resultItems[0]->getRelevance(), 1.0e-12, 'Setting relevance ratio or sorting by relevance is not working');
 
         $resultSet2 = $finder->find(new Query('title'));
         self::assertEquals('id_1', $resultSet2->getItems()[0]->getId());
@@ -147,7 +152,8 @@ final class IntegrationTest extends Unit
             'Тут есть тонкость - нужно проверить, как происходит экранировка в <i>сущностях</i> вроде + и &amp;<i>plus</i>;. Для этого нужно включить в текст само сочетание букв "<i>plus</i>".',
             $resultSet3->getItems()[0]->getSnippet()
         );
-        self::assertEqualsWithDelta(18.35150247903209, $resultSet3->getItems()[0]->getRelevance(), PHP_FLOAT_EPSILON);
+        // Rare terms have IDF=1; full coverage and one of two literal forms add 5%.
+        self::assertEqualsWithDelta(32.465606021151395, $resultSet3->getItems()[0]->getRelevance(), 1.0e-12);
 
         // Query 4
         $resultSet4 = $finder->find(new Query('эпл'));
@@ -172,25 +178,26 @@ final class IntegrationTest extends Unit
             'Русский текст. <b>Красным заголовком</b>. АБВГ',
             $resultItems4[0]->getHighlightedTitle($stemmer)
         );
-        self::assertEqualsWithDelta(56.1069041483915, $resultSet4->getItems()[0]->getRelevance(), PHP_FLOAT_EPSILON);
+        self::assertEqualsWithDelta(81.27351029017807, $resultSet4->getItems()[0]->getRelevance(), 1.0e-12);
 
         // Query 5
         $resultSet5 = $finder->find(new Query('русский'));
         self::assertCount(1, $resultSet5->getItems());
-        self::assertEqualsWithDelta(18.951204937870607, $resultSet5->getItems()[0]->getRelevance(), PHP_FLOAT_EPSILON);
+        self::assertEqualsWithDelta(25.0, $resultSet5->getItems()[0]->getRelevance(), 1.0e-12);
 
         $resultSet5 = $finder->find(new Query('русскому'));
         self::assertCount(1, $resultSet5->getItems());
-        self::assertEqualsWithDelta(18.951204937870607, $resultSet5->getItems()[0]->getRelevance(), PHP_FLOAT_EPSILON);
+        self::assertEqualsWithDelta(25.0, $resultSet5->getItems()[0]->getRelevance(), 1.0e-12);
 
         $resultSet5 = $finder->find(new Query('абвг'));
         self::assertCount(1, $resultSet5->getItems());
-        self::assertEqualsWithDelta(26.531686913018852, $resultSet5->getItems()[0]->getRelevance(), PHP_FLOAT_EPSILON);
+        self::assertEqualsWithDelta(35.0, $resultSet5->getItems()[0]->getRelevance(), 1.0e-12);
 
         // Query 6
         $resultSet6 = $finder->find(new Query('учитель не должен'));
         self::assertCount(1, $resultSet6->getItems());
-        self::assertEqualsWithDelta(55.0961739079439, $resultSet6->getItems()[0]->getRelevance(), PHP_FLOAT_EPSILON);
+        // Three adjacent pairs plus body TF; complete literal coverage adds 10%.
+        self::assertEqualsWithDelta(103.90301461718558, $resultSet6->getItems()[0]->getRelevance(), 1.0e-12);
 
         // Query 7: Test empty queries
         $resultSet7 = $finder->find(new Query(''));
@@ -391,13 +398,14 @@ final class IntegrationTest extends Unit
         $indexer    = new Indexer($pdoStorage, $stemmer);
         $indexable  = new Indexable('id_1', 'Test page title', 'This is the first page to be <i>indexed</i>. I have to make up a content.', 10);
 
-        $e = null;
+        $exception = null;
         try {
             $indexer->index($indexable);
-        } catch (EmptyIndexException $e) {
+        } catch (EmptyIndexException $caught) {
+            $exception = $caught;
         }
 
-        self::assertInstanceOf(\Register\Rose\Storage\Exception\EmptyIndexException::class, $e);
+        self::assertInstanceOf(\Register\Rose\Storage\Exception\EmptyIndexException::class, $exception);
 
         $indexer->setAutoErase(true);
         $indexer->index($indexable);

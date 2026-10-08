@@ -16,7 +16,6 @@ use Register\Rose\Entity\ExternalIdCollection;
 use Register\Rose\Entity\FulltextQuery;
 use Register\Rose\Entity\FulltextResult;
 use Register\Rose\Entity\Query;
-use Register\Rose\Entity\RankingProfile;
 use Register\Rose\Entity\ResultSet;
 use Register\Rose\Exception\ImmutableException;
 use Register\Rose\Exception\LogicException;
@@ -44,7 +43,6 @@ class Finder
     public function __construct(
         protected StorageReadInterface $storage,
         protected StemmerInterface $stemmer,
-        protected RankingProfile $rankingProfile = RankingProfile::Coverage,
     ) {
     }
 
@@ -156,7 +154,6 @@ class Finder
             $fulltextQuery,
             $fulltextIndexContent,
             $this->storage->getTocSize($instanceId),
-            $this->rankingProfile,
         );
 
         $fulltextResult->fillResultSet($resultSet);

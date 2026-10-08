@@ -1,11 +1,12 @@
 # Search relevance
 
-By default, Register ranks results by the number of matched significant query terms, then exact source forms,
-then the existing relevance score. Matches may span the title, keywords and body. Each input term
-counts once even when the Russian dictionary supplies several alternative lemmas, or when a word
-appears in several fields. This ordering is applied before pagination.
+Register ranks results using word rarity and soft significant-term coverage. Focused title matches
+can outrank incidental complete matches in long articles. Each original term contributes once to
+coverage, even when the Russian dictionary supplies several alternative lemmas or it appears in
+several fields. Single-word searches still give literal source forms priority over inflections.
+The same ranking is used by search pages, RSS and JSON feeds, before pagination.
 
-Equal coverage, exactness and relevance are ordered by publication instant (newest first), then
+Equal relevance (and single-word exactness) is ordered by publication instant (newest first), then
 serialized external ID in ascending order. Undated documents follow dated documents, including
 dates before 1970. Dates respect the stored timezone. One global order determines both page
 membership and output order, so concatenating pages matches an unpaginated result for an unchanged
@@ -21,11 +22,12 @@ checked before multiplying the offset. Page-count arithmetic also avoids integer
 
 Common English and Russian articles, prepositions and conjunctions do not determine coverage or
 exactness when the query contains other words. They remain indexed, searchable and highlighted;
-connector-only queries retain their original behavior. Negation is not discarded.
+connector-only queries remain searchable. Negation is not discarded.
 
 No index-format change or rebuild is required for this ranking change. Existing exact-form and
 lemma postings already supply the necessary information. The result trace includes
-`matchedQueryTerms` and `exactQueryTerms` alongside the numerical relevance score.
+`matchedQueryTerms`, `exactQueryTerms`, `rankingProfile` and `weightedQueryCoverage` alongside
+the numerical relevance score.
 
 ## Quoted phrases
 
@@ -113,18 +115,17 @@ not retain tentative IDs across indexing calls: a later outer rollback could rem
 IDs. Locally owned successful transactions retain the ordinary cache optimization. This prevents
 incorrect word associations when the same storage instance is reused after a failed transaction.
 
-## Opt-in rarity ranking
+## Rarity ranking
 
-The Finder supports a separate profile without changing the default or the index:
+Rarity ranking is the only native algorithm; existing Finder callers use it without configuration:
 
 ```php
-use Register\Rose\Entity\RankingProfile;
 use Register\Rose\Finder;
 
-$finder = new Finder($storage, $normalizer, RankingProfile::Rarity);
+$finder = new Finder($storage, $normalizer);
 ```
 
-This profile uses positive BM25-style IDF, `log(1 + (N-df+0.5)/(df+0.5))`,
+It uses positive BM25-style IDF, `log(1 + (N-df+0.5)/(df+0.5))`,
 normalized to weight 1 at `df=1`. Field coefficients, the native repeat bonus,
 entry-size weighting, external relevance ratios and proximity geometry stay the
 same; proximity frequency factors use the new IDF as well. Document frequency
@@ -143,13 +144,12 @@ alternative lemma keys. Fields and ambiguity do not multiply coverage. Exact-for
 keys remain markers, not duplicate numerical contributions. Single-term exactness
 remains a hard priority. Quoted phrases stay mandatory filters. Snippet selection,
 total counts, date/ID tie-breaking and pagination use their existing mechanisms.
-The trace adds `rankingProfile` and `weightedQueryCoverage` for this opt-in profile.
+The trace identifies the algorithm as `rarity` and includes `weightedQueryCoverage`.
 
-There is no public search-page switch or changed application wiring: existing
-two-argument Finder construction retains the coverage profile. Native storage
+There is no old-ranking switch or alternate native profile. Native storage
 supplies the same postings and dates, and only the selected page's TOC and snippets
 are fetched. No schema change, index rebuild, dependency or external service is
-required. Evaluate installation-specific queries before selecting this profile.
+required. The old coverage-first behavior exists only as an offline reference below.
 
 ## Reproducible comparisons
 
@@ -168,13 +168,15 @@ article identifiers or production query logs, and its scores are not an estimate
 The evaluator builds a separate SQLite index in memory and compares:
 
 - `legacy`: the previous query parsing, unfiltered postings and exact-count-first comparator;
-- `coverage`: the actual current Finder output;
+- `coverage`: a frozen offline reference for the former coverage/exactness-first ranking;
 - `bm25f`: an offline prototype that keeps coverage and exactness priorities, replacing the remaining
-  relevance score with BM25F (`k1=1.2`, `b=0.75`, title/keyword/body weights `5/3/1`).
+  relevance score with BM25F (`k1=1.2`, `b=0.75`, title/keyword/body weights `5/3/1`);
+- `rarity`: the actual current Finder output.
 
-Legacy scoring is computed independently of the current Finder so that its phrase filtering cannot
-silently restrict the baseline's candidate set. BM25F uses the current query syntax and the same
-phrase constraints as public search.
+Old field/proximity arithmetic is computed by `CoverageReference` in the tooling, not a selectable
+Finder strategy. Legacy uses its old query parsing and unfiltered postings, so current phrase
+constraints cannot silently restrict its candidate set. Coverage and BM25F use the current query
+syntax and the same phrase constraints as public search.
 
 The prototype measures each field's length from the indexed logical positions for the entire corpus.
 Alternative lemmas share a query-term group, and matching positions are deduplicated within each
@@ -193,7 +195,7 @@ individual regressions visible instead of hiding them in an average.
 
 ## Opt-in ranking experiments
 
-The default public search behavior is unchanged. To compare additional profiles on
+The flag below only adds offline ablations; it does not change public search. To compare them on
 the same in-memory index, run:
 
 ```bash
@@ -202,9 +204,6 @@ php tools/evaluate-search.php --experiments --dataset=/absolute/path/relevance.j
 ```
 
 The extra profiles isolate these hypotheses:
-
-- `rarity`: the actual opt-in Finder output, computed directly rather than by
-  adjusting frozen native scores;
 
 - `smooth_tf`: replace only the native repeat bonus with `2*tf/(1+tf)`, retaining
   the hard coverage/exact-form ordering;
@@ -227,7 +226,7 @@ frequency is the union across all alternative lemma/exact keys, so ambiguity doe
 not count as multiple query terms. Multiword exactness becomes a small score bonus;
 single-term exactness remains a hard priority. Required phrases stay hard filters.
 
-These are arithmetic adjustments to the same native candidates, not a second
+These are arithmetic adjustments to the same eligible candidates, not a second
 index or another library. Full rankings, including matches below the first page,
 are retained. Dates and external IDs keep deterministic tie-breaking. No snippets,
 schema migrations, index rebuilds, model downloads, external API calls or public

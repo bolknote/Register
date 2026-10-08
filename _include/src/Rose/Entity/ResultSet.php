@@ -53,8 +53,8 @@ class ResultSet
     /** @var array<string, array<int, true>> */
     protected array $queryTermMatches = [];
 
-    /** @var array<int, float>|null Null keeps the default hard coverage ordering. */
-    private ?array $rarityQueryTermWeights = null;
+    /** @var array<int, float> Significant original query terms. */
+    private array $rarityQueryTermWeights = [];
 
     /** @var array<string, list<int>> */
     private array $snippetWordGroups = [];
@@ -302,7 +302,7 @@ class ResultSet
         }
 
         $this->sortedRelevance = [];
-        $softCoverage = $this->rarityQueryTermWeights !== null && \count($this->rarityQueryTermWeights) > 1;
+        $softCoverage = \count($this->rarityQueryTermWeights) > 1;
         foreach ($this->data as $serializedExtId => $stat) {
             $relevance = array_sum($stat);
             if ($softCoverage) {
@@ -314,16 +314,8 @@ class ResultSet
         }
 
         uksort($this->sortedRelevance, function (string $left, string $right) use ($softCoverage): int {
-            if ($this->rarityQueryTermWeights === null) {
-                // The default profile retains complete-query priority.
-                $coverageOrder = $this->queryTermMatchCount($right) <=> $this->queryTermMatchCount($left);
-                if ($coverageOrder !== 0) {
-                    return $coverageOrder;
-                }
-            }
-
             if (!$softCoverage) {
-                // Single-term literal forms remain protected in both profiles.
+                // Single-term literal forms remain protected.
                 $exactOrder = $this->exactMatchCount($right) <=> $this->exactMatchCount($left);
                 if ($exactOrder !== 0) {
                     return $exactOrder;
@@ -487,10 +479,8 @@ class ResultSet
             $result[$serializedExtId]['externalRelevanceRatio'] = $this->items[$serializedExtId]->getRelevanceRatio();
             $result[$serializedExtId]['matchedQueryTerms'] = $this->queryTermMatchCount($serializedExtId);
             $result[$serializedExtId]['exactQueryTerms'] = $this->exactMatchCount($serializedExtId);
-            if ($this->rarityQueryTermWeights !== null) {
-                $result[$serializedExtId]['rankingProfile'] = RankingProfile::Rarity->value;
-                $result[$serializedExtId]['weightedQueryCoverage'] = $this->weightedQueryCoverage($serializedExtId);
-            }
+            $result[$serializedExtId]['rankingProfile'] = 'rarity';
+            $result[$serializedExtId]['weightedQueryCoverage'] = $this->weightedQueryCoverage($serializedExtId);
 
             $result[$serializedExtId]['trace'] = $traceArray[$serializedExtId];
         }
@@ -565,7 +555,7 @@ class ResultSet
 
     private function weightedQueryCoverage(string $serializedExtId): float
     {
-        $total = array_sum($this->rarityQueryTermWeights ?? []);
+        $total = array_sum($this->rarityQueryTermWeights);
         if ($total <= 0.0) {
             return 0.0;
         }
