@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace Register\Rose\Entity;
 
 use Register\Rose\Helper\StringHelper;
+use Register\Rose\Entity\Metadata\SentenceCollection;
 
 /**
  * @see \Register\Rose\Test\Entity\QueryTest
@@ -17,6 +18,9 @@ use Register\Rose\Helper\StringHelper;
 class Query
 {
     private const int MAX_WORDS = 64;
+
+    // Match paired delimiters, not apostrophes in English contractions.
+    private const string PHRASE_PATTERN = '#"([^"]*)"|«([^»]*)»|“([^”]*)”|„([^“”]*)[“”]|‘((?:[^’]|’(?=\p{L}))*)’(?!\p{L})#u';
 
     protected ?int $instanceId = null;
 
@@ -60,6 +64,46 @@ class Query
     public function getInstanceId(): ?int
     {
         return $this->instanceId;
+    }
+
+    /** @return list<non-empty-list<string>> */
+    public function getPhrases(): array
+    {
+        $content = strip_tags($this->normalizeValue($this->value));
+        if (preg_match_all(self::PHRASE_PATTERN, $content, $matches, PREG_SET_ORDER) === false) {
+            return [];
+        }
+
+        $phrases = [];
+        foreach ($matches as $match) {
+            $words = SentenceCollection::breakIntoWords(implode('', \array_slice($match, 1)));
+            if ($words !== []) {
+                $phrases[] = $words;
+            }
+        }
+
+        return $phrases;
+    }
+
+    /**
+     * Use the index's tokenizer inside paired quotes, retaining the legacy
+     * valueToArray() contract for consumers that do not interpret search syntax.
+     *
+     * @return list<string>
+     */
+    public function getSearchWords(): array
+    {
+        $content = strip_tags($this->normalizeValue($this->value));
+        $cleaned = preg_replace_callback(
+            self::PHRASE_PATTERN,
+            static fn(array $match): string => implode(' ', SentenceCollection::breakIntoWords(implode('', \array_slice($match, 1)))),
+            $content,
+        );
+        if ($cleaned === null) {
+            return [];
+        }
+
+        return $cleaned === $content ? $this->valueToArray() : (new self($cleaned))->valueToArray();
     }
 
     public function setInstanceId(?int $instanceId): static

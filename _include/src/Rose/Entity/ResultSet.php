@@ -158,6 +158,25 @@ class ResultSet
         $this->queryTermMatches[$externalId->toString()][$position] = true;
     }
 
+    /** Filters required constraints before freezing, counting and pagination. */
+    public function retainExternalIds(ExternalIdCollection $externalIds): void
+    {
+        if ($this->isFrozen) {
+            throw new ImmutableException('One cannot mutate a search result after obtaining its content.');
+        }
+
+        $allowed = [];
+        foreach ($externalIds->toArray() as $externalId) {
+            $allowed[$externalId->toString()] = true;
+        }
+
+        $this->data = array_intersect_key($this->data, $allowed);
+        $this->positions = array_intersect_key($this->positions, $allowed);
+        $this->exactMatches = array_intersect_key($this->exactMatches, $allowed);
+        $this->queryTermMatches = array_intersect_key($this->queryTermMatches, $allowed);
+        $this->items = array_intersect_key($this->items, $allowed);
+    }
+
     /** @throws ImmutableException */
     public function addNeighbourWeight(string $word1, string $word2, ExternalId $externalId, float $weight, int $distance): void
     {

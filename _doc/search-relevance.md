@@ -13,6 +13,37 @@ No index-format change or rebuild is required for this ranking change. Existing 
 lemma postings already supply the necessary information. The result trace includes
 `matchedQueryTerms` and `exactQueryTerms` alongside the numerical relevance score.
 
+## Quoted phrases
+
+Use paired quotes to require an adjacent sequence of words in the given order:
+
+```text
+"история театра"
+архив «красный цветок»
+"красный цветок" "белый дом"
+```
+
+ASCII double quotes, guillemets, curly double quotes, low double quotes and paired curly single
+quotes are accepted. Unpaired delimiters remain ordinary punctuation. Apostrophes in English
+contractions do not start phrase constraints. Empty quotes are ignored.
+
+The normal word normalization still applies: `"дети играют"` also matches `Ребёнок играл`.
+Punctuation and inline markup are not significant. Every phrase must match entirely in one
+field (title, keywords or body); separate phrases may match different fields of the same document.
+All quoted phrases are mandatory, while words outside quotes continue to improve ranking without
+becoming mandatory. Filtering happens before total counts, pagination, TOC loading and snippets,
+and applies equally to search pages, RSS and JSON feeds.
+
+Repeated words require distinct consecutive positions. Two components of one hyphenated word
+share an index position and cannot satisfy a two-word phrase; `"well-known"` matches that token,
+while `"well known"` requires two tokens. Connectors remain required when they have index postings.
+If a file-backed index deliberately excludes common words, those terms leave positional gaps
+without being checked, matching that storage's existing stop-word policy. SQL indexes retain them.
+
+Queries retain the existing limit of 64 distinct lookup terms. A required phrase that cannot be
+checked within that limit returns no results rather than silently matching only its prefix.
+Phrase search uses the existing positions and needs no index rebuild.
+
 ## Reproducible comparisons
 
 Run the offline comparison with:
@@ -22,17 +53,21 @@ php tools/evaluate-search.php
 php tools/evaluate-search.php --json
 ```
 
-The bundled dataset contains 38 synthetic documents and 40 Russian/English queries. It covers
+The bundled dataset contains 46 synthetic documents and 48 Russian/English queries. It covers
 inflections, ambiguous morphology, multiword coverage, matches across fields, connectors,
-historical spelling and keyword matches. It contains no production article identifiers or
-production query logs, and its scores are not an estimate of live search quality.
+historical spelling, keyword matches, quoted phrases and repeated words. It contains no production
+article identifiers or production query logs, and its scores are not an estimate of live search quality.
 
 The evaluator builds a separate SQLite index in memory and compares:
 
-- `legacy`: the previous exact-count-first comparator over the same postings and relevance scores;
+- `legacy`: the previous query parsing, unfiltered postings and exact-count-first comparator;
 - `coverage`: the actual current Finder output;
 - `bm25f`: an offline prototype that keeps coverage and exactness priorities, replacing the remaining
   relevance score with BM25F (`k1=1.2`, `b=0.75`, title/keyword/body weights `5/3/1`).
+
+Legacy scoring is computed independently of the current Finder so that its phrase filtering cannot
+silently restrict the baseline's candidate set. BM25F uses the current query syntax and the same
+phrase constraints as public search.
 
 The prototype measures each field's length from the indexed logical positions for the entire corpus.
 Alternative lemmas share a query-term group, and matching positions are deduplicated within each

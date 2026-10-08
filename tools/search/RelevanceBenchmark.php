@@ -12,8 +12,10 @@ namespace Register\Tools\Search;
 use Register\Rose\Entity\ExactWord;
 use Register\Rose\Entity\ExternalId;
 use Register\Rose\Entity\FulltextQuery;
+use Register\Rose\Entity\FulltextResult;
 use Register\Rose\Entity\Indexable;
 use Register\Rose\Entity\Query;
+use Register\Rose\Entity\ResultSet;
 use Register\Rose\Finder;
 use Register\Rose\Indexer;
 use Register\Rose\Stemmer\StemmerInterface;
@@ -117,11 +119,11 @@ final readonly class RelevanceBenchmark
         $results = [];
         foreach ($dataset['queries'] as $question) {
             $query = new Query($question['query']);
-            $fulltextQuery = new FulltextQuery($query->valueToArray(), $this->normalizer);
+            $fulltextQuery = new FulltextQuery($query->getSearchWords(), $this->normalizer);
             $index = $storage->fulltextResultByWords($fulltextQuery->getWordsWithStems());
             $result = $finder->find($query);
             $scores = $result->getSortedRelevanceByExternalId();
-            $legacyExact = [];
+            [$legacyScores, $legacyExact] = $this->legacyScores($query, $storage);
             $exact = [];
             $coverage = [];
             $positions = $fulltextQuery->getRankingWordPositions();
@@ -133,7 +135,6 @@ final readonly class RelevanceBenchmark
                     }
 
                     if (ExactWord::decode((string)$word) !== null) {
-                        $legacyExact[$id] = ($legacyExact[$id] ?? 0) + 1;
                         if (isset($positions[$word])) {
                             $exact[$id] = ($exact[$id] ?? 0) + 1;
                         }
@@ -141,9 +142,9 @@ final readonly class RelevanceBenchmark
                 }
             }
 
-            $legacy = $this->rank($scores, [], $legacyExact);
+            $legacy = $this->rank($legacyScores, [], $legacyExact);
             $bm25Scores = $this->bm25Scores($fulltextQuery, $index, $storage->fieldLengths);
-            $bm25 = $this->rank($bm25Scores + array_fill_keys(array_keys($scores), 0.0), $coverage, $exact);
+            $bm25 = $this->rank(array_intersect_key($bm25Scores + array_fill_keys(array_keys($scores), 0.0), $scores), $coverage, $exact);
 
             $rankings = [
                 'legacy' => array_map(static fn(string $id): string => ExternalId::fromString($id)->getId(), $legacy),
@@ -173,6 +174,35 @@ final readonly class RelevanceBenchmark
         unset($total);
 
         return ['documents' => \count($dataset['documents']), 'queries' => $count, 'models' => $totals, 'results' => $results];
+    }
+
+    /**
+     * Recreate the previous query parsing and scoring without inheriting the
+     * current Finder's phrase filters, which would hide retrieval differences.
+     *
+     * @return array{array<string, float|int>, array<string, int>}
+     */
+    private function legacyScores(Query $query, BenchmarkStorage $storage): array
+    {
+        $fulltextQuery = new FulltextQuery($query->valueToArray(), $this->normalizer);
+        $index = $storage->fulltextResultByWords($fulltextQuery->getWordsWithStems());
+        $result = new ResultSet();
+        (new FulltextResult($fulltextQuery, $index, $storage->getTocSize(null)))->fillResultSet($result);
+        $result->freeze();
+
+        $exact = [];
+        foreach ($index->toArray() as $word => $bags) {
+            if (ExactWord::decode((string)$word) === null) {
+                continue;
+            }
+
+            foreach ($bags as $bag) {
+                $id = $bag->getExternalId()->toString();
+                $exact[$id] = ($exact[$id] ?? 0) + 1;
+            }
+        }
+
+        return [$result->getSortedRelevanceByExternalId(), $exact];
     }
 
     /**

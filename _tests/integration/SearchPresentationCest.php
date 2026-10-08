@@ -19,6 +19,35 @@ use Symfony\Component\HttpFoundation\Response;
 /** @group search */
 final class SearchPresentationCest
 {
+    public function testQuotedPhrasesFilterSearchPagesAndFeeds(\IntegrationTester $I): void
+    {
+        $ids = [];
+        try {
+            $ids[] = $this->insertAndIndexContent(
+                $I, ContentType::POST, 'Required phrase', 'search-required-phrase',
+                '<p>searchphrasealpha searchphrasebeta</p>',
+            );
+            $ids[] = $this->insertAndIndexContent(
+                $I, ContentType::POST, 'searchphrasealpha separated searchphrasebeta', 'search-gap-phrase',
+            );
+
+            $query = rawurlencode('"searchphrasealpha searchphrasebeta"');
+            $I->amOnPage('https://localhost/search?q=' . $query);
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+            $I->assertSame(['Required phrase'], $I->grabMultiple('.search-result-title a'));
+            $I->assertSame('/all/search-required-phrase', $I->grabAttributeFrom('.search-result-title a', 'href'));
+
+            foreach (['rss', 'feed.json'] as $feed) {
+                $I->amOnPage('https://localhost/search/' . $feed . '?q=' . $query);
+                $I->seeResponseCodeIs(Response::HTTP_OK);
+                $I->assertStringContainsString('/all/search-required-phrase', $I->grabResponse());
+                $I->assertStringNotContainsString('/all/search-gap-phrase', $I->grabResponse());
+            }
+        } finally {
+            $this->removeIndexEntries($I, $ids);
+        }
+    }
+
     public function testResultCounterHasNoFinalPeriodInEitherLanguage(\IntegrationTester $I): void
     {
         $ids = [];

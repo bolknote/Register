@@ -77,11 +77,17 @@ class Finder
             $resultSet->setHighlightTemplate($this->highlightTemplate);
         }
 
-        $rawWords = $query->valueToArray();
+        $rawWords = $query->getSearchWords();
         $resultSet->addProfilePoint('Input cleanup');
 
         if (\count($rawWords) > 0) {
-            $this->findFulltext($rawWords, $query->getInstanceId(), $resultSet);
+            $phrases = $query->getPhrases();
+            if ($phrases === []) {
+                $this->findFulltext($rawWords, $query->getInstanceId(), $resultSet);
+            } else {
+                $this->fillFulltextResultSet($rawWords, $query->getInstanceId(), $resultSet, $phrases);
+            }
+
             $resultSet->addProfilePoint('Fulltext search');
         }
 
@@ -120,6 +126,15 @@ class Finder
      */
     protected function findFulltext(array $words, ?int $instanceId, ResultSet $resultSet): void
     {
+        $this->fillFulltextResultSet($words, $instanceId, $resultSet);
+    }
+
+    /**
+     * @param list<string> $words
+     * @param list<non-empty-list<string>> $phrases
+     */
+    private function fillFulltextResultSet(array $words, ?int $instanceId, ResultSet $resultSet, array $phrases = []): void
+    {
         $fulltextQuery        = new FulltextQuery($words, $this->stemmer);
         $fulltextIndexContent = $this->storage->fulltextResultByWords($fulltextQuery->getWordsWithStems(), $instanceId);
         $fulltextResult       = new FulltextResult(
@@ -129,6 +144,9 @@ class Finder
         );
 
         $fulltextResult->fillResultSet($resultSet);
+        if ($phrases !== []) {
+            $resultSet->retainExternalIds((new PhraseMatcher($this->storage))->findMatchingIds($phrases, $fulltextQuery, $fulltextIndexContent));
+        }
     }
 
     /** @param array<string, float|int> $relevanceByExternalIds */

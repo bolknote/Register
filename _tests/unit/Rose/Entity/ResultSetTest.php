@@ -13,6 +13,7 @@ namespace Register\Rose\Test\Entity;
 
 use Codeception\Test\Unit;
 use Register\Rose\Entity\ExternalId;
+use Register\Rose\Entity\ExternalIdCollection;
 use Register\Rose\Entity\Metadata\SnippetSource;
 use Register\Rose\Entity\ResultSet;
 use Register\Rose\Entity\Snippet;
@@ -27,6 +28,24 @@ use Register\Rose\Stemmer\PorterStemmerEnglish;
  */
 final class ResultSetTest extends Unit
 {
+    public function testConstraintsRemoveResultsAndTheirPositionsBeforeFreezing(): void
+    {
+        $keep = new ExternalId('keep');
+        $drop = new ExternalId('drop');
+        $result = new ResultSet(1);
+        $result->addWordWeight('word', $keep, ['weight' => 1.0], [1]);
+        $result->addWordWeight('word', $drop, ['weight' => 10.0], [2]);
+        $result->retainExternalIds(new ExternalIdCollection([$keep]));
+        $result->freeze();
+
+        self::assertSame(1, $result->getTotalCount());
+        self::assertSame([':keep' => 1.0], $result->getSortedRelevanceByExternalId());
+        self::assertSame([':keep' => ['word' => [1]]], $result->getFoundWordPositionsByExternalId());
+
+        $this->expectException(ImmutableException::class);
+        $result->retainExternalIds(new ExternalIdCollection([]));
+    }
+
     public function testLimit(): void
     {
         $result = $this->prepareResult(new ResultSet());

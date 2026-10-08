@@ -38,7 +38,15 @@
     {"id": "en-bread", "title": "Making bread", "content": "Dough, yeast and the oven. Allow loaves to cool before slicing."},
     {"id": "en-password", "title": "Protecting passwords", "content": "Hashing and salts protect account credentials. Long passwords resist guessing."},
     {"id": "en-backup", "title": "Database backups", "content": "Save tables and verify restoration. Store copies away from the main server."},
-    {"id": "en-sql", "title": "Database optimization", "content": "Indexes improve query performance. Analyze execution plans."}
+    {"id": "en-sql", "title": "Database optimization", "content": "Indexes improve query performance. Analyze execution plans."},
+    {"id": "ru-red-flower", "title": "Красный цветок", "content": "Рисунок на бумаге."},
+    {"id": "ru-flower-gap", "title": "Красный красивый цветок", "content": "Рисунок на бумаге."},
+    {"id": "en-red-blue", "title": "Example", "content": "red blue red blue"},
+    {"id": "en-color-pairs", "title": "Colors", "content": "Red green flag. Green blue flag. Red bright blue flag."},
+    {"id": "en-color-sequence", "title": "Red green blue", "content": "A color sequence."},
+    {"id": "ru-playing-child", "title": "Ребёнок играл", "content": "Игры во дворе."},
+    {"id": "ru-playing-gap", "title": "Ребёнок весело играл", "content": "Игры во дворе."},
+    {"id": "ru-repetition", "title": "Ответ", "content": "Да да да."}
   ],
   "queries": [
     {"query": "история театра", "relevance": {"ru-theatre": 3, "ru-stage": 2}},
@@ -80,6 +88,14 @@
     {"query": "making bread", "relevance": {"en-bread": 3}},
     {"query": "protect password", "relevance": {"en-password": 3}},
     {"query": "database backup", "relevance": {"en-backup": 3, "en-sql": 1}},
-    {"query": "database query performance", "relevance": {"en-sql": 3, "en-backup": 1}}
+    {"query": "database query performance", "relevance": {"en-sql": 3, "en-backup": 1}},
+    {"query": "\"история театра\"", "relevance": {"ru-theatre": 3}},
+    {"query": "«мир и путешествия»", "relevance": {"ru-old-spelling": 3}},
+    {"query": "\"красный цветок\"", "relevance": {"ru-red-flower": 3}},
+    {"query": "\"red blue\"", "relevance": {"en-red-blue": 3}},
+    {"query": "\"red green blue\"", "relevance": {"en-color-sequence": 3}},
+    {"query": "\"дети играют\"", "relevance": {"ru-playing-child": 3}},
+    {"query": "архив \"красный цветок\"", "relevance": {"ru-red-flower": 3}},
+    {"query": "\"да да\"", "relevance": {"ru-repetition": 3}}
   ]
 }

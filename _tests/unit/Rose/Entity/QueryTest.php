@@ -18,6 +18,22 @@ use Register\Rose\Entity\Query;
  */
 final class QueryTest extends Unit
 {
+    public function testPhraseSyntaxPreservesRepetitionsAndUsesTheIndexTokenizer(): void
+    {
+        $query = new Query('Архив «ДА, да» "Красный! цветок"');
+
+        self::assertSame([['да', 'да'], ['красный', 'цветок']], $query->getPhrases());
+        self::assertSame(['архив', 'да', 'красный', 'цветок'], $query->getSearchWords());
+        self::assertSame([], (new Query('reader’s children’s books'))->getPhrases());
+        self::assertSame([['reader', 's', 'children', 's', 'books']], (new Query('‘reader’s children’s books’'))->getPhrases());
+        self::assertSame([], (new Query('"незакрытая фраза'))->getPhrases());
+        self::assertSame([], (new Query('<span title="hidden phrase">text</span>'))->getPhrases());
+        self::assertSame(['текст'], (new Query('"" текст'))->getSearchWords());
+        self::assertSame([], (new Query(null))->getSearchWords());
+        self::assertSame([], (new Query(['foo']))->getPhrases());
+        self::assertSame([['ре']], (new Query('"' . rawurldecode('%D1%80%D0%B5%D0') . '"'))->getPhrases());
+    }
+
     public function testFilterInput(): void
     {
         // Tests for splitting strings by special delimiters

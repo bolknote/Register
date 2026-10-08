@@ -56,6 +56,17 @@ class FulltextQuery
         return array_values(array_unique($result));
     }
 
+    /** @return array<int|string, non-empty-list<string>> */
+    public function getWordForms(): array
+    {
+        $result = [];
+        foreach ($this->words as $position => $word) {
+            $result[$word] = array_values(array_unique([ExactWord::encode($word), ...$this->normalizedWords[$position]]));
+        }
+
+        return $result;
+    }
+
     /**
      * Maps all alternative index keys to their original query terms. A word with
      * several possible lemmas still contributes only one coverage match.
