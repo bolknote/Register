@@ -28,6 +28,9 @@ final class PrebuiltAssetMerge implements AssetMergeInterface
         $this->fallback->concat($fileName);
     }
 
+    /**
+     * @return string[]
+     */
     #[\Override]
     public function getMergedPaths(): array
     {
@@ -38,6 +41,7 @@ final class PrebuiltAssetMerge implements AssetMergeInterface
                 // User-installed themes, extensions and remote assets keep the existing runtime workflow.
                 return $this->fallback->getMergedPaths();
             }
+
             $paths[] = $path;
         }
 

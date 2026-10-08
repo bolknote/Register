@@ -34,6 +34,7 @@ final readonly class PrebuiltAssetManifest
         if ($root === false || !\is_string($json)) {
             throw new \RuntimeException('Unable to read the prebuilt asset manifest.');
         }
+
         $data = json_decode($json, true, 8, JSON_THROW_ON_ERROR);
         if (!\is_array($data) || ($data['version'] ?? null) !== 1 || !\is_array($data['assets'] ?? null)) {
             throw new \RuntimeException('The prebuilt asset manifest has an unsupported format.');
@@ -46,6 +47,7 @@ final readonly class PrebuiltAssetManifest
             ) {
                 throw new \RuntimeException('The prebuilt asset manifest contains an invalid entry.');
             }
+
             $assets[$path] = $hash;
         }
 

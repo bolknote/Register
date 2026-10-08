@@ -12,6 +12,7 @@ $rootDir     = realpath($_SERVER['DOCUMENT_ROOT'] ?? dirname(__DIR__));
 if ($rootDir === false) {
     throw new RuntimeException('The development document root does not exist.');
 }
+
 $policyFile  = dirname(__DIR__) . '/_include/src/Http/DevelopmentRouterPolicy.php';
 require_once $policyFile;
 
@@ -66,6 +67,7 @@ if ($filePath !== false && is_file($filePath) && str_starts_with($filePath, $roo
 
             return true;
         }
+
         return false;
     }
 
@@ -89,6 +91,7 @@ function serveDevelopmentAsset(string $filename, string $requestPath): void
             $choices[$encoding] = $quality;
         }
     }
+
     arsort($choices, SORT_NUMERIC);
     $encoding = array_key_first($choices);
     $suffix = ['br' => '.br', 'zstd' => '.zst', 'gzip' => '.gz'][$encoding ?? ''] ?? '';
@@ -113,9 +116,11 @@ function serveDevelopmentAsset(string $filename, string $requestPath): void
         http_response_code(304);
         return;
     }
+
     if ($encoding !== null) {
         header('Content-Encoding: ' . $encoding);
     }
+
     header('Content-Length: ' . \strlen($content));
     if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'HEAD') {
         echo $content;

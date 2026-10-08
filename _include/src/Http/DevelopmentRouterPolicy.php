@@ -95,11 +95,13 @@ final class DevelopmentRouterPolicy
         if (str_contains($requestPath, '\\') || preg_match('/[\x00-\x1f\x7f]/', $requestPath) === 1) {
             return null;
         }
+
         foreach (explode('/', ltrim($requestPath, '/')) as $segment) {
             if (in_array($segment, ['', '.', '..'], true)) {
                 return null;
             }
         }
+
         if (preg_match(
             '#^(/(?:_(?:admin|assets|extensions|styles)/.+\.(?:css|m?js)|service-worker\.js))\.asset$#D',
             $requestPath,
