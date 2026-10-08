@@ -53,12 +53,18 @@ class ResultSet
     /** @var array<string, array<int, true>> */
     protected array $queryTermMatches = [];
 
+    /** @var array<string, int|null> */
+    private array $rankingDates = [];
+
+    private bool $rankingDatesAvailable = false;
+
     protected string $highlightTemplate = '<i>%s</i>';
 
     protected ResultTrace $trace;
 
     public function __construct(protected ?int $limit = null, protected int $offset = 0, protected bool $isDebug = false)
     {
+        $this->offset = max(0, $offset);
         if ($this->isDebug) {
             $this->startedAt = microtime(true);
         }
@@ -175,6 +181,23 @@ class ResultSet
         $this->exactMatches = array_intersect_key($this->exactMatches, $allowed);
         $this->queryTermMatches = array_intersect_key($this->queryTermMatches, $allowed);
         $this->items = array_intersect_key($this->items, $allowed);
+        $this->rankingDates = array_intersect_key($this->rankingDates, $allowed);
+    }
+
+    /** @param array<string, int|null> $dates */
+    public function setRankingDates(array $dates): void
+    {
+        if ($this->isFrozen) {
+            throw new ImmutableException('One cannot mutate a search result after obtaining its content.');
+        }
+
+        $this->rankingDates = $dates;
+        $this->rankingDatesAvailable = true;
+    }
+
+    public function hasRankingDates(): bool
+    {
+        return $this->rankingDatesAvailable;
     }
 
     /** @throws ImmutableException */
@@ -227,8 +250,7 @@ class ResultSet
         }
 
         // Prefer complete queries before exact inflections of partial queries.
-        $insertionOrder = array_flip(array_keys($this->sortedRelevance));
-        uksort($this->sortedRelevance, function (string $left, string $right) use ($insertionOrder): int {
+        uksort($this->sortedRelevance, function (string $left, string $right): int {
             $coverageOrder = $this->queryTermMatchCount($right) <=> $this->queryTermMatchCount($left);
             if ($coverageOrder !== 0) {
                 return $coverageOrder;
@@ -245,14 +267,17 @@ class ResultSet
                 return $relevanceOrder;
             }
 
-            return $insertionOrder[$left] <=> $insertionOrder[$right];
+            $dateOrder = ($this->rankingDates[$right] ?? PHP_INT_MIN) <=> ($this->rankingDates[$left] ?? PHP_INT_MIN);
+
+            return $dateOrder !== 0 ? $dateOrder : strcmp($left, $right);
         });
 
-        if ($this->limit > 0) {
+        if ($this->offset > 0 || $this->limit > 0) {
             $this->sortedRelevance = \array_slice(
                 $this->sortedRelevance,
                 $this->offset,
-                $this->limit
+                $this->limit > 0 ? $this->limit : null,
+                true,
             );
         }
 
@@ -287,6 +312,13 @@ class ResultSet
     {
         $tocEntry   = $tocEntryWithExternalId->getTocEntry();
         $externalId = $tocEntryWithExternalId->getExternalId();
+
+        // Legacy/custom storage may supply dates only with TOC metadata. Once
+        // ordering is published, later metadata cannot change page membership.
+        if ($this->sortedRelevance === null) {
+            $this->rankingDates[$externalId->toString()] = $tocEntry->getDate()?->getTimestamp();
+            $this->rankingDatesAvailable = true;
+        }
 
         $this->items[$externalId->toString()] = new ResultItem(
             $externalId->getId(),
@@ -325,10 +357,6 @@ class ResultSet
         $foundWords = $this->getFoundWordPositionsByExternalId();
 
         $result          = [];
-        $coverageResult  = [];
-        $exactResult     = [];
-        $relevanceResult = [];
-        $dateResult      = [];
         foreach ($relevanceArray as $serializedExtId => $relevance) {
             $resultItem = $this->items[$serializedExtId];
             $resultItem
@@ -336,14 +364,7 @@ class ResultSet
                 ->setFoundWords(array_keys($foundWords[$serializedExtId] ?? []))
             ;
             $result[]          = $resultItem;
-            $coverageResult[]  = $this->queryTermMatchCount($serializedExtId);
-            $exactResult[]     = $this->exactMatchCount($serializedExtId);
-            $relevanceResult[] = $relevance;
-            $date              = $resultItem->getDate();
-            $dateResult[]      = $date !== null ? $date->getTimestamp() : 0;
         }
-
-        array_multisort($coverageResult, SORT_DESC, $exactResult, SORT_DESC, $relevanceResult, SORT_DESC, $dateResult, SORT_DESC, $result);
 
         return $result;
     }

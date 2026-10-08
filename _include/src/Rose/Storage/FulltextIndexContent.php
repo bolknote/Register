@@ -32,6 +32,25 @@ class FulltextIndexContent
      */
     protected array $titleDataByExternalId = [];
 
+    /** @var array<string, int|null> Publication instants, with null for undated entries. */
+    private array $entryDates = [];
+
+    public function setEntryDate(ExternalId $externalId, ?int $timestamp): void
+    {
+        $this->entryDates[$externalId->toString()] = $timestamp;
+    }
+
+    public function hasEntryDate(ExternalId $externalId): bool
+    {
+        return \array_key_exists($externalId->toString(), $this->entryDates);
+    }
+
+    /** @return array<string, int|null> */
+    public function getEntryDates(): array
+    {
+        return $this->entryDates;
+    }
+
     public function add(string $word, FulltextIndexPositionBag $positionBag): void
     {
         $serializedExtId = $positionBag->getExternalId()->toString();

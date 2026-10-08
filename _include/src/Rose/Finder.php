@@ -93,12 +93,23 @@ class Finder
 
         $resultSet->freeze();
 
+        $tocLoaded = !$resultSet->hasRankingDates();
+        if ($tocLoaded) {
+            // Backward-compatible fallback for storage implementations without
+            // date metadata on their postings. Native storage loads only page TOC.
+            foreach ($this->storage->getTocByExternalIds($resultSet->getFoundExternalIds()) as $entry) {
+                $resultSet->attachToc($entry);
+            }
+        }
+
         $sortedExternalIds = $resultSet->getSortedExternalIds();
 
         $resultSet->addProfilePoint('Sort results');
 
-        foreach ($this->storage->getTocByExternalIds($sortedExternalIds) as $tocEntryWithExternalId) {
-            $resultSet->attachToc($tocEntryWithExternalId);
+        if (!$tocLoaded) {
+            foreach ($this->storage->getTocByExternalIds($sortedExternalIds) as $tocEntryWithExternalId) {
+                $resultSet->attachToc($tocEntryWithExternalId);
+            }
         }
 
         $resultSet->addProfilePoint('Fetch TOC');

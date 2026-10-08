@@ -19,6 +19,34 @@ use Symfony\Component\HttpFoundation\Response;
 /** @group search */
 final class SearchPresentationCest
 {
+    public function testOutOfRangePagesReturnTheActualFirstPage(\IntegrationTester $I): void
+    {
+        $ids = [];
+        try {
+            for ($i = 0; $i < 3; ++$i) {
+                $ids[] = $this->insertAndIndexContent($I, ContentType::POST, 'Page fixture ' . $i, 'search-page-fixture-' . $i, '<p>pageboundarymarker</p>');
+            }
+
+            $I->setConfigValue('REGISTER_MAX_ITEMS', '2');
+            $I->amOnPage('https://localhost/search?q=pageboundarymarker');
+            $firstPage = $I->grabMultiple('.search-result-title a');
+            $I->assertCount(2, $firstPage);
+
+            foreach (['0', '-1', '99', (string)PHP_INT_MAX] as $page) {
+                $I->amOnPage('https://localhost/search?q=pageboundarymarker&p=' . $page);
+                $I->seeResponseCodeIs(Response::HTTP_OK);
+                $I->assertSame($firstPage, $I->grabMultiple('.search-result-title a'));
+                $I->assertSame('pageboundarymarker', $I->grabAttributeFrom('#register_search_input_ext', 'value'));
+            }
+
+            $I->amOnPage('https://localhost/search?q=pageboundarymarker&p=2');
+            $I->assertCount(1, $I->grabMultiple('.search-result-title a'));
+            $I->assertSame([], array_intersect($firstPage, $I->grabMultiple('.search-result-title a')));
+        } finally {
+            $this->removeIndexEntries($I, $ids);
+        }
+    }
+
     public function testSpellingSuggestionsKeepTheOriginalSearchAndRequireAnExplicitClick(\IntegrationTester $I): void
     {
         $ids = [];

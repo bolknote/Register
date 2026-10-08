@@ -51,7 +51,7 @@ class Query
 
     public function setOffset(int $offset): static
     {
-        $this->offset = $offset;
+        $this->offset = max(0, $offset);
 
         return $this;
     }

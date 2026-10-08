@@ -5,6 +5,20 @@ then the existing relevance score. Matches may span the title, keywords and body
 counts once even when the Russian dictionary supplies several alternative lemmas, or when a word
 appears in several fields. This ordering is applied before pagination.
 
+Equal coverage, exactness and relevance are ordered by publication instant (newest first), then
+serialized external ID in ascending order. Undated documents follow dated documents, including
+dates before 1970. Dates respect the stored timezone. One global order determines both page
+membership and output order, so concatenating pages matches an unpaginated result for an unchanged
+index. Publication dates do not override the preceding relevance criteria.
+
+Native SQL storage reads dates with its existing posting query; file storage supplies them from
+TOC memory. Only the selected page's full TOC and snippets are loaded. Custom storage that has not
+added date metadata to `FulltextIndexContent` remains supported through a TOC fallback.
+
+Offsets are nonnegative and work with an unlimited result size. Search-page requests below page 1
+or beyond the available pages show the actual first page; excessively large page integers are
+checked before multiplying the offset. Page-count arithmetic also avoids integer overflow.
+
 Common English and Russian articles, prepositions and conjunctions do not determine coverage or
 exactness when the query contains other words. They remain indexed, searchable and highlighted;
 connector-only queries retain their original behavior. Negation is not discarded.
@@ -69,6 +83,13 @@ uniformly Latin or Russian query receives a whole-query keyboard-layout alternat
 `IndexWordLookupInterface` performs indexed, batched existence checks without loading positions;
 the original storage-read interface remains compatible. SQL and file-backed storage implement it.
 No new index tables or rebuild are required.
+
+## Transactional indexing
+
+Word-ID caches are cleared on rollback. Indexing inside an externally managed transaction does
+not retain tentative IDs across indexing calls: a later outer rollback could remove or reuse those
+IDs. Locally owned successful transactions retain the ordinary cache optimization. This prevents
+incorrect word associations when the same storage instance is reused after a failed transaction.
 
 ## Reproducible comparisons
 

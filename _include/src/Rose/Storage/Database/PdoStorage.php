@@ -44,6 +44,8 @@ class PdoStorage implements StorageWriteInterface, StorageReadInterface, Storage
 
     protected ?AbstractRepository $repository = null;
 
+    private bool $externalTransaction = false;
+
     /**
      * @param array<string, string> $options
      *
@@ -91,14 +93,18 @@ class PdoStorage implements StorageWriteInterface, StorageReadInterface, Storage
         $generator = $this->getRepository()->findFulltextByWords(array_values($words), $instanceId);
 
         foreach ($generator as $row) {
+            $externalId = $this->getExternalIdFromRow($row);
             $result->add($row['word'], new FulltextIndexPositionBag(
-                $this->getExternalIdFromRow($row),
+                $externalId,
                 $row['title_positions'],
                 $row['keyword_positions'],
                 $row['content_positions'],
                 (int)$row['word_count'],
                 (float)$row['relevance_ratio']
             ));
+            if (!$result->hasEntryDate($externalId)) {
+                $result->setEntryDate($externalId, $this->dateFromRow($row)?->getTimestamp());
+            }
         }
 
         return $result;
@@ -366,6 +372,13 @@ class PdoStorage implements StorageWriteInterface, StorageReadInterface, Storage
     #[\Override]
     public function startTransaction(): void
     {
+        $this->externalTransaction = $this->pdo->inTransaction();
+        if ($this->externalTransaction) {
+            // Word IDs from a previous externally managed transaction may have
+            // disappeared or been reused after its rollback.
+            $this->cachedWordIds = [];
+        }
+
         $this->mapping->clear();
         $this->getRepository()->startTransaction();
     }
@@ -379,6 +392,12 @@ class PdoStorage implements StorageWriteInterface, StorageReadInterface, Storage
     public function commitTransaction(): void
     {
         $this->getRepository()->commitTransaction();
+        if ($this->externalTransaction) {
+            // This is not a real commit; the owner can still roll back the IDs.
+            $this->cachedWordIds = [];
+        }
+
+        $this->externalTransaction = false;
         $this->mapping->clear();
     }
 
@@ -390,7 +409,13 @@ class PdoStorage implements StorageWriteInterface, StorageReadInterface, Storage
     #[\Override]
     public function rollbackTransaction(): void
     {
-        $this->getRepository()->rollbackTransaction();
+        try {
+            $this->getRepository()->rollbackTransaction();
+        } finally {
+            $this->cachedWordIds = [];
+            $this->mapping->clear();
+            $this->externalTransaction = false;
+        }
     }
 
     /**
@@ -492,19 +517,10 @@ class PdoStorage implements StorageWriteInterface, StorageReadInterface, Storage
     {
         $result = [];
         foreach ($data as $row) {
-            $date = null;
-            if (isset($row['added_at'])) {
-                try {
-                    $date = new \DateTime($row['added_at'], isset($row['timezone']) ? new \DateTimeZone($row['timezone']) : null);
-                } catch (\Throwable) {
-                    $date = null;
-                }
-            }
-
             $tocEntry = new TocEntry(
                 $row['title'],
                 $row['description'],
-                $date,
+                $this->dateFromRow($row),
                 $row['url'],
                 (float)$row['relevance_ratio'],
                 $row['hash']
@@ -516,6 +532,20 @@ class PdoStorage implements StorageWriteInterface, StorageReadInterface, Storage
         }
 
         return $result;
+    }
+
+    /** @param array<string, mixed> $row */
+    private function dateFromRow(array $row): ?\DateTime
+    {
+        if (!\is_string($row['added_at'] ?? null)) {
+            return null;
+        }
+
+        try {
+            return new \DateTime($row['added_at'], isset($row['timezone']) ? new \DateTimeZone($row['timezone']) : null);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**

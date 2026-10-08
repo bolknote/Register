@@ -64,6 +64,9 @@ abstract class ArrayStorage implements StorageReadInterface, StorageWriteInterfa
                         $this->metadata[$id]['wordCount'] ?? 0,
                         isset($this->toc[$serializedExtId]) ? $this->toc[$serializedExtId]->getRelevanceRatio() : 1.0
                     ));
+                    if (!$result->hasEntryDate($externalId)) {
+                        $result->setEntryDate($externalId, ($this->toc[$serializedExtId] ?? null)?->getDate()?->getTimestamp());
+                    }
                 }
             }
         }

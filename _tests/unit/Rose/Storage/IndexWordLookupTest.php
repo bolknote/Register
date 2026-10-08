@@ -12,12 +12,48 @@ namespace Register\Rose\Test\Storage;
 use Codeception\Test\Unit;
 use Register\Rose\Entity\Indexable;
 use Register\Rose\Indexer;
+use Register\Rose\Finder;
+use Register\Rose\Entity\Query;
 use Register\Rose\Stemmer\PorterStemmerEnglish;
 use Register\Rose\Storage\Database\PdoStorage;
 use Register\Rose\Storage\File\SingleFileArrayStorage;
 
 final class IndexWordLookupTest extends Unit
 {
+    /** @dataProvider transactionProvider */
+    public function testAnOuterRollbackDoesNotLeaveCachedWordIdsForTheNextTransaction(bool $external): void
+    {
+        $pdo = new \PDO('sqlite::memory:');
+        $storage = new PdoStorage($pdo, 'rollback_words_');
+        $storage->erase();
+
+        $normalizer = new PorterStemmerEnglish();
+        $indexer = new Indexer($storage, $normalizer);
+        $pdo->beginTransaction();
+        $indexer->index(new Indexable('rolled-back', 'commonword', 'first second third'));
+        $pdo->rollBack();
+
+        if ($external) {
+            $pdo->beginTransaction();
+        }
+
+        $indexer->index(new Indexable('committed', 'commonword', 'different'));
+        if ($external) {
+            $pdo->commit();
+        }
+
+        $finder = new Finder($storage, $normalizer);
+        self::assertSame(1, $finder->find(new Query('commonword'))->getTotalCount());
+        self::assertSame(0, $finder->find(new Query('first'))->getTotalCount());
+    }
+
+    /** @return \Iterator<string, array{bool}> */
+    public static function transactionProvider(): \Iterator
+    {
+        yield 'external transaction follows' => [true];
+        yield 'owned transaction follows' => [false];
+    }
+
     public function testLargeVocabularyRequestsAreBatched(): void
     {
         $storage = new PdoStorage(new \PDO('sqlite::memory:'), 'batch_lookup_');

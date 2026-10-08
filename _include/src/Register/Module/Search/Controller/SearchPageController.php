@@ -27,6 +27,7 @@ use Register\Core\Template\HtmlTemplateProvider;
 use Register\Core\Template\Viewer;
 use Register\Rose\Entity\ExternalId;
 use Register\Rose\Entity\Query;
+use Register\Rose\Entity\ResultSet;
 use Register\Rose\Finder;
 use Register\Rose\Helper\ProfileHelper;
 use Register\Rose\Stemmer\StemmerHelper;
@@ -84,7 +85,7 @@ readonly class SearchPageController implements ControllerInterface
         }
 
         $query   = $request->query->getString('q');
-        $pageNum = $request->query->getInt('p', 1);
+        $pageNum = max(1, $request->query->getInt('p', 1));
         $content = ['query' => $query];
 
         $template = $this->templateProvider->getTemplate('service.php');
@@ -95,22 +96,9 @@ readonly class SearchPageController implements ControllerInterface
                 $items_per_page = 10;
             }
 
-            $queryObj       = new Query($query);
-            $queryObj
-                ->setLimit($items_per_page)
-                ->setOffset(($pageNum - 1) * $items_per_page) // TODO Может быть за пределами
-            ;
-            $resultSet = null;
-            try {
-                $resultSet = $this->finder->find($queryObj, $this->debugView);
-                $content   += ['num' => $resultSet->getTotalCount()];
-            } catch (\Throwable $exception) {
-                if (!$exception instanceof EmptyIndexException) {
-                    throw $exception;
-                }
-
-                $content += ['num' => 0,];
-            }
+            $queryObj = (new Query($query))->setLimit($items_per_page);
+            [$resultSet, $count, $pageNum] = $this->findOnPage($queryObj, $pageNum, $items_per_page);
+            $content['num'] = $count;
 
             $content += ['tags' => $this->findInTags($queryObj)];
 
@@ -127,10 +115,7 @@ readonly class SearchPageController implements ControllerInterface
             if ($content['num'] > 0 && $resultSet instanceof \Register\Rose\Entity\ResultSet) {
                 $content['num_info'] = $this->translator->trans('Found N pages', ['%count%' => $content['num'], '{{ pages }}' => $content['num']]);
 
-                $totalPages = intdiv($content['num'] + $items_per_page - 1, $items_per_page);
-                if ($pageNum < 1 || $pageNum > $totalPages) {
-                    $pageNum = 1;
-                }
+                $totalPages = intdiv($content['num'] - 1, $items_per_page) + 1;
 
                 $content['profile'] = array_map(ProfileHelper::formatProfilePoint(...), $resultSet->getProfilePoints());
                 $content['trace']   = $resultSet->getTrace();
@@ -202,6 +187,34 @@ readonly class SearchPageController implements ControllerInterface
         $template->addBreadCrumb($this->translator->trans('Search'));
 
         return $template->toHttpResponse();
+    }
+
+    /** @return array{ResultSet|null, int, int} Result, count, normalized page number. */
+    private function findOnPage(Query $query, int $page, int $pageSize): array
+    {
+        // Check before multiplication: even PHP_INT_MAX is a valid integer input.
+        if ($page - 1 > intdiv(PHP_INT_MAX, $pageSize)) {
+            $page = 1;
+        }
+
+        $query->setOffset(($page - 1) * $pageSize);
+        try {
+            $result = $this->finder->find($query, $this->debugView);
+            $count = $result->getTotalCount();
+            $pages = intdiv(max(0, $count - 1), $pageSize) + 1;
+            if ($page > $pages) {
+                $page = 1;
+                $query->setOffset(0);
+                if ($count > 0) {
+                    $result = $this->finder->find($query, $this->debugView);
+                    $count = $result->getTotalCount();
+                }
+            }
+
+            return [$result, $count, $page];
+        } catch (EmptyIndexException) {
+            return [null, 0, 1];
+        }
     }
 
     /**

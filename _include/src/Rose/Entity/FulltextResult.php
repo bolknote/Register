@@ -75,6 +75,11 @@ class FulltextResult
      */
     public function fillResultSet(ResultSet $resultSet): void
     {
+        $dates = $this->fulltextIndexContent->getEntryDates();
+        if ($dates !== []) {
+            $resultSet->setRankingDates($dates);
+        }
+
         $rankingWordPositions = $this->query->getRankingWordPositions();
         $wordReductionRatios = [];
         foreach ($this->fulltextIndexContent->toArray() as $word => $indexedItems) {
