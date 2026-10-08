@@ -36,7 +36,7 @@ final class DevelopmentRouterPolicy
     private const array PUBLIC_EXTENSIONS = [
         '7z', 'avi', 'avif', 'bmp', 'bpg', 'css', 'csv', 'cur', 'doc', 'docx', 'emf', 'flac',
         'flv', 'gif', 'html', 'ico', 'jpeg', 'jpeg2000', 'jpegxr', 'jpg', 'js', 'json', 'map',
-        'mkv', 'mng', 'mov', 'mp3', 'mp4', 'mpeg', 'mpg', 'odp', 'ods', 'odt', 'ogg', 'pdf',
+        'mjs', 'mkv', 'mng', 'mov', 'mp3', 'mp4', 'mpeg', 'mpg', 'odp', 'ods', 'odt', 'ogg', 'pdf',
         'png', 'ppt', 'pptx', 'rar', 'rtf', 'svg', 'tiff', 'txt', 'wasm', 'wav', 'wbmp', 'webm',
         'webp', 'wmf', 'woff', 'woff2', 'xbm', 'xls', 'xlsx', 'zip',
     ];
@@ -76,6 +76,32 @@ final class DevelopmentRouterPolicy
     {
         if (preg_match(
             '#^(/_cache/[a-z0-9_-]+\.[0-9a-f]+\.(?:css|js))\.asset$#Di',
+            $requestPath,
+            $matches,
+        ) !== 1) {
+            return null;
+        }
+
+        return $matches[1];
+    }
+
+    public static function negotiatedAssetPath(string $requestPath): ?string
+    {
+        $cachePath = self::negotiatedCacheAssetPath($requestPath);
+        if ($cachePath !== null) {
+            return $cachePath;
+        }
+
+        if (str_contains($requestPath, '\\') || preg_match('/[\x00-\x1f\x7f]/', $requestPath) === 1) {
+            return null;
+        }
+        foreach (explode('/', ltrim($requestPath, '/')) as $segment) {
+            if (in_array($segment, ['', '.', '..'], true)) {
+                return null;
+            }
+        }
+        if (preg_match(
+            '#^(/(?:_(?:admin|assets|extensions|styles)/.+\.(?:css|m?js)|service-worker\.js))\.asset$#D',
             $requestPath,
             $matches,
         ) !== 1) {

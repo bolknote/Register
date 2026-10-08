@@ -24,6 +24,13 @@ jobs:
           extensions: dom, gd, mbstring, pdo_sqlite, sodium
       - name: Install PHP dependencies
         run: composer install --prefer-dist --no-interaction
+      - name: Setup Node.js for production assets
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install locked asset build dependencies
+        run: npm ci --ignore-scripts
       - name: Install browser test dependencies
         working-directory: _tests/browser/editor
         run: npm ci
@@ -42,13 +49,22 @@ jobs:
       - name: Editor browser to PHP and SQLite round trips
         if: matrix.browser == 'chromium'
         working-directory: _tests/browser/editor
-        run: npm run test:e2e
+        run: node production-assets.mjs
       - name: Upload editor server diagnostics on failure
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: editor-e2e-diagnostics-${{ matrix.browser }}
           path: _tests/_output/editor-e2e-server.log
+          if-no-files-found: ignore
+      - name: Upload production asset size and cache measurements
+        if: always() && matrix.browser == 'chromium'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: production-asset-measurements
+          path: |
+            _tests/_output/asset-build-report.json
+            _tests/_output/guest-asset-transfer.json
           if-no-files-found: ignore
 
   analyse:
@@ -64,6 +80,15 @@ jobs:
         with:
           php-version: '8.3'
           extensions: ast, dom, gd, mbstring, pdo_sqlite
+
+      - name: Setup Node.js for asset regressions
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install locked asset build dependencies
+        run: npm ci --ignore-scripts
 
       - name: Setup Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0

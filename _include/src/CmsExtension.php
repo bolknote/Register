@@ -496,6 +496,10 @@ class CmsExtension implements ExtensionInterface
             $container->getStringParameter('public_root_dir') . '_cache/',
             $container->getStringParameter('base_path') . '/_cache/',
             $container->getBoolParameter('disable_cache'),
+            \Register\Core\Asset\PrebuiltAssetManifest::fromPublicRoot(
+                $container->getStringParameter('public_root_dir'),
+                $container->getStringParameter('base_path'),
+            ),
         ));
 
         $container->set(CommentFormRenderer::class, static fn(Container $container): CommentFormRenderer => new CommentFormRenderer(

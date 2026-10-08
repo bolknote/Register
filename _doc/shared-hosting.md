@@ -106,12 +106,23 @@ headers for dynamic pages, but only the web-server rule can cover static files a
 Register always works without optional compression modules. With PHP zlib it negotiates gzip for
 dynamic HTML and can store ready gzip representations of deterministic cached pages whose final
 body retains a stable ETag. PHP Brotli and Zstd extensions are detected automatically when
-available. Generated CSS/JavaScript bundles use a virtual `.asset` URL; the packaged Apache rules
+available. Release archives already contain minified JS/CSS and ready Brotli 11, Zstandard 22 and
+Zopfli/gzip 9 sidecars for all product assets. No Node.js, npm, shell commands or PHP compression
+extensions are needed to serve those prepared files. Prepared CSS explicitly preserves UTF-8
+encoding, including icon-font escapes. The post editor is downloaded only by authenticated content
+editors; ordinary visitors receive the public resources.
+
+Content-hashed release resources and generated CSS/JavaScript bundles use virtual `.asset` URLs; the packaged Apache rules
 select `.br`, `.zst`, or `.gz` only for clients that advertise the matching content encoding and
 otherwise serve the original file. Because `.asset` is not a physical static file, an nginx
 frontend on typical shared hosting passes the request to Apache instead of bypassing negotiation.
 
-Shell access is not required. If it is available, warm the public site once and prepare any variants
+To build an archive from a source checkout, use Node.js 24 or newer and install the locked build
+dependencies with `npm ci --ignore-scripts` before the Composer build command. The build tools and
+their packages stay on the build machine.
+
+Shell access is not required. For custom themes/extensions added after deployment, if shell access
+is available, warm the public site once and prepare any runtime bundle variants
 supported by installed command-line tools:
 
 ```bash

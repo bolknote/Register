@@ -65,6 +65,9 @@ try {
         '/auth/oauth/yandex'                           => 405,
         '/99.html'                                     => 200,
         '/private.js'                                  => 403,
+        '/private.js.gz'                               => 403,
+        '/service-worker.js.asset'                     => 200,
+        '/service-worker.js.gz'                        => 200,
         '/nonexistent-private.sql'                     => 403,
         '/composer.lock'                                => 403,
         '/config.local.php'                             => 403,
@@ -132,6 +135,42 @@ try {
             || !in_array('Accept-Encoding', $response['headers']['vary'], true)
         ) {
             throw new RuntimeException('Apache omitted Vary: Accept-Encoding for a precompressed asset.');
+        }
+    }
+
+    foreach ([
+        '/_assets/register/admin-yard/style.css',
+        '/_assets/register/admin-yard/style.css.asset',
+        '/_assets/register/admin-yard/script.js.asset',
+        '/_admin/editor.js.asset',
+        '/_styles/example/site.css.asset',
+        '/_extensions/example/public.js.asset',
+        '/service-worker.js.asset',
+    ] as $assetPath) {
+        foreach ($encodedExpectations as $acceptEncoding => $expectedEncoding) {
+            $response = requestResponse($port, $assetPath, ['Accept-Encoding' => $acceptEncoding]);
+            if ($response['status'] !== 200 || ($response['headers']['content-encoding'] ?? []) !== [$expectedEncoding]
+                || !str_contains(strtolower(implode(' ', $response['headers']['content-type'] ?? [])), 'charset=utf-8')
+                || !in_array('Accept-Encoding', $response['headers']['vary'] ?? [], true)
+            ) {
+                throw new RuntimeException('Invalid static asset negotiation or UTF-8 headers: ' . $assetPath
+                    . ' (' . $acceptEncoding . ') ' . json_encode($response, JSON_THROW_ON_ERROR));
+            }
+        }
+        $identity = requestResponse($port, $assetPath, ['Accept-Encoding' => 'br;q=0, zstd;q=0, gzip;q=0']);
+        if ($identity['status'] !== 200 || isset($identity['headers']['content-encoding'])) {
+            throw new RuntimeException('A q=0 encoding was served: ' . $assetPath);
+        }
+    }
+    $hash = str_repeat('a', 64);
+    $immutable = requestResponse($port, '/_assets/register/admin-yard/style.css.asset?v=' . $hash);
+    if (($immutable['headers']['cache-control'] ?? []) !== ['public, max-age=31536000, immutable']) {
+        throw new RuntimeException('Content-hashed public assets must use the browser cache.');
+    }
+    foreach (['/_assets/register/admin-yard/script.js?v=' . $hash, '/service-worker.js.asset?v=' . $hash] as $path) {
+        $response = requestResponse($port, $path);
+        if (($response['headers']['cache-control'] ?? []) !== ['no-cache']) {
+            throw new RuntimeException('Unversioned module/worker paths must revalidate across releases.');
         }
     }
 
@@ -261,6 +300,7 @@ function createFixtureTree(string $projectRoot, string $tempRoot, string $webRoo
         '/files/demo-assets/player-test.mp4'           => 'passive video fixture',
         '/files/physical.php'                          => '<?php echo "must not execute";',
         '/private.js'                                  => 'private root script',
+        '/private.js.gz'                               => 'private compressed root script',
         '/composer.lock'                                => '{"packages":[]}',
         '/config.local.php'                             => '<?php return ["password" => "secret"];',
         '/config.secrets.php'                           => '<?php return ["REGISTER_AI_API_KEY" => "secret"];',
@@ -268,6 +308,15 @@ function createFixtureTree(string $projectRoot, string $tempRoot, string $webRoo
     foreach ($fixtures as $path => $content) {
         if (file_put_contents($webRoot . $path, $content) === false) {
             throw new RuntimeException('Unable to create Apache policy fixture: ' . $path);
+        }
+    }
+    foreach ([
+        '/_assets/register/admin-yard/style.css', '/_assets/register/admin-yard/script.js',
+        '/_admin/editor.js', '/_styles/example/site.css', '/_extensions/example/public.js', '/service-worker.js',
+    ] as $path) {
+        file_put_contents($webRoot . $path, 'identity asset');
+        foreach (['br', 'zst', 'gz'] as $suffix) {
+            file_put_contents($webRoot . $path . '.' . $suffix, $suffix . ' asset');
         }
     }
 }

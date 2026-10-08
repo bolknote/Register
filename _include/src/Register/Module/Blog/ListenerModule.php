@@ -27,6 +27,7 @@ use Register\Core\Asset\PublicAssetUrl;
 use Register\Core\Framework\Container;
 use Register\Core\Framework\ContainerAwareListenerModuleInterface;
 use Register\Core\Model\Article\ArticleRenderedEvent;
+use Register\Core\Model\AuthProvider;
 use Register\Core\Template\TemplateAssetEvent;
 use Register\Core\Template\TemplateEvent;
 use Register\Core\Template\Viewer;
@@ -161,13 +162,18 @@ final readonly class ListenerModule implements ContainerAwareListenerModuleInter
         });
 
         $eventDispatcher->addListener(TemplateAssetEvent::class, static function (TemplateAssetEvent $event) use ($container): void {
+            $event->assetPack->addCss('../../_assets/register/blog/site.css', [AssetPack::OPTION_MERGE]);
+            $request = $container->get(RequestStack::class)->getCurrentRequest();
+            if (!$request instanceof Request || $container->get(AuthProvider::class)->getAuthenticatedContentEditor($request) === null) {
+                return;
+            }
+
             $assetUrl = new PublicAssetUrl(
                 $container->getStringParameter('public_root_dir'),
                 $container->getStringParameter('base_path'),
             );
 
             $event->assetPack
-                ->addCss('../../_assets/register/blog/site.css', [AssetPack::OPTION_MERGE])
                 ->addCss('../../_assets/register/post-recovery.css', [AssetPack::OPTION_MERGE])
                 ->addJs($assetUrl->versioned('/_assets/register/editor/storage.js'), [AssetPack::OPTION_DEFER])
                 ->addJs($assetUrl->versioned('/_assets/register/editor/request.js'), [AssetPack::OPTION_DEFER])

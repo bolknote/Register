@@ -12,6 +12,7 @@ declare(strict_types = 1);
 
 use Register\Schema\SchemaManager;
 use Register\Tools\Deployment\ProductionDependencyInstaller;
+use Register\Tools\Deployment\ProductionAssetBuilder;
 use Register\Tools\Deployment\ReleaseArchiveBuilder;
 use Register\Tools\Deployment\ReleaseManifestBuilder;
 use Register\Tools\Deployment\SharedHostingDistributionBuilder;
@@ -28,6 +29,7 @@ require $projectRoot . '/_vendor/autoload.php';
 foreach ([
     'SharedHostingDistributionBuilder.php',
     'ProductionDependencyInstaller.php',
+    'ProductionAssetBuilder.php',
     'ReleaseManifestBuilder.php',
     'ReleaseArchiveBuilder.php',
 ] as $deploymentFile) {
@@ -84,6 +86,9 @@ try {
     $distributionBuilder = new SharedHostingDistributionBuilder($projectRoot);
     $distributionBuilder->buildDirectory($temporaryRoot, includeInstalledVendor: false);
     (new ProductionDependencyInstaller())->install(
+        $temporaryRoot . '/' . SharedHostingDistributionBuilder::PUBLIC_DIRECTORY,
+    );
+    (new ProductionAssetBuilder($projectRoot))->build(
         $temporaryRoot . '/' . SharedHostingDistributionBuilder::PUBLIC_DIRECTORY,
     );
     $distributionBuilder->validatePublicBoundary($temporaryRoot);

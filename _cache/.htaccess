@@ -58,10 +58,10 @@ RemoveType .php .php2 .php3 .php4 .php5 .php6 .php7 .php8 .pht .phtml .phar .cgi
 </IfModule>
 
 <FilesMatch "\.css\.(?:br|gz|zst)$">
-    ForceType text/css
+    ForceType "text/css; charset=UTF-8"
 </FilesMatch>
 <FilesMatch "\.js\.(?:br|gz|zst)$">
-    ForceType application/javascript
+    ForceType "application/javascript; charset=UTF-8"
 </FilesMatch>
 
 <FilesMatch "(?i)^(?![a-z0-9_-]+\.[0-9a-f]+\.(?:css|js)(?:\.asset|\.(?:br|gz|zst))?$)">

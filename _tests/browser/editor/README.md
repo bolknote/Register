@@ -15,6 +15,15 @@ npm test
 ```
 
 The Quality workflow runs Chromium, Firefox and WebKit and blocks releases on failure.
+Its PHP end-to-end scenarios run against a staged, optimized production asset tree. Install the root
+build dependencies with `npm ci --ignore-scripts`, then run
+`node _tests/browser/editor/production-assets.mjs` from the repository root to reproduce this check.
+It covers actual login, post editing, image workers and guest comments in all three engines, plus
+Lightning CSS #310 (escaped glyphs, NBSP and literal backslashes in legacy-encoded HTML without CSS
+charset headers). `asset-build-report.json` and `guest-asset-transfer.json` in `_tests/_output/`
+record aggregate sizes and cold/warm JS/CSS transfer. Guests must not load the post editor, and
+unchanged resources must contribute zero body bytes on the repeat visit.
+
 `npm run test:guest-comments` starts a disposable PHP/SQLite installation and captures
 real MIME mail locally without delivery. Chromium, Firefox and WebKit exercise long
 guest comments with and without JavaScript: missing email, typo correction, reload,

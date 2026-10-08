@@ -78,6 +78,25 @@ curl --fail-with-body --head https://example.com/_include/common.php
 If any command succeeds, stop the deployment and fix `AllowOverride`/`mod_rewrite`; do not continue
 installation with a publicly readable configuration boundary.
 
+Production archives optimize every product JS/CSS file, including administration, modules, workers
+and lazy-loaded libraries, before producing the release manifest. Install Node.js 24 or newer and
+run `npm ci --ignore-scripts` on the build machine before `composer build:release` or
+`composer build:shared-hosting`. Node and npm packages are not included in the uploaded archive.
+
+The builder compares Oxc and Terser JavaScript output by Brotli transfer size, uses Lightning CSS for
+styles, and produces Brotli quality 11, Zstandard level 22 (an HTTP-compatible 8 MiB maximum window),
+and the smaller of Zopfli (30 iterations) and gzip level 9. Every encoded output is decoded and
+compared with the optimized original before publication. Sidecars larger than identity are omitted.
+
+The private `_include/asset-manifest.json` records content hashes. Prepared assets bypass the PHP
+minifier and retain their original directories, module imports, and CSS-relative URLs. Their
+`.asset?v=<sha256>` URLs negotiate encodings in Apache and use immutable browser caching. Unversioned
+module imports and the service worker revalidate across releases. CSS containing literal Unicode
+retains an explicit UTF-8 charset, and Apache sends UTF-8 content types, covering Lightning CSS
+[#310](https://github.com/parcel-bundler/lightningcss/issues/310#issuecomment-2677659914).
+The post editor is included only for authenticated users with content-editing permissions.
+
+Source checkouts and newly installed themes/extensions retain the existing runtime fallback.
 Generated CSS/JavaScript bundles receive ready gzip sidecars whenever PHP has zlib. Brotli and Zstd
 sidecars are generated too when their PHP extensions are installed. On a host with shell access,
 the operator can prepare every available variant after warming the public pages without doing that

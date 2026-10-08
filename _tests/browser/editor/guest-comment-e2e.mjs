@@ -8,7 +8,8 @@ import {fileURLToPath} from 'node:url';
 import {createServer} from 'node:net';
 
 const directory = dirname(fileURLToPath(import.meta.url));
-const root = resolve(directory, '../../..');
+const sourceRoot = resolve(directory, '../../..');
+const root = resolve(process.env.REGISTER_E2E_ROOT || sourceRoot);
 const scratch = await mkdtemp(resolve(tmpdir(), 'register-guest-comment-e2e-'));
 const id = scratch.split('-').at(-1);
 const config = resolve(root, `config.e2e-${id}.php`);
@@ -22,7 +23,7 @@ const article = origin + '/guest-comment-fixture';
 const mailLog = resolve(scratch, 'mail.jsonl');
 const dbFile = resolve(scratch, 'site.sqlite');
 const settings = resolve(scratch, 'settings.json');
-await writeFile(settings, JSON.stringify({scratch, id, config, origin, database: relative(root, dbFile)}));
+await writeFile(settings, JSON.stringify({scratch, id, config, origin, root, database: relative(root, dbFile)}));
 const database = (sql, parameters = []) => JSON.parse(execFileSync(php, ['-r',
     '$db = new PDO("sqlite:" . $argv[1]); $s = $db->prepare($argv[2]); $s->execute(json_decode($argv[3], true)); echo json_encode($s->fetchAll(PDO::FETCH_ASSOC), JSON_THROW_ON_ERROR);',
     dbFile, sql, JSON.stringify(parameters)], {encoding: 'utf8'}));
@@ -207,7 +208,7 @@ try {
     const quote = argument => "'" + argument.replace(/'/g, "'\\''") + "'";
     const sendmail = [php, resolve(directory, 'e2e-mail.php'), mailLog].map(quote).join(' ');
     server = spawn(php, ['-d', `sendmail_path=${sendmail}`, '-d', `session.save_path=${scratch}/sessions`, '-d', 'opcache.revalidate_freq=0',
-        '-S', `127.0.0.1:${port}`, '-t', root, resolve(root, 'tools/dev-router.php')],
+        '-S', `127.0.0.1:${port}`, '-t', root, resolve(sourceRoot, 'tools/dev-router.php')],
         {cwd: root, env: {...process.env, APP_ENV: `e2e-${id}`, XDEBUG_MODE: 'off'}, stdio: ['ignore', 'pipe', 'pipe']});
     server.stdout.on('data', data => { serverLog += data; });
     server.stderr.on('data', data => { serverLog += data; });

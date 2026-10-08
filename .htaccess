@@ -58,7 +58,29 @@ RewriteRule ^files/?$ index.php [L,NC]
 # Only the front controller, offline worker, and conventional site metadata are
 # public files at the repository root. This also protects SQLite databases with custom names.
 RewriteCond %{REQUEST_FILENAME} -f
-RewriteRule ^(?!(?:index\.php|robots\.txt|favicon\.ico|site\.webmanifest|service-worker\.js)$)[^/]+$ - [F,L,NC]
+RewriteRule ^(?!(?:index\.php|robots\.txt|favicon\.ico|site\.webmanifest|service-worker\.js(?:\.asset|\.(?:br|gz|zst))?)$)[^/]+$ - [F,L,NC]
+
+<IfModule mod_headers.c>
+# All release JS/CSS have build-time sidecars. Virtual `.asset` URLs also reach
+# Apache behind an nginx static-file front end; identity remains a working fallback.
+# Keep these rules after the access restrictions and outside private namespaces.
+RewriteCond %{HTTP:Accept-Encoding} (^|,)[[:space:]]*br([[:space:]]*;[^,]*)?([[:space:]]*,|$) [NC]
+RewriteCond %{HTTP:Accept-Encoding} !(^|,)[[:space:]]*br[[:space:]]*;[[:space:]]*q[[:space:]]*=[[:space:]]*0(\.0*)?([[:space:]]*,|$) [NC]
+RewriteCond %{REQUEST_FILENAME}.br -f
+RewriteRule ^((?:_admin|_assets|_extensions|_styles)/.+\.(?:css|m?js)|service-worker\.js)$ $1.br [E=no-gzip:1,E=no-brotli:1,E=no-zstd:1,L]
+
+RewriteCond %{HTTP:Accept-Encoding} (^|,)[[:space:]]*zstd([[:space:]]*;[^,]*)?([[:space:]]*,|$) [NC]
+RewriteCond %{HTTP:Accept-Encoding} !(^|,)[[:space:]]*zstd[[:space:]]*;[[:space:]]*q[[:space:]]*=[[:space:]]*0(\.0*)?([[:space:]]*,|$) [NC]
+RewriteCond %{REQUEST_FILENAME}.zst -f
+RewriteRule ^((?:_admin|_assets|_extensions|_styles)/.+\.(?:css|m?js)|service-worker\.js)$ $1.zst [E=no-gzip:1,E=no-brotli:1,E=no-zstd:1,L]
+
+RewriteCond %{HTTP:Accept-Encoding} (^|,)[[:space:]]*gzip([[:space:]]*;[^,]*)?([[:space:]]*,|$) [NC]
+RewriteCond %{HTTP:Accept-Encoding} !(^|,)[[:space:]]*gzip[[:space:]]*;[[:space:]]*q[[:space:]]*=[[:space:]]*0(\.0*)?([[:space:]]*,|$) [NC]
+RewriteCond %{REQUEST_FILENAME}.gz -f
+RewriteRule ^((?:_admin|_assets|_extensions|_styles)/.+\.(?:css|m?js)|service-worker\.js)$ $1.gz [E=no-gzip:1,E=no-brotli:1,E=no-zstd:1,L]
+</IfModule>
+
+RewriteRule ^((?:_admin|_assets|_extensions|_styles)/.+\.(?:css|m?js)|service-worker\.js)\.asset$ $1 [L]
 
 # Uncomment and properly set the RewriteBase if the rewrite rules are not working properly
 #RewriteBase /
@@ -75,6 +97,42 @@ RewriteRule . index.php [L]
     <IfModule !mod_authz_core.c>
         Deny from all
     </IfModule>
+</FilesMatch>
+
+<IfModule mod_headers.c>
+    <FilesMatch "\.(?:css|m?js)(?:\.asset|\.(?:br|gz|zst))?$">
+        # Unversioned module imports and workers must revalidate across releases.
+        Header set Cache-Control "no-cache"
+        Header set Cache-Control "public, max-age=31536000, immutable" "expr=(%{QUERY_STRING} =~ m#(?:^|&)v=[a-f0-9]{64}(?:&|$)#) && (%{THE_REQUEST} =~ m#\.asset[? ]#)"
+        Header merge Vary "Accept-Encoding"
+    </FilesMatch>
+    <FilesMatch "^service-worker\.js(?:\.asset|\.(?:br|gz|zst))?$">
+        Header set Cache-Control "no-cache"
+    </FilesMatch>
+    <FilesMatch "\.(?:css|m?js)\.br$">
+        Header set Content-Encoding "br"
+    </FilesMatch>
+    <FilesMatch "\.(?:css|m?js)\.zst$">
+        Header set Content-Encoding "zstd"
+    </FilesMatch>
+    <FilesMatch "\.(?:css|m?js)\.gz$">
+        Header set Content-Encoding "gzip"
+    </FilesMatch>
+</IfModule>
+
+<IfModule mod_env.c>
+    <FilesMatch "\.(?:css|m?js)\.(?:br|gz|zst)$">
+        SetEnv no-gzip 1
+        SetEnv no-brotli 1
+        SetEnv no-zstd 1
+    </FilesMatch>
+</IfModule>
+
+<FilesMatch "\.css(?:\.asset|\.(?:br|gz|zst))?$">
+    ForceType "text/css; charset=UTF-8"
+</FilesMatch>
+<FilesMatch "\.m?js(?:\.asset|\.(?:br|gz|zst))?$">
+    ForceType "application/javascript; charset=UTF-8"
 </FilesMatch>
 
 # END Register

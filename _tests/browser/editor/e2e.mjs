@@ -8,7 +8,8 @@ import {fileURLToPath} from 'node:url';
 import {createServer} from 'node:net';
 
 const directory = dirname(fileURLToPath(import.meta.url));
-const root = resolve(directory, '../../..');
+const sourceRoot = resolve(directory, '../../..');
+const root = resolve(process.env.REGISTER_E2E_ROOT || sourceRoot);
 const scratch = await mkdtemp(resolve(tmpdir(), 'register-editor-e2e-'));
 const id = scratch.split('-').at(-1);
 const config = resolve(root, `config.e2e-${id}.php`);
@@ -18,7 +19,7 @@ const port = reservation.address().port;
 await new Promise(resolve => reservation.close(resolve));
 const origin = `http://127.0.0.1:${port}`;
 const settings = resolve(scratch, 'settings.json');
-await writeFile(settings, JSON.stringify({scratch, id, config, origin, database: relative(root, resolve(scratch, 'site.sqlite'))}));
+await writeFile(settings, JSON.stringify({scratch, id, config, origin, root, database: relative(root, resolve(scratch, 'site.sqlite'))}));
 const php = process.env.PHP_BIN || 'php';
 let server;
 let serverLog = '';
@@ -34,6 +35,36 @@ async function login(page, account = 'editor') {
     await page.locator('form[name="loginform"] [name="pass"]').fill(account + '-password');
     await page.locator('form[name="loginform"] [type="submit"]').click();
     await page.waitForFunction(() => !document.querySelector('form[name="loginform"]'));
+}
+
+async function measureGuestAssets(browser) {
+    const context = await browser.newContext({serviceWorkers: 'block'});
+    try {
+        const page = await context.newPage();
+        const measurements = () => page.evaluate(() => {
+            const files = performance.getEntriesByType('resource').filter(resource =>
+                /\.(?:css|m?js)(?:\.asset)?$/.test(new URL(resource.name).pathname));
+            return {
+                files: files.map(resource => ({path: new URL(resource.name).pathname,
+                    decoded: resource.decodedBodySize, encoded: resource.encodedBodySize, transfer: resource.transferSize})),
+                decoded: files.reduce((sum, resource) => sum + resource.decodedBodySize, 0),
+                encoded: files.reduce((sum, resource) => sum + resource.encodedBodySize, 0),
+                // Resource Timing represents response-header overhead as 300 bytes.
+                bodyFromNetwork: files.reduce((sum, resource) => sum + Math.max(0, resource.transferSize - 300), 0),
+            };
+        });
+        await page.goto(origin + '/');
+        const cold = await measurements();
+        assert.ok(cold.files.every(file => !file.path.includes('/editor/') && !file.path.includes('/post-inplace.')
+            && !file.path.includes('/post-recovery.')), 'Guests must not download the authenticated post editor');
+        await page.goto(origin + '/?cache-measure=warm');
+        const warm = await measurements();
+        const report = {cold, warm};
+        await writeFile(resolve(directory, '../../_output/guest-asset-transfer.json'), JSON.stringify(report, null, 2) + '\n');
+        assert.ok(cold.encoded < cold.decoded, 'The actual guest page must receive prepared compressed assets');
+        assert.equal(warm.bodyFromNetwork, 0, 'Unchanged JS/CSS must not be downloaded again');
+        console.log(`Guest page: ${cold.files.length} JS/CSS, ${cold.decoded} decoded bytes, ${cold.encoded} encoded bytes; repeat visit ${warm.bodyFromNetwork} JS/CSS body bytes`);
+    } finally { await context.close(); }
 }
 
 async function runMediaBoundarySaveRegression(page, browserName) {
@@ -198,7 +229,7 @@ async function runPublishedHtmlBlockRegression(page, postId) {
 try {
     const {pageId} = JSON.parse(execFileSync(php, [resolve(directory, 'e2e-seed.php'), settings], {cwd: root, encoding: 'utf8', env: {...process.env, XDEBUG_MODE: 'off'}}));
     server = spawn(php, ['-d', `session.save_path=${scratch}/sessions`, '-d', 'opcache.revalidate_freq=0',
-        '-S', `127.0.0.1:${port}`, '-t', root, resolve(root, 'tools/dev-router.php')],
+        '-S', `127.0.0.1:${port}`, '-t', root, resolve(sourceRoot, 'tools/dev-router.php')],
     {cwd: root, env: {...process.env, APP_ENV: `e2e-${id}`, XDEBUG_MODE: 'off'}, stdio: ['ignore', 'pipe', 'pipe']});
     server.stdout.on('data', data => { serverLog += data; });
     server.stderr.on('data', data => { serverLog += data; });
@@ -238,6 +269,7 @@ try {
         page.on('pageerror', error => errors.push(String(error)));
         page.setDefaultTimeout(15000);
         try {
+            if (process.env.REGISTER_E2E_ROOT && engine.name() === 'chromium') await measureGuestAssets(browser);
             await login(page);
             await page.goto(origin + '/');
             await page.locator('.post-create-start').click();

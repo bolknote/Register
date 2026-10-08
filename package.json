@@ -1,0 +1,19 @@
+{
+  "name": "register-assets",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "build:assets": "node tools/assets/build.mjs",
+    "test:assets": "node --test _tests/assets/*.test.mjs"
+  },
+  "devDependencies": {
+    "@gfx/zopfli": "1.0.15",
+    "acorn": "8.19.0",
+    "lightningcss": "1.33.0",
+    "oxc-minify": "0.153.0",
+    "terser": "5.51.2"
+  }
+}

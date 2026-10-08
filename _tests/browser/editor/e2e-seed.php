@@ -32,7 +32,9 @@ foreach (['scratch', 'database', 'origin', 'id', 'config'] as $key) {
     }
 }
 
-$root = dirname(__DIR__, 3) . '/';
+$root = isset($settings['root']) && is_string($settings['root'])
+    ? rtrim($settings['root'], '/') . '/' : dirname(__DIR__, 3) . '/';
+$disableCache = !is_file($root . '_include/asset-manifest.json');
 $scratch = $settings['scratch'];
 foreach (['cache', 'media', 'sessions'] as $directory) {
     mkdir($scratch . '/' . $directory, 0700, true);
@@ -44,9 +46,9 @@ $parameters = [
     'image_dir' => $scratch . '/media', 'image_path' => '/_e2e_media',
     'content_image_directory' => '', 'allowed_extensions' => 'png jpg jpeg webp mp3',
     'upload_quota_bytes' => 1024 * 1024 * 1024,
-    // UI regressions must use current assets, not a developer's previously
-    // compiled public bundle in the shared _cache directory.
-    'disable_cache' => true, 'base_url' => $settings['origin'], 'base_path' => '',
+    // Source fixtures bypass a developer's old runtime bundles. Production
+    // fixtures exercise the staged manifest and prebuilt asset paths instead.
+    'disable_cache' => $disableCache, 'base_url' => $settings['origin'], 'base_path' => '',
     'url_prefix' => '', 'trusted_proxies' => [], 'debug' => false,
     'debug_view' => false, 'show_queries' => false, 'boot_timestamp' => microtime(true),
     'redirect_map' => [], 'version' => 'e2e', 'canonical_url' => null,
@@ -79,7 +81,7 @@ $application->container->get(SchemaManager::class)->ensureCurrent();
 $config = [
     'database' => ['type' => 'sqlite', 'name' => $parameters['db_name'], 'host' => '', 'user' => '', 'password' => '', 'prefix' => ''],
     'http' => ['base_url' => $settings['origin'], 'base_path' => '', 'url_prefix' => ''],
-    'options' => ['force_admin_https' => false, 'disable_cache' => true],
+    'options' => ['force_admin_https' => false, 'disable_cache' => $disableCache],
     'files' => ['cache_dir' => $parameters['cache_dir'], 'log_dir' => $parameters['log_dir'],
         'image_dir' => $parameters['image_dir'], 'image_url' => $parameters['image_path']],
     'cookies' => ['name' => $parameters['cookie_name']],

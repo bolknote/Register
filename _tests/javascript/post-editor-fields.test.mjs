@@ -22,11 +22,19 @@ class Element {
         this.attributes = new Map();
         this.classes = new Set();
         this.classList = {add: name => this.classes.add(name)};
+        const properties = new Map();
+        this.style = {
+            getPropertyValue: name => properties.get(name) ?? '',
+            getPropertyPriority: () => '',
+            setProperty: (name, value) => properties.set(name, value),
+            removeProperty: name => properties.delete(name),
+        };
     }
 
     getBoundingClientRect() { return this.box; }
     get textContent() { return this.childNodes.map(child => child.textContent).join(''); }
     setAttribute(name, value) { this.attributes.set(name, value); }
+    getAttribute(name) { return this.attributes.get(name) ?? null; }
     append(child) { this.childNodes.push(child); child.parentElement = this; }
     remove() { this.parentElement.childNodes = this.parentElement.childNodes.filter(child => child !== this); }
 
@@ -96,7 +104,12 @@ function harness() {
     card.append(title);
     card.append(body);
     card.append(tags);
-    const state = {card, title, body, tags};
+    const time = new Element('time');
+    // The current field decorator aligns the date too; keep that DOM dependency
+    // in the VM fixture even though these assertions concern the field surfaces.
+    const date = new Element('div', bounds(144, 24));
+    date.append(time);
+    const state = {card, title, body, tags, time};
 
     class Observer {
         constructor(callback) { this.callback = callback; this.targets = []; observers.push(this); }

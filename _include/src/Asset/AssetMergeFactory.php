@@ -21,12 +21,17 @@ readonly class AssetMergeFactory
         private string     $publicCacheDir,
         private string     $publicCachePath,
         private bool       $disableCache,
+        private ?PrebuiltAssetManifest $prebuiltAssets = null,
     ) {
     }
 
     public function create(string $cacheFilenamePrefix, string $type): ?AssetMergeInterface
     {
-        return $this->disableCache ? null : new AssetMerge(
+        if ($this->disableCache) {
+            return null;
+        }
+
+        $merge = new AssetMerge(
             $this->httpClient,
             $this->logger,
             $this->publicCacheDir,
@@ -35,5 +40,7 @@ readonly class AssetMergeFactory
             $type,
             $this->debug
         );
+
+        return $this->prebuiltAssets === null ? $merge : new PrebuiltAssetMerge($this->prebuiltAssets, $merge);
     }
 }

@@ -11,6 +11,7 @@
 declare(strict_types = 1);
 
 use Register\Tools\Deployment\SharedHostingDistributionBuilder;
+use Register\Tools\Deployment\ProductionAssetBuilder;
 
 if (PHP_SAPI !== 'cli') {
     throw new RuntimeException('The shared-hosting package can only be built from the command line.');
@@ -19,6 +20,7 @@ if (PHP_SAPI !== 'cli') {
 $projectRoot = dirname(__DIR__);
 require $projectRoot . '/_vendor/autoload.php';
 require $projectRoot . '/tools/deployment/SharedHostingDistributionBuilder.php';
+require $projectRoot . '/tools/deployment/ProductionAssetBuilder.php';
 
 $arguments = $_SERVER['argv'] ?? [];
 if (\count($arguments) > 2) {
@@ -53,6 +55,7 @@ $hash = null;
 try {
     $builder->buildDirectory($temporaryRoot, includeInstalledVendor: is_dir($projectRoot . '/_vendor'));
     installProductionDependencies($temporaryRoot . '/' . SharedHostingDistributionBuilder::PUBLIC_DIRECTORY);
+    (new ProductionAssetBuilder($projectRoot))->build($temporaryRoot . '/' . SharedHostingDistributionBuilder::PUBLIC_DIRECTORY);
     $builder->validatePublicBoundary($temporaryRoot);
     $builder->createArchive($temporaryRoot, $temporaryArchive);
 

@@ -1,5 +1,11 @@
 # Asset provenance
 
+Production JS/CSS is optimized during release builds using the exact versions in `package-lock.json`:
+Oxc and Terser compete by Brotli output size, and Lightning CSS optimizes styles. The readable files
+in the repository remain the source assets; upstream checksums below describe those source files.
+Required license notices are preserved in generated files. See [deployment.md](deployment.md) for
+the build prerequisites, precompression settings, content hashes and UTF-8 handling.
+
 Register does not copy visual assets from Aegea. Product-interface symbols should be Unicode text,
 emoji, or original artwork. Emoji used as quiet monochrome controls are rendered with
 `filter: grayscale(1)` by the Register theme. The administration link uses the Unicode `ℜ` glyph,

@@ -114,4 +114,13 @@ final class DevelopmentRouterPolicyTest extends Unit
         self::assertFalse(DevelopmentRouterPolicy::isAllowedPhpEndpoint('/_extensions/register_counter/data.php'));
         self::assertFalse(DevelopmentRouterPolicy::isAllowedPhpEndpoint('/_include/config.php'));
     }
+
+    public function testResolvesPrebuiltAssetsWithoutExposingPrivateFilesOrTraversingDirectories(): void
+    {
+        self::assertSame('/_admin/js/editor/entry.js', DevelopmentRouterPolicy::negotiatedAssetPath('/_admin/js/editor/entry.js.asset'));
+        self::assertSame('/service-worker.js', DevelopmentRouterPolicy::negotiatedAssetPath('/service-worker.js.asset'));
+        self::assertNull(DevelopmentRouterPolicy::negotiatedAssetPath('/_include/private.js.asset'));
+        self::assertNull(DevelopmentRouterPolicy::negotiatedAssetPath('/_assets/../_include/private.js.asset'));
+        self::assertNull(DevelopmentRouterPolicy::negotiatedAssetPath('/_assets/register/template.php.asset'));
+    }
 }

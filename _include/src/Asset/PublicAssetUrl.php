@@ -16,10 +16,13 @@ final readonly class PublicAssetUrl
 
     private string $basePath;
 
+    private ?PrebuiltAssetManifest $prebuiltAssets;
+
     public function __construct(string $publicRoot, string $basePath)
     {
         $this->publicRoot = rtrim($publicRoot, '/\\') . DIRECTORY_SEPARATOR;
         $this->basePath   = rtrim($basePath, '/');
+        $this->prebuiltAssets = PrebuiltAssetManifest::fromPublicRoot($this->publicRoot, $this->basePath);
     }
 
     public function versioned(string $path): string
@@ -46,6 +49,11 @@ final readonly class PublicAssetUrl
         $filename = $this->publicRoot . ltrim($path, '/');
         if (!is_file($filename)) {
             throw new \LogicException(\sprintf('The public asset "%s" does not exist.', $filename));
+        }
+
+        $prebuiltUrl = $this->prebuiltAssets?->urlFor($filename);
+        if ($prebuiltUrl !== null) {
+            return $prebuiltUrl;
         }
 
         $modifiedAt = filemtime($filename);

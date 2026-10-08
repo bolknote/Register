@@ -75,6 +75,9 @@ final readonly class SharedHostingDistributionBuilder
         'register-release.json' => true,
         'robots.txt'            => true,
         'service-worker.js'     => true,
+        'service-worker.js.br'  => true,
+        'service-worker.js.gz'  => true,
+        'service-worker.js.zst' => true,
         'site.webmanifest'      => true,
         'tools'                 => true,
     ];

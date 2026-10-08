@@ -4,6 +4,7 @@
 .codex/
 plan*.md
 dist/
+node_modules/
 _cache/*
 _vendor/*
 /config.php
