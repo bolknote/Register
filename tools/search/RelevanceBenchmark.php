@@ -15,6 +15,7 @@ use Register\Rose\Entity\FulltextQuery;
 use Register\Rose\Entity\FulltextResult;
 use Register\Rose\Entity\Indexable;
 use Register\Rose\Entity\Query;
+use Register\Rose\Entity\RankingProfile;
 use Register\Rose\Entity\ResultSet;
 use Register\Rose\Extractor\ExtractorInterface;
 use Register\Rose\Finder;
@@ -22,6 +23,8 @@ use Register\Rose\Indexer;
 use Register\Rose\Stemmer\StemmerInterface;
 use Register\Rose\Storage\Database\PdoStorage;
 use Register\Rose\Storage\FulltextIndexContent;
+
+require_once __DIR__ . '/RankingExperiment.php';
 
 /**
  * Offline comparisons over one corpus and one set of relevance judgments.
@@ -38,6 +41,7 @@ final readonly class RelevanceBenchmark
     public function __construct(
         private StemmerInterface $normalizer,
         private ?ExtractorInterface $extractor = null,
+        private bool $experiments = false,
     ) {
     }
 
@@ -134,8 +138,15 @@ final readonly class RelevanceBenchmark
         }
 
         $finder = new BenchmarkFinder($storage, $this->normalizer);
+        $rarityFinder = $this->experiments ? new BenchmarkFinder($storage, $this->normalizer, RankingProfile::Rarity) : null;
         $zero = ['hit1' => 0.0, 'hit3' => 0.0, 'mrr' => 0.0, 'ndcg10' => 0.0];
         $totals = ['legacy' => $zero, 'coverage' => $zero, 'bm25f' => $zero];
+        if ($this->experiments) {
+            foreach (RankingExperiment::MODELS as $model) {
+                $totals[$model] = $zero;
+            }
+        }
+
         $results = [];
         foreach ($dataset['queries'] as $question) {
             $query = new Query($question['query']);
@@ -171,12 +182,25 @@ final readonly class RelevanceBenchmark
                 'coverage' => array_map(static fn(\Register\Rose\Entity\ResultItem $item): string => $item->getId(), $result->getItems()),
                 'bm25f' => array_map(static fn(string $id): string => ExternalId::fromString($id)->getId(), $bm25),
             ];
+            if ($this->experiments) {
+                foreach ((new RankingExperiment())->run($fulltextQuery, $index, $scores, $storage->getTocSize(null), $dates) as $model => $ranking) {
+                    $rankings[$model] = array_map(static fn(string $id): string => ExternalId::fromString($id)->getId(), $ranking);
+                }
+            }
+
+            if ($rarityFinder !== null) {
+                $rankings['rarity'] = array_map(static fn(\Register\Rose\Entity\ResultItem $item): string => $item->getId(), $rarityFinder->find($query)->getItems());
+            }
+
             $metrics = [];
             foreach ($rankings as $model => $ranking) {
                 $metrics[$model] = self::measure($ranking, $question['relevance']);
+                $total = $totals[$model] ?? $zero;
                 foreach ($metrics[$model] as $metric => $value) {
-                    $totals[$model][$metric] += $value;
+                    $total[$metric] += $value;
                 }
+
+                $totals[$model] = $total;
             }
 
             $results[] = ['query' => $question['query'], 'rankings' => $rankings, 'metrics' => $metrics];

@@ -24,15 +24,16 @@ if (PHP_SAPI !== 'cli') {
 require dirname(__DIR__) . '/_vendor/autoload.php';
 require __DIR__ . '/search/RelevanceBenchmark.php';
 
-$options = getopt('', ['dataset:', 'json', 'help']);
+$options = getopt('', ['dataset:', 'json', 'experiments', 'help']);
 if ($options === false) {
     throw new InvalidArgumentException('Cannot parse command-line options.');
 }
 if (isset($options['help'])) {
-    fwrite(STDOUT, 'Usage: php tools/evaluate-search.php [--dataset=corpus.json] [--json]' . PHP_EOL);
+    fwrite(STDOUT, 'Usage: php tools/evaluate-search.php [--dataset=corpus.json] [--json] [--experiments]' . PHP_EOL);
     fwrite(STDOUT, 'Documents: id, title, content; optional keywords, publishedAt (integer timestamp or null), relevanceRatio (0.001..9999).' . PHP_EOL);
     fwrite(STDOUT, 'Queries: query text and relevance map (document ID => grade 1..3; grades >= 2 count as relevant).' . PHP_EOL);
     fwrite(STDOUT, 'The corpus is indexed in memory. Full rankings are evaluated without fetching display-only snippets.' . PHP_EOL);
+    fwrite(STDOUT, '--experiments adds opt-in rarity, repeat-saturation and weighted-coverage ablations; public search is unchanged.' . PHP_EOL);
     exit(0);
 }
 
@@ -49,14 +50,14 @@ $normalizer = new HybridWordNormalizer(
     ),
     new PorterStemmerRussian(new PorterStemmerEnglish()),
 );
-$report = (new RelevanceBenchmark($normalizer))->run(RelevanceBenchmark::loadDataset($datasetPath));
+$report = (new RelevanceBenchmark($normalizer, experiments: isset($options['experiments'])))->run(RelevanceBenchmark::loadDataset($datasetPath));
 
 if (isset($options['json'])) {
     fwrite(STDOUT, json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL);
 } else {
     fwrite(STDOUT, sprintf('%d documents, %d queries; grades >= 2 count as relevant.', $report['documents'], $report['queries']) . PHP_EOL);
-    fwrite(STDOUT, sprintf('%-12s %8s %8s %8s %10s', 'Model', 'Hit@1', 'Hit@3', 'MRR', 'nDCG@10') . PHP_EOL);
+    fwrite(STDOUT, sprintf('%-18s %8s %8s %8s %10s', 'Model', 'Hit@1', 'Hit@3', 'MRR', 'nDCG@10') . PHP_EOL);
     foreach ($report['models'] as $model => $metrics) {
-        fwrite(STDOUT, sprintf('%-12s %8.3f %8.3f %8.3f %10.3f', $model, $metrics['hit1'], $metrics['hit3'], $metrics['mrr'], $metrics['ndcg10']) . PHP_EOL);
+        fwrite(STDOUT, sprintf('%-18s %8.3f %8.3f %8.3f %10.3f', $model, $metrics['hit1'], $metrics['hit3'], $metrics['mrr'], $metrics['ndcg10']) . PHP_EOL);
     }
 }

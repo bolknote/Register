@@ -17,8 +17,23 @@ use Register\Rose\Storage\FulltextIndexContent;
  */
 class FulltextResult
 {
-    public function __construct(protected FulltextQuery $query, protected FulltextIndexContent $fulltextIndexContent, protected int $tocSize = 0)
+    public function __construct(
+        protected FulltextQuery $query,
+        protected FulltextIndexContent $fulltextIndexContent,
+        protected int $tocSize = 0,
+        protected RankingProfile $rankingProfile = RankingProfile::Coverage,
+    ) {
+    }
+
+    /** Positive IDF, normalized to 1 for a word found in one document. */
+    public static function rarityWeight(int $documents, int $frequency): float
     {
+        $documents = max(1, $documents);
+        $frequency = max(1, min($frequency, $documents));
+        $idf = log(1.0 + ((float)$documents - (float)$frequency + 0.5) / ((float)$frequency + 0.5));
+        $maximum = log(1.0 + ((float)$documents - 0.5) / 1.5);
+
+        return $idf / $maximum;
     }
 
     /**
@@ -82,6 +97,10 @@ class FulltextResult
 
         $rankingWordPositions = $this->query->getRankingWordPositions();
         $resultSet->setSnippetWordGroups($rankingWordPositions);
+        if ($this->rankingProfile === RankingProfile::Rarity) {
+            $resultSet->setRarityQueryTermWeights($this->rarityQueryTermWeights($rankingWordPositions));
+        }
+
         $wordReductionRatios = [];
         foreach ($this->fulltextIndexContent->toArray() as $word => $indexedItems) {
             $word                       = (string)$word;
@@ -105,7 +124,9 @@ class FulltextResult
                 continue;
             }
 
-            $reductionRatio             = self::frequencyReduction($this->tocSize, \count($indexedItems));
+            $reductionRatio             = $this->rankingProfile === RankingProfile::Rarity
+                ? self::rarityWeight($this->tocSize, \count($indexedItems))
+                : self::frequencyReduction($this->tocSize, \count($indexedItems));
             $wordReductionRatios[$word] = $reductionRatio;
 
             foreach ($indexedItems as $positionBag) {
@@ -164,6 +185,31 @@ class FulltextResult
                 self::addNeighbourWeights($id, $container, $referenceContainer, $wordReductionRatios, $resultSet, true);
             }
         );
+    }
+
+    /**
+     * Count documents once per original term, across exact forms and all lemmas.
+     * Missing terms keep a weight, so partial matches still incur a penalty.
+     *
+     * @param array<string, list<int>> $positions
+     * @return array<int, float>
+     */
+    private function rarityQueryTermWeights(array $positions): array
+    {
+        $groups = [];
+        $postings = $this->fulltextIndexContent->toArray();
+        foreach ($positions as $word => $queryPositions) {
+            foreach ($queryPositions as $position) {
+                $groups[$position] = ($groups[$position] ?? []) + ($postings[$word] ?? []);
+            }
+        }
+
+        $weights = [];
+        foreach ($groups as $position => $documents) {
+            $weights[$position] = self::rarityWeight($this->tocSize, \count($documents));
+        }
+
+        return $weights;
     }
 
     /** @param array<string, float> $wordReductionRatios */

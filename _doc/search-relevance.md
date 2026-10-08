@@ -1,6 +1,6 @@
 # Search relevance
 
-Register ranks results by the number of matched significant query terms, then exact source forms,
+By default, Register ranks results by the number of matched significant query terms, then exact source forms,
 then the existing relevance score. Matches may span the title, keywords and body. Each input term
 counts once even when the Russian dictionary supplies several alternative lemmas, or when a word
 appears in several fields. This ordering is applied before pagination.
@@ -113,6 +113,44 @@ not retain tentative IDs across indexing calls: a later outer rollback could rem
 IDs. Locally owned successful transactions retain the ordinary cache optimization. This prevents
 incorrect word associations when the same storage instance is reused after a failed transaction.
 
+## Opt-in rarity ranking
+
+The Finder supports a separate profile without changing the default or the index:
+
+```php
+use Register\Rose\Entity\RankingProfile;
+use Register\Rose\Finder;
+
+$finder = new Finder($storage, $normalizer, RankingProfile::Rarity);
+```
+
+This profile uses positive BM25-style IDF, `log(1 + (N-df+0.5)/(df+0.5))`,
+normalized to weight 1 at `df=1`. Field coefficients, the native repeat bonus,
+entry-size weighting, external relevance ratios and proximity geometry stay the
+same; proximity frequency factors use the new IDF as well. Document frequency
+and corpus size respect the requested instance.
+
+For multiword queries, coverage becomes a score multiplier rather than an absolute
+priority. The matched significant query groups' IDF weights are divided by the sum
+of all groups' weights; this ratio is squared. An additional small exact-form bonus
+is `1 + 0.1 * exactQueryTerms / queryTerms`. The underlying field/proximity score
+is multiplied by both factors. Thus a focused title matching a rare term can rank
+above a long document that incidentally matches every term. Missing query words
+still contribute to the denominator, and all native candidates remain available.
+
+Group frequency is the union of documents across the original term's exact and
+alternative lemma keys. Fields and ambiguity do not multiply coverage. Exact-form
+keys remain markers, not duplicate numerical contributions. Single-term exactness
+remains a hard priority. Quoted phrases stay mandatory filters. Snippet selection,
+total counts, date/ID tie-breaking and pagination use their existing mechanisms.
+The trace adds `rankingProfile` and `weightedQueryCoverage` for this opt-in profile.
+
+There is no public search-page switch or changed application wiring: existing
+two-argument Finder construction retains the coverage profile. Native storage
+supplies the same postings and dates, and only the selected page's TOC and snippets
+are fetched. No schema change, index rebuild, dependency or external service is
+required. Evaluate installation-specific queries before selecting this profile.
+
 ## Reproducible comparisons
 
 Run the offline comparison with:
@@ -152,6 +190,49 @@ receive `0`. Hit@1, Hit@3 and MRR consider grades 2 and 3 successful. nDCG@10 us
 `2^grade - 1` and includes all judged documents in the ideal ranking, including documents the
 search failed to retrieve. JSON output includes every query's rankings and metrics, making
 individual regressions visible instead of hiding them in an average.
+
+## Opt-in ranking experiments
+
+The default public search behavior is unchanged. To compare additional profiles on
+the same in-memory index, run:
+
+```bash
+php tools/evaluate-search.php --experiments
+php tools/evaluate-search.php --experiments --dataset=/absolute/path/relevance.json --json
+```
+
+The extra profiles isolate these hypotheses:
+
+- `rarity`: the actual opt-in Finder output, computed directly rather than by
+  adjusting frozen native scores;
+
+- `smooth_tf`: replace only the native repeat bonus with `2*tf/(1+tf)`, retaining
+  the hard coverage/exact-form ordering;
+- `idf_hard`: replace only the native frequency-reduction factor with positive
+  BM25-style IDF, retaining the hard coverage/exact-form ordering;
+- `idf_soft`: use IDF plus a soft significant-term coverage penalty instead of the
+  lexicographic coverage veto;
+- `idf_smooth`: combine IDF, soft coverage and the smooth repeat bonus;
+- `idf_smooth_c4` / `idf_smooth_c8`: stronger coverage penalties with powers 4 / 8,
+  compared to power 2 in `idf_soft` / `idf_smooth`.
+
+IDF is `log(1 + (N-df+0.5)/(df+0.5))`, normalized to weight 1 at `df=1`.
+Native field coefficients, entry-size weighting, external relevance ratios and
+proximity geometry are retained. Proximity frequency factors follow the same IDF
+change. Exact-form postings do not add duplicate term-frequency contributions.
+
+Soft coverage uses the sum of IDF weights for matched significant query groups
+divided by the sum for all groups, raised to the profile's power. Group document
+frequency is the union across all alternative lemma/exact keys, so ambiguity does
+not count as multiple query terms. Multiword exactness becomes a small score bonus;
+single-term exactness remains a hard priority. Required phrases stay hard filters.
+
+These are arithmetic adjustments to the same native candidates, not a second
+index or another library. Full rankings, including matches below the first page,
+are retained. Dates and external IDs keep deterministic tie-breaking. No snippets,
+schema migrations, index rebuilds, model downloads, external API calls or public
+configuration changes are introduced. Tuning must use development judgments;
+report the held-out queries and individual regressions separately.
 
 ## Evaluating an installation's queries
 
