@@ -30,6 +30,9 @@ if ($options === false) {
 }
 if (isset($options['help'])) {
     fwrite(STDOUT, 'Usage: php tools/evaluate-search.php [--dataset=corpus.json] [--json]' . PHP_EOL);
+    fwrite(STDOUT, 'Documents: id, title, content; optional keywords, publishedAt (integer timestamp or null), relevanceRatio (0.001..9999).' . PHP_EOL);
+    fwrite(STDOUT, 'Queries: query text and relevance map (document ID => grade 1..3; grades >= 2 count as relevant).' . PHP_EOL);
+    fwrite(STDOUT, 'The corpus is indexed in memory. Full rankings are evaluated without fetching display-only snippets.' . PHP_EOL);
     exit(0);
 }
 

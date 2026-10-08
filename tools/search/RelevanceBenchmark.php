@@ -16,6 +16,7 @@ use Register\Rose\Entity\FulltextResult;
 use Register\Rose\Entity\Indexable;
 use Register\Rose\Entity\Query;
 use Register\Rose\Entity\ResultSet;
+use Register\Rose\Extractor\ExtractorInterface;
 use Register\Rose\Finder;
 use Register\Rose\Indexer;
 use Register\Rose\Stemmer\StemmerInterface;
@@ -25,7 +26,7 @@ use Register\Rose\Storage\FulltextIndexContent;
 /**
  * Offline comparisons over one corpus and one set of relevance judgments.
  *
- * @phpstan-type Document array{id: string, title: string, content: string, keywords: string}
+ * @phpstan-type Document array{id: string, title: string, content: string, keywords: string, publishedAt?: int|null, relevanceRatio?: float}
  * @phpstan-type Question array{query: string, relevance: array<string, int>}
  * @phpstan-type Dataset array{documents: list<Document>, queries: list<Question>}
  * @phpstan-type Metrics array{hit1: float, hit3: float, mrr: float, ndcg10: float}
@@ -34,8 +35,10 @@ use Register\Rose\Storage\FulltextIndexContent;
  */
 final readonly class RelevanceBenchmark
 {
-    public function __construct(private StemmerInterface $normalizer)
-    {
+    public function __construct(
+        private StemmerInterface $normalizer,
+        private ?ExtractorInterface $extractor = null,
+    ) {
     }
 
     /** @return Dataset */
@@ -60,12 +63,22 @@ final readonly class RelevanceBenchmark
                 throw new \InvalidArgumentException('Documents need unique nonempty IDs, titles, content and optional keywords.');
             }
 
+            $publishedAt = $document['publishedAt'] ?? null;
+            $relevanceRatio = \array_key_exists('relevanceRatio', $document) ? $document['relevanceRatio'] : 1.0;
+            if (($publishedAt !== null && !\is_int($publishedAt))
+                || (!\is_int($relevanceRatio) && !\is_float($relevanceRatio))
+                || !is_finite((float)$relevanceRatio) || $relevanceRatio < 0.001 || $relevanceRatio > 9999.0) {
+                throw new \InvalidArgumentException('Optional publication dates must be integer timestamps, and relevance ratios must be finite numbers from 0.001 to 9999.');
+            }
+
             $ids[$document['id']] = true;
             $documents[] = [
                 'id' => $document['id'],
                 'title' => $document['title'],
                 'content' => $document['content'],
                 'keywords' => $document['keywords'] ?? '',
+                'publishedAt' => $publishedAt,
+                'relevanceRatio' => (float)$relevanceRatio,
             ];
         }
 
@@ -108,12 +121,19 @@ final readonly class RelevanceBenchmark
         $storage = new BenchmarkStorage(new \PDO('sqlite::memory:'), 'benchmark_');
         $storage->erase();
 
-        $indexer = new Indexer($storage, $this->normalizer);
+        $indexer = new Indexer($storage, $this->normalizer, $this->extractor);
+        $dates = [];
         foreach ($dataset['documents'] as $document) {
-            $indexer->index((new Indexable($document['id'], $document['title'], $document['content']))->setKeywords($document['keywords']));
+            $date = $document['publishedAt'] ?? null;
+            $indexable = (new Indexable($document['id'], $document['title'], $document['content']))
+                ->setKeywords($document['keywords'])
+                ->setDate($date === null ? null : (new \DateTime())->setTimestamp($date))
+                ->setRelevanceRatio($document['relevanceRatio'] ?? 1.0);
+            $indexer->index($indexable);
+            $dates[$indexable->getExternalId()->toString()] = $date;
         }
 
-        $finder = new Finder($storage, $this->normalizer);
+        $finder = new BenchmarkFinder($storage, $this->normalizer);
         $zero = ['hit1' => 0.0, 'hit3' => 0.0, 'mrr' => 0.0, 'ndcg10' => 0.0];
         $totals = ['legacy' => $zero, 'coverage' => $zero, 'bm25f' => $zero];
         $results = [];
@@ -142,9 +162,9 @@ final readonly class RelevanceBenchmark
                 }
             }
 
-            $legacy = $this->rank($legacyScores, [], $legacyExact);
+            $legacy = $this->rank($legacyScores, [], $legacyExact, $dates);
             $bm25Scores = $this->bm25Scores($fulltextQuery, $index, $storage->fieldLengths);
-            $bm25 = $this->rank(array_intersect_key($bm25Scores + array_fill_keys(array_keys($scores), 0.0), $scores), $coverage, $exact);
+            $bm25 = $this->rank(array_intersect_key($bm25Scores + array_fill_keys(array_keys($scores), 0.0), $scores), $coverage, $exact, $dates);
 
             $rankings = [
                 'legacy' => array_map(static fn(string $id): string => ExternalId::fromString($id)->getId(), $legacy),
@@ -209,17 +229,24 @@ final readonly class RelevanceBenchmark
      * @param array<string, float|int> $scores
      * @param array<string, array<int, true>> $coverage
      * @param array<string, int> $exact
+     * @param array<string, int|null> $dates
      * @return list<string>
      */
-    private function rank(array $scores, array $coverage, array $exact): array
+    private function rank(array $scores, array $coverage, array $exact, array $dates): array
     {
         $ids = array_keys($scores);
-        usort($ids, static function (string $left, string $right) use ($scores, $coverage, $exact): int {
+        usort($ids, static function (string $left, string $right) use ($scores, $coverage, $exact, $dates): int {
             $leftRank = [\count($coverage[$left] ?? []), $exact[$left] ?? 0, $scores[$left] ?? 0.0];
             $rightRank = [\count($coverage[$right] ?? []), $exact[$right] ?? 0, $scores[$right] ?? 0.0];
             $order = $rightRank <=> $leftRank;
 
-            return $order !== 0 ? $order : strcmp($left, $right);
+            if ($order !== 0) {
+                return $order;
+            }
+
+            $dateOrder = ($dates[$right] ?? PHP_INT_MIN) <=> ($dates[$left] ?? PHP_INT_MIN);
+
+            return $dateOrder !== 0 ? $dateOrder : strcmp($left, $right);
         });
 
         return $ids;
@@ -317,6 +344,15 @@ final readonly class RelevanceBenchmark
         }
 
         return $scores;
+    }
+}
+
+/** Evaluate complete rankings without fetching thousands of display-only snippets. */
+final class BenchmarkFinder extends Finder
+{
+    #[\Override]
+    public function buildSnippets(array $relevanceByExternalIds, ResultSet $resultSet): void
+    {
     }
 }
 
