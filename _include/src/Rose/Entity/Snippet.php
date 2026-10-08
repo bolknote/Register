@@ -8,6 +8,8 @@ declare(strict_types = 1);
 
 namespace Register\Rose\Entity;
 
+use Register\Rose\Snippet\SnippetSelection;
+
 /**
  * @see \Register\Rose\Test\Entity\SnippetTest
  */
@@ -39,6 +41,8 @@ class Snippet
      */
     protected array $snippetMaxWordPositions = [];
 
+    private ?SnippetSelection $selection = null;
+
     public function __construct(protected string $highlightTemplate, SnippetLine ...$introductionSnippetLines)
     {
         $this->introductionSnippetLines = $introductionSnippetLines;
@@ -60,6 +64,13 @@ class Snippet
         return $this;
     }
 
+    public function setSelection(SnippetSelection $selection): self
+    {
+        $this->selection = $selection;
+
+        return $this;
+    }
+
     public function getTextIntroduction(bool $includeFormatting = false): string
     {
         $result = [];
@@ -72,6 +83,25 @@ class Snippet
 
     public function toString(bool $includeFormatting = false): ?string
     {
+        if ($this->selection !== null) {
+            $candidates = [];
+            foreach ($this->snippetLines as $index => $line) {
+                $candidates[$index] = [
+                    'line' => $line,
+                    'min' => $this->snippetMinWordPositions[$index],
+                    'max' => $this->snippetMaxWordPositions[$index],
+                ];
+            }
+
+            $selected = $this->selection->select($candidates, self::SNIPPET_LINE_COUNT);
+            $lines = [];
+            foreach ($selected as $index) {
+                $lines[$index] = $this->snippetLines[$index];
+            }
+
+            return $this->implodeLines($lines, $includeFormatting);
+        }
+
         $stat = [];
         foreach ($this->snippetLines as $index => $snippetLine) {
             $stat[$snippetLine->getLine()][$index] = $snippetLine->getRelevance();

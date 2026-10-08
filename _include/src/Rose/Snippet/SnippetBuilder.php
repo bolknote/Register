@@ -9,6 +9,7 @@ declare(strict_types = 1);
 namespace Register\Rose\Snippet;
 
 use Register\Rose\Entity\ExternalId;
+use Register\Rose\Entity\ExactWord;
 use Register\Rose\Entity\Metadata\SnippetSource;
 use Register\Rose\Entity\ResultSet;
 use Register\Rose\Entity\Snippet;
@@ -46,16 +47,39 @@ class SnippetBuilder
         $foundWords = $result->getFoundWordPositionsByExternalId();
 
         $snippetResult->iterate(function (ExternalId $externalId, SnippetSource ...$snippets) use ($foundWords, $result): void {
+            $positions = $foundWords[$externalId->toString()];
+            $phrases = $result->getSnippetPhraseMatches($externalId);
             $snippet = $this->buildSnippet(
-                $foundWords[$externalId->toString()],
+                $positions,
                 $result->getHighlightTemplate(),
                 $result->getRelevanceByStemsFromId($externalId),
-                ...$snippets
+                ...(new PhraseSnippetBuilder())->extend(array_values($snippets), $phrases)
             );
+            $snippet->setSelection(new SnippetSelection($this->groupPositions($positions, $result->getSnippetWordGroups()), $phrases));
+
             $result->attachSnippet($externalId, $snippet);
         });
 
         return $this;
+    }
+
+    /**
+     * @param array<int|string, list<int>> $positions Numeric tokens become integer array keys in PHP.
+     * @param array<string, list<int>> $groups
+     * @return array<int, list<int>>
+     */
+    private function groupPositions(array $positions, array $groups): array
+    {
+        $result = [];
+        foreach ($positions as $word => $wordPositions) {
+            $word = (string)$word;
+            $terms = array_unique(array_merge($groups[$word] ?? [], $groups[ExactWord::encode($word)] ?? []));
+            foreach ($terms as $term) {
+                $result[$term] = array_values(array_unique(array_merge($result[$term] ?? [], $wordPositions)));
+            }
+        }
+
+        return $result;
     }
 
     /**

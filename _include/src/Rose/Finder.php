@@ -156,7 +156,9 @@ class Finder
 
         $fulltextResult->fillResultSet($resultSet);
         if ($phrases !== []) {
-            $resultSet->retainExternalIds((new PhraseMatcher($this->storage))->findMatchingIds($phrases, $fulltextQuery, $fulltextIndexContent));
+            $matches = (new PhraseMatcher($this->storage))->findMatches($phrases, $fulltextQuery, $fulltextIndexContent);
+            $resultSet->retainExternalIds(ExternalIdCollection::fromStringArray(array_keys($matches)));
+            $resultSet->setSnippetPhraseMatches($matches);
         }
     }
 

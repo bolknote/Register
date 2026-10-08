@@ -19,6 +19,45 @@ use Symfony\Component\HttpFoundation\Response;
 /** @group search */
 final class SearchPresentationCest
 {
+    public function testSnippetsShowDifferentTermsAndActualQuotedPhrases(\IntegrationTester $I): void
+    {
+        $ids = [];
+        try {
+            $ids[] = $this->insertAndIndexContent(
+                $I, ContentType::POST, 'Coverage example', 'search-snippet-coverage',
+                '<p>snippetquasar lights northern sky. snippetquasar travels across dark space. '
+                . 'snippetquasar appears above mountain. snippetengine needs regular care.</p>',
+            );
+            $ids[] = $this->insertAndIndexContent(
+                $I, ContentType::POST, 'Phrase example', 'search-snippet-phrase',
+                '<p>snippetred snippetcomet glows beneath snippetblue sky. '
+                . 'snippetred snippetcomet shines beside snippetblue cloud. '
+                . 'snippetred snippetcomet moves across snippetblue horizon. '
+                . 'A snippetred snippetblue ribbon hangs nearby.</p>',
+            );
+
+            $I->amOnPage('https://localhost/search?q=snippetquasar+snippetengine');
+            $I->assertSame(['Coverage example'], $I->grabMultiple('.search-result-title a'));
+            $I->see('snippetengine needs regular care.', '.search-result-snippet');
+            $I->seeElement('.search-result-snippet .register_search_highlight');
+
+            $query = rawurlencode('"snippetred snippetblue" snippetcomet');
+            $I->amOnPage('https://localhost/search?q=' . $query);
+            $I->assertSame(['Phrase example'], $I->grabMultiple('.search-result-title a'));
+            $I->see('snippetred snippetblue ribbon hangs nearby.', '.search-result-snippet');
+            $I->see('snippetcomet', '.search-result-snippet');
+
+            foreach (['rss', 'feed.json'] as $feed) {
+                $I->amOnPage('https://localhost/search/' . $feed . '?q=' . $query);
+                $I->seeResponseCodeIs(Response::HTTP_OK);
+                $I->assertStringContainsString('/all/search-snippet-phrase', $I->grabResponse());
+                $I->assertStringNotContainsString('/all/search-snippet-coverage', $I->grabResponse());
+            }
+        } finally {
+            $this->removeIndexEntries($I, $ids);
+        }
+    }
+
     public function testOutOfRangePagesReturnTheActualFirstPage(\IntegrationTester $I): void
     {
         $ids = [];

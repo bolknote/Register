@@ -58,6 +58,28 @@ Queries retain the existing limit of 64 distinct lookup terms. A required phrase
 checked within that limit returns no results rather than silently matching only its prefix.
 Phrase search uses the existing positions and needs no index rebuild.
 
+## Result excerpts
+
+Excerpt selection greedily prefers a fragment containing a previously unshown quoted phrase,
+then previously unshown significant query terms, then the existing fragment relevance. Alternative
+lemmas and exact-form postings of one input word count as one term. Connectors follow the same
+significance policy as document ranking. At most three nonoverlapping, distinct excerpts are
+selected and displayed in their original document order. A single-word search retains the usual
+relevance-based choice once that word is shown.
+
+Phrase occurrences come from the same positional matcher that filters results, including morphology,
+repeated words and the storage's stop-word policy. A title/keyword occurrence is never presented as
+an occurrence in the body. When a phrase crosses stored sentence boundaries, up to three adjacent
+fragments of the same format can form one excerpt, limited to 4,096 bytes and three distinct additional
+windows per phrase. Missing fragments, positional gaps, incompatible formats and oversized windows
+are not joined or fabricated; ordinary matched fragments remain the fallback. Complete-phrase display
+is therefore limited by the available stored fragments and excerpt budget.
+
+Original escaping, internal formatting, highlight masks and custom separators remain in use. This
+changes only excerpts, not document scores, result counts, ordering, pagination or feed membership.
+It uses existing query postings and the selected page's stored fragments, with no new storage queries,
+schema changes or index rebuild.
+
 ## Spelling and keyboard-layout suggestions
 
 The search page offers an explicit correction link when the original result set does not contain

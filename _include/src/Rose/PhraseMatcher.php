@@ -31,6 +31,17 @@ final readonly class PhraseMatcher
     /** @param non-empty-list<non-empty-list<string>> $phrases */
     public function findMatchingIds(array $phrases, FulltextQuery $query, FulltextIndexContent $index): ExternalIdCollection
     {
+        return ExternalIdCollection::fromStringArray(array_keys($this->findMatches($phrases, $query, $index)));
+    }
+
+    /**
+     * IDs include title/keyword-only matches; body occurrences are available for snippets.
+     *
+     * @param non-empty-list<non-empty-list<string>> $phrases
+     * @return array<string, array<int, array{starts: list<int>, length: int}>>
+     */
+    public function findMatches(array $phrases, FulltextQuery $query, FulltextIndexContent $index): array
+    {
         $positionsByTerm = [];
         $ignoredTerms = [];
         $data = $index->toArray();
@@ -41,34 +52,44 @@ final readonly class PhraseMatcher
             }
         }
 
-        $allowed = $this->matchPhrase($phrases[0], $positionsByTerm, $ignoredTerms);
-        foreach (\array_slice($phrases, 1) as $phrase) {
+        $allowed = null;
+        $bodyMatches = [];
+        foreach ($phrases as $phraseId => $phrase) {
+            [$matches, $length] = $this->matchPhrase($phrase, $positionsByTerm, $ignoredTerms);
+            $allowed = $allowed === null ? $matches : array_intersect_key($allowed, $matches);
             if ($allowed === []) {
-                break;
+                return [];
             }
 
-            $matches = $this->matchPhrase($phrase, $positionsByTerm, $ignoredTerms);
-            $allowed = array_intersect_key($allowed, $matches);
+            foreach ($matches as $id => $fields) {
+                $bodyMatches[$id] ??= [];
+                if (isset($fields[2])) {
+                    $starts = array_keys($fields[2]);
+                    sort($starts);
+                    $bodyMatches[$id][$phraseId] = ['starts' => $starts, 'length' => $length];
+                }
+            }
         }
 
-        return ExternalIdCollection::fromStringArray(array_keys($allowed));
+        return array_intersect_key($bodyMatches, $allowed);
     }
 
     /**
      * @param non-empty-list<string> $phrase
      * @param array<int|string, array<string, array<int<0, 2>, array<int, true>>>> $positionsByTerm
      * @param array<int|string, true> $ignoredTerms
-     * @return array<string, true>
+     * @return array{array<string, array<int<0, 2>, array<int, true>>>, int}
      */
     private function matchPhrase(array $phrase, array $positionsByTerm, array $ignoredTerms): array
     {
         $matches = null;
         $origin = 0;
+        $length = 0;
         foreach ($phrase as $offset => $word) {
             // Missing query terms (including those beyond the lookup limit) must
             // never turn a required whole phrase into a prefix-only match.
             if (!isset($positionsByTerm[$word])) {
-                return [];
+                return [[], 0];
             }
 
             if (isset($ignoredTerms[$word])) {
@@ -82,12 +103,14 @@ final readonly class PhraseMatcher
                 $matches = $this->extendMatches($matches, $positionsByTerm[$word], $offset - $origin);
             }
 
+            $length = $offset - $origin + 1;
+
             if ($matches === []) {
-                return [];
+                return [[], 0];
             }
         }
 
-        return array_fill_keys(array_keys($matches ?? []), true);
+        return [$matches ?? [], $length];
     }
 
     /**

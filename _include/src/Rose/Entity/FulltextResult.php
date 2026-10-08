@@ -81,6 +81,7 @@ class FulltextResult
         }
 
         $rankingWordPositions = $this->query->getRankingWordPositions();
+        $resultSet->setSnippetWordGroups($rankingWordPositions);
         $wordReductionRatios = [];
         foreach ($this->fulltextIndexContent->toArray() as $word => $indexedItems) {
             $word                       = (string)$word;

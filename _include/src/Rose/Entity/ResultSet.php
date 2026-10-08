@@ -53,6 +53,12 @@ class ResultSet
     /** @var array<string, array<int, true>> */
     protected array $queryTermMatches = [];
 
+    /** @var array<string, list<int>> */
+    private array $snippetWordGroups = [];
+
+    /** @var array<string, array<int, array{starts: list<int>, length: int}>> */
+    private array $snippetPhraseMatches = [];
+
     /** @var array<string, int|null> */
     private array $rankingDates = [];
 
@@ -182,6 +188,39 @@ class ResultSet
         $this->queryTermMatches = array_intersect_key($this->queryTermMatches, $allowed);
         $this->items = array_intersect_key($this->items, $allowed);
         $this->rankingDates = array_intersect_key($this->rankingDates, $allowed);
+        $this->snippetPhraseMatches = array_intersect_key($this->snippetPhraseMatches, $allowed);
+    }
+
+    /** @param array<string, list<int>> $groups */
+    public function setSnippetWordGroups(array $groups): void
+    {
+        if ($this->isFrozen) {
+            throw new ImmutableException('One cannot mutate a search result after obtaining its content.');
+        }
+
+        $this->snippetWordGroups = $groups;
+    }
+
+    /** @return array<string, list<int>> */
+    public function getSnippetWordGroups(): array
+    {
+        return $this->snippetWordGroups;
+    }
+
+    /** @param array<string, array<int, array{starts: list<int>, length: int}>> $matches */
+    public function setSnippetPhraseMatches(array $matches): void
+    {
+        if ($this->isFrozen) {
+            throw new ImmutableException('One cannot mutate a search result after obtaining its content.');
+        }
+
+        $this->snippetPhraseMatches = $matches;
+    }
+
+    /** @return array<int, array{starts: list<int>, length: int}> */
+    public function getSnippetPhraseMatches(ExternalId $id): array
+    {
+        return $this->snippetPhraseMatches[$id->toString()] ?? [];
     }
 
     /** @param array<string, int|null> $dates */
