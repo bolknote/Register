@@ -46,6 +46,10 @@ and actionlint must be available on `PATH`; the quality CI workflow installs pin
 Analyzer configuration and static-analysis stubs live together in `tools/quality/`; Codeception's
 suite configuration lives with the tests in `_tests/codeception.yml`.
 
+Search-ranking changes can be compared against a judged synthetic corpus with
+`php tools/evaluate-search.php`. See [Search relevance](search-relevance.md) for the metrics,
+experimental BM25F scorer and the format for evaluating a separate installation's corpus.
+
 ## Code navigation
 
 The repository includes a CodeGraph MCP configuration in `.codex/config.toml` and indexing

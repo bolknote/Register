@@ -50,6 +50,9 @@ class ResultSet
     /** @var array<string, array<string, true>> */
     protected array $exactMatches = [];
 
+    /** @var array<string, array<int, true>> */
+    protected array $queryTermMatches = [];
+
     protected string $highlightTemplate = '<i>%s</i>';
 
     protected ResultTrace $trace;
@@ -127,7 +130,7 @@ class ResultSet
      * @param list<int> $positions
      * @throws ImmutableException
      */
-    public function addExactMatch(string $word, ExternalId $externalId, array $positions = []): void
+    public function addExactMatch(string $word, ExternalId $externalId, array $positions = [], bool $countForRanking = true): void
     {
         if ($this->isFrozen) {
             throw new ImmutableException('One cannot mutate a search result after obtaining its content.');
@@ -135,11 +138,24 @@ class ResultSet
 
         $serializedExtId = $externalId->toString();
 
-        $this->exactMatches[$serializedExtId][$word] = true;
+        if ($countForRanking) {
+            $this->exactMatches[$serializedExtId][$word] = true;
+        }
+
         $this->data[$serializedExtId]['*exact_' . $word] = 0.0;
         $this->positions[$serializedExtId][$word] = $this->mergePositions($this->positions[$serializedExtId][$word] ?? [], $positions);
 
         $this->trace->addExactMatch($word, $serializedExtId);
+    }
+
+    /** @throws ImmutableException */
+    public function addQueryTermMatch(int $position, ExternalId $externalId): void
+    {
+        if ($this->isFrozen) {
+            throw new ImmutableException('One cannot mutate a search result after obtaining its content.');
+        }
+
+        $this->queryTermMatches[$externalId->toString()][$position] = true;
     }
 
     /** @throws ImmutableException */
@@ -191,9 +207,14 @@ class ResultSet
             $this->sortedRelevance[$serializedExtId] = $relevance;
         }
 
-        // Prefer source-form matches, then retain the existing relevance order.
+        // Prefer complete queries before exact inflections of partial queries.
         $insertionOrder = array_flip(array_keys($this->sortedRelevance));
         uksort($this->sortedRelevance, function (string $left, string $right) use ($insertionOrder): int {
+            $coverageOrder = $this->queryTermMatchCount($right) <=> $this->queryTermMatchCount($left);
+            if ($coverageOrder !== 0) {
+                return $coverageOrder;
+            }
+
             $exactOrder = $this->exactMatchCount($right) <=> $this->exactMatchCount($left);
             if ($exactOrder !== 0) {
                 return $exactOrder;
@@ -285,6 +306,7 @@ class ResultSet
         $foundWords = $this->getFoundWordPositionsByExternalId();
 
         $result          = [];
+        $coverageResult  = [];
         $exactResult     = [];
         $relevanceResult = [];
         $dateResult      = [];
@@ -295,13 +317,14 @@ class ResultSet
                 ->setFoundWords(array_keys($foundWords[$serializedExtId] ?? []))
             ;
             $result[]          = $resultItem;
+            $coverageResult[]  = $this->queryTermMatchCount($serializedExtId);
             $exactResult[]     = $this->exactMatchCount($serializedExtId);
             $relevanceResult[] = $relevance;
             $date              = $resultItem->getDate();
             $dateResult[]      = $date !== null ? $date->getTimestamp() : 0;
         }
 
-        array_multisort($exactResult, SORT_DESC, $relevanceResult, SORT_DESC, $dateResult, SORT_DESC, $result);
+        array_multisort($coverageResult, SORT_DESC, $exactResult, SORT_DESC, $relevanceResult, SORT_DESC, $dateResult, SORT_DESC, $result);
 
         return $result;
     }
@@ -353,6 +376,8 @@ class ResultSet
             ];
 
             $result[$serializedExtId]['externalRelevanceRatio'] = $this->items[$serializedExtId]->getRelevanceRatio();
+            $result[$serializedExtId]['matchedQueryTerms'] = $this->queryTermMatchCount($serializedExtId);
+            $result[$serializedExtId]['exactQueryTerms'] = $this->exactMatchCount($serializedExtId);
 
             $result[$serializedExtId]['trace'] = $traceArray[$serializedExtId];
         }
@@ -403,5 +428,10 @@ class ResultSet
     private function exactMatchCount(string $serializedExtId): int
     {
         return \count($this->exactMatches[$serializedExtId] ?? []);
+    }
+
+    private function queryTermMatchCount(string $serializedExtId): int
+    {
+        return \count($this->queryTermMatches[$serializedExtId] ?? []);
     }
 }

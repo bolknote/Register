@@ -75,9 +75,16 @@ class FulltextResult
      */
     public function fillResultSet(ResultSet $resultSet): void
     {
+        $rankingWordPositions = $this->query->getRankingWordPositions();
         $wordReductionRatios = [];
         foreach ($this->fulltextIndexContent->toArray() as $word => $indexedItems) {
             $word                       = (string)$word;
+            foreach ($indexedItems as $positionBag) {
+                foreach ($rankingWordPositions[$word] ?? [] as $queryPosition) {
+                    $resultSet->addQueryTermMatch($queryPosition, $positionBag->getExternalId());
+                }
+            }
+
             $exactWord                  = ExactWord::decode($word);
             if ($exactWord !== null) {
                 foreach ($indexedItems as $positionBag) {
@@ -85,6 +92,7 @@ class FulltextResult
                         $exactWord,
                         $positionBag->getExternalId(),
                         $positionBag->getContentPositions(),
+                        isset($rankingWordPositions[$word]),
                     );
                 }
 
