@@ -73,9 +73,10 @@ final readonly class TelegramImportService
      * @param list<string> $siteAuthorTelegramIds
      * @return array<string, mixed>
      */
-    public function importLiveSnapshot(string $json, bool $publishComments = true, array $siteAuthorTelegramIds = [], ?int $siteAuthorUserId = null): array
+    public function importLiveSnapshot(string $json, bool $publishComments = true, array $siteAuthorTelegramIds = [], ?int $siteAuthorUserId = null, ?TelegramFileClientInterface $fileClient = null): array
     {
-        return $this->importPackage(TelegramExportPackage::fromJson($json), $siteAuthorUserId, false, true, $publishComments, $siteAuthorTelegramIds);
+        $package = $fileClient === null ? TelegramExportPackage::fromJson($json) : TelegramExportPackage::fromLiveSnapshot($json, $fileClient);
+        return $this->importPackage($package, $siteAuthorUserId, false, true, $publishComments, $siteAuthorTelegramIds);
     }
 
     /**
@@ -156,6 +157,10 @@ final readonly class TelegramImportService
                 $contentId = ContentId::post($this->positiveInt($thread['content_id'] ?? null, 'post ID'));
                 $rootMessageId = $this->positiveInt($thread['root_message_id'] ?? null, 'root message ID');
                 $rootCreatedAt = $this->positiveInt($thread['root_date_unixtime'] ?? null, 'root message timestamp');
+                if ($liveSnapshot) {
+                    $this->storeLivePostMapping($scope, $rootMessageId, $contentId->value, $thread, $now);
+                }
+
                 $threadComments = $thread['comments'] ?? null;
                 if (!\is_array($threadComments) || !array_is_list($threadComments)) {
                     throw new \UnexpectedValueException('A Telegram thread has no valid comment list.');
@@ -211,6 +216,7 @@ final readonly class TelegramImportService
                         $chatId,
                         $messageId,
                         $dryRun,
+                        $liveSnapshot ? $this->mappedSourceComment($existingMap['source_data'] ?? []) : [],
                     );
                     $text = $mediaResult['text'];
                     foreach ($mediaResult['created_files'] as $createdMediaFile) {
@@ -448,6 +454,115 @@ final readonly class TelegramImportService
         ];
     }
 
+    /** @param array<string, mixed> $thread */
+    private function storeLivePostMapping(string $scope, int $rootMessageId, int $contentId, array $thread, int $now): void
+    {
+        $data = ['date_unixtime' => (int)$thread['root_date_unixtime'], 'post_url' => (string)$thread['post_url']];
+        $previous = $this->mapRepository->find(self::SOURCE, $scope, 'post', (string)$rootMessageId);
+        if (\is_array($previous) && (int)$previous['target_id'] === $contentId) {
+            foreach (['discussion_scope', 'discussion_message_id'] as $key) {
+                if (isset($previous['source_data'][$key])) {
+                    $data[$key] = $previous['source_data'][$key];
+                }
+            }
+        }
+
+        $hash = hash('sha256', json_encode($data, JSON_THROW_ON_ERROR));
+        $this->mapRepository->store(self::SOURCE, $scope, 'post', (string)$rootMessageId, 'post', $contentId, $hash, $data, $now);
+        $channelId = (int)($thread['channel_export_id'] ?? 0);
+        $channelMessageId = (int)($thread['channel_message_id'] ?? 0);
+        if ($channelId > 0 && $channelMessageId > 0 && (string)$channelId !== $scope) {
+            $data['discussion_scope'] = $scope;
+            $data['discussion_message_id'] = $rootMessageId;
+            $this->mapRepository->store(self::SOURCE, (string)$channelId, 'post', (string)$channelMessageId, 'post', $contentId,
+                hash('sha256', json_encode($data, JSON_THROW_ON_ERROR)), $data, $now);
+        }
+    }
+
+    /** @return array{type: string, id: int, content_id: int, date: int, scope: int, message_id: int}|null */
+    public function liveReactionTarget(int $scope, int $messageId): ?array
+    {
+        $maps = $this->mapRepository->forScope(self::SOURCE, (string)$scope, self::COMMENT_ENTITY);
+        $maps += $this->legacyCommentMaps($scope);
+        $commentMap = $maps[$messageId] ?? null;
+        if (\is_array($commentMap)) {
+            $comment = $this->commentRepository->find((int)$commentMap['target_id']);
+            if ($comment instanceof Comment) {
+                return ['type' => 'comment', 'id' => $comment->id, 'content_id' => $comment->contentId->value,
+                    'date' => $comment->time, 'scope' => $scope, 'message_id' => $messageId];
+            }
+        }
+
+        $post = $this->mapRepository->forScope(self::SOURCE, (string)$scope, 'post')[$messageId] ?? null;
+        if (\is_array($post)) {
+            return ['type' => 'post', 'id' => $post['target_id'], 'content_id' => $post['target_id'],
+                'date' => (int)($post['source_data']['date_unixtime'] ?? $post['created_at']),
+                'scope' => (int)($post['source_data']['discussion_scope'] ?? $scope),
+                'message_id' => (int)($post['source_data']['discussion_message_id'] ?? $messageId)];
+        }
+
+        // Archives from before the live bridge already retain the root in comment provenance.
+        foreach ($maps as $map) {
+            if ((int)($map['source_data']['telegram']['root_message_id'] ?? 0) !== $messageId) {
+                continue;
+            }
+
+            $comment = $this->commentRepository->find($map['target_id']);
+            if ($comment instanceof Comment) {
+                return ['type' => 'post', 'id' => $comment->contentId->value, 'content_id' => $comment->contentId->value,
+                    'date' => (int)($map['source_data']['telegram']['comment']['date_unixtime'] ?? $comment->time),
+                    'scope' => $scope, 'message_id' => $messageId];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array{type: string, id: int, content_id: int, date: int, scope: int, message_id: int} $target
+     * @return list<array<string, mixed>>
+     */
+    public function liveReactionCounts(array $target): array
+    {
+        $prefix = $target['scope'] . ':' . $target['message_id'] . ':' . $target['type'] . ':';
+        $result = [];
+        foreach ($this->telegramReactions($target['scope']) as $row) {
+            if ((string)$row['target_type'] === $target['type'] && (int)$row['target_id'] === $target['id']
+                && str_starts_with((string)$row['source_key'], $prefix)
+            ) {
+                $reaction = (array)$row['source_data'];
+                $reaction['emoji'] = (string)$row['emoji'];
+                $reaction['count'] = (int)$row['reaction_count'];
+                $result[] = $reaction;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param array{type: string, id: int, content_id: int, date: int, scope: int, message_id: int} $target
+     * @param list<array<string, mixed>> $reactions
+     * @return array<string, int>
+     */
+    public function synchronizeLiveReactions(array $target, array $reactions, int $sourceScope, int $sourceMessageId): array
+    {
+        $changes = array_fill_keys(['reaction_groups_inserted', 'reaction_groups_updated', 'reaction_groups_unchanged', 'reaction_groups_removed'], 0);
+        $rows = $this->telegramReactions($target['scope']);
+        $contentId = ContentId::post($target['content_id']);
+        $type = ReactionAggregateTargetType::from($target['type']);
+        $this->syncReactions($type, $target['id'], $contentId, $target['scope'], $target['message_id'], $target['type'],
+            $reactions, $target['date'], $rows, $changes);
+        if ($sourceScope !== $target['scope'] || $sourceMessageId !== $target['message_id']) {
+            // A channel update and its automatic discussion forward share one aggregate.
+            $rows = $this->telegramReactions($sourceScope);
+            $this->syncReactions($type, $target['id'], $contentId, $sourceScope, $sourceMessageId, $target['type'],
+                [], $target['date'], $rows, $changes);
+        }
+
+        return $changes;
+    }
+
     /** @return array<string, array{content_id: int, canonical_path: string}> */
     private function postIndex(): array
     {
@@ -585,6 +700,7 @@ final readonly class TelegramImportService
 
     /**
      * @param array<string, mixed> $sourceComment
+     * @param array<string, mixed> $previousSource
      * @return array{
      *     text: string,
      *     state: list<array{status: 'available'|'unavailable', kind: string, source_sha256: string}>,
@@ -598,6 +714,7 @@ final readonly class TelegramImportService
         int                   $chatId,
         int                   $messageId,
         bool                  $dryRun,
+        array                 $previousSource = [],
     ): array {
         $html = (string)($sourceComment['html'] ?? '');
         $state = [];
@@ -606,116 +723,135 @@ final readonly class TelegramImportService
         $preservedCount = 0;
         $existingMedia = null;
         $handledPositions = [];
-        foreach ((array)($sourceComment['media'] ?? []) as $position => $media) {
-            if (!\is_array($media)) {
-                continue;
-            }
+        try {
+            foreach ((array)($sourceComment['media'] ?? []) as $position => $media) {
+                if (!\is_array($media)) {
+                    continue;
+                }
 
-            $mediaPosition = (int)$position + 1;
-            $relativePath = trim((string)($media['path'] ?? ''));
-            $sourceSha256 = hash('sha256', $relativePath);
-            $storedMedia = $this->mediaStorage->import(
-                $package,
-                $relativePath,
-                $chatId,
-                $messageId,
-                $mediaPosition,
-                $dryRun,
-            );
-            $mediaStateIdentity = $storedMedia === null ? null : $storedMedia['sha256'];
-            if ($storedMedia === null) {
-                if ($existingMedia === null) {
-                    $existingMedia = $this->mediaStorage->existingForMessage($chatId, $messageId);
-                    foreach (array_keys($handledPositions) as $handledPosition) {
-                        unset($existingMedia[$handledPosition]);
+                $mediaPosition = (int)$position + 1;
+                $relativePath = trim((string)($media['path'] ?? ''));
+                $sourceSha256 = hash('sha256', $relativePath);
+                $unchangedLiveFile = ($previousSource['media'][$position]['path'] ?? null) === $relativePath
+                    && str_starts_with($relativePath, 'live/');
+                if ($unchangedLiveFile) {
+                    $existingMedia ??= $this->mediaStorage->existingForMessage($chatId, $messageId);
+                }
+
+                $storedMedia = $unchangedLiveFile ? ($existingMedia[$mediaPosition] ?? null) : null;
+                $storedMedia ??= $this->mediaStorage->import(
+                    $package,
+                    $relativePath,
+                    $chatId,
+                    $messageId,
+                    $mediaPosition,
+                    $dryRun,
+                );
+                $mediaStateIdentity = $storedMedia === null ? null : substr($storedMedia['sha256'] ?? $storedMedia['storage_id'] ?? '', 0, 20);
+                if ($storedMedia === null) {
+                    if ($existingMedia === null) {
+                        $existingMedia = $this->mediaStorage->existingForMessage($chatId, $messageId);
+                        foreach (array_keys($handledPositions) as $handledPosition) {
+                            unset($existingMedia[$handledPosition]);
+                        }
+                    }
+
+                    $storedMedia = $existingMedia[$mediaPosition] ?? null;
+                    if ($storedMedia !== null) {
+                        $mediaStateIdentity = $storedMedia['storage_id'];
+                        ++$preservedCount;
                     }
                 }
 
-                $storedMedia = $existingMedia[$mediaPosition] ?? null;
-                if ($storedMedia !== null) {
-                    $mediaStateIdentity = 'preserved:' . $storedMedia['storage_id'];
-                    ++$preservedCount;
+                if ($existingMedia !== null) {
+                    unset($existingMedia[$mediaPosition]);
+                }
+
+                $handledPositions[$mediaPosition] = true;
+                if ($storedMedia === null) {
+                    $kind = $this->missingMediaKind($media);
+                    $unavailableKinds[] = $kind;
+                    $state[] = [
+                        'status'        => 'unavailable',
+                        'kind'          => $kind,
+                        'source_sha256' => $sourceSha256,
+                    ];
+                    continue;
+                }
+
+                if ($mediaStateIdentity === null) {
+                    throw new \LogicException('Available Telegram media has no storage identity.');
+                }
+
+                $html .= $this->mediaHtml($storedMedia['url'], $storedMedia['kind'], $media);
+                $state[] = [
+                    'status'        => 'available',
+                    'kind'          => $storedMedia['kind'],
+                    'source_sha256' => $sourceSha256 . ':' . $mediaStateIdentity,
+                ];
+                if ($storedMedia['created_file'] !== null) {
+                    $createdFiles[] = $storedMedia['created_file'];
                 }
             }
 
-            if ($existingMedia !== null) {
-                unset($existingMedia[$mediaPosition]);
+            $existingMedia ??= $this->mediaStorage->existingForMessage($chatId, $messageId);
+            foreach (array_keys($handledPositions) as $handledPosition) {
+                unset($existingMedia[$handledPosition]);
             }
 
-            $handledPositions[$mediaPosition] = true;
-            if ($storedMedia === null) {
-                $kind = $this->missingMediaKind($media);
-                $unavailableKinds[] = $kind;
+            foreach ($existingMedia as $position => $storedMedia) {
+                $html .= $this->mediaHtml($storedMedia['url'], $storedMedia['kind'], []);
                 $state[] = [
-                    'status'        => 'unavailable',
-                    'kind'          => $kind,
-                    'source_sha256' => $sourceSha256,
+                    'status'        => 'available',
+                    'kind'          => $storedMedia['kind'],
+                    'source_sha256' => 'preserved:' . $position . ':' . $storedMedia['storage_id'],
                 ];
-                continue;
+                ++$preservedCount;
             }
 
-            if ($mediaStateIdentity === null) {
-                throw new \LogicException('Available Telegram media has no storage identity.');
+            if ($unavailableKinds !== []) {
+                $kind = \count($unavailableKinds) === 1 ? $unavailableKinds[0] : 'attachment';
+                $html .= '<span class="comment-media-missing" data-kind="' . $kind
+                    . '" data-count="' . \count($unavailableKinds)
+                    . '">Telegram attachment unavailable</span>';
             }
 
-            $html .= $this->mediaHtml($storedMedia['url'], $storedMedia['kind'], $media);
-            $state[] = [
-                'status'        => 'available',
-                'kind'          => $storedMedia['kind'],
-                'source_sha256' => $sourceSha256 . ':' . $mediaStateIdentity,
+            $stored = CommentHtml::sanitizeImportedForStorage($html);
+            if ($stored === '') {
+                throw new \UnexpectedValueException(
+                    'Telegram comment ' . (int)($sourceComment['message_id'] ?? 0) . ' is empty.',
+                );
+            }
+
+            return [
+                'text'            => $stored,
+                'state'           => $state,
+                'created_files'   => $createdFiles,
+                'preserved_count' => $preservedCount,
             ];
-            if ($storedMedia['created_file'] !== null) {
-                $createdFiles[] = $storedMedia['created_file'];
-            }
+        } catch (\Throwable $exception) {
+            $this->removeMediaFiles($createdFiles);
+            throw $exception;
         }
-
-        $existingMedia ??= $this->mediaStorage->existingForMessage($chatId, $messageId);
-        foreach (array_keys($handledPositions) as $handledPosition) {
-            unset($existingMedia[$handledPosition]);
-        }
-
-        foreach ($existingMedia as $position => $storedMedia) {
-            $html .= $this->mediaHtml($storedMedia['url'], $storedMedia['kind'], []);
-            $state[] = [
-                'status'        => 'available',
-                'kind'          => $storedMedia['kind'],
-                'source_sha256' => 'preserved:' . $position . ':' . $storedMedia['storage_id'],
-            ];
-            ++$preservedCount;
-        }
-
-        if ($unavailableKinds !== []) {
-            $kind = \count($unavailableKinds) === 1 ? $unavailableKinds[0] : 'attachment';
-            $html .= '<span class="comment-media-missing" data-kind="' . $kind
-                . '" data-count="' . \count($unavailableKinds)
-                . '">Telegram attachment unavailable</span>';
-        }
-
-        $stored = CommentHtml::sanitizeImportedForStorage($html);
-        if ($stored === '') {
-            throw new \UnexpectedValueException(
-                'Telegram comment ' . (int)($sourceComment['message_id'] ?? 0) . ' is empty.',
-            );
-        }
-
-        return [
-            'text'            => $stored,
-            'state'           => $state,
-            'created_files'   => $createdFiles,
-            'preserved_count' => $preservedCount,
-        ];
     }
 
     /** @param array<string, mixed> $sourceMedia */
     private function mediaHtml(string $mediaUrl, string $mediaKind, array $sourceMedia): string
     {
         $url = htmlspecialchars($mediaUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $emoji = trim((string)($sourceMedia['emoji'] ?? ''));
+        $sticker = ($sourceMedia['sticker'] ?? false) === true;
+        $figureClass = $sticker ? 'comment-media comment-sticker-media' : 'comment-media';
 
         return match ($mediaKind) {
-            'image' => '<figure class="comment-media"><img src="' . $url
+            'lottie' => '<span class="comment-sticker" data-animation="' . $url . '">'
+                . htmlspecialchars($emoji !== '' ? $emoji : '✦', ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
+                . '</span>',
+            'image' => '<figure class="' . $figureClass . '"><img src="' . $url
                 . '" alt="" loading="lazy" decoding="async"></figure>',
-            'video' => '<figure class="comment-media"><video src="' . $url
-                . '" controls preload="metadata"></video></figure>',
+            'video' => '<figure class="' . $figureClass . '"><video src="' . $url
+                . '"' . ($sticker ? ' class="comment-sticker-video" autoplay loop muted playsinline' : '')
+                . ' controls preload="metadata"></video></figure>',
             'audio' => '<span class="comment-media"><audio src="' . $url
                 . '" controls preload="metadata"></audio></span>',
             default => '<a class="comment-media-file" href="' . $url . '">'

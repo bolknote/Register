@@ -26,7 +26,7 @@ final readonly class TelegramManagedMediaStorage
     /**
      * @return array{
      *     url: string,
-     *     kind: 'image'|'video'|'audio'|'file',
+     *     kind: 'image'|'video'|'audio'|'file'|'lottie',
      *     mime_type: string,
      *     sha256: string,
      *     created_file: ?string
@@ -70,6 +70,9 @@ final readonly class TelegramManagedMediaStorage
         $hash = hash_init('sha256');
         $prefix = '';
         $bytes = 0;
+        $isSticker = str_ends_with(mb_strtolower($relativePath), '.tgs');
+        $stickerBytes = '';
+        $stickerJson = null;
         try {
             while (!feof($input)) {
                 $chunk = fread($input, 1024 * 1024);
@@ -91,9 +94,27 @@ final readonly class TelegramManagedMediaStorage
                 }
 
                 hash_update($hash, $chunk);
+                if ($isSticker) {
+                    if ($bytes > 262_144) {
+                        throw new \UnexpectedValueException('The animated Telegram sticker is too large.');
+                    }
+
+                    $stickerBytes .= $chunk;
+                }
 
                 if (\is_resource($output)) {
                     $this->writeChunk($output, $chunk);
+                }
+            }
+
+            if ($isSticker) {
+                $stickerJson = TelegramStickerAnimation::decode($stickerBytes);
+                if (\is_resource($output)) {
+                    if (!rewind($output) || !ftruncate($output, 0)) {
+                        throw new \RuntimeException('Unable to stage the animated sticker.');
+                    }
+
+                    $this->writeChunk($output, $stickerJson);
                 }
             }
         } catch (\Throwable $throwable) {
@@ -125,7 +146,11 @@ final readonly class TelegramManagedMediaStorage
 
         $mimeType = (new \finfo(FILEINFO_MIME_TYPE))->buffer($prefix);
         $mimeType = \is_string($mimeType) ? mb_strtolower($mimeType) : 'application/octet-stream';
-        [$kind, $extension] = $this->mediaPresentation($mimeType);
+        [$kind, $extension] = $stickerJson === null ? $this->mediaPresentation($mimeType) : ['lottie', 'json'];
+        if ($stickerJson !== null) {
+            $mimeType = 'application/json';
+        }
+
         $digest = hash_final($hash);
         $filename = \sprintf('%02d-%s.%s', max(1, $position), substr($digest, 0, 20), $extension);
         $storagePath = $directory . '/' . $filename;
@@ -161,7 +186,7 @@ final readonly class TelegramManagedMediaStorage
      *
      * @return array<int, array{
      *     url: string,
-     *     kind: 'image'|'video'|'audio'|'file',
+     *     kind: 'image'|'video'|'audio'|'file'|'lottie',
      *     mime_type: string,
      *     storage_id: string,
      *     created_file: null
@@ -222,6 +247,10 @@ final readonly class TelegramManagedMediaStorage
             $mimeType = (new \finfo(FILEINFO_MIME_TYPE))->file($candidate['path']);
             $mimeType = \is_string($mimeType) ? mb_strtolower($mimeType) : 'application/octet-stream';
             [$kind] = $this->mediaPresentation($mimeType);
+            if (str_ends_with($candidate['entry'], '.json')) {
+                $kind = 'lottie';
+            }
+
             $result[$position] = [
                 'url'          => self::URL_ROOT . '/' . $chatId . '/' . $messageId . '/' . $candidate['entry'],
                 'kind'         => $kind,

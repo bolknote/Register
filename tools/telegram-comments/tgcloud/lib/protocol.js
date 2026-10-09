@@ -1,3 +1,5 @@
+import { messageMedia } from './media.js';
+
 const GROUP_OFFSET = 1_000_000_000_000;
 
 export function exportChatId(id) {
@@ -76,11 +78,12 @@ function richBlocks(blocks, depth = 0) {
                 append(cells);
             }
         } else if (block.type === 'details') {
-            append(richInline(block.title));
+            append(richInline(block.summary ?? block.title));
             append(richBlocks(block.blocks, depth + 1));
         } else {
             const text = block.text ?? block.caption?.text ?? block.expression;
             append(richInline(text, block.type === 'preformatted' ? 'code' : 'plain'));
+            append(richBlocks(block.blocks, depth + 1));
         }
     }
     return parts;
@@ -106,9 +109,8 @@ export function normaliseMessage(message, updateId, config) {
     if (typeof text !== 'string') return null;
     const rich = !text && message.rich_message ? richMessageEntities(message.rich_message) : null;
     if (rich) text = rich.map(part => part.text).join('');
-    const attachment = ['photo', 'video', 'animation', 'audio', 'voice', 'video_note', 'document', 'sticker'].some(k => message[k]);
-    if (!text && attachment) text = '[Вложение из Telegram]';
-    if (!root && !text) return null; // Service messages are not comments.
+    const media = root ? [] : messageMedia(message);
+    if (!root && !text && !media.length) return null; // Service messages are not comments.
     const sender = message.sender_chat ?? message.from;
     const result = {
         id: message.message_id,
@@ -120,14 +122,57 @@ export function normaliseMessage(message, updateId, config) {
         text,
         text_entities: rich ?? textEntities(text, message.entities ?? message.caption_entities ?? []),
     };
-    if (root) result.forwarded_from_id = `channel${exportChatId(config.channelChatId)}`;
+    if (media.length) result.telegram_media = media;
+    if (root) {
+        result.forwarded_from_id = `channel${exportChatId(config.channelChatId)}`;
+        if (message.forward_origin?.type === 'channel' && message.forward_origin.chat?.id === config.channelChatId
+            && Number.isSafeInteger(message.forward_origin.message_id) && message.forward_origin.message_id > 0) {
+            result.channel_message_id = message.forward_origin.message_id;
+        }
+    }
     else if (Number.isSafeInteger(parent) && parent > 0 && parent !== result.id) result.reply_to_message_id = parent;
     if (Number.isSafeInteger(message.edit_date) && message.edit_date > message.date) result.edited_unixtime = String(message.edit_date);
     return result;
 }
 
+export function normaliseChannelPost(message, updateId, config) {
+    if (message?.chat?.id !== config.channelChatId || message.chat.type !== 'channel') return null;
+    const result = normaliseMessage({ ...message, chat: { id: config.discussionChatId, type: 'supergroup' },
+        is_automatic_forward: true, sender_chat: message.chat }, updateId, config);
+    if (result) result.channel_message_id = message.message_id;
+    return result;
+}
+
+export function normaliseReaction(event, updateId, config, counts = false) {
+    if (![config.discussionChatId, config.channelChatId].includes(event?.chat?.id)
+        || !Number.isSafeInteger(event.message_id) || event.message_id <= 0
+        || !Number.isSafeInteger(event.date) || event.date <= 0) return null;
+    const actor = event.user ? `user${event.user.id}` : event.actor_chat ? `chat${event.actor_chat.id}` : null;
+    if (!counts && !actor) return null;
+    return { type: counts ? 'count' : 'change', chat_id: event.chat.id, message_id: event.message_id,
+        date: event.date, update_id: updateId, ...(counts ? { reactions: event.reactions }
+            : { actor, old_reaction: event.old_reaction, new_reaction: event.new_reaction }) };
+}
+
 export function sourceTime(message) {
     return Math.max(Number(message.date_unixtime), Number(message.edited_unixtime ?? 0));
+}
+
+export function rootLinksToBlog(message, config) {
+    const hostname = new URL(config.blogUrl).hostname.replace(/^www\./, '');
+    for (const entity of message.text_entities ?? []) {
+        const text = String(entity.text ?? '');
+        const candidates = entity.href ? [entity.href] : text.split('\n')[0].match(/https?:\/\/[^\s<>]+/g) ?? [];
+        for (const candidate of candidates) {
+            try {
+                const url = new URL(candidate);
+                if (['http:', 'https:'].includes(url.protocol) && url.hostname.replace(/^www\./, '') === hostname
+                    && url.pathname !== '/') return true;
+            } catch { /* A malformed URL cannot identify a blog post. */ }
+        }
+        if (text.includes('\n')) break;
+    }
+    return false;
 }
 
 export async function snapshot(messageId, store, config) {
@@ -141,7 +186,7 @@ export async function snapshot(messageId, store, config) {
         if (!message) return { error: 'missing_parent' };
         chain.push(message);
         if (message.forwarded_from_id) {
-            if (chain.length === 1) return { ignored: true }; // Remember roots, but they are not comments.
+            if (chain.length === 1 && !rootLinksToBlog(message, config)) return { ignored: true };
             return { archive: {
                 id: exportChatId(config.discussionChatId),
                 name: 'Telegram discussion',

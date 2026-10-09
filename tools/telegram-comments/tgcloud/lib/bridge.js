@@ -1,7 +1,7 @@
 import { api, fetch } from 'sdk';
 import config from './config.js';
 import { store } from './store.js';
-import { ingest, flush } from './relay.js';
+import { ingest, ingestChannelPost, ingestReaction, flush } from './relay.js';
 import { ready } from './protocol.js';
 import { refreshConfig, restoreConfig } from './settings.js';
 
@@ -17,8 +17,20 @@ async function send(archive) {
     return {
         ok: response.ok && result?.success === true,
         status: response.status,
-        error: `http_${response.status}_${['disabled', 'unauthorized', 'post_not_found', 'invalid_snapshot', 'busy'].includes(result?.error) ? result.error : 'unexpected_response'}`,
+        error: `http_${response.status}_${['disabled', 'unauthorized', 'post_not_found', 'missing_target', 'invalid_snapshot', 'busy', 'media_download_failed'].includes(result?.error) ? result.error : 'unexpected_response'}`,
     };
+}
+
+export async function receiveEvent(event, ctx, kind) {
+    await restoreConfig(config, store);
+    const ingestEvent = () => kind === 'channel_post'
+        ? ingestChannelPost(event, ctx.update.update_id, config, store)
+        : ingestReaction(event, ctx.update.update_id, config, store, kind === 'reaction_count');
+    const ingested = ready(config) ? await ingestEvent() : false;
+    await refreshConfig(config, store, fetch);
+    if (!ready(config)) return;
+    if (!ingested) await ingestEvent();
+    await flush(config, store, send);
 }
 
 export async function receive(message, ctx) {

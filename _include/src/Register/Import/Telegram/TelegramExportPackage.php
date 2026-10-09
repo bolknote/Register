@@ -21,16 +21,28 @@ final class TelegramExportPackage
     /** @var array<string, array{index: int, size: int}> */
     private array $entries = [];
 
+    /** @var array<string, array<string, mixed>> */
+    private array $liveMedia = [];
+
+    /** @var array<string, resource|null> */
+    private array $liveFiles = [];
+
     private function __construct(
         private readonly string       $json,
         private readonly string       $jsonDirectory,
         private readonly ?\ZipArchive $zip,
+        private readonly ?TelegramFileClientInterface $fileClient = null,
     ) {
     }
 
     public function __destruct()
     {
         $this->zip?->close();
+        foreach ($this->liveFiles as $file) {
+            if (\is_resource($file)) {
+                fclose($file);
+            }
+        }
     }
 
     public static function fromFile(string $path, string $clientOriginalName = ''): self
@@ -72,6 +84,20 @@ final class TelegramExportPackage
         return new self($json, '', null);
     }
 
+    public static function fromLiveSnapshot(string $json, TelegramFileClientInterface $fileClient): self
+    {
+        TelegramDiscussionArchive::fromJson($json);
+        $package = new self($json, '', null, $fileClient);
+        $data = json_decode($json, true, 32, JSON_THROW_ON_ERROR);
+        foreach ((array)($data['messages'] ?? []) as $message) {
+            foreach ((array)($message['telegram_media'] ?? []) as $media) {
+                $package->liveMedia[(string)$media['path']] = $media;
+            }
+        }
+
+        return $package;
+    }
+
     public function containsMedia(string $relativePath): bool
     {
         return $this->mediaEntry($relativePath) !== null;
@@ -79,12 +105,34 @@ final class TelegramExportPackage
 
     public function mediaSize(string $relativePath): ?int
     {
+        if ($this->fileClient !== null) {
+            $this->prepareLiveFile($relativePath);
+            $file = $this->liveFiles[$relativePath] ?? null;
+            return \is_resource($file) ? (fstat($file)['size'] ?? 0) : null;
+        }
+
         return $this->mediaEntry($relativePath)['size'] ?? null;
     }
 
     /** @return resource|null */
     public function openMediaStream(string $relativePath): mixed
     {
+        if ($this->fileClient !== null) {
+            $this->prepareLiveFile($relativePath);
+            $file = $this->liveFiles[$relativePath] ?? null;
+            if (!\is_resource($file)) {
+                return null;
+            }
+
+            $path = stream_get_meta_data($file)['uri'] ?? null;
+            if (!\is_string($path)) {
+                return null;
+            }
+
+            $input = fopen($path, 'rb');
+            return \is_resource($input) ? $input : null;
+        }
+
         $entry = $this->mediaEntry($relativePath);
         if ($entry === null || !$this->zip instanceof \ZipArchive) {
             return null;
@@ -94,6 +142,36 @@ final class TelegramExportPackage
         $stream = $this->zip->getStream($this->entryName($relativePath));
 
         return \is_resource($stream) ? $stream : null;
+    }
+
+    private function prepareLiveFile(string $relativePath): void
+    {
+        if (array_key_exists($relativePath, $this->liveFiles)) {
+            return;
+        }
+
+        $media = $this->liveMedia[$relativePath] ?? null;
+        $bytes = $media !== null ? $this->fileClient?->download($media) : null;
+        if ($bytes === null) {
+            $this->liveFiles[$relativePath] = null;
+            return;
+        }
+
+        $file = tmpfile();
+        if (!\is_resource($file)) {
+            throw new \RuntimeException('Unable to stage Telegram media.');
+        }
+
+        $this->liveFiles[$relativePath] = $file;
+        $length = \strlen($bytes);
+        for ($offset = 0; $offset < $length;) {
+            $written = fwrite($file, substr($bytes, $offset));
+            if ($written === false || $written === 0) {
+                throw new \RuntimeException('Unable to stage Telegram media.');
+            }
+
+            $offset += $written;
+        }
     }
 
     private static function fromZip(string $path): self

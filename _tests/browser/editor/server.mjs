@@ -110,6 +110,11 @@ export function createFixtureServer() {
                 return;
             }
             const files = new Map([
+                ['/telegram-stickers.html', ['telegram-stickers.html', 'text/html; charset=utf-8']],
+                ['/stickers.js', ['../../../_assets/register/telegram/stickers.js', 'text/javascript']],
+                ['/stickers.css', ['../../../_assets/register/telegram/stickers.css', 'text/css']],
+                ['/sticker-renderer.js', ['../../../_assets/register/telegram/vendor/lottie/lottie_light_canvas.min.js', 'text/javascript']],
+                ['/_pictures/fixture/comments/telegram/123/2/01-0123456789abcdef0123.json', ['../../_resources/telegram-sticker.json', 'application/json']],
                 ['/', ['index.html', 'text/html; charset=utf-8']],
                 ['/cases.js', ['cases.js', 'text/javascript']],
                 ['/comment.html', ['comment.html', 'text/html; charset=utf-8']],

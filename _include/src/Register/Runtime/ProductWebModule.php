@@ -168,6 +168,9 @@ final readonly class ProductWebModule implements ContainerAwareListenerModuleInt
                 $container->getStringParameter('base_path'),
             );
             $event->assetPack
+                ->addMeta('<meta name="register-sticker-renderer" content="' . register_htmlencode($assetUrl->versioned('/_assets/register/telegram/vendor/lottie/lottie_light_canvas.min.js')) . '">')
+                ->addCss($assetUrl->versioned('/_assets/register/telegram/stickers.css'))
+                ->addJs($assetUrl->versioned('/_assets/register/telegram/stickers.js'), [AssetPack::OPTION_DEFER])
                 ->addCss($assetUrl->versioned('/_assets/register/comment-undo.css'))
                 ->addJs($assetUrl->versioned('/_assets/register/comment-undo.js'), [AssetPack::OPTION_DEFER])
                 ->addCss($assetUrl->versioned('/_assets/register/comment-editor.css'))

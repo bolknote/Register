@@ -129,6 +129,26 @@ final readonly class ExternalImportMapRepository
         ;
     }
 
+    /** @return array<string, mixed>|null */
+    public function find(string $source, string $scope, string $entityType, string $externalId): ?array
+    {
+        $this->validateIdentity($source, $scope, $entityType, $externalId);
+        $row = $this->dbLayer->select('target_type, target_id, source_hash, source_data, created_at, updated_at')
+            ->from(ExternalImportMapSchema::TABLE_NAME)
+            ->where('source = :source')->setParameter('source', $source)
+            ->andWhere('external_scope = :scope')->setParameter('scope', $scope)
+            ->andWhere('entity_type = :entity')->setParameter('entity', $entityType)
+            ->andWhere('external_id = :id')->setParameter('id', $externalId)
+            ->execute()->fetchAssoc();
+        if (!\is_array($row)) {
+            return null;
+        }
+
+        $data = json_decode((string)$row['source_data'], true, 512, JSON_THROW_ON_ERROR);
+        $row['source_data'] = \is_array($data) ? $data : [];
+        return $row;
+    }
+
     private function validateIdentity(string $source, string $scope, string $entityType, string $externalId): void
     {
         if (preg_match('/^[a-z0-9][a-z0-9_-]{0,31}$/D', $source) !== 1

@@ -154,6 +154,8 @@ final class TelegramDiscussionArchive
             $threads[] = [
                 'root_message_id'          => $rootId,
                 'root_date_unixtime'       => (int)($message['date_unixtime'] ?? 0),
+                'channel_export_id'        => (int)substr((string)$message['forwarded_from_id'], 7),
+                'channel_message_id'       => (int)($message['channel_message_id'] ?? 0),
                 'post_url'                 => $link['url'],
                 'post_path'                => $path,
                 'canonical_path'           => $post['canonical_path'],
@@ -628,6 +630,21 @@ final class TelegramDiscussionArchive
     private function normaliseMedia(array $message): array
     {
         $result = [];
+        foreach ((array)($message['telegram_media'] ?? []) as $media) {
+            if (!\is_array($media)) {
+                continue;
+            }
+
+            $result[] = [
+                'kind' => (string)($media['kind'] ?? 'file'),
+                'path' => (string)($media['path'] ?? ''),
+                'file_name' => (string)($media['file_name'] ?? ''),
+                'mime_type' => (string)($media['mime_type'] ?? ''),
+                'sticker' => ($media['sticker'] ?? false) === true,
+                'emoji' => (string)($media['emoji'] ?? ''),
+            ];
+        }
+
         foreach (['photo', 'file'] as $field) {
             $path = $message[$field] ?? null;
             if (!\is_string($path) || trim($path) === '') {
@@ -639,6 +656,7 @@ final class TelegramDiscussionArchive
                 'path'      => $path,
                 'file_name' => (string)($message['file_name'] ?? basename($path)),
                 'mime_type' => (string)($message['mime_type'] ?? ''),
+                'sticker' => ($message['media_type'] ?? '') === 'sticker',
             ];
         }
 

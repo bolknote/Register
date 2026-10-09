@@ -2,13 +2,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync } from 'node:fs';
-import { normaliseMessage, exportChatId, snapshot, textEntities, ready } from '../../tools/telegram-comments/tgcloud/lib/protocol.js';
+import { normaliseMessage, normaliseChannelPost, exportChatId, snapshot, textEntities, ready } from '../../tools/telegram-comments/tgcloud/lib/protocol.js';
+import { messageMedia } from '../../tools/telegram-comments/tgcloud/lib/media.js';
 import { createStore } from '../../tools/telegram-comments/tgcloud/lib/storage.js';
-import { ingest, flush } from '../../tools/telegram-comments/tgcloud/lib/relay.js';
+import { ingest, ingestChannelPost, ingestReaction, flush } from '../../tools/telegram-comments/tgcloud/lib/relay.js';
 import { refreshConfig, restoreConfig } from '../../tools/telegram-comments/tgcloud/lib/settings.js';
 
 const config = {
-    blogUrl: 'https://example.org', token: 'a'.repeat(64), ownerUserId: 22,
+    blogUrl: 'https://register.localhost', token: 'a'.repeat(64), ownerUserId: 22,
     discussionChatId: -1_000_000_000_123, channelChatId: -1_000_000_000_111,
 };
 const group = { id: config.discussionChatId, type: 'supergroup' };
@@ -95,7 +96,56 @@ test('filters other groups and roots from other channels, and never trusts manua
     await ingest({ ...root, is_automatic_forward: false }, 1, config, store);
     assert.equal((await store.status()).count, 0);
     await ingest(root, 2, config, store);
-    assert.deepEqual(await flush(config, store, async () => assert.fail('root is not a comment')), { delivered: 0, ignored: 1 });
+    assert.deepEqual(await flush(config, store, async archive => {
+        assert.equal(archive.messages.length, 1); // Register the post for later reactions without inserting a comment.
+        return { ok: true };
+    }), { delivered: 1, ignored: 0 });
+});
+
+test('real photo sizes, captionless videos and all sticker formats retain downloadable file identities', () => {
+    const file = { file_id: 'valid-file', file_unique_id: 'unique', file_size: 123 };
+    const photo = normaliseMessage({ ...first, text: undefined, photo: [
+        { ...file, file_unique_id: 'small', width: 90, height: 90 }, { ...file, width: 800, height: 600 },
+    ] }, 100, config);
+    assert.equal(photo.text, '');
+    assert.equal(photo.telegram_media[0].file_unique_id, 'unique');
+    assert.equal(photo.telegram_media[0].path, 'live/2/1-unique.jpg');
+    const video = normaliseMessage({ ...first, text: undefined, video: { ...file, mime_type: 'video/mp4' }, caption: 'A clip' }, 101, config);
+    assert.equal(video.text, 'A clip');
+    assert.equal(video.telegram_media[0].mime_type, 'video/mp4');
+    for (const [flags, extension] of [[{}, 'webp'], [{ is_video: true }, 'webm'], [{ is_animated: true }, 'tgs']]) {
+        const sticker = normaliseMessage({ ...first, text: undefined, sticker: { ...file, ...flags, emoji: '🙂' } }, 102, config);
+        assert.equal(sticker.telegram_media[0].sticker, true);
+        assert.ok(sticker.telegram_media[0].path.endsWith(`.${extension}`));
+    }
+    assert.equal(messageMedia({ message_id: 2, rich_message: { blocks: [
+        { type: 'collage', blocks: [{ type: 'photo', photo: [{ ...file, width: 10, height: 10 }] }] },
+        { type: 'video', video: { ...file, file_unique_id: 'another' } },
+    ] } }).length, 2);
+});
+
+test('channel post IDs never collide with discussion IDs and reaction events survive lost acknowledgements', async t => {
+    const store = sqliteStore(t);
+    const post = { ...root, is_automatic_forward: undefined, chat: { id: config.channelChatId, type: 'channel' } };
+    assert.equal(normaliseChannelPost({ ...post, chat: group }, 20, config), null);
+    await ingestChannelPost(post, 20, config, store);
+    await ingest(first, 21, config, store);
+    const event = { chat: group, message_id: 2, date: 200, user: { id: 22 }, old_reaction: [], new_reaction: [{ type: 'emoji', emoji: '👍' }] };
+    await ingestReaction(event, 22, config, store);
+    await ingestReaction(event, 22, config, store);
+    assert.equal((await store.status()).count, 3);
+    const archives = [];
+    await flush(config, store, async archive => { archives.push(archive); return { ok: false, status: 503, error: 'busy' }; });
+    assert.equal((await store.status()).count, 3);
+    await flush(config, store, async archive => { archives.push(archive); return { ok: true }; });
+    assert.equal(archives[0].id, 111);
+    assert.equal(archives[0].messages[0].channel_message_id, 1);
+    assert.equal((await store.getMessage(1)).forwarded_from_id, 'channel111');
+    assert.equal(archives.find(archive => archive.reaction_update)?.reaction_update.actor, 'user22');
+    assert.equal((await store.status()).count, 0);
+    await ingestReaction({ ...event, chat: post.chat, reactions: [{ type: { type: 'emoji', emoji: '👍' }, total_count: 3 }] }, 23, config, store, true);
+    await flush(config, store, async archive => { assert.equal(archive.reaction_update.type, 'count'); return { ok: true }; });
+    assert.equal(await ingestReaction({ ...event, chat: { id: -1000000000999 } }, 24, config, store), false);
 });
 
 test('automatic discussion forwards are scoped by sender_chat even when origin is chat or another channel', async t => {
@@ -183,7 +233,7 @@ test('authenticated settings rotate the bridge key and survive an unavailable bl
     const remote = { enabled: true, token: 'b'.repeat(64), ownerUserId: 44,
         discussionChatId: config.discussionChatId, channelChatId: config.channelChatId };
     assert.equal(await refreshConfig(current, store, async (url, options) => {
-        assert.equal(url, 'https://example.org/_live/telegram/config');
+        assert.equal(url, config.blogUrl + '/_live/telegram/config');
         assert.equal(options.headers['X-Register-Telegram-Bot-Token'], 'test-bot-token');
         assert.equal(options.redirect, 'error');
         return { ok: true, json: async () => ({ success: true, config: remote }) };

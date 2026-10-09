@@ -235,6 +235,18 @@ final class CommentHtml
         }
 
         $sourceTag = mb_strtolower($node->tagName);
+        if ($allowManagedCommentMedia && $sourceTag === 'span' && self::hasClass($node, 'comment-sticker')) {
+            $source = self::managedCommentMediaSource($node->getAttribute('data-animation'));
+            if ($source !== null && str_ends_with($source, '.json')) {
+                $fallback = mb_substr(trim($node->textContent), 0, 16);
+                $fallback = $fallback !== '' ? $fallback : '✦';
+                return '<span class="comment-sticker" data-animation="' . self::encodeAttribute($source) . '">'
+                    . htmlspecialchars($fallback, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</span>';
+            }
+
+            return '';
+        }
+
         if (
             $allowManagedCommentMedia
             && $sourceTag === 'span'
@@ -286,9 +298,11 @@ final class CommentHtml
             }
 
             $encodedSource = self::encodeAttribute($source);
+            $stickerVideo = self::hasClass($node, 'comment-sticker-video')
+                ? ' class="comment-sticker-video" autoplay loop muted playsinline' : '';
             return match ($sourceTag) {
                 'img' => '<img src="' . $encodedSource . '" alt="" loading="lazy" decoding="async">',
-                'video' => '<video src="' . $encodedSource . '" controls preload="metadata"></video>',
+                'video' => '<video src="' . $encodedSource . '"' . $stickerVideo . ' controls preload="metadata"></video>',
                 'audio' => '<audio src="' . $encodedSource . '" controls preload="metadata"></audio>',
             };
         }
@@ -308,7 +322,8 @@ final class CommentHtml
             && self::hasClass($node, 'comment-media')
             && self::hasManagedCommentMediaChild($node)
         ) {
-            return '<' . $sourceTag . ' class="comment-media">' . $children . '</' . $sourceTag . '>';
+            $class = self::hasClass($node, 'comment-sticker-media') ? 'comment-media comment-sticker-media' : 'comment-media';
+            return '<' . $sourceTag . ' class="' . $class . '">' . $children . '</' . $sourceTag . '>';
         }
 
         if ($sourceTag === 'span') {

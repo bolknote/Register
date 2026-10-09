@@ -17,6 +17,11 @@ use Register\Core\Pdo\DbLayer;
 use Register\Import\Telegram\TelegramImportService;
 use Register\Import\Telegram\TelegramLiveImportController;
 use Register\Import\Telegram\TelegramSettings;
+use Register\Import\Telegram\TelegramFileClientInterface;
+use Register\Import\Telegram\TelegramManagedMediaStorage;
+use Register\Import\Telegram\TelegramMediaDownloadFailed;
+use Register\Import\Telegram\TelegramLiveReactionService;
+use Register\Module\Reactions\ReactionAggregateSchema;
 use Register\Module\Reactions\ReactionRepository;
 
 final class TelegramLiveImportCest
@@ -248,6 +253,194 @@ final class TelegramLiveImportCest
         ] as $key => $value) {
             $I->setConfigValue($key, $value);
         }
+    }
+
+    public function importsPersonalReactionsAndRemovalsOnceEvenWhenEventsAreReordered(\IntegrationTester $I): void
+    {
+        $id = $this->post($I);
+        $this->enable($I);
+        $this->send($I, $this->snapshot());
+        $I->seeResponseCodeIs(200);
+        $comment = $I->grabService(CommentRepository::class)->findForContent(ContentId::post($id), true)[0];
+        $emoji = static fn(string $value): array => ['type' => 'emoji', 'emoji' => $value];
+        $reaction = ['type' => 'change', 'chat_id' => -1000000000123, 'message_id' => 2,
+            'actor' => 'user22', 'date' => 202, 'update_id' => 202,
+            'old_reaction' => [$emoji('👍')], 'new_reaction' => [$emoji('❤')]];
+        $this->send($I, ['reaction_update' => $reaction]);
+        $I->seeResponseCodeIs(200);
+        $this->send($I, ['reaction_update' => [...$reaction, 'date' => 201, 'update_id' => 201,
+            'old_reaction' => [], 'new_reaction' => [$emoji('👍')]]]);
+        $I->seeResponseCodeIs(200);
+        $this->send($I, ['reaction_update' => $reaction]);
+        $I->seeResponseCodeIs(200);
+        $I->assertSame(['❤' => 1], $this->commentReactionCounts($I, $comment->id));
+        $this->send($I, ['reaction_update' => [...$reaction, 'date' => 203, 'update_id' => 203,
+            'old_reaction' => [$emoji('❤')], 'new_reaction' => []]]);
+        $I->seeResponseCodeIs(200);
+        $I->assertSame([], $this->commentReactionCounts($I, $comment->id));
+        $this->send($I, ['reaction_update' => [...$reaction, 'date' => 204, 'update_id' => 204,
+            'actor' => 'chat-1000000000555', 'old_reaction' => [], 'new_reaction' => [$emoji('👍')]]]);
+        $I->assertSame(['👍' => 1], $this->commentReactionCounts($I, $comment->id));
+    }
+
+    public function reconcilesChannelCountsWithTheirDiscussionPostAndPreservesLocalLikes(\IntegrationTester $I): void
+    {
+        $id = $this->post($I);
+        $this->enable($I);
+        $snapshot = $this->snapshot();
+        $snapshot['messages'][0]['channel_message_id'] = 10;
+        $this->send($I, $snapshot);
+        $I->seeResponseCodeIs(200);
+        $channelPost = $snapshot['messages'][0];
+        $channelPost['id'] = 10;
+        $this->send($I, ['id' => 111, 'type' => 'supergroup', 'messages' => [$channelPost]]);
+        $I->seeResponseCodeIs(200);
+        $I->assertSame(0, $this->change($I, 'comments_inserted'));
+        $I->sendJson('https://localhost/_visitor/resolve', ['trackPage' => false], headers: ['Origin' => 'https://localhost']);
+        $I->sendJson('https://localhost/_reactions/post/' . $id, ['reaction' => 'like'], headers: ['Origin' => 'https://localhost']);
+        $I->seeResponseCodeIs(200);
+
+        $event = ['type' => 'count', 'chat_id' => -1000000000111, 'message_id' => 10, 'date' => 300, 'update_id' => 300,
+            'reactions' => [['type' => ['type' => 'emoji', 'emoji' => '👍'], 'total_count' => 5]]];
+        $this->send($I, ['reaction_update' => $event]);
+        $I->seeResponseCodeIs(200);
+        $this->send($I, ['reaction_update' => $event]);
+        $I->seeResponseCodeIs(200);
+        $I->assertSame(6, $I->grabService(ReactionRepository::class)->state($id)->counts['like']);
+        $this->send($I, ['reaction_update' => [...$event, 'date' => 299, 'update_id' => 299,
+            'reactions' => [['type' => ['type' => 'emoji', 'emoji' => '👍'], 'total_count' => 2]]]]);
+        $I->assertSame(6, $I->grabService(ReactionRepository::class)->state($id)->counts['like']);
+        $this->send($I, ['reaction_update' => [...$event, 'date' => 301, 'update_id' => 301, 'reactions' => []]]);
+        $I->seeResponseCodeIs(200);
+        $I->assertSame(1, $I->grabService(ReactionRepository::class)->state($id)->counts['like']);
+        $this->send($I, ['reaction_update' => [...$event, 'date' => 302, 'update_id' => 302,
+            'reactions' => [['type' => ['type' => 'custom_emoji', 'custom_emoji_id' => '123456789'], 'total_count' => 2],
+                ['type' => ['type' => 'paid'], 'total_count' => 3]]]]);
+        $I->seeResponseCodeIs(200);
+        $extra = $I->grabService(ReactionRepository::class)->state($id)->extraCounts;
+        ksort($extra);
+        $expected = ['✦' => 2, '⭐' => 3];
+        ksort($expected);
+        $I->assertSame($expected, $extra);
+    }
+
+    public function retriesUnknownReactionTargetsAndRejectsOtherChatsBeforeWriting(\IntegrationTester $I): void
+    {
+        $this->post($I);
+        $this->enable($I);
+        $event = ['type' => 'change', 'chat_id' => -1000000000123, 'message_id' => 2,
+            'actor' => 'user22', 'date' => 202, 'update_id' => 202,
+            'old_reaction' => [], 'new_reaction' => [['type' => 'emoji', 'emoji' => '👍']]];
+        $this->send($I, ['reaction_update' => [...$event, 'chat_id' => -1000000000999]]);
+        $I->seeResponseCodeIs(422);
+        $this->send($I, ['reaction_update' => $event]);
+        $I->seeResponseCodeIs(409);
+        $this->send($I, $this->snapshot());
+        $this->send($I, ['reaction_update' => $event]);
+        $I->seeResponseCodeIs(200);
+    }
+
+    public function downloadsPhotosVideosAndAllStickersAndKeepsFailedDownloadsRetryable(\IntegrationTester $I): void
+    {
+        $id = $this->post($I);
+        $this->enable($I);
+        $root = sys_get_temp_dir() . '/register-live-media-' . bin2hex(random_bytes(6));
+        mkdir($root . '/_pictures/bolknote/comments', 0755, true);
+        $I->replaceService(TelegramManagedMediaStorage::class, new TelegramManagedMediaStorage($root),
+            [TelegramImportService::class, TelegramLiveReactionService::class, TelegramLiveImportController::class]);
+        $files = [];
+        foreach (['photo.png', 'video.mp4', 'sticker.webp', 'sticker.webm'] as $name) {
+            $bytes = file_get_contents(__DIR__ . '/../_resources/telegram-media/' . $name);
+            $I->assertIsString($bytes);
+            $files[$name] = $bytes;
+        }
+
+        $sticker = gzencode((string)file_get_contents(__DIR__ . '/../_resources/telegram-sticker.json'));
+        if (!\is_string($sticker)) {
+            throw new \RuntimeException('The generated TGS fixture is unavailable.');
+        }
+
+        $files['sticker.tgs'] = $sticker;
+        $client = new class($files) implements TelegramFileClientInterface {
+            public int $calls = 0;
+
+            public string $failOn = 'video.mp4';
+
+            /** @param array<string, string> $files */
+            public function __construct(private readonly array $files) {}
+
+            public function download(array $media): ?string
+            {
+                ++$this->calls;
+                if ($media['file_name'] === $this->failOn) {
+                    throw new TelegramMediaDownloadFailed();
+                }
+
+                return $this->files[$media['file_name']] ?? null;
+            }
+        };
+        $I->replaceService(TelegramFileClientInterface::class, $client, [TelegramLiveImportController::class]);
+        try {
+            $snapshot = $this->snapshot();
+            $snapshot['messages'] = array_slice($snapshot['messages'], 0, 2);
+            $snapshot['messages'][1]['text'] = '';
+            $snapshot['messages'][1]['text_entities'] = [];
+            $media = [];
+            foreach (array_keys($files) as $position => $name) {
+                $unique = 'file' . $position;
+                $extension = pathinfo($name, PATHINFO_EXTENSION);
+                $media[] = ['kind' => $extension === 'png' ? 'photo' : 'file', 'path' => 'live/2/' . ($position + 1) . '-' . $unique . '.' . $extension,
+                    'file_id' => $unique, 'file_unique_id' => $unique, 'file_size' => \strlen($files[$name]),
+                    'file_name' => $name, 'mime_type' => 'application/octet-stream', 'sticker' => str_starts_with($name, 'sticker'), 'emoji' => '🙂'];
+            }
+
+            $snapshot['messages'][1]['telegram_media'] = $media;
+            $malformed = $snapshot;
+            $malformed['messages'][1]['telegram_media'][0]['file_id'] = 'https://elsewhere.invalid/private';
+            $this->send($I, $malformed);
+            $I->seeResponseCodeIs(422);
+            $I->assertSame(0, $client->calls);
+            $this->send($I, $snapshot);
+            $I->seeResponseCodeIs(503);
+            $I->assertSame(0, $I->grabService(CommentRepository::class)->count(ContentId::post($id), true));
+            $I->assertSame([], glob($root . '/_pictures/bolknote/comments/telegram/123/2/*'));
+            $client->failOn = '';
+            $this->send($I, $snapshot);
+            $I->seeResponseCodeIs(200);
+            $I->assertSame(1, $this->change($I, 'comments_inserted'));
+            $comment = $I->grabService(CommentRepository::class)->findForContent(ContentId::post($id), true)[0];
+            $I->assertStringContainsString('<img ', $comment->text);
+            $I->assertStringContainsString('<video ', $comment->text);
+            $I->assertStringContainsString('comment-sticker', $comment->text);
+            $storedFiles = glob($root . '/_pictures/bolknote/comments/telegram/123/2/*');
+            $I->assertIsArray($storedFiles);
+            $I->assertCount(5, $storedFiles);
+            $calls = $client->calls;
+            $snapshot['messages'][1]['text_entities'] = [['type' => 'plain', 'text' => 'New caption']];
+            $snapshot['messages'][1]['text'] = 'New caption';
+            $snapshot['messages'][1]['edited_unixtime'] = '200';
+            $snapshot['messages'][1]['bot_update_id'] = 200;
+            $this->send($I, $snapshot);
+            $I->seeResponseCodeIs(200);
+            $I->assertSame($calls, $client->calls);
+            $I->assertStringContainsString('New caption', $I->grabService(CommentRepository::class)->find($comment->id)->text);
+        } finally {
+            (new \Symfony\Component\Filesystem\Filesystem())->remove($root);
+        }
+    }
+
+    /** @return array<string, int> */
+    private function commentReactionCounts(\IntegrationTester $I, int $commentId): array
+    {
+        $rows = $I->grabService(DbLayer::class)->select('emoji, SUM(reaction_count) AS count')
+            ->from(ReactionAggregateSchema::TABLE_NAME)->where("target_type = 'comment'")
+            ->andWhere('target_id = :id')->setParameter('id', $commentId)->groupBy('emoji')->execute()->fetchAssocAll();
+        $result = [];
+        foreach ($rows as $row) {
+            $result[(string)$row['emoji']] = (int)$row['count'];
+        }
+
+        return $result;
     }
 
     private function change(\IntegrationTester $I, string $name): int

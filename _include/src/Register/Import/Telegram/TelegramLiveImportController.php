@@ -29,6 +29,8 @@ final readonly class TelegramLiveImportController implements ControllerInterface
         private LoggerInterface $logger,
         private string $baseUrl,
         private string $lockFile,
+        private TelegramLiveReactionService $reactions,
+        private TelegramFileClientInterface $fileClient,
     ) {
     }
 
@@ -58,7 +60,16 @@ final readonly class TelegramLiveImportController implements ControllerInterface
         }
 
         try {
-            $this->validateSnapshot($json);
+            $data = json_decode($json, true, 32, JSON_THROW_ON_ERROR);
+            if (\is_array($data) && isset($data['reaction_update'])) {
+                if (!\is_array($data['reaction_update']) || isset($data['messages'])) {
+                    throw new \UnexpectedValueException('The reaction event is invalid.');
+                }
+
+                TelegramLiveReactionService::validate($data['reaction_update'], $this->config);
+            } else {
+                $this->validateSnapshot($json);
+            }
         } catch (\JsonException|\UnexpectedValueException $exception) {
             return $this->response(['success' => false, 'error' => 'invalid_snapshot', 'message' => $exception->getMessage()], 422);
         }
@@ -75,17 +86,25 @@ final readonly class TelegramLiveImportController implements ControllerInterface
                 return $this->response(['success' => false, 'error' => 'busy'], 503);
             }
 
+            if (\is_array($data) && isset($data['reaction_update'])) {
+                $result = $this->reactions->import($data['reaction_update']);
+                return $this->response($result, $result['success'] === true ? 200 : 409);
+            }
+
             $report = $this->importer->importLiveSnapshot(
                 $json,
                 !$this->premoderation->get(),
                 $this->config->ownerTelegramUserId > 0 ? ['user' . $this->config->ownerTelegramUserId] : [],
                 $this->config->authorUserId > 0 ? $this->config->authorUserId : null,
+                $this->fileClient,
             );
             if (($report['archive']['accepted_threads'] ?? 0) !== 1) {
                 return $this->response(['success' => false, 'error' => 'post_not_found'], 409);
             }
 
             return $this->response(['success' => true, 'changes' => $report['changes']]);
+        } catch (TelegramMediaDownloadFailed) {
+            return $this->response(['success' => false, 'error' => 'media_download_failed'], 503);
         } catch (\Throwable $exception) {
             $this->logger->error('Live Telegram comment import failed.', ['exception' => $exception]);
 
@@ -99,12 +118,15 @@ final readonly class TelegramLiveImportController implements ControllerInterface
     private function validateSnapshot(string $json): void
     {
         $data = json_decode($json, true, 32, JSON_THROW_ON_ERROR);
-        if (!\is_array($data) || ($data['id'] ?? null) !== $this->config->discussionExportId()) {
+        $channelScope = -$this->config->channelChatId - 1_000_000_000_000;
+        if (!\is_array($data) || !\in_array($data['id'] ?? null, [$this->config->discussionExportId(), $channelScope], true)) {
             throw new \UnexpectedValueException('The discussion group does not match the configuration.');
         }
 
         $messages = $data['messages'] ?? null;
-        if (!\is_array($messages) || !array_is_list($messages) || \count($messages) < 2 || \count($messages) > 65) {
+        if (!\is_array($messages) || !array_is_list($messages) || \count($messages) < 1 || \count($messages) > 65
+            || ($data['id'] === $channelScope && \count($messages) !== 1)
+        ) {
             throw new \UnexpectedValueException('A snapshot must contain one root and at most 64 comments.');
         }
 
@@ -114,6 +136,34 @@ final readonly class TelegramLiveImportController implements ControllerInterface
                 || isset($message['photo']) || isset($message['file'])
             ) {
                 throw new \UnexpectedValueException('A snapshot contains an unsupported message or channel.');
+            }
+
+            if (isset($message['channel_message_id']) && (!\is_int($message['channel_message_id']) || $message['channel_message_id'] <= 0)) {
+                throw new \UnexpectedValueException('The channel message ID is invalid.');
+            }
+
+            $media = $message['telegram_media'] ?? [];
+            if (!\is_array($media) || !array_is_list($media) || \count($media) > 10
+                || (isset($message['forwarded_from_id']) && $media !== [])
+            ) {
+                throw new \UnexpectedValueException('The attachment list is invalid.');
+            }
+
+            foreach ($media as $file) {
+                if (!\is_array($file) || !\is_string($file['file_id'] ?? null)
+                    || preg_match('/^[A-Za-z0-9_-]{1,512}$/D', $file['file_id']) !== 1
+                    || !\is_string($file['file_unique_id'] ?? null)
+                    || preg_match('/^[A-Za-z0-9_-]{1,128}$/D', $file['file_unique_id']) !== 1
+                    || !\is_string($file['path'] ?? null)
+                    || preg_match('~^live/[1-9][0-9]*/[1-9][0-9]*-[A-Za-z0-9_-]{1,128}\.[a-z0-9]{2,4}$~D', $file['path']) !== 1
+                    || !\in_array($file['kind'] ?? null, ['photo', 'file'], true)
+                    || (isset($file['file_size']) && (!\is_int($file['file_size']) || $file['file_size'] <= 0))
+                    || !\is_string($file['file_name'] ?? null) || \strlen($file['file_name']) > 512
+                    || !\is_string($file['mime_type'] ?? null) || \strlen($file['mime_type']) > 128
+                    || !\is_string($file['emoji'] ?? null) || mb_strlen($file['emoji']) > 16
+                ) {
+                    throw new \UnexpectedValueException('The attachment identity is invalid.');
+                }
             }
         }
 
