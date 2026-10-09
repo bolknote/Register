@@ -73,7 +73,7 @@ final readonly class ImportModule implements ContainerModuleInterface
         ));
         $container->set(TelegramLiveImportConfig::class, static fn(Container $container): TelegramLiveImportConfig => $container->get(TelegramSettings::class)->liveConfig(), ['dynamic_config_dependent']);
         $container->set(TelegramFileClientInterface::class, static fn(Container $container): TelegramBotFileClient => new TelegramBotFileClient(
-            $container->get(HttpClient::class), $container->get(TelegramSettings::class)->botToken(),
+            $container->get(HttpClient::class), $container->get(TelegramSettings::class)->botToken(), $container->get(TelegramSettings::class)->relay(),
         ), ['dynamic_config_dependent']);
         $container->set(TelegramLiveReactionService::class, static fn(Container $container): TelegramLiveReactionService => new TelegramLiveReactionService(
             $container->get(TelegramImportService::class), $container->get(ExternalImportMapRepository::class), $container->get(\PDO::class),

@@ -16,7 +16,7 @@ final readonly class TelegramBotFileClient implements TelegramFileClientInterfac
 {
     public const int MAX_BYTES = 20_000_000;
 
-    public function __construct(private HttpClientInterface $http, private string $botToken)
+    public function __construct(private HttpClientInterface $http, private string $botToken, private TelegramRelayConfig $relay = new TelegramRelayConfig())
     {
     }
 
@@ -35,8 +35,8 @@ final readonly class TelegramBotFileClient implements TelegramFileClientInterfac
         }
 
         try {
-            $response = $this->http->request('POST', 'https://api.telegram.org/bot' . $this->botToken . '/getFile',
-                ['Content-Type' => 'application/json'], json_encode(['file_id' => $fileId], JSON_THROW_ON_ERROR),
+            $response = $this->http->request('POST', $this->relay->apiBaseUrl() . '/bot' . $this->botToken . '/getFile',
+                ['Content-Type' => 'application/json', ...$this->relay->headers()], json_encode(['file_id' => $fileId], JSON_THROW_ON_ERROR),
                 [HttpClient::MAX_RESPONSE_BYTES => 16_384, HttpClient::FOLLOW_REDIRECTS => false]);
             $data = json_decode($response->content ?? '', true, 16, JSON_THROW_ON_ERROR);
             $file = \is_array($data) && ($data['ok'] ?? null) === true ? ($data['result'] ?? null) : null;
@@ -55,8 +55,8 @@ final readonly class TelegramBotFileClient implements TelegramFileClientInterfac
                 throw new TelegramMediaDownloadFailed();
             }
 
-            $response = $this->http->request('GET', 'https://api.telegram.org/file/bot' . $this->botToken . '/' . $path,
-                options: [HttpClient::MAX_RESPONSE_BYTES => self::MAX_BYTES, HttpClient::FOLLOW_REDIRECTS => false,
+            $response = $this->http->request('GET', $this->relay->apiBaseUrl() . '/file/bot' . $this->botToken . '/' . $path,
+                $this->relay->headers(), options: [HttpClient::MAX_RESPONSE_BYTES => self::MAX_BYTES, HttpClient::FOLLOW_REDIRECTS => false,
                     HttpClient::CONNECT_TIMEOUT => 5, HttpClient::READ_TIMEOUT => 20]);
             $bytes = $response->content;
             $expectedSize = (int)($file['file_size'] ?? $media['file_size'] ?? 0);

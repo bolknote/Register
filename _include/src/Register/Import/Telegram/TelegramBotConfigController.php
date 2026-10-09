@@ -39,6 +39,7 @@ final readonly class TelegramBotConfigController implements ControllerInterface
         }
 
         $config = $this->settings->liveConfig();
+        $relay = $this->settings->relay();
 
         return $this->response(['success' => true, 'config' => [
             'enabled' => $config->enabled(),
@@ -46,6 +47,8 @@ final readonly class TelegramBotConfigController implements ControllerInterface
             'discussionChatId' => $config->discussionChatId,
             'channelChatId' => $config->channelChatId,
             'ownerUserId' => $config->ownerTelegramUserId,
+            'relayUrl' => $relay->enabled() ? $relay->url : '',
+            'relayToken' => $relay->enabled() ? $relay->token : '',
         ]]);
     }
 

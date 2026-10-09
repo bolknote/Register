@@ -7,6 +7,7 @@ import { messageMedia } from '../../tools/telegram-comments/tgcloud/lib/media.js
 import { createStore } from '../../tools/telegram-comments/tgcloud/lib/storage.js';
 import { ingest, ingestChannelPost, ingestReaction, flush } from '../../tools/telegram-comments/tgcloud/lib/relay.js';
 import { refreshConfig, restoreConfig } from '../../tools/telegram-comments/tgcloud/lib/settings.js';
+import { blogBaseUrl, relayHeaders } from '../../tools/telegram-comments/tgcloud/lib/transport.js';
 
 const config = {
     blogUrl: 'https://register.localhost', token: 'a'.repeat(64), ownerUserId: 22,
@@ -263,6 +264,24 @@ test('a rejected settings response cannot change secrets or trusted scope', asyn
         assert.deepEqual(current, { ...config, botApiToken: 'test-bot-token' });
     }
     assert.equal(await store.getConfig(), null);
+});
+
+test('optional HTTPS relay authenticates settings traffic without changing the canonical article host', async t => {
+    const store = sqliteStore(t);
+    const local = { ...config, botApiToken: '123456:fake-token', relayUrl: 'https://relay.example:8443', relayToken: 'b'.repeat(64) };
+    assert.equal(blogBaseUrl(local), 'https://relay.example:8443/blog');
+    assert.deepEqual(relayHeaders(local), { 'X-Register-Telegram-Relay-Key': 'b'.repeat(64) });
+    assert.equal(ready({ ...local, relayUrl: 'http://relay.example' }), false);
+    assert.equal(ready({ ...local, relayUrl: 'https://user:pass@relay.example' }), false);
+    const changed = { enabled: true, token: 'c'.repeat(64), discussionChatId: config.discussionChatId,
+        channelChatId: config.channelChatId, ownerUserId: config.ownerUserId, relayUrl: local.relayUrl, relayToken: local.relayToken };
+    assert.equal(await refreshConfig(local, store, async (url, options) => {
+        assert.equal(url, 'https://relay.example:8443/blog/_live/telegram/config');
+        assert.equal(options.headers['X-Register-Telegram-Relay-Key'], local.relayToken);
+        return { ok: true, json: async () => ({ success: true, config: changed }) };
+    }), true);
+    assert.equal(local.blogUrl, config.blogUrl);
+    assert.equal(local.token, changed.token);
 });
 
 test('switching groups never uses another groups message IDs or loses its pending source', async t => {

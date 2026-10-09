@@ -12,6 +12,7 @@ namespace Register\Admin;
 use Register\Ai\AiSettings;
 use Register\Author\AuthorProfileRepository;
 use Register\Import\Telegram\TelegramSettings;
+use Register\Import\Telegram\Admin\TelegramRelayUrlValidator;
 use Register\Import\Telegram\Admin\TelegramIdValidator;
 use Register\Comment\CommentAgePolicy;
 use Register\Auth\PublicAuthSettings;
@@ -100,6 +101,8 @@ class DynamicConfigFormBuilder
         TelegramSettings::DISCUSSION_ID => 'telegram_chat_id',
         TelegramSettings::OWNER_TELEGRAM_ID => 'telegram_user_id',
         TelegramSettings::AUTHOR_ID => 'telegram_author',
+        TelegramSettings::RELAY_URL => 'telegram_relay_url',
+        TelegramSettings::RELAY_TOKEN => 'secret',
 
         'Navigation config' => 'title',
         'REGISTER_USE_HIERARCHY'  => 'boolean',
@@ -349,6 +352,11 @@ class DynamicConfigFormBuilder
                 inlineFormTemplate: '_admin/templates/config/inline.php.inc',
             ),
             'telegram_author' => $this->telegramAuthorField($inlineEdit),
+            'telegram_relay_url' => new FieldConfig(
+                'value', type: new DbColumnFieldType(FieldConfig::DATA_TYPE_STRING), control: 'input',
+                validators: [new TelegramRelayUrlValidator()], inlineEdit: $inlineEdit,
+                inlineFormTemplate: '_admin/templates/config/inline.php.inc',
+            ),
             'comment_max_age' => new FieldConfig(
                 'value',
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT),
@@ -517,7 +525,7 @@ class DynamicConfigFormBuilder
     {
         $pattern = match ($paramName) {
             TelegramSettings::BOT_TOKEN => '/^(?:|[1-9][0-9]*:[A-Za-z0-9_-]{30,})$/D',
-            TelegramSettings::BRIDGE_TOKEN => '/^(?:|[a-f0-9]{64})$/D',
+            TelegramSettings::BRIDGE_TOKEN, TelegramSettings::RELAY_TOKEN => '/^(?:|[a-f0-9]{64})$/D',
             default => null,
         };
         if ($pattern === null) {
