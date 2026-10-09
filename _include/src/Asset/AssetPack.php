@@ -45,9 +45,7 @@ class AssetPack
     /** @var list<array{src: string, is_async: bool, is_defer: bool, merge: bool}> */
     private array $js = [];
 
-    /**
-     * @var string[]
-     */
+    /** @var list<string> */
     private array $inlineJs = [];
 
     /** @var list<array{src: string, 'as': string}> */
