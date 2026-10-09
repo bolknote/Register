@@ -12,7 +12,7 @@
     let previousMeasurement = null;
     let viewportSized = false;
     let contentChanged = false;
-    let resizeTimer = null;
+    let resizeEvent = null;
     function intrinsicAnimations() {
         // Auto-height follows animations too. Their progress is independent of
         // the preceding iframe resize; opacity/color animations do not affect it.
@@ -126,20 +126,24 @@
         });
     }
     observeTree(document.body, true);
-    new MutationObserver(records => {
-        if (resizeTimer === null) contentChanged = true;
+    function observeMutations(records, independent) {
+        if (records.length && independent) contentChanged = true;
         records.forEach(record => {
             record.removedNodes.forEach(node => observeTree(node, false));
             record.addedNodes.forEach(node => observeTree(node, true));
         });
         measure();
-    }).observe(document.documentElement, {childList: true, subtree: true, attributes: true, characterData: true});
+    }
+    const changes = new MutationObserver(records => observeMutations(records,
+        !resizeEvent || window.event !== resizeEvent));
+    changes.observe(document.documentElement, {childList: true, subtree: true, attributes: true, characterData: true});
     addEventListener('load', measure);
-    addEventListener('resize', () => {
-        // DOM changes made by synchronous author resize handlers belong to the
-        // viewport response, rather than to an independent content edit.
-        clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(() => { resizeTimer = null; }, 0);
+    addEventListener('resize', event => {
+        // Preserve earlier edits and recognise mutations during the active
+        // resize dispatch. Chromium retains eventPhase/currentTarget on native
+        // window events, so their stored values cannot identify later edits.
+        observeMutations(changes.takeRecords(), true);
+        resizeEvent = event;
         measure();
     });
     measure();

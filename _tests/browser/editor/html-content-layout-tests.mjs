@@ -51,10 +51,18 @@ export async function runHtmlContentLayoutRegressions(browser, origin) {
         await expectHeight(100);
         await page.waitForTimeout(150);
         assert.equal(await height(), 100, 'Shrinking must not retain the old iframe viewport or restart a resize loop');
+        // Timer callbacks may be delayed while resize events and author edits continue.
+        // Changing intrinsic content must not be classified as a viewport response.
+        await frame.locator('body').evaluate(() => {
+            const timeout = window.setTimeout.bind(window);
+            window.restorePreviewTimers = () => { window.setTimeout = timeout; };
+            window.setTimeout = (callback, delay, ...args) => timeout(callback, delay === 0 ? 300 : delay, ...args);
+        });
         for (const size of [170, 270, 370, 270, 170, 70]) {
             await frame.locator('#positioned').evaluate((element, value) => { element.style.height = value + 'px'; }, size);
             await expectHeight(size + 30);
         }
+        await frame.locator('body').evaluate(() => window.restorePreviewTimers());
 
         await code.fill('<div id="wrapper" style="height:20px"><div id="overflow" style="height:280px">Overflowing content</div></div>');
         await frame.locator('#overflow').waitFor();
