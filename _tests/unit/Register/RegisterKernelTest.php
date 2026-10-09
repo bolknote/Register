@@ -152,6 +152,7 @@ final class RegisterKernelTest extends Unit
         self::assertSame([
             'register_telegram_bot_config',
             'register_telegram_live_import',
+            'register_telegram_live_media',
             'obsolete_comment_reply',
             'register_public_auth',
             'register_public_auth_password',

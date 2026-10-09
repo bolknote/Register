@@ -1,6 +1,7 @@
 // These ordered groups contain only product assets. Runtime selection requires
 // an exact consecutive match, so disabled modules and editor permissions stay intact.
 const publicScripts = [
+    '_assets/register/telegram/stickers.js',
     '_assets/register/comment-undo.js',
     '_assets/register/comment-editor.js',
     '_assets/register/offline.js',
@@ -14,6 +15,7 @@ export const assetBundles = [
     {path: '_assets/register/public-static.bundle.js', files: publicScripts.filter(path => !path.endsWith('/live-updates.js'))},
     {path: '_assets/register/public.bundle.css', files: [
         '_assets/register/content-security.css',
+        '_assets/register/telegram/stickers.css',
         '_assets/register/comment-undo.css',
         '_assets/register/comment-editor.css',
         '_assets/register/offline.css',
