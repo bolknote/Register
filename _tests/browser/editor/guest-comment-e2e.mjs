@@ -208,6 +208,7 @@ try {
     const quote = argument => "'" + argument.replace(/'/g, "'\\''") + "'";
     const sendmail = [php, resolve(directory, 'e2e-mail.php'), mailLog].map(quote).join(' ');
     server = spawn(php, ['-d', `sendmail_path=${sendmail}`, '-d', `session.save_path=${scratch}/sessions`, '-d', 'opcache.revalidate_freq=0',
+        '-d', 'opcache.jit=disable', '-d', 'opcache.jit_buffer_size=0',
         '-S', `127.0.0.1:${port}`, '-t', root, resolve(sourceRoot, 'tools/dev-router.php')],
         {cwd: root, env: {...process.env, APP_ENV: `e2e-${id}`, XDEBUG_MODE: 'off'}, stdio: ['ignore', 'pipe', 'pipe']});
     server.stdout.on('data', data => { serverLog += data; });

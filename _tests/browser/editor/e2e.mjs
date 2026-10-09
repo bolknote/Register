@@ -264,7 +264,10 @@ try {
         + '"opcache_cli" => ini_get("opcache.enable_cli"), "jit" => ini_get("opcache.jit"), '
         + '"jit_buffer" => ini_get("opcache.jit_buffer_size")], JSON_THROW_ON_ERROR);'], {encoding: 'utf8'}));
     const {pageId} = JSON.parse(execFileSync(php, [resolve(directory, 'e2e-seed.php'), settings], {cwd: root, encoding: 'utf8', env: {...process.env, XDEBUG_MODE: 'off'}}));
+    // PHP 8.3's function JIT (1235) aborts this fixture's ordinary code page.
+    // Browser round trips exercise application behavior with the interpreter.
     server = spawn(php, ['-d', `session.save_path=${scratch}/sessions`, '-d', 'opcache.revalidate_freq=0',
+        '-d', 'opcache.jit=disable', '-d', 'opcache.jit_buffer_size=0',
         '-S', `127.0.0.1:${port}`, '-t', root, resolve(sourceRoot, 'tools/dev-router.php')],
     {cwd: root, env: {...process.env, APP_ENV: `e2e-${id}`, XDEBUG_MODE: 'off'}, stdio: ['ignore', 'pipe', 'pipe']});
     server.stdout.on('data', data => { serverLog += data; });
