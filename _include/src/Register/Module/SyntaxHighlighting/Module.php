@@ -26,10 +26,17 @@ final class Module implements ContainerAwareListenerModuleInterface
                 $container->getStringParameter('public_root_dir'),
                 $container->getStringParameter('base_path'),
             );
-            $event->assetPack->addJs(
-                $assetUrl->versioned('/_assets/register/syntax-highlighting/loader.js'),
-                [AssetPack::OPTION_DEFER],
-            );
+            $event->assetPack
+                ->addMeta(sprintf(
+                    '<meta name="register-syntax-highlighting" data-script-url="%s" data-style-url="%s">',
+                    register_htmlencode($assetUrl->versioned('/_assets/register/syntax-highlighting/vendor/highlight.js/highlight.min.js')),
+                    register_htmlencode($assetUrl->versioned('/_assets/register/syntax-highlighting/theme.css')),
+                ))
+                ->addJs(
+                    $assetUrl->versioned('/_assets/register/syntax-highlighting/loader.js'),
+                    [AssetPack::OPTION_DEFER],
+                )
+            ;
         });
     }
 }

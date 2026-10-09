@@ -11,6 +11,9 @@
     }
 
     const assetBase = new URL('.', ownScript.src);
+    const assetConfig = document.querySelector('meta[name="register-syntax-highlighting"]');
+    const scriptUrl = assetConfig?.dataset.scriptUrl || new URL('vendor/highlight.js/highlight.min.js', assetBase).href;
+    const styleUrl = assetConfig?.dataset.styleUrl || new URL('theme.css', assetBase).href;
     const maximumCodeLength = 500000;
     const originalClassAttribute = 'data-register-syntax-original-class';
     const extensions = [];
@@ -98,7 +101,7 @@
         return new Promise(function (resolve, reject) {
             const stylesheet = document.createElement('link');
             stylesheet.rel = 'stylesheet';
-            stylesheet.href = new URL('theme.css', assetBase).href;
+            stylesheet.href = styleUrl;
             stylesheet.setAttribute('data-register-syntax-highlighting-styles', '');
             stylesheet.onload = resolve;
             stylesheet.onerror = function () {
@@ -115,7 +118,7 @@
 
         return new Promise(function (resolve, reject) {
             const script = document.createElement('script');
-            script.src = new URL('vendor/highlight.js/highlight.min.js', assetBase).href;
+            script.src = scriptUrl;
             script.async = true;
             script.setAttribute('data-register-syntax-highlighting-script', '');
             script.onload = function () {

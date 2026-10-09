@@ -93,11 +93,14 @@ final class GeneratedAssetCacheCleanerTest extends Unit
             'partial_bot', 'partial_new_visitor', 'partial_known_visitor'];
         foreach ($variants as $variant) {
             $oldVariant = str_ends_with($variant, '_bot') ? $variant . '_noninteractive_v2' : $variant;
-            // These are the complete HTML snapshots written before build-time assets.
-            $pool->get('register_blog_first_response_v4_' . $oldVariant, static fn(): CachedBlogResponse => $oldResponse);
-            $pool->get('register_blog_all_response_v4_' . $oldVariant, static fn(): CachedBlogResponse => $oldResponse);
-            $pool->get('register_content_response_v4_' . hash('sha256', '/fixture') . '_' . $oldVariant,
-                static fn(): CachedBlogResponse => $oldContentResponse);
+            // Both runtime-bundle HTML and the previous separate prebuilt-file layout
+            // must refresh without throwing away the already rendered content fragments.
+            foreach ([4, 5] as $version) {
+                $pool->get('register_blog_first_response_v' . $version . '_' . $oldVariant, static fn(): CachedBlogResponse => $oldResponse);
+                $pool->get('register_blog_all_response_v' . $version . '_' . $oldVariant, static fn(): CachedBlogResponse => $oldResponse);
+                $pool->get('register_content_response_v' . $version . '_' . hash('sha256', '/fixture') . '_' . $oldVariant,
+                    static fn(): CachedBlogResponse => $oldContentResponse);
+            }
         }
 
         $feed = new PostFeed('warm content fragment', null, null);

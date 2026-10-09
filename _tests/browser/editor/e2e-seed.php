@@ -68,6 +68,20 @@ $installer = new Installer($db);
 $installer->createTables();
 $installer->insertConfigData('Editor E2E', 'editor@example.test', 'English');
 $pageId = $installer->insertMainPage('Server page', time(), '<p>Server page body.</p>');
+$syntaxPage = [
+    'content_type' => 'page', 'parent_id' => (string)$pageId, 'slug_scope' => 'root',
+    'title' => 'Syntax assets fixture', 'excerpt' => '',
+    'body' => '<pre><code class="language-javascript">const answer = 42;</code></pre>',
+    'created_at' => (string)time(), 'published_at' => (string)time(), 'updated_at' => (string)time(),
+    'revision' => '1', 'sort_order' => '0', 'published' => '1', 'featured' => '0', 'comments_enabled' => '1',
+    'slug' => 'syntax-assets-fixture', 'template' => 'site.php',
+];
+$syntaxValues = [];
+foreach (array_keys($syntaxPage) as $column) {
+    $syntaxValues[$column] = ':' . $column;
+}
+
+$db->insert('content')->values($syntaxValues)->execute($syntaxPage);
 foreach (['editor', 'other'] as $login) {
     $db->insert('users')->values([
         'login' => ':login', 'password' => ':password', 'email' => ':email',

@@ -112,3 +112,46 @@ test('source checkouts and symlinked assets are never overwritten', async t => {
     await symlink(resolve(root, 'service-worker.js'), resolve(root, '_assets/linked.js'));
     await assert.rejects(buildAssets(root), /Symlink in asset tree/);
 });
+
+test('ordinary bundles retain classic dependencies, CSS locations, licenses and compressed hashes', async t => {
+    const root = await fixture(t);
+    await mkdir(resolve(root, '_assets/components'));
+    await writeFile(resolve(root, '_assets/first.js'), 'var PublicValue = 2; window.order = ["first"];');
+    await writeFile(resolve(root, '_assets/second.js'), '(function () { window.order.push("second"); window.answer = PublicValue + 40; })();');
+    await writeFile(resolve(root, '_styles/first.css'), '/*! Copyright 2026 Fixture authors */ .first { background: url(../pictures/icon.svg?shade=1#icon); } .symbol:before { content: "★"; }');
+    await writeFile(resolve(root, '_assets/components/second.css'), '@font-face { font-family: fixture; src: url(../fonts/fixture.woff2); } .second { color: blue; }');
+    const bundles = [
+        {path: '_assets/public.bundle.js', files: ['_assets/first.js', '_assets/second.js']},
+        {path: '_assets/public.bundle.css', files: ['_styles/first.css', '_assets/components/second.css']},
+    ];
+    await buildAssets(root, {bundles});
+    const manifest = JSON.parse(await readFile(resolve(root, manifestPath), 'utf8'));
+    assert.deepEqual(manifest.bundles, bundles);
+    const content = await readFile(resolve(root, bundles[0].path));
+    const context = vm.createContext({window: {}});
+    new vm.Script(content.toString()).runInContext(context);
+    assert.deepEqual(Array.from(context.window.order), ['first', 'second']);
+    assert.equal(context.window.answer, 42);
+    const css = await readFile(resolve(root, bundles[1].path), 'utf8');
+    assert.ok(css.startsWith('@charset "UTF-8";'));
+    assert.match(css, /Copyright 2026 Fixture authors/);
+    assert.ok(css.includes('../pictures/icon.svg?shade=1#icon'));
+    assert.ok(css.includes('fonts/fixture.woff2'));
+    for (const bundle of bundles) {
+        const original = await readFile(resolve(root, bundle.path));
+        assert.equal(manifest.assets[bundle.path], createHash('sha256').update(original).digest('hex'));
+        assert.deepEqual(brotliDecompressSync(await readFile(resolve(root, bundle.path + '.br'))), original);
+    }
+});
+
+test('module imports cannot be moved into a classic bundle, and failure leaves originals intact', async t => {
+    const root = await fixture(t);
+    const source = 'import {helper} from "./second.js"; export const result = helper();';
+    await writeFile(resolve(root, '_assets/first.js'), source);
+    await writeFile(resolve(root, '_assets/second.js'), 'export const helper = () => 42;');
+    await assert.rejects(buildAssets(root, {bundles: [
+        {path: '_assets/combined.js', files: ['_assets/first.js', '_assets/second.js']},
+    ]}), /classic.*bundle|bundle.*classic/i);
+    assert.equal(await readFile(resolve(root, '_assets/first.js'), 'utf8'), source);
+    await assert.rejects(stat(resolve(root, manifestPath)), {code: 'ENOENT'});
+});

@@ -45,6 +45,15 @@ final class PrebuiltAssetMerge implements AssetMergeInterface
             $paths[] = $path;
         }
 
-        return $paths;
+        return $this->bundleUrls($paths);
+    }
+
+    /**
+     * @param list<string> $urls
+     * @return list<string>
+     */
+    public function bundleUrls(array $urls): array
+    {
+        return $this->manifest->bundleUrls($urls);
     }
 }

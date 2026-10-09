@@ -14,11 +14,15 @@ final readonly class PrebuiltAssetManifest
 {
     public const string FILENAME = '_include/asset-manifest.json';
 
-    /** @param array<string, string> $assets */
+    /**
+     * @param array<string, string> $assets
+     * @param list<array{path: string, files: list<string>}> $bundles
+     */
     private function __construct(
         private string $publicRoot,
         private string $basePath,
         private array  $assets,
+        private array  $bundles,
     ) {
     }
 
@@ -51,7 +55,9 @@ final readonly class PrebuiltAssetManifest
             $assets[$path] = $hash;
         }
 
-        return new self(rtrim($root, '/\\') . DIRECTORY_SEPARATOR, rtrim($basePath, '/'), $assets);
+        $bundles = self::readBundles($data['bundles'] ?? [], $assets);
+
+        return new self(rtrim($root, '/\\') . DIRECTORY_SEPARATOR, rtrim($basePath, '/'), $assets, $bundles);
     }
 
     public function urlFor(string $filename): ?string
@@ -69,7 +75,82 @@ final readonly class PrebuiltAssetManifest
         $hash = $this->assets[$path] ?? null;
 
         // The virtual suffix makes nginx-to-Apache hosting negotiate ready sidecars too.
-        return $hash === null ? null : $this->basePath . '/' . $path . '.asset?v=' . $hash;
+        return $hash === null ? null : $this->publicUrl($path);
+    }
+
+    /**
+     * Replace only exact consecutive groups, retaining order and every optional module boundary.
+     *
+     * @param list<string> $urls
+     * @return list<string>
+     */
+    public function bundleUrls(array $urls): array
+    {
+        $result = [];
+        for ($index = 0, $total = \count($urls); $index < $total;) {
+            foreach ($this->bundles as $bundle) {
+                $expected = array_map($this->publicUrl(...), $bundle['files']);
+                if (\array_slice($urls, $index, \count($expected)) === $expected) {
+                    $result[] = $this->publicUrl($bundle['path']);
+                    $index += \count($expected);
+                    continue 2;
+                }
+            }
+
+            $result[] = $urls[$index];
+            ++$index;
+        }
+
+        return $result;
+    }
+
+    private function publicUrl(string $path): string
+    {
+        return $this->basePath . '/' . $path . '.asset?v=' . $this->assets[$path];
+    }
+
+    /**
+     * @param array<string, string> $assets
+     * @return list<array{path: string, files: list<string>}>
+     */
+    private static function readBundles(mixed $definitions, array $assets): array
+    {
+        if (!\is_array($definitions) || !array_is_list($definitions)) {
+            throw new \RuntimeException('The prebuilt asset manifest contains invalid bundles.');
+        }
+
+        $bundles = [];
+        foreach ($definitions as $definition) {
+            if (!\is_array($definition) || !\is_string($definition['path'] ?? null)
+                || !isset($assets[$definition['path']]) || !\is_array($definition['files'] ?? null)
+                || !array_is_list($definition['files']) || \count($definition['files']) < 2
+            ) {
+                throw new \RuntimeException('The prebuilt asset manifest contains an invalid bundle.');
+            }
+
+            $extension = pathinfo($definition['path'], PATHINFO_EXTENSION);
+            if (!\in_array($extension, ['css', 'js'], true)) {
+                throw new \RuntimeException('Prebuilt bundles support CSS and classic JavaScript only.');
+            }
+
+            $files = [];
+            foreach ($definition['files'] as $file) {
+                if (!\is_string($file) || !isset($assets[$file]) || $file === $definition['path']
+                    || \in_array($file, $files, true) || pathinfo($file, PATHINFO_EXTENSION) !== $extension
+                ) {
+                    throw new \RuntimeException('The prebuilt asset manifest contains an invalid bundle member.');
+                }
+
+                $files[] = $file;
+            }
+
+            $bundles[] = ['path' => $definition['path'], 'files' => $files];
+        }
+
+        // Prefer a complete group over a shorter variant sharing its prefix.
+        usort($bundles, static fn(array $left, array $right): int => \count($right['files']) <=> \count($left['files']));
+
+        return $bundles;
     }
 
     private static function isAssetPath(string $path): bool

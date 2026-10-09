@@ -1,6 +1,6 @@
 import {createHash} from 'node:crypto';
 import {lstat, mkdir, readFile, readdir, realpath, rename, rm, stat, utimes, writeFile} from 'node:fs/promises';
-import {dirname, extname, relative, resolve, sep} from 'node:path';
+import {dirname, extname, posix, relative, resolve, sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {
     brotliCompressSync, brotliDecompressSync, constants, gunzipSync, gzipSync,
@@ -11,6 +11,7 @@ import {parse} from 'acorn';
 import {transform} from 'lightningcss';
 import {minify} from 'terser';
 import {minifySync as minifyOxc} from 'oxc-minify';
+import {assetBundles} from './bundles.mjs';
 
 export const assetDirectories = ['_admin', '_assets', '_extensions', '_styles'];
 export const manifestPath = '_include/asset-manifest.json';
@@ -131,8 +132,75 @@ async function writeAtomic(filename, content, modifiedAt) {
     }
 }
 
+function validateBundles(bundles) {
+    const isAsset = path => typeof path === 'string'
+        && /^(?:_admin|_assets|_extensions|_styles)\/.+\.(?:css|js)$/u.test(path)
+        && !/[\\\x00-\x1f\x7f]/u.test(path)
+        && path.split('/').every(segment => segment && segment !== '.' && segment !== '..');
+    const paths = new Set();
+    for (const bundle of bundles) {
+        if (!isAsset(bundle.path) || paths.has(bundle.path) || !Array.isArray(bundle.files)
+            || bundle.files.length < 2 || new Set(bundle.files).size !== bundle.files.length
+            || bundle.files.some(path => !isAsset(path) || path === bundle.path || extname(path) !== extname(bundle.path))) {
+            throw new Error('Invalid asset bundle definition');
+        }
+        paths.add(bundle.path);
+    }
+    if (bundles.some(bundle => bundle.files.some(path => paths.has(path)))) {
+        throw new Error('Asset bundles must contain original assets, not other bundles');
+    }
+    return paths;
+}
+
+function bundleCss(source, target) {
+    const result = transform({filename: source.path, code: source.content, visitor: {
+        Rule(rule) {
+            // Concatenation would move later imports/namespaces after style rules.
+            if (rule.type === 'import' || rule.type === 'namespace') {
+                throw new Error(`Cannot bundle CSS with @${rule.type}: ${source.path}`);
+            }
+        },
+        Url(url) {
+            if (/^(?:[a-z][a-z0-9+.-]*:|\/|#)/iu.test(url.url)) return;
+            const suffixIndex = url.url.search(/[?#]/u);
+            const pathname = suffixIndex < 0 ? url.url : url.url.slice(0, suffixIndex);
+            const suffix = suffixIndex < 0 ? '' : url.url.slice(suffixIndex);
+            const resolved = posix.normalize(posix.join(posix.dirname(source.path), pathname));
+            return {...url, url: posix.relative(posix.dirname(target), resolved) + suffix};
+        },
+    }}).code;
+    const notices = source.content.toString('utf8').match(/\/\*[\s\S]*?\*\//gu) ?? [];
+    const missing = notices.filter(comment => /@license|@preserve|copyright/iu.test(comment)
+        && !Buffer.from(result).toString('utf8').includes(comment));
+    return Buffer.concat([Buffer.from(missing.join('\n') + (missing.length ? '\n' : '')), result]);
+}
+
+async function prepareBundles(root, outputs, definitions) {
+    const originals = new Map(outputs.map(output => [output.path, output]));
+    const bundles = [];
+    for (const definition of definitions) {
+        if (definition.files.some(path => !originals.has(path))) continue;
+        const sources = definition.files.map(path => originals.get(path));
+        const css = extname(definition.path) === '.css';
+        const contents = sources.map(source => {
+            if (css) return bundleCss(source, definition.path);
+            try { parse(source.content.toString('utf8'), {ecmaVersion: 'latest', sourceType: 'script'}); }
+            catch (error) { throw new Error(`Cannot put an ES module in a classic script bundle: ${source.path}`, {cause: error}); }
+            return source.content;
+        });
+        const combined = Buffer.concat(contents.flatMap(content => [content, Buffer.from(css ? '\n' : '\n;\n')]));
+        const content = await minifyAsset(definition.path, combined);
+        outputs.push({filename: resolve(root, definition.path), path: definition.path,
+            sourceBytes: sources.reduce((sum, source) => sum + source.sourceBytes, 0),
+            content, modifiedAt: new Date(Math.max(...sources.map(source => source.modifiedAt.getTime())))});
+        bundles.push(definition);
+    }
+    return bundles;
+}
+
 /** Optimize only a staged distribution. The repository's readable source is never overwritten. */
-export async function buildAssets(publicRoot, {onProgress = () => {}} = {}) {
+export async function buildAssets(publicRoot, {onProgress = () => {}, bundles: definitions = assetBundles} = {}) {
+    const bundlePaths = validateBundles(definitions);
     const root = await realpath(publicRoot);
     const repository = await realpath(sourceRoot);
     if (root === repository || repository.startsWith(root + sep)) {
@@ -148,11 +216,11 @@ export async function buildAssets(publicRoot, {onProgress = () => {}} = {}) {
     }
     const files = [worker];
     for (const directory of assetDirectories) files.push(...await assetFiles(resolve(root, directory)));
-    files.sort();
+    const originals = files.filter(filename => !bundlePaths.has(relative(root, filename).split(sep).join('/'))).sort();
 
     // Validate and transform the whole tree before publishing any replacement.
     const outputs = [];
-    for (const filename of files) {
+    for (const filename of originals) {
         const source = await readFile(filename);
         const path = relative(root, filename).split(sep).join('/');
         let content;
@@ -167,11 +235,14 @@ export async function buildAssets(publicRoot, {onProgress = () => {}} = {}) {
         outputs.push({filename, path, sourceBytes: source.length, content, modifiedAt: (await stat(filename)).mtime});
     }
 
+    const bundles = await prepareBundles(root, outputs, definitions);
+
     const assets = {};
     const report = {files: [], totals: {source: 0, minified: 0, br: 0, zst: 0, gz: 0}};
     for (const output of outputs) {
         const {filename, path, sourceBytes, content, modifiedAt} = output;
         const encoded = await compressAsset(content);
+        await mkdir(dirname(filename), {recursive: true});
         await writeAtomic(filename, content, modifiedAt);
         const sizes = {path, source: sourceBytes, minified: content.length};
         for (const [suffix, data] of Object.entries(encoded)) {
@@ -185,6 +256,6 @@ export async function buildAssets(publicRoot, {onProgress = () => {}} = {}) {
         onProgress(report.files.length, outputs.length, path);
     }
     await mkdir(dirname(resolve(root, manifestPath)), {recursive: true});
-    await writeAtomic(resolve(root, manifestPath), Buffer.from(JSON.stringify({version: 1, assets}, null, 2) + '\n'));
+    await writeAtomic(resolve(root, manifestPath), Buffer.from(JSON.stringify({version: 1, assets, bundles}, null, 2) + '\n'));
     return report;
 }

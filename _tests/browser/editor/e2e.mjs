@@ -56,7 +56,12 @@ async function measureGuestAssets(browser) {
         await page.goto(origin + '/');
         const cold = await measurements();
         assert.ok(cold.files.every(file => !file.path.includes('/editor/') && !file.path.includes('/post-inplace.')
-            && !file.path.includes('/post-recovery.')), 'Guests must not download the authenticated post editor');
+            && !file.path.includes('/post-recovery.') && !file.path.endsWith('/editor.bundle.js.asset')
+            && !file.path.endsWith('/blog-editor-search.bundle.css.asset')), 'Guests must not download the authenticated post editor');
+        assert.ok(cold.files.some(file => /\/public(?:-static)?\.bundle\.js\.asset$/.test(file.path)),
+            'A normal guest page must actually use the prepared public script bundle');
+        assert.ok(cold.files.some(file => file.path.endsWith('/public.bundle.css.asset')),
+            'A normal guest page must actually use the prepared public stylesheet bundle');
         await page.goto(origin + '/?cache-measure=warm');
         const warm = await measurements();
         const report = {cold, warm};
@@ -64,6 +69,33 @@ async function measureGuestAssets(browser) {
         assert.ok(cold.encoded < cold.decoded, 'The actual guest page must receive prepared compressed assets');
         assert.equal(warm.bodyFromNetwork, 0, 'Unchanged JS/CSS must not be downloaded again');
         console.log(`Guest page: ${cold.files.length} JS/CSS, ${cold.decoded} decoded bytes, ${cold.encoded} encoded bytes; repeat visit ${warm.bodyFromNetwork} JS/CSS body bytes`);
+    } finally { await context.close(); }
+}
+
+async function verifySyntaxAssets(browser, browserName) {
+    const context = await browser.newContext({serviceWorkers: 'block'});
+    try {
+        const page = await context.newPage();
+        const assets = [];
+        page.on('response', response => {
+            const path = new URL(response.url()).pathname;
+            if (path.endsWith('/highlight.min.js.asset') || path.endsWith('/syntax-highlighting/theme.css.asset')) {
+                assets.push(response);
+            }
+        });
+        await page.goto(origin + '/syntax-assets-fixture/');
+        await page.locator('pre code[data-highlighted="yes"] .hljs-keyword').waitFor();
+        assert.equal(assets.length, 2, 'An ordinary stored code block loads the two prepared highlighter assets');
+        for (const response of assets) {
+            assert.equal(response.status(), 200);
+            assert.match(response.url(), /\.asset\?v=[a-f0-9]{64}$/);
+            const encoding = response.headers()['content-encoding'];
+            assert.ok(['br', 'gzip', 'zstd'].includes(encoding), 'Each browser must receive a supported prepared encoding');
+            const accepted = (await response.request().allHeaders())['accept-encoding'];
+            assert.ok(accepted?.split(',').some(value => value.trim().split(';')[0] === encoding),
+                'The server must honor the browser\'s advertised encodings');
+        }
+        console.log(`${browserName}: normal code page loads versioned compressed highlighter and stylesheet (${assets.map(response => response.headers()['content-encoding']).join(', ')})`);
     } finally { await context.close(); }
 }
 
@@ -270,8 +302,13 @@ try {
         page.setDefaultTimeout(15000);
         try {
             if (process.env.REGISTER_E2E_ROOT && engine.name() === 'chromium') await measureGuestAssets(browser);
+            if (process.env.REGISTER_E2E_ROOT) await verifySyntaxAssets(browser, engine.name());
             await login(page);
             await page.goto(origin + '/');
+            if (process.env.REGISTER_E2E_ROOT) {
+                assert.equal(await page.locator('script[src*="/editor.bundle.js.asset?v="]').count(), 1,
+                    'An authenticated editor must actually use its prepared script bundle');
+            }
             await page.locator('.post-create-start').click();
             const card = page.locator('[data-post-creating]');
             const title = `Lost response ${engine.name()}`;

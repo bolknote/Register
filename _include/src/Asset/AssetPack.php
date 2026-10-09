@@ -227,20 +227,25 @@ class AssetPack
             $result[]    = \sprintf('<link rel="preload" href="%s" as="%s">', $preloadPath, $preloadItem['as']);
         }
 
+        $stylePaths = [];
         foreach ($this->css as $cssItem) {
             if ($assetMerge instanceof \Register\Core\Asset\AssetMergeInterface && $cssItem['merge']) {
                 $assetMerge->concat(($this->requireDirPrefix($cssItem['src']) ? $this->localDir . '/' : '') . $cssItem['src']);
             } else {
-                $cssPath  = $this->getPrefixedPath($cssItem['src'], $pathPrefix);
-                $result[] = \sprintf('<link rel="stylesheet" href="%s">', $cssPath);
+                $stylePaths[] = $this->getPrefixedPath($cssItem['src'], $pathPrefix);
             }
         }
 
         if ($assetMerge instanceof \Register\Core\Asset\AssetMergeInterface) {
-            $mergedPaths = $assetMerge->getMergedPaths();
-            foreach ($mergedPaths as $mergedPath) {
-                $result[] = \sprintf('<link rel="stylesheet" href="%s" />', $mergedPath);
-            }
+            $stylePaths = array_merge($stylePaths, array_values($assetMerge->getMergedPaths()));
+        }
+
+        if ($assetMerge instanceof PrebuiltAssetMerge) {
+            $stylePaths = $assetMerge->bundleUrls($stylePaths);
+        }
+
+        foreach ($stylePaths as $stylePath) {
+            $result[] = \sprintf('<link rel="stylesheet" href="%s">', $stylePath);
         }
 
         foreach ($this->headJs as $jsItem) {
@@ -270,10 +275,14 @@ class AssetPack
     public function getScripts(string $pathPrefix, ?AssetMergeInterface $assetMerge): string
     {
         $result = [];
+        $deferredPaths = [];
         foreach ($this->js as $jsItem) {
             if ($assetMerge instanceof \Register\Core\Asset\AssetMergeInterface && $jsItem['merge']) {
                 $assetMerge->concat(($this->requireDirPrefix($jsItem['src']) ? $this->localDir . '/' : '') . $jsItem['src']);
+            } elseif ($assetMerge instanceof PrebuiltAssetMerge && $jsItem['is_defer'] && !$jsItem['is_async']) {
+                $deferredPaths[] = $this->getPrefixedPath($jsItem['src'], $pathPrefix);
             } else {
+                $this->appendDeferredScripts($result, $deferredPaths, $assetMerge);
                 $result[] = \sprintf(
                 /** @lang text */ '<script src="%s"%s%s></script>',
                     $this->getPrefixedPath($jsItem['src'], $pathPrefix),
@@ -282,6 +291,8 @@ class AssetPack
                 );
             }
         }
+
+        $this->appendDeferredScripts($result, $deferredPaths, $assetMerge);
 
         if ($assetMerge instanceof \Register\Core\Asset\AssetMergeInterface) {
             foreach ($assetMerge->getMergedPaths() as $mergedPath) {
@@ -292,6 +303,20 @@ class AssetPack
         $result = array_merge($result, $this->inlineJs);
 
         return implode("\n", $result);
+    }
+
+    /**
+     * @param list<string> $result
+     * @param list<string> $paths
+     */
+    private function appendDeferredScripts(array &$result, array &$paths, ?AssetMergeInterface $assetMerge): void
+    {
+        $bundledPaths = $assetMerge instanceof PrebuiltAssetMerge ? $assetMerge->bundleUrls($paths) : $paths;
+        foreach ($bundledPaths as $path) {
+            $result[] = \sprintf('<script src="%s" defer></script>', $path);
+        }
+
+        $paths = [];
     }
 
     private function getFaviconMimeType(string $filename): string

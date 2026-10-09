@@ -5,6 +5,9 @@ Oxc and Terser compete by Brotli output size, and Lightning CSS optimizes styles
 in the repository remain the source assets; upstream checksums below describe those source files.
 Required license notices are preserved in generated files. See [deployment.md](deployment.md) for
 the build prerequisites, precompression settings, content hashes and UTF-8 handling.
+Reviewed ordered groups in `tools/assets/bundles.mjs` combine common public and editor assets at build
+time. The page selects a bundle only when all of its members are present in the same order; lazy
+libraries stay separate and use their own versioned URLs.
 
 Register does not copy visual assets from Aegea. Product-interface symbols should be Unicode text,
 emoji, or original artwork. Emoji used as quiet monochrome controls are rendered with

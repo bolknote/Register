@@ -88,13 +88,22 @@ styles, and produces Brotli quality 11, Zstandard level 22 (an HTTP-compatible 8
 and the smaller of Zopfli (30 iterations) and gzip level 9. Every encoded output is decoded and
 compared with the optimized original before publication. Sidecars larger than identity are omitted.
 
-The private `_include/asset-manifest.json` records content hashes. Prepared assets bypass the PHP
-minifier and retain their original directories, module imports, and CSS-relative URLs. Their
+The private `_include/asset-manifest.json` records content hashes and ordered product bundles.
+Common public scripts/styles, engagement scripts, and the authenticated post editor are combined
+at build time. A bundle replaces only an exact consecutive group of currently enabled assets;
+optional modules, script execution modes, CSS cascade order, and editor permissions remain intact.
+CSS-relative URLs are rebased to the bundle directory. ES modules and the small lazy library
+loaders keep their separate files. The original optimized files remain available for custom themes
+and extensions, and prepared assets bypass the PHP minifier. Their
 `.asset?v=<sha256>` URLs negotiate encodings in Apache and use immutable browser caching. Unversioned
 module imports and the service worker revalidate across releases. CSS containing literal Unicode
 retains an explicit UTF-8 charset, and Apache sends UTF-8 content types, covering Lightning CSS
 [#310](https://github.com/parcel-bundler/lightningcss/issues/310#issuecomment-2677659914).
 The post editor is included only for authenticated users with content-editing permissions.
+Syntax-highlighting configuration supplies separately versioned URLs for its lazy JavaScript and
+stylesheet, so both use prepared compression and invalidate their browser cache on content changes.
+The complete HTML response-cache generation advances for this asset layout; already cached content
+fragments and operational data remain reusable.
 
 Source checkouts and newly installed themes/extensions retain the existing runtime fallback.
 Generated CSS/JavaScript bundles receive ready gzip sidecars whenever PHP has zlib. Brotli and Zstd
