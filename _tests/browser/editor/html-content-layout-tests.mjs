@@ -144,7 +144,7 @@ export async function runHtmlContentLayoutRegressions(browser, origin) {
                 await code.fill('<style>@keyframes pulse {from {height:80px} to {height:81px}}</style>'
                     + `<section id="mixed" style="height:${portion}vh;padding-bottom:20px">Viewport region${nested ? animated : ''}</section>`
                     + (nested ? '' : animated));
-                await frame.locator('#' + pulseId).waitFor();
+                await frame.locator('#' + pulseId).waitFor({state: 'attached'});
                 await expectHeight(720);
                 await page.waitForTimeout(350);
                 assert.equal(await height(), 720, 'An independent animation must not hide viewport-dependent layout in siblings or ancestors');
