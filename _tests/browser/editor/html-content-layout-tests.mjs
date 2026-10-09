@@ -139,11 +139,12 @@ export async function runHtmlContentLayoutRegressions(browser, origin) {
 
         for (const portion of [100, 50]) {
             for (const nested of [false, true]) {
-                const animated = '<div id="pulse" style="height:80px;animation:pulse .2s infinite alternate linear">Independent animation</div>';
+                const pulseId = `pulse-${portion}-${nested ? 'nested' : 'sibling'}`;
+                const animated = `<div id="${pulseId}" style="height:80px;animation:pulse .2s infinite alternate linear">Independent animation</div>`;
                 await code.fill('<style>@keyframes pulse {from {height:80px} to {height:81px}}</style>'
                     + `<section id="mixed" style="height:${portion}vh;padding-bottom:20px">Viewport region${nested ? animated : ''}</section>`
                     + (nested ? '' : animated));
-                await frame.locator('#pulse').waitFor();
+                await frame.locator('#' + pulseId).waitFor();
                 await expectHeight(720);
                 await page.waitForTimeout(350);
                 assert.equal(await height(), 720, 'An independent animation must not hide viewport-dependent layout in siblings or ancestors');
