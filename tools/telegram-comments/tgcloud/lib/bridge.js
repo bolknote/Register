@@ -4,13 +4,12 @@ import { store } from './store.js';
 import { ingest, ingestChannelPost, ingestReaction, flush } from './relay.js';
 import { ready } from './protocol.js';
 import { refreshConfig, restoreConfig } from './settings.js';
-import { blogBaseUrl, relayHeaders } from './transport.js';
 
 async function send(archive) {
-    const response = await fetch(`${blogBaseUrl(config)}/_live/telegram/comments`, {
+    const response = await fetch(`${config.blogUrl.replace(/\/$/, '')}/_live/telegram/comments`, {
         method: 'POST',
         redirect: 'error',
-        headers: { 'Content-Type': 'application/json', 'X-Register-Telegram-Token': config.token, ...relayHeaders(config) },
+        headers: { 'Content-Type': 'application/json', 'X-Register-Telegram-Token': config.token },
         body: JSON.stringify(archive),
     });
     let result;

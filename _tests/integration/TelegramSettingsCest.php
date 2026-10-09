@@ -33,7 +33,7 @@ final class TelegramSettingsCest
         $I->login('admin', 'admin');
         $I->amOnPage(self::URL);
         $I->see('Telegram', '#settings-telegram-config');
-        foreach ([TelegramSettings::BOT_TOKEN => self::BOT_TOKEN, TelegramSettings::BRIDGE_TOKEN => self::BRIDGE_TOKEN, TelegramSettings::RELAY_TOKEN => str_repeat('b', 64)] as $key => $secret) {
+        foreach ([TelegramSettings::BOT_TOKEN => self::BOT_TOKEN, TelegramSettings::BRIDGE_TOKEN => self::BRIDGE_TOKEN] as $key => $secret) {
             $I->amOnPage(self::URL);
             $I->submitForm($this->form($key), ['value' => $secret]);
             $I->seeResponseCodeIs(200);
@@ -50,13 +50,6 @@ final class TelegramSettingsCest
             $I->assertSame('', $I->grabValueFrom($this->form($key) . ' input[name="value"]'));
             $I->see('Key saved', '[data-config-key="' . $key . '"]');
         }
-
-        $I->submitForm($this->form(TelegramSettings::RELAY_URL), ['value' => 'http://relay.example']);
-        $I->seeResponseCodeIs(422);
-        $I->amOnPage(self::URL);
-        $I->submitForm($this->form(TelegramSettings::RELAY_URL), ['value' => 'https://relay.example:8443']);
-        $I->seeResponseCodeIs(200);
-        $I->amOnPage(self::URL);
 
         $I->submitForm($this->form(TelegramSettings::DISCUSSION_ID), ['value' => '-42']);
         $I->seeResponseCodeIs(422);

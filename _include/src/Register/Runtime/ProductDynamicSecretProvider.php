@@ -27,7 +27,6 @@ final readonly class ProductDynamicSecretProvider implements DynamicSecretProvid
             VisitorIdentityManifest::SECRET_CONFIG_KEY,
             TelegramSettings::BOT_TOKEN,
             TelegramSettings::BRIDGE_TOKEN,
-            TelegramSettings::RELAY_TOKEN,
         ];
     }
 }

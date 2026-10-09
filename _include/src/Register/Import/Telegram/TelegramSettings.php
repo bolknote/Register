@@ -27,10 +27,6 @@ final readonly class TelegramSettings
 
     public const string AUTHOR_ID = 'REGISTER_TELEGRAM_AUTHOR_ID';
 
-    public const string RELAY_URL = 'REGISTER_TELEGRAM_RELAY_URL';
-
-    public const string RELAY_TOKEN = 'REGISTER_TELEGRAM_RELAY_TOKEN';
-
     public const array DEFAULTS = [
         self::ENABLED => '0',
         self::BOT_TOKEN => '',
@@ -39,8 +35,6 @@ final readonly class TelegramSettings
         self::DISCUSSION_ID => '0',
         self::OWNER_TELEGRAM_ID => '0',
         self::AUTHOR_ID => '0',
-        self::RELAY_URL => '',
-        self::RELAY_TOKEN => '',
     ];
 
     public function __construct(private DynamicConfigProvider $provider)
@@ -62,11 +56,6 @@ final readonly class TelegramSettings
     public function botToken(): string
     {
         return trim((string)$this->provider->get(self::BOT_TOKEN));
-    }
-
-    public function relay(): TelegramRelayConfig
-    {
-        return new TelegramRelayConfig(trim((string)$this->provider->get(self::RELAY_URL)), trim((string)$this->provider->get(self::RELAY_TOKEN)));
     }
 
     /** Preserve an existing file-based bridge when upgrading to editable settings.

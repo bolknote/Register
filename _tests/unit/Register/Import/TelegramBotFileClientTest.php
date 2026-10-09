@@ -16,7 +16,6 @@ use Register\Core\HttpClient\HttpResponse;
 use Register\Import\Telegram\TelegramBotFileClient;
 use Register\Import\Telegram\TelegramMediaDownloadFailed;
 use Register\Import\Telegram\TelegramStickerAnimation;
-use Register\Import\Telegram\TelegramRelayConfig;
 
 final class TelegramBotFileClientTest extends Unit
 {
@@ -52,29 +51,6 @@ final class TelegramBotFileClientTest extends Unit
         self::assertNull((new TelegramBotFileClient($http, '100:fake-token'))->download(
             ['file_id' => 'opaque-file-id', 'file_size' => TelegramBotFileClient::MAX_BYTES + 1],
         ));
-    }
-
-    public function testOptionalRelayKeepsBothRequestsAuthenticatedAndRejectsUnsafeUrls(): void
-    {
-        foreach (['http://relay.example', 'https://user:password@relay.example', 'https://relay.example/?token=secret', 'https://relay.example/#fragment'] as $url) {
-            self::assertFalse(TelegramRelayConfig::validUrl($url));
-        }
-
-        $relay = new TelegramRelayConfig('https://relay.example:8443/bridge', str_repeat('a', 64));
-        self::assertTrue($relay->enabled());
-        $call = 0;
-        $http = $this->createMock(HttpClientInterface::class);
-        $http->expects(self::exactly(2))->method('request')->willReturnCallback(
-            static function (string $method, string $url, array $headers) use (&$call): HttpResponse {
-                self::assertSame(str_repeat('a', 64), $headers['X-Register-Telegram-Relay-Key']);
-                self::assertStringStartsWith('https://relay.example:8443/bridge/api/', $url);
-                self::assertSame($call === 0 ? 'POST' : 'GET', $method);
-                return ++$call === 1
-                    ? new HttpResponse(statusCode: 200, content: '{"ok":true,"result":{"file_path":"photos/file_1.jpg","file_size":3}}')
-                    : new HttpResponse(statusCode: 200, content: 'abc');
-            },
-        );
-        self::assertSame('abc', (new TelegramBotFileClient($http, '100:fake-token', $relay))->download(['file_id' => 'opaque-file-id']));
     }
 
     public function testDecodesRealTgsAndPreservesOnlyManagedAnimationMarkup(): void

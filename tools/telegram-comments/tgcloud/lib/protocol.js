@@ -1,5 +1,4 @@
 import { messageMedia } from './media.js';
-import { validRelay } from './transport.js';
 
 const GROUP_OFFSET = 1_000_000_000_000;
 
@@ -9,7 +8,7 @@ export function exportChatId(id) {
 }
 
 export function ready(config) {
-    return config.enabled !== false && /^https:\/\//.test(config.blogUrl) && validRelay(config)
+    return config.enabled !== false && /^https:\/\//.test(config.blogUrl)
         && /^[a-f0-9]{64}$/.test(config.token)
         && Number.isSafeInteger(config.ownerUserId) && config.ownerUserId >= 0
         && Number.isSafeInteger(config.discussionChatId) && config.discussionChatId < -GROUP_OFFSET
