@@ -259,6 +259,10 @@ async function runPublishedHtmlBlockRegression(page, postId) {
 }
 
 try {
+    console.log('PHP browser fixture:', execFileSync(php, ['-r',
+        'echo json_encode(["version" => PHP_VERSION, "extensions" => get_loaded_extensions(), '
+        + '"opcache_cli" => ini_get("opcache.enable_cli"), "jit" => ini_get("opcache.jit"), '
+        + '"jit_buffer" => ini_get("opcache.jit_buffer_size")], JSON_THROW_ON_ERROR);'], {encoding: 'utf8'}));
     const {pageId} = JSON.parse(execFileSync(php, [resolve(directory, 'e2e-seed.php'), settings], {cwd: root, encoding: 'utf8', env: {...process.env, XDEBUG_MODE: 'off'}}));
     server = spawn(php, ['-d', `session.save_path=${scratch}/sessions`, '-d', 'opcache.revalidate_freq=0',
         '-S', `127.0.0.1:${port}`, '-t', root, resolve(sourceRoot, 'tools/dev-router.php')],
@@ -266,6 +270,7 @@ try {
     server.stdout.on('data', data => { serverLog += data; });
     server.stderr.on('data', data => { serverLog += data; });
     server.on('error', error => { serverError = error; });
+    server.on('exit', (code, signal) => { serverLog += `\nPHP exit: code=${code}, signal=${signal}\n`; });
     for (let attempt = 0; ; attempt++) {
         if (serverError) throw serverError;
         if (server.exitCode !== null || server.signalCode !== null) throw new Error('PHP exited: ' + serverLog);
@@ -476,6 +481,8 @@ try {
         } finally { await context.close(); await browser.close(); }
     }
 } catch (error) {
+    serverLog += `\nPHP state at failure: code=${server?.exitCode}, signal=${server?.signalCode}\n`;
+    console.error(serverLog);
     await writeFile(resolve(directory, '../../_output/editor-e2e-server.log'), serverLog);
     throw error;
 } finally {
