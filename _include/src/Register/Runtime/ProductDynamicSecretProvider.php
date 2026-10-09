@@ -11,6 +11,7 @@ namespace Register\Runtime;
 
 use Register\Ai\AiSettings;
 use Register\Auth\PublicAuthSettings;
+use Register\Import\Telegram\TelegramSettings;
 use Register\Module\VisitorIdentity\Manifest as VisitorIdentityManifest;
 use Register\Core\Config\DynamicSecretProviderInterface;
 
@@ -24,6 +25,8 @@ final readonly class ProductDynamicSecretProvider implements DynamicSecretProvid
             AiSettings::API_KEY_CONFIG_KEY,
             PublicAuthSettings::YANDEX_CLIENT_SECRET_CONFIG_KEY,
             VisitorIdentityManifest::SECRET_CONFIG_KEY,
+            TelegramSettings::BOT_TOKEN,
+            TelegramSettings::BRIDGE_TOKEN,
         ];
     }
 }

@@ -10,6 +10,9 @@ declare(strict_types = 1);
 namespace Register\Admin;
 
 use Register\Ai\AiSettings;
+use Register\Author\AuthorProfileRepository;
+use Register\Import\Telegram\TelegramSettings;
+use Register\Import\Telegram\Admin\TelegramIdValidator;
 use Register\Comment\CommentAgePolicy;
 use Register\Auth\PublicAuthSettings;
 use Register\Module\Analytics\Manifest as AnalyticsManifest;
@@ -22,6 +25,7 @@ use Register\AdminYard\Form\FormParams;
 use Register\AdminYard\SettingStorage\SettingStorageInterface;
 use Register\AdminYard\TemplateRenderer;
 use Register\AdminYard\Validator\Length;
+use Register\AdminYard\Validator\Choice;
 use Register\AdminYard\Validator\Regex;
 use Register\Core\Config\DynamicConfigProvider;
 use Register\Core\Controller\Rss\FeedSettings;
@@ -88,6 +92,15 @@ class DynamicConfigFormBuilder
         'REGISTER_AKISMET_KEY'      => 'secret',
         'REGISTER_PREMODERATION'    => 'boolean',
 
+        'Telegram config' => 'title',
+        TelegramSettings::ENABLED => 'boolean',
+        TelegramSettings::BOT_TOKEN => 'secret',
+        TelegramSettings::BRIDGE_TOKEN => 'secret',
+        TelegramSettings::CHANNEL_ID => 'telegram_chat_id',
+        TelegramSettings::DISCUSSION_ID => 'telegram_chat_id',
+        TelegramSettings::OWNER_TELEGRAM_ID => 'telegram_user_id',
+        TelegramSettings::AUTHOR_ID => 'telegram_author',
+
         'Navigation config' => 'title',
         'REGISTER_USE_HIERARCHY'  => 'boolean',
         'REGISTER_MAX_ITEMS'      => 'int',
@@ -136,6 +149,7 @@ class DynamicConfigFormBuilder
         private readonly SettingStorageInterface $settingStorage,
         private readonly DynamicConfigProvider   $dynamicConfigProvider,
         private readonly UrlBuilder              $urlBuilder,
+        private readonly AuthorProfileRepository $authorProfiles,
         DynamicConfigFormExtenderInterface       ...$dynamicConfigFormExtenders
     ) {
         $this->dynamicConfigFormExtenders = $dynamicConfigFormExtenders;
@@ -326,6 +340,15 @@ class DynamicConfigFormBuilder
                 inlineEdit: $inlineEdit,
                 inlineFormTemplate: '_admin/templates/config/inline.php.inc',
             ),
+            'telegram_chat_id', 'telegram_user_id' => new FieldConfig(
+                'value',
+                type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT),
+                control: 'int_input',
+                validators: [new TelegramIdValidator($this->getParamTypes()[$paramName] === 'telegram_chat_id')],
+                inlineEdit: $inlineEdit,
+                inlineFormTemplate: '_admin/templates/config/inline.php.inc',
+            ),
+            'telegram_author' => $this->telegramAuthorField($inlineEdit),
             'comment_max_age' => new FieldConfig(
                 'value',
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT),
@@ -451,6 +474,7 @@ class DynamicConfigFormBuilder
                 'value',
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_STRING),
                 control: 'password',
+                validators: $this->secretValidators($paramName),
                 inlineEdit: $inlineEdit,
                 inlineFormTemplate: '_admin/templates/config/secret-inline.php.inc',
             ),
@@ -468,6 +492,42 @@ class DynamicConfigFormBuilder
             ),
             default => throw new \LogicException(\sprintf('Unsupported dynamic configuration field type for "%s".', $paramName)),
         };
+    }
+
+    private function telegramAuthorField(bool $inlineEdit): FieldConfig
+    {
+        $options = [0 => $this->translator->trans('Default site author')];
+        foreach ($this->authorProfiles->publishers() as $author) {
+            $options[$author->id] = trim($author->displayName) !== '' ? $author->displayName : '#' . $author->id;
+        }
+
+        return new FieldConfig(
+            'value',
+            type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT),
+            control: 'select',
+            options: $options,
+            validators: [new Choice(array_keys($options))],
+            inlineEdit: $inlineEdit,
+            inlineFormTemplate: '_admin/templates/config/inline.php.inc',
+        );
+    }
+
+    /** @return list<Regex> */
+    private function secretValidators(string $paramName): array
+    {
+        $pattern = match ($paramName) {
+            TelegramSettings::BOT_TOKEN => '/^(?:|[1-9][0-9]*:[A-Za-z0-9_-]{30,})$/D',
+            TelegramSettings::BRIDGE_TOKEN => '/^(?:|[a-f0-9]{64})$/D',
+            default => null,
+        };
+        if ($pattern === null) {
+            return [];
+        }
+
+        $validator = new Regex($pattern);
+        $validator->message = 'Invalid Telegram token.';
+
+        return [$validator];
     }
 
     /**

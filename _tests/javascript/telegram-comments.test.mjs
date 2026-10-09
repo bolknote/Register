@@ -2,9 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync } from 'node:fs';
-import { normaliseMessage, exportChatId, snapshot, textEntities } from '../../tools/telegram-comments/tgcloud/lib/protocol.js';
+import { normaliseMessage, exportChatId, snapshot, textEntities, ready } from '../../tools/telegram-comments/tgcloud/lib/protocol.js';
 import { createStore } from '../../tools/telegram-comments/tgcloud/lib/storage.js';
 import { ingest, flush } from '../../tools/telegram-comments/tgcloud/lib/relay.js';
+import { refreshConfig, restoreConfig } from '../../tools/telegram-comments/tgcloud/lib/settings.js';
 
 const config = {
     blogUrl: 'https://example.org', token: 'a'.repeat(64), ownerUserId: 22,
@@ -23,7 +24,8 @@ function sqliteStore(t) {
     const sqlite = new DatabaseSync(':memory:');
     t.after(() => sqlite.close());
     sqlite.exec(`CREATE TABLE messages (id INTEGER PRIMARY KEY, source_time INTEGER NOT NULL, update_id INTEGER NOT NULL, payload TEXT NOT NULL);
-        CREATE TABLE pending (id INTEGER PRIMARY KEY, payload TEXT NOT NULL, last_attempt INTEGER NOT NULL DEFAULT 0, last_error TEXT NOT NULL DEFAULT '');`);
+        CREATE TABLE pending (id INTEGER PRIMARY KEY, payload TEXT NOT NULL, last_attempt INTEGER NOT NULL DEFAULT 0, last_error TEXT NOT NULL DEFAULT '');
+        CREATE TABLE configuration (id INTEGER PRIMARY KEY, payload TEXT NOT NULL);`);
     const sql = (strings, ...values) => ({ text: strings.join('?'), values });
     const query = (method, q) => sqlite.prepare(q.text)[method](...q.values);
     return createStore({
@@ -111,6 +113,48 @@ test('automatic discussion forwards are scoped by sender_chat even when origin i
     assert.equal((await store.status()).count, 0);
 });
 
+test('rich channel posts retain the first-line article link and formatted comment text', async t => {
+    const store = sqliteStore(t);
+    const richRoot = { ...root, text: undefined, entities: undefined, rich_message: { blocks: [
+        { type: 'paragraph', text: [{ type: 'url', url: 'https://example.org/post', text: { type: 'bold', text: 'Article' } }, '\nExcerpt'] },
+        { type: 'photo', caption: { text: 'Photo caption' } },
+    ] } };
+    const richComment = { ...first, text: undefined, reply_to_message: richRoot, rich_message: { blocks: [
+        { type: 'paragraph', text: ['😀 ', { type: 'italic', text: 'A rich comment' }] },
+    ] } };
+    await ingest(richComment, 100, config, store);
+    await flush(config, store, async archive => {
+        assert.deepEqual(archive.messages[0].text_entities[0], { type: 'text_link', text: 'Article', href: 'https://example.org/post' });
+        assert.equal(archive.messages[0].text, 'Article\nExcerpt\nPhoto caption');
+        assert.equal(archive.messages[1].text, '😀 A rich comment');
+        assert.equal(archive.messages[1].text_entities[1].type, 'italic');
+        return { ok: true };
+    });
+    assert.equal((await store.status()).count, 0);
+});
+
+test('retry reparses the retained source instead of keeping an obsolete incomplete parent', async t => {
+    const store = sqliteStore(t);
+    await ingest(first, 100, config, store);
+    const [row] = await store.pending(1);
+    // Simulate an older parser's interpretation while preserving the genuine event.
+    await store.remove(row.id);
+    await store.enqueue(row.id, { ...row.payload, parent: null });
+    assert.equal((await flush(config, store, async () => ({ ok: true }))).delivered, 1);
+});
+
+test('a full root snapshot repairs an empty cached root without changing its event identity', async t => {
+    const store = sqliteStore(t);
+    const fullRoot = normaliseMessage(root, 99, config);
+    await store.remember({ ...fullRoot, text: '', text_entities: [] });
+    await ingest(first, 100, config, store);
+    await flush(config, store, async archive => {
+        assert.equal(archive.messages[0].text, 'Example post');
+        return { ok: true };
+    });
+    assert.equal((await store.getMessage(1)).bot_update_id, 99);
+});
+
 test('UTF-16 links, nested formatting, and unsafe URLs preserve all visible text for server sanitization', () => {
     const text = '😀 bold link\n<script>alert(1)</script>';
     const segments = textEntities(text, [
@@ -131,4 +175,58 @@ test('busy and invalid responses keep the event, and cycles never become a blog 
     await store.remember({ ...normaliseMessage(first, 300, config), reply_to_message_id: 3 });
     await store.remember({ ...normaliseMessage(reply, 301, config), reply_to_message_id: 2 });
     assert.deepEqual(await snapshot(2, store, config), { error: 'reply_cycle_or_depth' });
+});
+
+test('authenticated settings rotate the bridge key and survive an unavailable blog', async t => {
+    const store = sqliteStore(t);
+    const current = { ...config, botApiToken: 'test-bot-token' };
+    const remote = { enabled: true, token: 'b'.repeat(64), ownerUserId: 44,
+        discussionChatId: config.discussionChatId, channelChatId: config.channelChatId };
+    assert.equal(await refreshConfig(current, store, async (url, options) => {
+        assert.equal(url, 'https://example.org/_live/telegram/config');
+        assert.equal(options.headers['X-Register-Telegram-Bot-Token'], 'test-bot-token');
+        assert.equal(options.redirect, 'error');
+        return { ok: true, json: async () => ({ success: true, config: remote }) };
+    }), true);
+    assert.equal(current.token, remote.token);
+    assert.equal(current.ownerUserId, 44);
+    const restarted = { ...config, botApiToken: 'test-bot-token' };
+    await restoreConfig(restarted, store);
+    assert.equal(restarted.token, remote.token);
+    assert.equal(await refreshConfig(restarted, store, async () => { throw new Error('network down'); }), false);
+    assert.equal(restarted.ownerUserId, 44);
+    await refreshConfig(restarted, store, async () => ({ ok: true,
+        json: async () => ({ success: true, config: { ...remote, enabled: false, ownerUserId: 0 } }) }));
+    assert.equal(ready(restarted), false);
+    assert.equal(restarted.ownerUserId, 0);
+});
+
+test('a rejected settings response cannot change secrets or trusted scope', async t => {
+    const store = sqliteStore(t);
+    const current = { ...config, botApiToken: 'test-bot-token' };
+    for (const response of [
+        { ok: false },
+        { ok: true, json: async () => ({ success: false, config: { enabled: true, token: 'b'.repeat(64) } }) },
+        { ok: true, json: async () => ({ success: true, config: { enabled: true, token: 'unsafe' } }) },
+    ]) {
+        assert.equal(await refreshConfig(current, store, async () => response), false);
+        assert.deepEqual(current, { ...config, botApiToken: 'test-bot-token' });
+    }
+    assert.equal(await store.getConfig(), null);
+});
+
+test('switching groups never uses another groups message IDs or loses its pending source', async t => {
+    const store = sqliteStore(t);
+    const current = { ...config, botApiToken: 'test-bot-token' };
+    await ingest(first, 100, current, store);
+    await store.remember(normaliseMessage(root, 99, current));
+    await refreshConfig(current, store, async () => ({ ok: true, json: async () => ({ success: true, config: {
+        enabled: true, token: config.token, ownerUserId: config.ownerUserId,
+        discussionChatId: -1_000_000_000_999, channelChatId: config.channelChatId,
+    } }) }));
+    assert.equal(await store.getMessage(1), null);
+    await flush(current, store, async () => assert.fail('the old group must not be delivered into the new scope'));
+    assert.equal((await store.status()).count, 1);
+    assert.equal((await store.status()).errors[0].last_error, 'scope_changed');
+    assert.equal((await store.pending(1))[0].payload.source.text, 'First comment');
 });

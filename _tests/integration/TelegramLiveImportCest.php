@@ -15,8 +15,8 @@ use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Core\Pdo\DbLayer;
 use Register\Import\Telegram\TelegramImportService;
-use Register\Import\Telegram\TelegramLiveImportConfig;
 use Register\Import\Telegram\TelegramLiveImportController;
+use Register\Import\Telegram\TelegramSettings;
 use Register\Module\Reactions\ReactionRepository;
 
 final class TelegramLiveImportCest
@@ -148,11 +148,106 @@ final class TelegramLiveImportCest
         $I->assertSame(2, $comments->count(ContentId::post($id), true));
     }
 
+    public function recognisesTheDiscussionAuthorAndRepairsAnUnlinkedImportedIdentity(\IntegrationTester $I): void
+    {
+        $contentId = ContentId::post($this->post($I));
+        $this->enable($I);
+        $I->setConfigValue('REGISTER_PREMODERATION', '0');
+        $snapshot = $this->snapshot();
+        $snapshot['messages'] = array_slice($snapshot['messages'], 0, 2);
+        $snapshot['messages'][1]['from'] = 'Example discussion Chat';
+        $snapshot['messages'][1]['from_id'] = 'channel123';
+        $this->send($I, $snapshot);
+        $I->seeResponseCodeIs(200);
+
+        /** @var DbLayer $db */
+        $db = $I->grabService(DbLayer::class);
+        $owner = $db->select('id, name, login')->from('users')->where('edit_site = 1')->orderBy('id')->limit(1)->execute()->fetchAssoc();
+        $I->assertIsArray($owner);
+        /** @var CommentRepository $repository */
+        $repository = $I->grabService(CommentRepository::class);
+        $comment = $repository->findForContent($contentId)[0];
+        $I->assertSame((int)$owner['id'], $comment->userId);
+        $I->assertSame(trim((string)$owner['name']) !== '' ? trim((string)$owner['name']) : (string)$owner['login'], $comment->name);
+
+        // Reproduce the old live importer without changing the recorded source hash/text.
+        $db->update(\Register\Comment\CommentSchema::TABLE_NAME)
+            ->set('user_id', 'NULL')->set('nick', ':nick')->setParameter('nick', 'Example discussion Chat')
+            ->where('id = :id')->setParameter('id', $comment->id)->execute();
+        $repository->edit($comment->id, ContentType::POST, 'A local owner correction');
+        $this->send($I, $snapshot);
+        $I->seeResponseCodeIs(200);
+        $repaired = $repository->find($comment->id);
+        $I->assertNotNull($repaired);
+        $I->assertSame((int)$owner['id'], $repaired->userId);
+        $I->assertSame(1, $this->change($I, 'comments_updated'));
+        $I->assertSame('A local owner correction', $repaired->text);
+        $I->assertSame(1, $this->change($I, 'comments_local_edits_preserved'));
+        $I->assertCount(1, $repository->findForContent($contentId));
+    }
+
+    public function recognisesOnlyTheExplicitlyConfiguredPersonalTelegramOwner(\IntegrationTester $I): void
+    {
+        $contentId = ContentId::post($this->post($I));
+        $this->enable($I);
+        $I->setConfigValue(TelegramSettings::OWNER_TELEGRAM_ID, '22');
+        $this->send($I, $this->snapshot());
+        $I->seeResponseCodeIs(200);
+
+        /** @var CommentRepository $repository */
+        $repository = $I->grabService(CommentRepository::class);
+        $comments = $repository->findForContent($contentId);
+        $I->assertNotNull($comments[0]->userId);
+        $I->assertNotSame('Reader', $comments[0]->name);
+        $I->assertNull($comments[1]->userId);
+        $I->assertSame('Another reader', $comments[1]->name);
+    }
+
+    public function settingsBindThePersonalAndAnonymousAccountsToTheSelectedAuthor(\IntegrationTester $I): void
+    {
+        $contentId = ContentId::post($this->post($I));
+        /** @var DbLayer $db */
+        $db = $I->grabService(DbLayer::class);
+        $authorId = (int)$db->select('id')->from('users')->where("login = 'author'")->execute()->result();
+        $db->update('users')->set('name', "'Selected author'")->where('id = :id')->setParameter('id', $authorId)->execute();
+        foreach ([
+            TelegramSettings::BRIDGE_TOKEN => self::TOKEN,
+            TelegramSettings::DISCUSSION_ID => '-1000000000123',
+            TelegramSettings::CHANNEL_ID => '-1000000000111',
+            TelegramSettings::OWNER_TELEGRAM_ID => '22',
+            TelegramSettings::AUTHOR_ID => (string)$authorId,
+            TelegramSettings::ENABLED => '1',
+        ] as $key => $value) {
+            $I->setConfigValue($key, $value);
+        }
+
+        $snapshot = $this->snapshot();
+        $snapshot['messages'][2]['from_id'] = 'channel123';
+        $snapshot['messages'][2]['from'] = 'Example discussion Chat';
+        $this->send($I, $snapshot);
+        $I->seeResponseCodeIs(200);
+        /** @var CommentRepository $repository */
+        $repository = $I->grabService(CommentRepository::class);
+        foreach ($repository->findForContent($contentId) as $comment) {
+            $I->assertSame($authorId, $comment->userId);
+            $I->assertSame('Selected author', $comment->name);
+        }
+
+        $I->setConfigValue(TelegramSettings::ENABLED, '0');
+        $this->send($I, $snapshot);
+        $I->seeResponseCodeIs(404);
+    }
+
     private function enable(\IntegrationTester $I): void
     {
-        $I->replaceService(TelegramLiveImportConfig::class, new TelegramLiveImportConfig(
-            self::TOKEN, -1_000_000_000_123, -1_000_000_000_111,
-        ), [TelegramLiveImportController::class]);
+        foreach ([
+            TelegramSettings::BRIDGE_TOKEN => self::TOKEN,
+            TelegramSettings::DISCUSSION_ID => '-1000000000123',
+            TelegramSettings::CHANNEL_ID => '-1000000000111',
+            TelegramSettings::ENABLED => '1',
+        ] as $key => $value) {
+            $I->setConfigValue($key, $value);
+        }
     }
 
     private function change(\IntegrationTester $I, string $name): int

@@ -14,3 +14,9 @@ export const pending = table('pending', {
     lastAttempt: integer('last_attempt').notNull().default(0),
     lastError: text('last_error').notNull().default(''),
 });
+
+// Cache only the authenticated blog response, so an outage preserves updated scope/keys.
+export const configuration = table('configuration', {
+    id: integer('id').primaryKey(),
+    payload: text('payload').notNull(),
+});

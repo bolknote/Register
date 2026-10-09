@@ -6,9 +6,9 @@ export function exportChatId(id) {
 }
 
 export function ready(config) {
-    return /^https:\/\//.test(config.blogUrl)
+    return config.enabled !== false && /^https:\/\//.test(config.blogUrl)
         && /^[a-f0-9]{64}$/.test(config.token)
-        && Number.isSafeInteger(config.ownerUserId) && config.ownerUserId > 0
+        && Number.isSafeInteger(config.ownerUserId) && config.ownerUserId >= 0
         && Number.isSafeInteger(config.discussionChatId) && config.discussionChatId < -GROUP_OFFSET
         && Number.isSafeInteger(config.channelChatId) && config.channelChatId < -GROUP_OFFSET
         && config.discussionChatId !== config.channelChatId;
@@ -38,6 +38,58 @@ export function textEntities(text, entities = []) {
     });
 }
 
+function richInline(node, style = 'plain', depth = 0) {
+    if (depth > 32) return [];
+    if (typeof node === 'string') return [{ type: style, text: node }];
+    if (!node || typeof node !== 'object') return [];
+    if (Array.isArray(node)) return node.flatMap(child => richInline(child, style, depth + 1));
+    if (node.type === 'custom_emoji') return richInline(node.alternative_text, style, depth + 1);
+    if (node.type === 'mathematical_expression') return richInline(`$$${node.expression ?? ''}$$`, style, depth + 1);
+    const formats = new Set(['bold', 'italic', 'underline', 'strikethrough', 'spoiler', 'code']);
+    const parts = richInline(node.text, formats.has(node.type) ? node.type : style, depth + 1);
+    if (node.type === 'url' && typeof node.url === 'string') {
+        return parts.map(part => ({ type: 'text_link', text: part.text, href: node.url }));
+    }
+    return parts;
+}
+
+function richBlocks(blocks, depth = 0) {
+    if (!Array.isArray(blocks) || depth > 32) return [];
+    const parts = [];
+    const append = content => {
+        if (!content.length) return;
+        if (parts.length) parts.push({ type: 'plain', text: '\n' });
+        parts.push(...content);
+    };
+    for (const block of blocks) {
+        if (!block || typeof block !== 'object') continue;
+        if (block.type === 'list') {
+            for (const item of block.items ?? []) append(richBlocks(item.blocks, depth + 1));
+        } else if (block.type === 'table') {
+            for (const row of block.cells ?? []) {
+                if (!Array.isArray(row)) continue;
+                const cells = [];
+                for (const cell of row) {
+                    if (cells.length) cells.push({ type: 'plain', text: '\t' });
+                    cells.push(...richInline(cell.text));
+                }
+                append(cells);
+            }
+        } else if (block.type === 'details') {
+            append(richInline(block.title));
+            append(richBlocks(block.blocks, depth + 1));
+        } else {
+            const text = block.text ?? block.caption?.text ?? block.expression;
+            append(richInline(text, block.type === 'preformatted' ? 'code' : 'plain'));
+        }
+    }
+    return parts;
+}
+
+export function richMessageEntities(message) {
+    return richBlocks(message?.blocks);
+}
+
 export function normaliseMessage(message, updateId, config) {
     if (message?.chat?.id !== config.discussionChatId || message.chat.type !== 'supergroup'
         || !Number.isSafeInteger(message.message_id) || message.message_id < 1
@@ -52,6 +104,8 @@ export function normaliseMessage(message, updateId, config) {
     const parent = message.reply_to_message?.message_id;
     let text = message.text ?? message.caption ?? '';
     if (typeof text !== 'string') return null;
+    const rich = !text && message.rich_message ? richMessageEntities(message.rich_message) : null;
+    if (rich) text = rich.map(part => part.text).join('');
     const attachment = ['photo', 'video', 'animation', 'audio', 'voice', 'video_note', 'document', 'sticker'].some(k => message[k]);
     if (!text && attachment) text = '[Вложение из Telegram]';
     if (!root && !text) return null; // Service messages are not comments.
@@ -64,7 +118,7 @@ export function normaliseMessage(message, updateId, config) {
         from: message.sender_chat?.title ?? ([message.from?.first_name, message.from?.last_name].filter(Boolean).join(' ') || 'Telegram user'),
         from_id: message.sender_chat ? `channel${Math.abs(sender.id) - GROUP_OFFSET}` : `user${sender?.id ?? 0}`,
         text,
-        text_entities: textEntities(text, message.entities ?? message.caption_entities ?? []),
+        text_entities: rich ?? textEntities(text, message.entities ?? message.caption_entities ?? []),
     };
     if (root) result.forwarded_from_id = `channel${exportChatId(config.channelChatId)}`;
     else if (Number.isSafeInteger(parent) && parent > 0 && parent !== result.id) result.reply_to_message_id = parent;

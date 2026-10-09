@@ -12,6 +12,7 @@ namespace Register\Import\Telegram\Admin;
 use Register\AdminYard\TemplateRenderer;
 use Register\AdminYard\Translator;
 use Register\Import\ExternalImportMapRepository;
+use Register\Import\Telegram\TelegramSettings;
 
 final readonly class TelegramImportAdminPage
 {
@@ -21,6 +22,7 @@ final readonly class TelegramImportAdminPage
         private TemplateRenderer            $templateRenderer,
         private Translator                  $translator,
         private string                      $basePath,
+        private TelegramSettings            $settings,
     ) {
     }
 
@@ -35,6 +37,7 @@ final readonly class TelegramImportAdminPage
             'csrfToken'    => $this->token->value(),
             'importedCount' => $this->mapRepository->count('telegram'),
             'basePath'     => $this->basePath,
+            'liveConfig'   => $this->settings->liveConfig(),
         ]);
     }
 }

@@ -3,6 +3,7 @@ import config from './config.js';
 import { store } from './store.js';
 import { ingest, flush } from './relay.js';
 import { ready } from './protocol.js';
+import { refreshConfig, restoreConfig } from './settings.js';
 
 async function send(archive) {
     const response = await fetch(`${config.blogUrl.replace(/\/$/, '')}/_live/telegram/comments`, {
@@ -21,30 +22,38 @@ async function send(archive) {
 }
 
 export async function receive(message, ctx) {
+    await restoreConfig(config, store);
     const command = typeof message.text === 'string' ? message.text.split(/\s/)[0].split('@')[0] : '';
     const privateChat = message.chat?.type === 'private';
     if (privateChat && command === '/start') {
-        await api.sendMessage({ chat_id: message.chat.id, text: `Твой Telegram ID: ${message.from.id}.\nДобавь его в ownerUserId. Затем добавь бота в группу обсуждения и отправь там /ids.\nКоманды владельца в личке: /status и /retry.` });
+        await api.sendMessage({ chat_id: message.chat.id, text: `Твой Telegram ID: ${message.from.id}.\nУкажи его в настройках блога → Telegram → «Твой ID в Telegram». Добавь бота в группу обсуждения и отправь там /ids.\nКоманды владельца в личке: /status и /retry.` });
         return;
     }
+    // Store a known discussion event before contacting the blog for settings or delivery.
+    const originalGroupId = config.discussionChatId;
+    let ingested = false;
+    if (message.chat?.id === originalGroupId && ready(config)) {
+        ingested = await ingest(message, ctx.update.update_id, config, store);
+    }
+    await refreshConfig(config, store, fetch);
     const owner = Number.isSafeInteger(config.ownerUserId) && config.ownerUserId > 0
         && !message.sender_chat && message.from?.id === config.ownerUserId;
     if (owner && command === '/ids') {
         const chat = await api.getChat({ chat_id: message.chat.id });
-        await api.sendMessage({ chat_id: message.chat.id, text: `chat_id: ${chat.id}\nlinked_chat_id: ${chat.linked_chat_id ?? 'нет'}\nДля группы: chat_id → discussionChatId, linked_chat_id → channelChatId.` });
+        await api.sendMessage({ chat_id: message.chat.id, text: `chat_id: ${chat.id}\nlinked_chat_id: ${chat.linked_chat_id ?? 'нет'}\nНастройки блога → Telegram: chat_id → «ID группы обсуждения», linked_chat_id → «ID канала».` });
         return;
     }
     if (owner && privateChat && (command === '/status' || command === '/retry')) {
-        if (!ready(config)) {
+        if (!ready({ ...config, enabled: true })) {
             await api.sendMessage({ chat_id: message.chat.id, text: 'Настрой blogUrl, token, discussionChatId и channelChatId; затем разверни конфигурацию.' });
             return;
         }
-        const result = command === '/retry' ? await flush(config, store, send) : null;
+        const result = command === '/retry' && ready(config) ? await flush(config, store, send) : null;
         const status = await store.status();
-        await api.sendMessage({ chat_id: message.chat.id, text: `${result ? `Передано: ${result.delivered}.\n` : ''}В очереди: ${status.count}.\n${status.errors.map(e => `${e.last_error || 'ожидает'}: ${e.count}`).join('\n')}` });
+        await api.sendMessage({ chat_id: message.chat.id, text: `${config.enabled === false ? 'Импорт выключен в настройках блога.\n' : ''}${result ? `Передано: ${result.delivered}.\n` : ''}В очереди: ${status.count}.\n${status.errors.map(e => `${e.last_error || 'ожидает'}: ${e.count}`).join('\n')}` });
         return;
     }
     if (message.chat?.id !== config.discussionChatId || !ready(config)) return;
-    await ingest(message, ctx.update.update_id, config, store);
+    if (!ingested) await ingest(message, ctx.update.update_id, config, store);
     await flush(config, store, send);
 }

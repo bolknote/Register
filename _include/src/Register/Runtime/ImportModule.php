@@ -22,6 +22,8 @@ use Register\Import\Telegram\TelegramImportService;
 use Register\Import\Telegram\TelegramManagedMediaStorage;
 use Register\Import\Telegram\TelegramLiveImportConfig;
 use Register\Import\Telegram\TelegramLiveImportController;
+use Register\Import\Telegram\TelegramSettings;
+use Register\Import\Telegram\TelegramBotConfigController;
 use Register\Core\Config\DynamicConfigProvider;
 use Register\Module\Reactions\ReactionAggregateRepository;
 use Register\AdminYard\SettingStorage\SettingStorageInterface;
@@ -31,7 +33,6 @@ use Register\Admin\AdminConfigExtenderInterface;
 use Register\Admin\TranslationProviderInterface;
 use Register\Core\Framework\Container;
 use Register\Core\Framework\ContainerModuleInterface;
-use Register\Core\Framework\Exception\ParameterNotFoundException;
 use Register\Core\Model\PermissionChecker;
 use Register\Core\Pdo\DbLayer;
 use Register\Core\Security\Http\AdminMutationGuard;
@@ -60,13 +61,13 @@ final readonly class ImportModule implements ContainerModuleInterface
             $container->get(TelegramManagedMediaStorage::class),
             $container->getStringParameter('base_url'),
         ));
-        try {
-            $config = $container->getNullableParameter('telegram_import');
-        } catch (ParameterNotFoundException) {
-            $config = [];
-        }
-
-        $container->set(TelegramLiveImportConfig::class, static fn(): TelegramLiveImportConfig => TelegramLiveImportConfig::fromArray(\is_array($config) ? $config : []));
+        $container->set(TelegramSettings::class, static fn(Container $container): TelegramSettings => new TelegramSettings(
+            $container->get(DynamicConfigProvider::class),
+        ));
+        $container->set(TelegramBotConfigController::class, static fn(Container $container): TelegramBotConfigController => new TelegramBotConfigController(
+            $container->get(TelegramSettings::class),
+        ));
+        $container->set(TelegramLiveImportConfig::class, static fn(Container $container): TelegramLiveImportConfig => $container->get(TelegramSettings::class)->liveConfig(), ['dynamic_config_dependent']);
         $container->set(TelegramLiveImportController::class, static fn(Container $container): TelegramLiveImportController => new TelegramLiveImportController(
             $container->get(TelegramLiveImportConfig::class),
             $container->get(TelegramImportService::class),
@@ -74,7 +75,7 @@ final readonly class ImportModule implements ContainerModuleInterface
             $container->get(LoggerInterface::class),
             $container->getStringParameter('base_url'),
             $container->getStringParameter('cache_dir') . 'telegram-import.lock',
-        ));
+        ), ['dynamic_config_dependent']);
         $container->set(
             TelegramImportTranslationProvider::class,
             new TelegramImportTranslationProvider(),
@@ -89,6 +90,7 @@ final readonly class ImportModule implements ContainerModuleInterface
             $container->get(TemplateRenderer::class),
             $container->get(Translator::class),
             $container->getStringParameter('base_path'),
+            $container->get(TelegramSettings::class),
         ));
         $container->set(
             TelegramImportAdminConfigExtender::class,

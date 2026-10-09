@@ -150,6 +150,7 @@ final class RegisterKernelTest extends Unit
         (new ProductModule(new BaseModuleRegistry()))->registerRoutes($routes, $container);
 
         self::assertSame([
+            'register_telegram_bot_config',
             'register_telegram_live_import',
             'obsolete_comment_reply',
             'register_public_auth',

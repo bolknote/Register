@@ -75,7 +75,12 @@ final readonly class TelegramLiveImportController implements ControllerInterface
                 return $this->response(['success' => false, 'error' => 'busy'], 503);
             }
 
-            $report = $this->importer->importLiveSnapshot($json, !$this->premoderation->get());
+            $report = $this->importer->importLiveSnapshot(
+                $json,
+                !$this->premoderation->get(),
+                $this->config->ownerTelegramUserId > 0 ? ['user' . $this->config->ownerTelegramUserId] : [],
+                $this->config->authorUserId > 0 ? $this->config->authorUserId : null,
+            );
             if (($report['archive']['accepted_threads'] ?? 0) !== 1) {
                 return $this->response(['success' => false, 'error' => 'post_not_found'], 409);
             }

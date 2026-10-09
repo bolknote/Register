@@ -70,11 +70,12 @@ final readonly class TelegramImportService
     /**
      * Import a bounded live thread snapshot without reconciling archive-only reactions.
      *
+     * @param list<string> $siteAuthorTelegramIds
      * @return array<string, mixed>
      */
-    public function importLiveSnapshot(string $json, bool $publishComments = true): array
+    public function importLiveSnapshot(string $json, bool $publishComments = true, array $siteAuthorTelegramIds = [], ?int $siteAuthorUserId = null): array
     {
-        return $this->importPackage(TelegramExportPackage::fromJson($json), null, false, true, $publishComments);
+        return $this->importPackage(TelegramExportPackage::fromJson($json), $siteAuthorUserId, false, true, $publishComments, $siteAuthorTelegramIds);
     }
 
     /**
@@ -85,6 +86,7 @@ final readonly class TelegramImportService
      *     changes: array<string, int>,
      *     excluded_roots: list<array<string, mixed>>
      * }
+     * @param list<string> $siteAuthorTelegramIds
      */
     private function importPackage(
         TelegramExportPackage $package,
@@ -92,6 +94,7 @@ final readonly class TelegramImportService
         bool $dryRun,
         bool $liveSnapshot = false,
         bool $publishComments = true,
+        array $siteAuthorTelegramIds = [],
     ): array {
         $siteHost = strtolower((string)parse_url($this->baseUrl, PHP_URL_HOST));
         if ($siteHost === '') {
@@ -105,11 +108,12 @@ final readonly class TelegramImportService
                 return \is_array($post) ? $post : null;
             },
             [$siteHost],
+            $siteAuthorTelegramIds,
         );
         $source = (array)$archive['source'];
         $chatId = $this->positiveInt($source['chat_id'] ?? null, 'chat ID');
         $scope = (string)$chatId;
-        $owner = $liveSnapshot ? [] : $this->siteAuthor($siteAuthorUserId);
+        $owner = $this->siteAuthor($siteAuthorUserId);
         $maps = $this->mapRepository->forScope(self::SOURCE, $scope, self::COMMENT_ENTITY);
         $genericMapIds = array_fill_keys(array_keys($maps), true);
         foreach ($this->legacyCommentMaps($chatId) as $messageId => $legacyMap) {
@@ -289,12 +293,31 @@ final readonly class TelegramImportService
                         $hasMediaChange = $previousMediaHash !== null
                             && !hash_equals($previousMediaHash, $currentMediaHash);
                         $repairsLegacyPlaceholder = $this->hasLegacyMediaPlaceholder($storedComment->text);
+                        $hasIdentityChange = $isSiteAuthor && $userId !== null
+                            && ($storedComment->userId !== $userId || $storedComment->name !== $name);
                         $needsSynchronization = ($modifiedAt !== null && $modifiedAt > $previousModifiedAt)
                             || $hasSourceChange
                             || $hasMediaChange
+                            || $hasIdentityChange
                             || $repairsLegacyPlaceholder;
 
-                        if ($needsSynchronization && !$hasLocalEdit) {
+                        if ($hasIdentityChange && $hasLocalEdit) {
+                            $identityRepair = new CommentImport(
+                                $storedComment->contentId,
+                                $name,
+                                $storedComment->text,
+                                $storedComment->parentId,
+                                $storedComment->time,
+                                $userId,
+                                $storedComment->modifyTime > 0 ? $storedComment->modifyTime : null,
+                            );
+                            if ($this->commentImportService->synchronize($commentId, $identityRepair)) {
+                                ++$changes['comments_updated'];
+                            }
+
+                            ++$changes['comments_local_edits_preserved'];
+                            $this->discardCreatedMedia($mediaResult['created_files'], $createdMediaFiles);
+                        } elseif ($needsSynchronization && !$hasLocalEdit) {
                             if ($this->commentImportService->synchronize($commentId, $comment)) {
                                 ++$changes['comments_updated'];
                                 if ($media !== [] && ($hasMediaChange || $repairsLegacyPlaceholder)) {

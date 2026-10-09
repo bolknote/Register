@@ -93,9 +93,10 @@ final class TelegramDiscussionArchive
     /**
      * @param callable(string):(array{content_id: int, canonical_path: string}|null) $postResolver
      * @param list<string> $siteHosts
+     * @param list<string> $siteAuthorIds Additional explicitly configured Telegram identities.
      * @return array<string, mixed>
      */
-    public function extract(callable $postResolver, array $siteHosts): array
+    public function extract(callable $postResolver, array $siteHosts, array $siteAuthorIds = []): array
     {
         $siteHosts = self::normaliseHosts($siteHosts);
         if ($siteHosts === []) {
@@ -163,7 +164,7 @@ final class TelegramDiscussionArchive
         }
 
         $chatId = $this->positiveInt($this->export['id'] ?? null, 'chat ID');
-        $siteAuthorIds = $sourceChannelIds;
+        $siteAuthorIds = array_fill_keys($siteAuthorIds, true) + $sourceChannelIds;
         $siteAuthorIds['channel' . $chatId] = true;
         $rootResolutionCache = [];
         $unthreaded = [];

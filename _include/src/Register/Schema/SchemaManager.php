@@ -13,6 +13,8 @@ use Register\Ai\AiSettings;
 use Register\Auth\PublicAuthSettings;
 use Register\Core\Controller\Rss\FeedSettings;
 use Register\Core\Mail\MailSettings;
+use Register\Import\Telegram\TelegramSettings;
+use Register\Core\Framework\Exception\ParameterNotFoundException;
 use Register\Module\BaseModuleInstaller;
 use Register\Core\Framework\Container;
 use Register\Core\Config\DynamicConfigProvider;
@@ -34,6 +36,7 @@ final readonly class SchemaManager
     public const int MINIMUM_UPGRADE_GENERATION = 15;
 
     private const array CONFIG_DEFAULTS = [
+        ...TelegramSettings::DEFAULTS,
         \Register\Comment\CommentAgePolicy::CONFIG_KEY => '0',
         'REGISTER_SITE_TAGLINE' => '',
         'REGISTER_SOCIAL_IMAGE' => '',
@@ -191,13 +194,20 @@ final readonly class SchemaManager
             ->execute()
             ->fetchKeyPair();
         $changed = false;
+        try {
+            $legacyTelegram = $this->container->getNullableParameter('telegram_import');
+        } catch (ParameterNotFoundException) {
+            $legacyTelegram = [];
+        }
+
+        $telegramDefaults = TelegramSettings::legacyDefaults(\is_array($legacyTelegram) ? $legacyTelegram : []);
 
         foreach (self::CONFIG_DEFAULTS as $name => $value) {
             if (array_key_exists($name, $existing)) {
                 continue;
             }
 
-            $value = $this->upgradeDefault($name, $value, $existing);
+            $value = $telegramDefaults[$name] ?? $this->upgradeDefault($name, $value, $existing);
 
             $this->dbLayer
                 ->insert('config')

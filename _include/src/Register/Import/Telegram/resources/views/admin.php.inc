@@ -6,6 +6,7 @@ declare(strict_types = 1);
 /** @var string $csrfToken */
 /** @var int $importedCount */
 /** @var string $basePath */
+/** @var \Register\Import\Telegram\TelegramLiveImportConfig $liveConfig */
 
 $html = static fn(string $value): string => htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
 ?>
@@ -14,6 +15,11 @@ $html = static fn(string $value): string => htmlspecialchars($value, ENT_QUOTES,
          data-action-endpoint="<?= $html($basePath . '/_admin/ajax.php?action=register_telegram_import') ?>"
          data-working-message="<?= $html($trans('Telegram import working')) ?>">
     <h1><?= $trans('Telegram import') ?></h1>
+    <div class="info-box">
+        <p><strong><?= $trans($liveConfig->enabled() ? 'Telegram receiver enabled' : 'Telegram receiver disabled') ?></strong></p>
+        <p><a href="<?= $html($basePath . '/_admin/index.php?entity=Config#settings-telegram-config') ?>"><?= $trans('Telegram connection settings') ?></a></p>
+        <p><?= $trans('Telegram queue help') ?></p>
+    </div>
     <div class="info-box">
         <p><?= $trans('Telegram import intro') ?></p>
         <p><?= $trans('Telegram import exact links') ?></p>
