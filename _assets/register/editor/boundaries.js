@@ -832,6 +832,23 @@
             return node.matches('a') && Boolean(node.querySelector('img, picture, video, audio'));
         }
 
+        function ensureTrailingTableParagraph(root) {
+            let last = root.lastChild;
+            while (last && (boundaryNodeIsEmpty(last) || last.nodeType === Node.COMMENT_NODE)) {
+                last = last.previousSibling;
+            }
+            if (!(last instanceof HTMLTableElement)) {
+                return;
+            }
+            // A root/table boundary has no paintable native caret. Give the
+            // editor an ordinary empty line, stripped by serialization until
+            // the author actually types in it. Never modify the table's cells.
+            const paragraph = document.createElement('p');
+            paragraph.className = 'post-editor-body-paragraph post-editor-empty-paragraph';
+            paragraph.append(document.createElement('br'));
+            root.append(paragraph);
+        }
+
         function normalizeMediaBodyStructure(root) {
             let changed = false;
             // CSS cannot distinguish <p><br></p> from <p>Text<br></p>:
@@ -890,6 +907,7 @@
                 picture.parentNode?.insertBefore(fragment, picture.nextSibling);
                 changed = true;
             });
+            ensureTrailingTableParagraph(root);
             if (changed && preserveSelection && root.contains(anchorNode) && root.contains(focusNode)) {
                 selection.setBaseAndExtent(anchorNode, anchorOffset, focusNode, focusOffset);
             }

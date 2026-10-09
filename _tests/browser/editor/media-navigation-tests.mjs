@@ -5,7 +5,7 @@ import {formData, holdRequests} from './save-tests.mjs';
 
 // Inspect the rendered caret, not merely a CSS class or a valid Selection.
 // Playwright screenshots are non-interlaced 8-bit RGB/RGBA PNGs.
-function pixels(png) {
+export function pixels(png) {
     let width, height, channels;
     const chunks = [];
     for (let offset = 8; offset < png.length;) {

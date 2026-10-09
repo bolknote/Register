@@ -72,6 +72,14 @@ character. Additional cases cover completion at an untouched boundary, navigatio
 from an empty caption, and native navigation within a multiline paragraph beside
 the picture.
 
+Table-navigation regressions also run independently with `node table-navigation-tests.mjs`.
+They open an ordinary stored table through the public editor, then use real clicks,
+Up/Down, Enter and character-by-character typing. All three engines check actual
+painted caret pixels on desktop and mobile in both themes, including tall tables.
+Undo/redo, cell editing, existing following paragraphs, authored comments and
+repeated saves retain the complete content. The editor-only empty line after a
+last table is never included in saved HTML until the author types there.
+
 Saving a post containing a script or style element performs a full document load:
 fragment insertion cannot initialize scripts or grant the document's CSP nonce.
 The HTML-block and PHP end-to-end suites check immediately usable published
