@@ -51,21 +51,29 @@ final readonly class TelegramLiveMediaController implements ControllerInterface
                 'file_size' => filter_var($request->headers->get('X-Register-Telegram-Size'), FILTER_VALIDATE_INT),
                 'offset' => filter_var($request->headers->get('X-Register-Telegram-Offset'), FILTER_VALIDATE_INT),
             ];
-            if (!\is_array($data) || ($data['chat_id'] ?? null) !== $this->config->discussionExportId()
-                || !\is_int($data['message_id'] ?? null) || $data['message_id'] <= 0 || $data['message_id'] > 9_007_199_254_740_991
-                || !\is_string($data['file_unique_id'] ?? null) || preg_match('/^[A-Za-z0-9_-]{1,128}$/D', $data['file_unique_id']) !== 1) {
+            if (!\is_array($data)) {
+                throw new \UnexpectedValueException('The media identity is invalid.');
+            }
+
+            $messageId = $data['message_id'] ?? null;
+            $uniqueId = $data['file_unique_id'] ?? null;
+            if (($data['chat_id'] ?? null) !== $this->config->discussionExportId()
+                || !\is_int($messageId) || $messageId <= 0 || $messageId > 9_007_199_254_740_991
+                || !\is_string($uniqueId) || preg_match('/^[A-Za-z0-9_-]{1,128}$/D', $uniqueId) !== 1) {
                 throw new \UnexpectedValueException('The media identity is invalid.');
             }
 
             if ($probe) {
-                $status = $this->storage->status($data['message_id'], $data['file_unique_id']);
+                $status = $this->storage->status($messageId, $uniqueId);
             } else {
+                $total = $data['file_size'];
+                $offset = $data['offset'];
                 if ($request->headers->get('Content-Type') !== 'application/octet-stream'
-                    || !\is_int($data['file_size']) || !\is_int($data['offset'])) {
+                    || !\is_int($total) || !\is_int($offset)) {
                     throw new \UnexpectedValueException('The media chunk format is invalid.');
                 }
 
-                $status = $this->storage->append($data['message_id'], $data['file_unique_id'], $data['file_size'], $data['offset'], $content);
+                $status = $this->storage->append($messageId, $uniqueId, $total, $offset, $content);
             }
 
             return $this->response(['success' => true, ...$status]);
