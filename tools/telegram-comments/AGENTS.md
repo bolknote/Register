@@ -9,8 +9,8 @@ reference material. The upstream documentation is https://core.telegram.org/bots
   with `.js`; the only external runtime imports are `sdk` and `sdk/db`.
 - `handlers/message.js` and `handlers/edited_message.js` receive `(message, ctx)`, with the raw
   Telegram update at `ctx.update`. Every database call is asynchronous and must be awaited.
-- Channel posts and both reaction update types use the same durable queue. Opaque media IDs
-  are downloaded by Register through its private Bot API token; never embed Telegram file URLs.
+- Channel posts and both reaction update types use the same durable queue. Only the bot downloads
+  media through the native SDK and pushes resumable byte chunks to Register; never embed file URLs.
 - Keep `protocol.js`, `relay.js` and `storage.js` independent of SDK imports so they can be tested
   locally. `store.js` and `bridge.js` bind them to the platform.
 - Persist incoming events before attempting delivery. Only the blog's explicit successful

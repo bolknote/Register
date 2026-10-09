@@ -2,11 +2,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync } from 'node:fs';
-import { normaliseMessage, normaliseChannelPost, exportChatId, snapshot, textEntities, ready } from '../../tools/telegram-comments/tgcloud/lib/protocol.js';
+import { normaliseMessage, normaliseChannelPost, rootLinksToBlog, exportChatId, snapshot, textEntities, ready } from '../../tools/telegram-comments/tgcloud/lib/protocol.js';
 import { messageMedia } from '../../tools/telegram-comments/tgcloud/lib/media.js';
 import { createStore } from '../../tools/telegram-comments/tgcloud/lib/storage.js';
 import { ingest, ingestChannelPost, ingestReaction, flush } from '../../tools/telegram-comments/tgcloud/lib/relay.js';
 import { refreshConfig, restoreConfig } from '../../tools/telegram-comments/tgcloud/lib/settings.js';
+import { uploadMedia, CHUNK_BYTES } from '../../tools/telegram-comments/tgcloud/lib/upload.js';
 
 const config = {
     blogUrl: 'https://register.localhost', token: 'a'.repeat(64), ownerUserId: 22,
@@ -20,6 +21,46 @@ const root = {
 };
 const first = { message_id: 2, date: 101, chat: group, from: { id: 22, first_name: 'Reader' }, text: 'First comment', reply_to_message: root };
 const reply = { message_id: 3, date: 102, chat: group, from: { id: 33, first_name: 'Another reader' }, text: 'A reply', reply_to_message: { ...first, reply_to_message: undefined } };
+
+test('first-line links are scoped without a global URL constructor in Serverless', () => {
+    const nativeURL = globalThis.URL;
+    try {
+        globalThis.URL = undefined;
+        assert.equal(rootLinksToBlog(normaliseMessage(root, 1, config), config), true);
+        assert.equal(rootLinksToBlog({ text_entities: [{ type: 'text_link', text: 'Article', href: 'https://register.localhost.evil/post' }] }, config), false);
+        assert.equal(rootLinksToBlog({ text_entities: [{ type: 'plain', text: 'No link\nhttps://register.localhost/post' }] }, config), false);
+    } finally { globalThis.URL = nativeURL; }
+});
+
+test('the bot resumes byte uploads after a lost reply and skips files already owned by the blog', async () => {
+    const bytes = new Uint8Array(CHUNK_BYTES + 3).fill(7);
+    const archive = { id: 123, messages: [{ id: 2, telegram_media: [
+        { file_id: 'opaque', file_unique_id: 'unique', file_size: bytes.length },
+    ] }] };
+    let received = 0;
+    let downloads = 0;
+    let lost = true;
+    const sent = [];
+    const fetch = async (_url, options) => {
+        assert.equal(options.headers['X-Register-Telegram-Token'], config.token);
+        if (options.body instanceof Uint8Array) {
+            const offset = Number(options.headers['X-Register-Telegram-Offset']);
+            sent.push(offset);
+            received = offset + options.body.length;
+            if (lost) { lost = false; throw new Error('reply lost'); }
+        }
+        return { ok: true, status: 200, json: async () => ({ success: true, received,
+            complete: received === bytes.length, owned: false }) };
+    };
+    const download = async () => { downloads++; return bytes; };
+    await assert.rejects(uploadMedia(archive, config, fetch, download));
+    assert.equal((await uploadMedia(archive, config, fetch, download)).ok, true);
+    assert.deepEqual(sent, [0, CHUNK_BYTES]);
+    assert.equal(downloads, 2);
+    assert.equal((await uploadMedia(archive, config, async () => ({ ok: true, status: 200,
+        json: async () => ({ success: true, received: 0, complete: true, owned: true }) }),
+    () => assert.fail('Owned media must not be downloaded again'))).ok, true);
+});
 
 function sqliteStore(t) {
     const sqlite = new DatabaseSync(':memory:');

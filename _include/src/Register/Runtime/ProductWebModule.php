@@ -29,6 +29,7 @@ use Register\Controller\PageTag;
 use Register\Controller\PageTags;
 use Register\Import\Telegram\Admin\TelegramImportAdminController;
 use Register\Import\Telegram\TelegramLiveImportController;
+use Register\Import\Telegram\TelegramLiveMediaController;
 use Register\Import\Telegram\TelegramBotConfigController;
 use Register\Live\LiveUpdateContext;
 use Register\Live\LiveUpdateController;
@@ -246,6 +247,11 @@ final readonly class ProductWebModule implements ContainerAwareListenerModuleInt
             TelegramLiveImportController::PATH,
             ['_controller' => TelegramLiveImportController::class],
             methods: ['POST'],
+        ), 1025);
+        $routes->add('register_telegram_live_media', new Route(
+            TelegramLiveMediaController::PATH,
+            ['_controller' => TelegramLiveMediaController::class],
+            methods: ['GET', 'POST'],
         ), 1025);
 
         $routes->add(ObsoleteCommentReplyController::ROUTE, new Route(

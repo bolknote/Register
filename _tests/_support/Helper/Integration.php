@@ -277,6 +277,17 @@ class Integration extends AbstractBrowserModule
         ));
     }
 
+    /** @param array<string, string> $headers */
+    public function sendBinary(string $url, string $payload, array $headers = []): void
+    {
+        $server = ['CONTENT_TYPE' => 'application/octet-stream', 'HTTP_ACCEPT' => 'application/json'];
+        foreach ($headers as $name => $value) {
+            $server['HTTP_' . strtoupper(str_replace('-', '_', $name))] = $value;
+        }
+
+        $this->doRequest(Request::create($url, Request::METHOD_POST, server: $server, content: $payload));
+    }
+
     public function grabTestCookie(string $name, string $path = '/'): ?string
     {
         return $this->cookieJar?->get($name, $path)?->getValue();

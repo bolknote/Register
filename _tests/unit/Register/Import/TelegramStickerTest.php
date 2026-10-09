@@ -11,48 +11,10 @@ namespace unit\Register\Import;
 
 use Codeception\Test\Unit;
 use Register\Core\Comment\CommentHtml;
-use Register\Core\HttpClient\HttpClientInterface;
-use Register\Core\HttpClient\HttpResponse;
-use Register\Import\Telegram\TelegramBotFileClient;
-use Register\Import\Telegram\TelegramMediaDownloadFailed;
 use Register\Import\Telegram\TelegramStickerAnimation;
 
-final class TelegramBotFileClientTest extends Unit
+final class TelegramStickerTest extends Unit
 {
-    public function testDownloadsOnlyFromTelegramAndDoesNotExposeFileUrls(): void
-    {
-        $http = $this->createMock(HttpClientInterface::class);
-        $http->expects(self::exactly(2))->method('request')->willReturnOnConsecutiveCalls(
-            new HttpResponse(statusCode: 200, content: '{"ok":true,"result":{"file_path":"photos/file_1.jpg","file_size":3}}'),
-            new HttpResponse(statusCode: 200, content: 'abc'),
-        );
-        self::assertSame('abc', (new TelegramBotFileClient($http, '100:fake-token'))->download(['file_id' => 'opaque-file-id']));
-    }
-
-    public function testRejectsExternalFilePathsAndRedactsFailures(): void
-    {
-        $http = $this->createMock(HttpClientInterface::class);
-        $http->expects(self::once())->method('request')->willReturn(
-            new HttpResponse(statusCode: 200, content: '{"ok":true,"result":{"file_path":"https://example.test/private"}}'),
-        );
-        try {
-            (new TelegramBotFileClient($http, '100:fake-token'))->download(['file_id' => 'opaque-file-id']);
-            self::fail('An arbitrary remote file path must not be requested.');
-        } catch (TelegramMediaDownloadFailed $exception) {
-            self::assertStringNotContainsString('fake-token', $exception->getMessage());
-            self::assertNull($exception->getPrevious());
-        }
-    }
-
-    public function testOversizedFilesDoNotStartADownload(): void
-    {
-        $http = $this->createMock(HttpClientInterface::class);
-        $http->expects(self::never())->method('request');
-        self::assertNull((new TelegramBotFileClient($http, '100:fake-token'))->download(
-            ['file_id' => 'opaque-file-id', 'file_size' => TelegramBotFileClient::MAX_BYTES + 1],
-        ));
-    }
-
     public function testDecodesRealTgsAndPreservesOnlyManagedAnimationMarkup(): void
     {
         $json = file_get_contents(__DIR__ . '/../../../_resources/telegram-sticker.json');

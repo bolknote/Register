@@ -916,6 +916,7 @@ final readonly class TelegramImportService
                 'comment'         => $comment,
                 'rendered_text_sha256' => hash('sha256', $renderedText),
                 'media_state_sha256' => $this->mediaStateHash($mediaState),
+                'media_state' => $mediaState,
             ],
         ];
     }

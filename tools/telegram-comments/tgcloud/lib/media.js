@@ -1,5 +1,5 @@
-// Only opaque Telegram IDs cross the bridge. Register downloads and owns the bytes;
-// bot tokens and expiring Telegram file URLs never appear in a comment.
+// Opaque IDs identify attachments. Only the bot downloads their bytes, then pushes
+// them to Register; tokens and expiring Telegram URLs never appear in a comment.
 export function messageMedia(message) {
     const files = [];
     function collect(source, depth = 0) {

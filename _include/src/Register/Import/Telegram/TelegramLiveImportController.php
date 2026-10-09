@@ -102,9 +102,13 @@ final readonly class TelegramLiveImportController implements ControllerInterface
                 return $this->response(['success' => false, 'error' => 'post_not_found'], 409);
             }
 
+            if ($this->fileClient instanceof TelegramMediaUploadStorage && \is_array($data) && \is_array($data['messages'] ?? null)) {
+                $this->fileClient->discardImported($data['messages']);
+            }
+
             return $this->response(['success' => true, 'changes' => $report['changes']]);
         } catch (TelegramMediaDownloadFailed) {
-            return $this->response(['success' => false, 'error' => 'media_download_failed'], 503);
+            return $this->response(['success' => false, 'error' => 'media_pending'], 503);
         } catch (\Throwable $exception) {
             $this->logger->error('Live Telegram comment import failed.', ['exception' => $exception]);
 
@@ -149,13 +153,13 @@ final readonly class TelegramLiveImportController implements ControllerInterface
                 throw new \UnexpectedValueException('The attachment list is invalid.');
             }
 
-            foreach ($media as $file) {
+            foreach ($media as $position => $file) {
                 if (!\is_array($file) || !\is_string($file['file_id'] ?? null)
                     || preg_match('/^[A-Za-z0-9_-]{1,512}$/D', $file['file_id']) !== 1
                     || !\is_string($file['file_unique_id'] ?? null)
                     || preg_match('/^[A-Za-z0-9_-]{1,128}$/D', $file['file_unique_id']) !== 1
                     || !\is_string($file['path'] ?? null)
-                    || preg_match('~^live/[1-9][0-9]*/[1-9][0-9]*-[A-Za-z0-9_-]{1,128}\.[a-z0-9]{2,4}$~D', $file['path']) !== 1
+                    || preg_match('~^live/' . (int)($message['id'] ?? 0) . '/' . ($position + 1) . '-' . preg_quote($file['file_unique_id'], '~') . '\.[a-z0-9]{2,4}$~D', $file['path']) !== 1
                     || !\in_array($file['kind'] ?? null, ['photo', 'file'], true)
                     || (isset($file['file_size']) && (!\is_int($file['file_size']) || $file['file_size'] <= 0))
                     || !\is_string($file['file_name'] ?? null) || \strlen($file['file_name']) > 512

@@ -9,11 +9,11 @@ declare(strict_types = 1);
 
 namespace Register\Import\Telegram;
 
-/** Deliberately excludes Bot API URLs, credentials and remote error bodies. */
+/** A snapshot can be retried after its uploaded bytes become available. */
 final class TelegramMediaDownloadFailed extends \RuntimeException
 {
     public function __construct()
     {
-        parent::__construct('Telegram media download failed; the event can be retried.');
+        parent::__construct('The Telegram media upload is incomplete; the event can be retried.');
     }
 }

@@ -159,16 +159,15 @@ export function sourceTime(message) {
 }
 
 export function rootLinksToBlog(message, config) {
-    const hostname = new URL(config.blogUrl).hostname.replace(/^www\./, '');
+    // Serverless has no global URL constructor. Keep this parser SDK-independent.
+    const host = url => typeof url === 'string' ? (url.match(/^https?:\/\/(\[[0-9a-f:]+\]|[A-Za-z0-9.-]+)(?::[0-9]+)?(?=\/|$)/i)?.[1] ?? '').toLowerCase().replace(/^www\./, '') : '';
+    const hostname = host(config.blogUrl);
     for (const entity of message.text_entities ?? []) {
         const text = String(entity.text ?? '');
         const candidates = entity.href ? [entity.href] : text.split('\n')[0].match(/https?:\/\/[^\s<>]+/g) ?? [];
         for (const candidate of candidates) {
-            try {
-                const url = new URL(candidate);
-                if (['http:', 'https:'].includes(url.protocol) && url.hostname.replace(/^www\./, '') === hostname
-                    && url.pathname !== '/') return true;
-            } catch { /* A malformed URL cannot identify a blog post. */ }
+            const path = typeof candidate === 'string' ? candidate.match(/^https?:\/\/[^/]+(\/[^\s]*)/i)?.[1]?.split(/[?#]/)[0] : null;
+            if (hostname && host(candidate) === hostname && path && path !== '/') return true;
         }
         if (text.includes('\n')) break;
     }

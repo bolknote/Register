@@ -21,6 +21,9 @@ use Register\Import\Telegram\TelegramFileClientInterface;
 use Register\Import\Telegram\TelegramManagedMediaStorage;
 use Register\Import\Telegram\TelegramMediaDownloadFailed;
 use Register\Import\Telegram\TelegramLiveReactionService;
+use Register\Import\Telegram\TelegramLiveMediaController;
+use Register\Import\Telegram\TelegramMediaUploadStorage;
+use Register\Import\ExternalImportMapRepository;
 use Register\Module\Reactions\ReactionAggregateSchema;
 use Register\Module\Reactions\ReactionRepository;
 
@@ -441,6 +444,62 @@ final class TelegramLiveImportCest
         }
 
         return $result;
+    }
+
+    public function acceptsAuthenticatedBytesBeforePublishingMediaAndRemovesPrivateStagingAfterCommit(\IntegrationTester $I): void
+    {
+        $id = $this->post($I);
+        $this->enable($I);
+        $root = sys_get_temp_dir() . '/register-direct-upload-' . bin2hex(random_bytes(6));
+        mkdir($root . '/_pictures/bolknote/comments', 0755, true);
+        $managed = new TelegramManagedMediaStorage($root);
+        $uploads = new TelegramMediaUploadStorage($root . '/private', 123, $I->grabService(ExternalImportMapRepository::class), $managed);
+        $I->replaceService(TelegramManagedMediaStorage::class, $managed, [TelegramImportService::class, TelegramLiveReactionService::class, TelegramLiveImportController::class]);
+        $I->replaceService(TelegramFileClientInterface::class, $uploads, [TelegramLiveImportController::class]);
+        $I->replaceService(TelegramMediaUploadStorage::class, $uploads, [TelegramLiveMediaController::class]);
+        try {
+            $probe = ['chat_id' => 123, 'message_id' => 2, 'file_unique_id' => 'photo'];
+            $I->sendJson(TelegramLiveMediaController::PATH, $probe);
+            $I->seeResponseCodeIs(401);
+            $I->sendJson(TelegramLiveMediaController::PATH, [...$probe, 'chat_id' => 456], headers: ['X-Register-Telegram-Token' => self::TOKEN]);
+            $I->seeResponseCodeIs(422);
+            $png = file_get_contents(__DIR__ . '/../_resources/telegram-media/photo.png');
+            $I->assertIsString($png);
+            $snapshot = $this->snapshot();
+            $snapshot['messages'] = array_slice($snapshot['messages'], 0, 2);
+            $snapshot['messages'][1]['text'] = '';
+            $snapshot['messages'][1]['text_entities'] = [];
+            $snapshot['messages'][1]['telegram_media'] = [[
+                'kind' => 'photo', 'path' => 'live/2/1-photo.png', 'file_id' => 'opaque', 'file_unique_id' => 'photo',
+                'file_size' => \strlen($png), 'file_name' => 'photo.png', 'mime_type' => 'image/png', 'sticker' => false, 'emoji' => '',
+            ]];
+            $this->send($I, $snapshot);
+            $I->seeResponseCodeIs(503);
+            $I->assertSame(0, $I->grabService(CommentRepository::class)->count(ContentId::post($id), true));
+            $headers = ['X-Register-Telegram-Token' => self::TOKEN, 'X-Register-Telegram-Chat' => '123',
+                'X-Register-Telegram-Message' => '2', 'X-Register-Telegram-File' => 'photo',
+                'X-Register-Telegram-Size' => (string)\strlen($png), 'X-Register-Telegram-Offset' => '0'];
+            $I->sendBinary(TelegramLiveMediaController::PATH, $png, $headers);
+            $I->seeResponseCodeIs(200);
+            $I->sendBinary(TelegramLiveMediaController::PATH, $png, $headers);
+            $I->seeResponseCodeIs(200);
+            $this->send($I, $snapshot);
+            $I->seeResponseCodeIs(200);
+            $I->assertSame(1, $this->change($I, 'comments_inserted'));
+            $comment = $I->grabService(CommentRepository::class)->findForContent(ContentId::post($id), true)[0];
+            $I->assertStringContainsString('<img ', $comment->text);
+            $I->assertSame([], glob($root . '/private/*.part'));
+            $I->sendJson(TelegramLiveMediaController::PATH, $probe, headers: ['X-Register-Telegram-Token' => self::TOKEN]);
+            $I->seeResponseCodeIs(200);
+            $response = $I->grabJson();
+            $I->assertIsArray($response);
+            $I->assertTrue($response['owned'] ?? false);
+            $this->send($I, $snapshot);
+            $I->seeResponseCodeIs(200);
+            $I->assertSame(0, $this->change($I, 'comments_inserted'));
+        } finally {
+            (new \Symfony\Component\Filesystem\Filesystem())->remove($root);
+        }
     }
 
     private function change(\IntegrationTester $I, string $name): int

@@ -24,10 +24,10 @@ use Register\Import\Telegram\TelegramLiveImportConfig;
 use Register\Import\Telegram\TelegramLiveImportController;
 use Register\Import\Telegram\TelegramSettings;
 use Register\Import\Telegram\TelegramBotConfigController;
-use Register\Import\Telegram\TelegramBotFileClient;
+use Register\Import\Telegram\TelegramMediaUploadStorage;
+use Register\Import\Telegram\TelegramLiveMediaController;
 use Register\Import\Telegram\TelegramFileClientInterface;
 use Register\Import\Telegram\TelegramLiveReactionService;
-use Register\Core\HttpClient\HttpClient;
 use Register\Core\Config\DynamicConfigProvider;
 use Register\Module\Reactions\ReactionAggregateRepository;
 use Register\AdminYard\SettingStorage\SettingStorageInterface;
@@ -72,8 +72,14 @@ final readonly class ImportModule implements ContainerModuleInterface
             $container->get(TelegramSettings::class),
         ));
         $container->set(TelegramLiveImportConfig::class, static fn(Container $container): TelegramLiveImportConfig => $container->get(TelegramSettings::class)->liveConfig(), ['dynamic_config_dependent']);
-        $container->set(TelegramFileClientInterface::class, static fn(Container $container): TelegramBotFileClient => new TelegramBotFileClient(
-            $container->get(HttpClient::class), $container->get(TelegramSettings::class)->botToken(),
+        $container->set(TelegramMediaUploadStorage::class, static fn(Container $container): TelegramMediaUploadStorage => new TelegramMediaUploadStorage(
+            $container->getStringParameter('cache_dir') . 'telegram-media',
+            $container->get(TelegramLiveImportConfig::class)->discussionExportId(),
+            $container->get(ExternalImportMapRepository::class), $container->get(TelegramManagedMediaStorage::class),
+        ), ['dynamic_config_dependent']);
+        $container->set(TelegramFileClientInterface::class, static fn(Container $container): TelegramMediaUploadStorage => $container->get(TelegramMediaUploadStorage::class), ['dynamic_config_dependent']);
+        $container->set(TelegramLiveMediaController::class, static fn(Container $container): TelegramLiveMediaController => new TelegramLiveMediaController(
+            $container->get(TelegramLiveImportConfig::class), $container->get(TelegramMediaUploadStorage::class),
         ), ['dynamic_config_dependent']);
         $container->set(TelegramLiveReactionService::class, static fn(Container $container): TelegramLiveReactionService => new TelegramLiveReactionService(
             $container->get(TelegramImportService::class), $container->get(ExternalImportMapRepository::class), $container->get(\PDO::class),

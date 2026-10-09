@@ -4,8 +4,11 @@ import { store } from './store.js';
 import { ingest, ingestChannelPost, ingestReaction, flush } from './relay.js';
 import { ready } from './protocol.js';
 import { refreshConfig, restoreConfig } from './settings.js';
+import { uploadMedia } from './upload.js';
 
 async function send(archive) {
+    const uploads = await uploadMedia(archive, config, fetch, id => api.getFileContent(id));
+    if (!uploads.ok) return uploads;
     const response = await fetch(`${config.blogUrl.replace(/\/$/, '')}/_live/telegram/comments`, {
         method: 'POST',
         redirect: 'error',
@@ -17,8 +20,23 @@ async function send(archive) {
     return {
         ok: response.ok && result?.success === true,
         status: response.status,
-        error: `http_${response.status}_${['disabled', 'unauthorized', 'post_not_found', 'missing_target', 'invalid_snapshot', 'busy', 'media_download_failed'].includes(result?.error) ? result.error : 'unexpected_response'}`,
+        error: `http_${response.status}_${['disabled', 'unauthorized', 'post_not_found', 'missing_target', 'invalid_snapshot', 'busy', 'media_pending'].includes(result?.error) ? result.error : 'unexpected_response'}`,
     };
+}
+
+async function checkReceiver() {
+    try {
+        // A malformed, empty snapshot verifies the real handler's outbound route
+        // without inserting or changing any comment.
+        const response = await fetch(`${config.blogUrl.replace(/\/$/, '')}/_live/telegram/comments`, {
+            method: 'POST', redirect: 'error',
+            headers: { 'Content-Type': 'application/json', 'X-Register-Telegram-Token': config.token },
+            body: JSON.stringify({ id: -config.discussionChatId - 1_000_000_000_000, type: 'supergroup', messages: [] }),
+        });
+        return `Сайт отвечает: HTTP ${response.status}.`;
+    } catch {
+        return 'Не удалось подключиться к сайту из Telegram.';
+    }
 }
 
 export async function receiveEvent(event, ctx, kind) {
@@ -62,7 +80,8 @@ export async function receive(message, ctx) {
         }
         const result = command === '/retry' && ready(config) ? await flush(config, store, send) : null;
         const status = await store.status();
-        await api.sendMessage({ chat_id: message.chat.id, text: `${config.enabled === false ? 'Импорт выключен в настройках блога.\n' : ''}${result ? `Передано: ${result.delivered}.\n` : ''}В очереди: ${status.count}.\n${status.errors.map(e => `${e.last_error || 'ожидает'}: ${e.count}`).join('\n')}` });
+        const health = await checkReceiver();
+        await api.sendMessage({ chat_id: message.chat.id, text: `${config.enabled === false ? 'Импорт выключен в настройках блога.\n' : ''}${result ? `Передано: ${result.delivered}.\n` : ''}В очереди: ${status.count}.\n${health}\n${status.errors.map(e => `${e.last_error || 'ожидает'}: ${e.count}`).join('\n')}` });
         return;
     }
     if (message.chat?.id !== config.discussionChatId || !ready(config)) return;
