@@ -65,6 +65,13 @@ final class TelegramExportPackage
         return TelegramDiscussionArchive::fromJson($this->json);
     }
 
+    public static function fromJson(string $json): self
+    {
+        TelegramDiscussionArchive::fromJson($json);
+
+        return new self($json, '', null);
+    }
+
     public function containsMedia(string $relativePath): bool
     {
         return $this->mediaEntry($relativePath) !== null;

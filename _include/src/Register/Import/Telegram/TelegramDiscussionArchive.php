@@ -238,6 +238,10 @@ final class TelegramDiscussionArchive
                 'media'             => $media,
                 'reactions'         => $this->normaliseReactions($message['reactions'] ?? []),
             ];
+            if (\is_int($message['bot_update_id'] ?? null) && $message['bot_update_id'] > 0) {
+                $comment['bot_update_id'] = $message['bot_update_id'];
+            }
+
             $comment['source_hash'] = self::commentHash($comment);
             $threads[$acceptedRoots[$rootId]]['comments'][] = $comment;
         }

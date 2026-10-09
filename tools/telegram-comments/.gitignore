@@ -1,0 +1,5 @@
+node_modules/
+.tgcloud/
+tgcloud/lib/config.js
+docs/
+

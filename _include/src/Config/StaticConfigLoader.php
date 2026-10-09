@@ -145,6 +145,7 @@ final class StaticConfigLoader
                 'stylesheets' => array_values($stylesheets),
             ],
             'redirects' => \is_array($redirects) ? $redirects : [],
+            'telegram_import' => \is_array($config['telegram_import'] ?? null) ? $config['telegram_import'] : [],
         ];
     }
 

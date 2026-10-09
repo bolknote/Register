@@ -20,6 +20,9 @@ use Register\Import\Telegram\Admin\TelegramImportToken;
 use Register\Import\Telegram\Admin\TelegramImportTranslationProvider;
 use Register\Import\Telegram\TelegramImportService;
 use Register\Import\Telegram\TelegramManagedMediaStorage;
+use Register\Import\Telegram\TelegramLiveImportConfig;
+use Register\Import\Telegram\TelegramLiveImportController;
+use Register\Core\Config\DynamicConfigProvider;
 use Register\Module\Reactions\ReactionAggregateRepository;
 use Register\AdminYard\SettingStorage\SettingStorageInterface;
 use Register\AdminYard\TemplateRenderer;
@@ -28,6 +31,7 @@ use Register\Admin\AdminConfigExtenderInterface;
 use Register\Admin\TranslationProviderInterface;
 use Register\Core\Framework\Container;
 use Register\Core\Framework\ContainerModuleInterface;
+use Register\Core\Framework\Exception\ParameterNotFoundException;
 use Register\Core\Model\PermissionChecker;
 use Register\Core\Pdo\DbLayer;
 use Register\Core\Security\Http\AdminMutationGuard;
@@ -55,6 +59,21 @@ final readonly class ImportModule implements ContainerModuleInterface
             $container->get(ExternalImportMapRepository::class),
             $container->get(TelegramManagedMediaStorage::class),
             $container->getStringParameter('base_url'),
+        ));
+        try {
+            $config = $container->getNullableParameter('telegram_import');
+        } catch (ParameterNotFoundException) {
+            $config = [];
+        }
+
+        $container->set(TelegramLiveImportConfig::class, static fn(): TelegramLiveImportConfig => TelegramLiveImportConfig::fromArray(\is_array($config) ? $config : []));
+        $container->set(TelegramLiveImportController::class, static fn(Container $container): TelegramLiveImportController => new TelegramLiveImportController(
+            $container->get(TelegramLiveImportConfig::class),
+            $container->get(TelegramImportService::class),
+            $container->get(DynamicConfigProvider::class)->getBoolProxy('REGISTER_PREMODERATION'),
+            $container->get(LoggerInterface::class),
+            $container->getStringParameter('base_url'),
+            $container->getStringParameter('cache_dir') . 'telegram-import.lock',
         ));
         $container->set(
             TelegramImportTranslationProvider::class,

@@ -141,6 +141,7 @@ function register_build_base_static_parameters(array $config): array
         'redirect_map'       => $config['redirects'] ?? [],
         'cookie_name'        => $config['cookies']['name'] ?? StaticConfigLoader::DEFAULT_COOKIE_NAME,
         'antispam_secret'    => $config['security']['antispam_secret'] ?? null,
+        'telegram_import'    => $config['telegram_import'] ?? [],
         'secret_config_file' => SecretConfigPathResolver::resolve(
             $rootDir,
             $publicRootDir,

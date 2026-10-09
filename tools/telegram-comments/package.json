@@ -1,0 +1,13 @@
+{
+  "name": "register-telegram-comments",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "login": "tgcloud login",
+    "deploy": "tgcloud push",
+    "migrate": "tgcloud migrate",
+    "status": "tgcloud status"
+  },
+  "devDependencies": { "@tgcloud/cli": "0.2.0" }
+}

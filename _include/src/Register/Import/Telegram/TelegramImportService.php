@@ -60,13 +60,45 @@ final readonly class TelegramImportService
         string $clientOriginalName = '',
     ): array
     {
+        return $this->importPackage(
+            TelegramExportPackage::fromFile($path, $clientOriginalName),
+            $siteAuthorUserId,
+            $dryRun,
+        );
+    }
+
+    /**
+     * Import a bounded live thread snapshot without reconciling archive-only reactions.
+     *
+     * @return array<string, mixed>
+     */
+    public function importLiveSnapshot(string $json, bool $publishComments = true): array
+    {
+        return $this->importPackage(TelegramExportPackage::fromJson($json), null, false, true, $publishComments);
+    }
+
+    /**
+     * @return array{
+     *     dry_run: bool,
+     *     source: array<string, mixed>,
+     *     archive: array<string, int>,
+     *     changes: array<string, int>,
+     *     excluded_roots: list<array<string, mixed>>
+     * }
+     */
+    private function importPackage(
+        TelegramExportPackage $package,
+        ?int $siteAuthorUserId,
+        bool $dryRun,
+        bool $liveSnapshot = false,
+        bool $publishComments = true,
+    ): array {
         $siteHost = strtolower((string)parse_url($this->baseUrl, PHP_URL_HOST));
         if ($siteHost === '') {
             throw new \LogicException('The configured site URL has no host.');
         }
 
         $postIndex = $this->postIndex();
-        $package = TelegramExportPackage::fromFile($path, $clientOriginalName);
         $archive = $package->discussionArchive()->extract(
             static function (string $path) use ($postIndex): ?array {
                 $post = $postIndex[$path] ?? null;
@@ -77,14 +109,14 @@ final readonly class TelegramImportService
         $source = (array)$archive['source'];
         $chatId = $this->positiveInt($source['chat_id'] ?? null, 'chat ID');
         $scope = (string)$chatId;
-        $owner = $this->siteAuthor($siteAuthorUserId);
+        $owner = $liveSnapshot ? [] : $this->siteAuthor($siteAuthorUserId);
         $maps = $this->mapRepository->forScope(self::SOURCE, $scope, self::COMMENT_ENTITY);
         $genericMapIds = array_fill_keys(array_keys($maps), true);
         foreach ($this->legacyCommentMaps($chatId) as $messageId => $legacyMap) {
             $maps[$messageId] ??= $legacyMap;
         }
 
-        $reactionRows = $this->telegramReactions($chatId);
+        $reactionRows = $liveSnapshot ? [] : $this->telegramReactions($chatId);
         $now = time();
         $changes = [
             'comments_inserted'              => 0,
@@ -95,6 +127,7 @@ final readonly class TelegramImportService
             'comments_media_preserved'       => 0,
             'comments_media_repaired'        => 0,
             'comments_local_edits_preserved' => 0,
+            'comments_stale_ignored'         => 0,
             'legacy_mappings_backfilled'     => 0,
             'provenance_updated'             => 0,
             'reaction_groups_inserted'       => 0,
@@ -159,6 +192,14 @@ final readonly class TelegramImportService
                     $createdAt = $this->positiveInt($sourceComment['date_unixtime'] ?? null, 'comment timestamp');
                     $modifiedAt = (int)($sourceComment['edited_unixtime'] ?? 0);
                     $modifiedAt = $modifiedAt > $createdAt ? $modifiedAt : null;
+                    $existingMap = $maps[$externalId] ?? null;
+                    if ($liveSnapshot && \is_array($existingMap)
+                        && $this->isOlderSource($sourceComment, $existingMap['source_data'] ?? [])
+                    ) {
+                        ++$changes['comments_stale_ignored'];
+                        continue;
+                    }
+
                     $media = \is_array($sourceComment['media'] ?? null) ? $sourceComment['media'] : [];
                     $mediaResult = $this->commentText(
                         $sourceComment,
@@ -206,11 +247,10 @@ final readonly class TelegramImportService
                         $text,
                         $mediaResult['state'],
                     );
-                    $existingMap = $maps[$externalId] ?? null;
 
                     if (!\is_array($existingMap)) {
                         $commentId = $this->commentImportService->import($comment);
-                        if (!$this->commentImportService->publish($commentId, $contentId)) {
+                        if ($publishComments && !$this->commentImportService->publish($commentId, $contentId)) {
                             throw new \RuntimeException('A newly imported Telegram comment could not be published.');
                         }
 
@@ -310,6 +350,10 @@ final readonly class TelegramImportService
                     ];
                     $genericMapIds[$externalId] = true;
 
+                    if ($liveSnapshot) {
+                        continue;
+                    }
+
                     $commentReactions = $sourceComment['reactions'] ?? null;
                     if (!\is_array($commentReactions) || !array_is_list($commentReactions)) {
                         throw new \UnexpectedValueException('A Telegram comment has an invalid reaction list.');
@@ -327,6 +371,10 @@ final readonly class TelegramImportService
                         $reactionRows,
                         $changes,
                     );
+                }
+
+                if ($liveSnapshot) {
+                    continue;
                 }
 
                 $postReactions = $thread['post_reactions'] ?? null;
@@ -726,14 +774,32 @@ final readonly class TelegramImportService
 
     private function mappedModifiedAt(mixed $sourceData): int
     {
+        return (int)($this->mappedSourceComment($sourceData)['edited_unixtime'] ?? 0);
+    }
+
+    /** @return array<string, mixed> */
+    private function mappedSourceComment(mixed $sourceData): array
+    {
         if (!\is_array($sourceData)) {
-            return 0;
+            return [];
         }
 
-        $comment = $sourceData['telegram']['comment']
+        $telegram = \is_array($sourceData['telegram'] ?? null) ? $sourceData['telegram'] : [];
+        $comment = $telegram['comment']
             ?? $sourceData['TelegramComment']
             ?? null;
-        return \is_array($comment) ? (int)($comment['edited_unixtime'] ?? 0) : 0;
+        return \is_array($comment) ? $comment : [];
+    }
+
+    /** @param array<string, mixed> $incoming */
+    private function isOlderSource(array $incoming, mixed $sourceData): bool
+    {
+        $previous = $this->mappedSourceComment($sourceData);
+        $previousTime = max((int)($previous['date_unixtime'] ?? 0), (int)($previous['edited_unixtime'] ?? 0));
+        $incomingTime = max((int)($incoming['date_unixtime'] ?? 0), (int)($incoming['edited_unixtime'] ?? 0));
+
+        return $incomingTime < $previousTime
+            || ($incomingTime === $previousTime && (int)($incoming['bot_update_id'] ?? 0) < (int)($previous['bot_update_id'] ?? 0));
     }
 
     private function mappedString(mixed $sourceData, string $key): ?string

@@ -28,6 +28,7 @@ use Register\Controller\PageFavorite;
 use Register\Controller\PageTag;
 use Register\Controller\PageTags;
 use Register\Import\Telegram\Admin\TelegramImportAdminController;
+use Register\Import\Telegram\TelegramLiveImportController;
 use Register\Live\LiveUpdateContext;
 use Register\Live\LiveUpdateController;
 use Register\Model\ArticleProvider;
@@ -232,6 +233,12 @@ final readonly class ProductWebModule implements ContainerAwareListenerModuleInt
     #[\Override]
     public function registerRoutes(RouteCollection $routes, Container $container): void
     {
+        $routes->add('register_telegram_live_import', new Route(
+            TelegramLiveImportController::PATH,
+            ['_controller' => TelegramLiveImportController::class],
+            methods: ['POST'],
+        ), 1025);
+
         $routes->add(ObsoleteCommentReplyController::ROUTE, new Route(
             '/{path<.*>}',
             ['_controller' => ObsoleteCommentReplyController::class],

@@ -4,6 +4,12 @@ Register renders threaded comments on posts and pages. Comment submission remain
 `POST`; JavaScript progressively enhances the same server-rendered form and is not required for
 publishing or replying.
 
+New Telegram discussion comments can also arrive through the optional
+[Telegram Serverless bridge](../tools/telegram-comments/README.md). Its authenticated endpoint is
+disabled until a bridge secret and both chat IDs are configured. Live imports share the archive
+import's stable identities, preserve local edits and moderation, and honour premoderation. They
+do not reconcile reactions or Telegram deletions.
+
 ## Editor and stored format
 
 The public form contains a compact rich-text editor for bold, italic, strikethrough, links, quotes,

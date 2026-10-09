@@ -1,0 +1,40 @@
+{
+  "id": 123,
+  "name": "Telegram discussion",
+  "type": "supergroup",
+  "messages": [
+    {
+      "id": 1,
+      "type": "message",
+      "date_unixtime": "100",
+      "bot_update_id": 0,
+      "from": "Example channel",
+      "from_id": "channel111",
+      "text": "Example post",
+      "text_entities": [{ "type": "text_link", "text": "Example post", "href": "http://register.localhost/apos" }],
+      "forwarded_from_id": "channel111"
+    },
+    {
+      "id": 2,
+      "type": "message",
+      "date_unixtime": "101",
+      "bot_update_id": 100,
+      "from": "Reader",
+      "from_id": "user22",
+      "text": "First comment",
+      "text_entities": [{ "type": "plain", "text": "First comment" }],
+      "reply_to_message_id": 1
+    },
+    {
+      "id": 3,
+      "type": "message",
+      "date_unixtime": "102",
+      "bot_update_id": 101,
+      "from": "Another reader",
+      "from_id": "user33",
+      "text": "A reply",
+      "text_entities": [{ "type": "plain", "text": "A reply" }],
+      "reply_to_message_id": 2
+    }
+  ]
+}
