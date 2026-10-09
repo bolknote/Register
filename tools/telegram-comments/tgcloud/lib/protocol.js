@@ -43,9 +43,10 @@ export function normaliseMessage(message, updateId, config) {
         || !Number.isSafeInteger(message.message_id) || message.message_id < 1
         || !Number.isSafeInteger(message.date) || message.date < 1) return null;
 
+    // sender_chat identifies the linked channel. forward_origin describes earlier
+    // provenance and may be "chat", or an entirely different original channel.
     const root = message.is_automatic_forward === true
-        && message.forward_origin?.type === 'channel'
-        && message.forward_origin.chat?.id === config.channelChatId;
+        && message.sender_chat?.id === config.channelChatId;
     // A manual forward never establishes a channel discussion root.
     if (message.is_automatic_forward && !root) return null;
     const parent = message.reply_to_message?.message_id;

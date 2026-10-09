@@ -88,12 +88,27 @@ test('filters other groups and roots from other channels, and never trusts manua
     assert.equal(exportChatId(config.discussionChatId), 123);
     assert.throws(() => exportChatId(-123));
     assert.equal(normaliseMessage({ ...first, chat: { id: -123, type: 'supergroup' } }, 100, config), null);
-    assert.equal(normaliseMessage({ ...root, forward_origin: { type: 'channel', chat: { id: -1_000_000_000_999 } } }, 100, config), null);
+    assert.equal(normaliseMessage({ ...root, sender_chat: { id: -1_000_000_000_999, title: 'Other channel' } }, 100, config), null);
     const store = sqliteStore(t);
     await ingest({ ...root, is_automatic_forward: false }, 1, config, store);
     assert.equal((await store.status()).count, 0);
     await ingest(root, 2, config, store);
     assert.deepEqual(await flush(config, store, async () => assert.fail('root is not a comment')), { delivered: 0, ignored: 1 });
+});
+
+test('automatic discussion forwards are scoped by sender_chat even when origin is chat or another channel', async t => {
+    const store = sqliteStore(t);
+    const chatOriginRoot = { ...root, forward_origin: { type: 'chat', sender_chat: { id: config.channelChatId }, date: 100 } };
+    assert.equal(normaliseMessage(chatOriginRoot, 99, config)?.forwarded_from_id, 'channel111');
+    const forwardedArticle = { ...root, forward_origin: { type: 'channel', chat: { id: -1_000_000_000_999 }, message_id: 50, date: 90 } };
+    assert.equal(normaliseMessage(forwardedArticle, 99, config)?.forwarded_from_id, 'channel111');
+    await ingest({ ...first, reply_to_message: chatOriginRoot }, 100, config, store);
+    const result = await flush(config, store, async archive => {
+        assert.equal(archive.messages[0].forwarded_from_id, 'channel111');
+        return { ok: true };
+    });
+    assert.equal(result.delivered, 1);
+    assert.equal((await store.status()).count, 0);
 });
 
 test('UTF-16 links, nested formatting, and unsafe URLs preserve all visible text for server sanitization', () => {
