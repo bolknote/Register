@@ -22,8 +22,6 @@ final class CommentHtml
 {
     private const string STORAGE_PREFIX = '<!--register-comment-html:v1-->';
 
-    private const string MANAGED_COMMENT_MEDIA_PREFIX = '/_pictures/bolknote/comments/';
-
     /** @var array<string, string> */
     private const array TAG_ALIASES = [
         'b'      => 'strong',
@@ -423,14 +421,16 @@ final class CommentHtml
     {
         $source = trim($source);
         if (
-            !str_starts_with($source, self::MANAGED_COMMENT_MEDIA_PREFIX)
-            || preg_match('~^[A-Za-z0-9._/@%-]+$~D', substr($source, 1)) !== 1
+            preg_match('~^/(?:[A-Za-z0-9._@%-]+/)*_pictures/(?:telegram/comments|bolknote/comments)/[A-Za-z0-9._/@%-]+$~D', $source) !== 1
         ) {
             return null;
         }
 
-        foreach (explode('/', substr($source, \strlen(self::MANAGED_COMMENT_MEDIA_PREFIX))) as $segment) {
-            if (in_array($segment, ['', '.', '..'], true)) {
+        foreach (explode('/', substr($source, 1)) as $segment) {
+            $decoded = rawurldecode($segment);
+            if (in_array($decoded, ['', '.', '..'], true) || str_contains($decoded, '/')
+                || str_contains($decoded, '\\') || preg_match('/[\x00-\x1f\x7f]/', $decoded) === 1
+            ) {
                 return null;
             }
         }

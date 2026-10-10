@@ -181,7 +181,7 @@ export async function snapshot(messageId, store, config) {
     while (id) {
         if (seen.has(id) || chain.length >= 65) return { error: 'reply_cycle_or_depth' };
         seen.add(id);
-        const message = await store.getMessage(id);
+        const message = await store.getMessage(id, config);
         if (!message) return { error: 'missing_parent' };
         chain.push(message);
         if (message.forwarded_from_id) {

@@ -75,4 +75,74 @@ final class TelegramMediaUploadStorageTest extends Unit
         self::assertSame(\strlen($chunk), $storage->status(2, 'file_1')['received']);
         self::assertTrue($storage->append(2, 'file_1', $total, \strlen($chunk), str_repeat('b', 100))['complete']);
     }
+
+    /** @return list<string> */
+    private function reservations(): array
+    {
+        $paths = glob($this->root . '/private/*.json');
+        return $paths === false ? [] : $paths;
+    }
+
+    public function testReservesAllAttachmentsWithoutLeavingFragmentsFromCompetingComments(): void
+    {
+        $storage = $this->storage();
+        $files = [];
+        for ($index = 1; $index <= 6; ++$index) {
+            $files[] = ['file_unique_id' => 'file_' . $index, 'file_size' => TelegramMediaUploadStorage::MAX_BYTES];
+        }
+
+        $storage->reserveMessage(2, $files);
+        $storage->reserveMessage(2, $files); // Retrying the reservation consumes no extra quota.
+        try {
+            $storage->reserveMessage(3, $files);
+            self::fail('A competing comment must reserve all its bytes or none.');
+        } catch (\RuntimeException) {
+            self::assertCount(6, $this->reservations());
+        }
+
+        $chunk = str_repeat('a', TelegramMediaUploadStorage::CHUNK_BYTES);
+        for ($offset = 0; $offset < TelegramMediaUploadStorage::MAX_BYTES; $offset += TelegramMediaUploadStorage::CHUNK_BYTES) {
+            $storage->append(2, 'file_6', TelegramMediaUploadStorage::MAX_BYTES, $offset,
+                substr($chunk, 0, min(\strlen($chunk), TelegramMediaUploadStorage::MAX_BYTES - $offset)));
+        }
+
+        self::assertTrue($storage->status(2, 'file_6')['complete']);
+        // The maximum supported ten-file comment fits, without downloading any bytes twice.
+        for ($index = 7; $index <= 10; ++$index) {
+            $files[] = ['file_unique_id' => 'file_' . $index, 'file_size' => TelegramMediaUploadStorage::MAX_BYTES];
+        }
+
+        $storage->reserveMessage(2, $files);
+        self::assertCount(10, $this->reservations());
+    }
+
+    public function testExactMediaIdentityRemainsReadableFromLegacyStorageAndRejectsSymlinks(): void
+    {
+        $this->storage();
+        $directory = $this->root . '/_pictures/bolknote/comments/telegram/123/2';
+        mkdir($directory, 0755, true);
+        $bytes = (string)file_get_contents(__DIR__ . '/../../../_resources/telegram-media/photo.png');
+        $id = substr(hash('sha256', $bytes), 0, 20);
+        $file = $directory . '/02-' . $id . '.png';
+        file_put_contents($file, $bytes);
+        $managed = new TelegramManagedMediaStorage($this->root);
+        $stored = $managed->findForMessage(123, 2, $id);
+        self::assertNotNull($stored);
+        self::assertSame('/_pictures/bolknote/comments/telegram/123/2/02-' . $id . '.png', $stored['url']);
+        self::assertNull($managed->findForMessage(123, 2, str_repeat('0', 20)));
+        unlink($file);
+        symlink(__DIR__ . '/../../../_resources/telegram-media/photo.png', $file);
+        self::assertNull($managed->findForMessage(123, 2, $id));
+    }
+
+    public function testRepeatedAttachmentIdentityReservesItsBytesOnlyOnce(): void
+    {
+        $storage = $this->storage();
+        $file = ['file_unique_id' => 'repeated', 'file_size' => 3];
+        $storage->reserveMessage(2, [$file, $file]);
+        self::assertCount(1, $this->reservations());
+        self::assertTrue($storage->append(2, 'repeated', 3, 0, 'abc')['complete']);
+        self::assertTrue($storage->append(2, 'repeated', 3, 0, 'abc')['complete']);
+        self::assertSame('abc', $storage->download(['path' => 'live/2/2-repeated.bin', 'file_unique_id' => 'repeated']));
+    }
 }

@@ -103,8 +103,17 @@ final readonly class TelegramImportService
         }
 
         $postIndex = $this->postIndex();
+        $basePath = trim(rawurldecode((string)parse_url($this->baseUrl, PHP_URL_PATH)), '/');
         $archive = $package->discussionArchive()->extract(
-            static function (string $path) use ($postIndex): ?array {
+            static function (string $path) use ($postIndex, $basePath): ?array {
+                if ($basePath !== '') {
+                    if (!str_starts_with($path, $basePath . '/')) {
+                        return null;
+                    }
+
+                    $path = substr($path, \strlen($basePath) + 1);
+                }
+
                 $post = $postIndex[$path] ?? null;
                 return \is_array($post) ? $post : null;
             },
@@ -171,6 +180,29 @@ final readonly class TelegramImportService
                 foreach ($orderedComments as $sourceComment) {
                     $messageId = $this->positiveInt($sourceComment['message_id'] ?? null, 'comment message ID');
                     $externalId = (string)$messageId;
+                    if (($sourceComment['reference'] ?? false) === true) {
+                        if (!$liveSnapshot) {
+                            throw new TelegramMissingReference();
+                        }
+
+                        $referenceMap = $maps[$externalId] ?? null;
+                        $referenceData = $referenceMap['source_data']['telegram'] ?? [];
+                        $referenceComment = \is_array($referenceMap)
+                            ? $this->commentRepository->find($this->mappedCommentId($referenceMap, $externalId)) : null;
+                        if (!$referenceComment instanceof Comment) {
+                            throw new TelegramMissingReference();
+                        }
+
+                        if (!$referenceComment->contentId->equals($contentId)
+                            || (int)($referenceData['root_message_id'] ?? 0) !== $rootMessageId
+                            || ($referenceData['comment']['parent_message_id'] ?? null) !== ($sourceComment['parent_message_id'] ?? null)
+                        ) {
+                            throw new TelegramMissingReference();
+                        }
+
+                        continue;
+                    }
+
                     $parentMessageId = $sourceComment['parent_message_id'] ?? null;
                     $parentId = null;
                     if ($parentMessageId !== null) {
@@ -217,6 +249,8 @@ final readonly class TelegramImportService
                         $messageId,
                         $dryRun,
                         $liveSnapshot ? $this->mappedSourceComment($existingMap['source_data'] ?? []) : [],
+                        $this->mappedMediaState($existingMap['source_data'] ?? []),
+                        $liveSnapshot,
                     );
                     $text = $mediaResult['text'];
                     foreach ($mediaResult['created_files'] as $createdMediaFile) {
@@ -701,6 +735,7 @@ final readonly class TelegramImportService
     /**
      * @param array<string, mixed> $sourceComment
      * @param array<string, mixed> $previousSource
+     * @param array<mixed> $previousState
      * @return array{
      *     text: string,
      *     state: list<array{status: 'available'|'unavailable', kind: string, source_sha256: string}>,
@@ -715,6 +750,8 @@ final readonly class TelegramImportService
         int                   $messageId,
         bool                  $dryRun,
         array                 $previousSource = [],
+        array                 $previousState = [],
+        bool                  $liveSnapshot = false,
     ): array {
         $html = (string)($sourceComment['html'] ?? '');
         $state = [];
@@ -732,13 +769,27 @@ final readonly class TelegramImportService
                 $mediaPosition = (int)$position + 1;
                 $relativePath = trim((string)($media['path'] ?? ''));
                 $sourceSha256 = hash('sha256', $relativePath);
-                $unchangedLiveFile = ($previousSource['media'][$position]['path'] ?? null) === $relativePath
-                    && str_starts_with($relativePath, 'live/');
-                if ($unchangedLiveFile) {
-                    $existingMedia ??= $this->mediaStorage->existingForMessage($chatId, $messageId);
+                $storedMedia = null;
+                if ($liveSnapshot && str_starts_with($relativePath, 'live/')) {
+                    $identity = preg_replace('~^live/[1-9][0-9]*/[1-9][0-9]*-~', '', $relativePath);
+                    foreach ((array)($previousSource['media'] ?? []) as $previousPosition => $previousMedia) {
+                        $previousPath = (string)($previousMedia['path'] ?? '');
+                        if (!str_starts_with($previousPath, 'live/')
+                            || preg_replace('~^live/[1-9][0-9]*/[1-9][0-9]*-~', '', $previousPath) !== $identity
+                        ) {
+                            continue;
+                        }
+
+                        $sourceIdentity = (string)($previousState[$previousPosition]['source_sha256'] ?? '');
+                        $prefix = hash('sha256', $previousPath) . ':';
+                        if (str_starts_with($sourceIdentity, $prefix)) {
+                            $storedMedia = $this->mediaStorage->findForMessage($chatId, $messageId, substr($sourceIdentity, \strlen($prefix)));
+                        }
+
+                        break;
+                    }
                 }
 
-                $storedMedia = $unchangedLiveFile ? ($existingMedia[$mediaPosition] ?? null) : null;
                 $storedMedia ??= $this->mediaStorage->import(
                     $package,
                     $relativePath,
@@ -748,7 +799,7 @@ final readonly class TelegramImportService
                     $dryRun,
                 );
                 $mediaStateIdentity = $storedMedia === null ? null : substr($storedMedia['sha256'] ?? $storedMedia['storage_id'] ?? '', 0, 20);
-                if ($storedMedia === null) {
+                if ($storedMedia === null && !$liveSnapshot) {
                     if ($existingMedia === null) {
                         $existingMedia = $this->mediaStorage->existingForMessage($chatId, $messageId);
                         foreach (array_keys($handledPositions) as $handledPosition) {
@@ -794,7 +845,7 @@ final readonly class TelegramImportService
                 }
             }
 
-            $existingMedia ??= $this->mediaStorage->existingForMessage($chatId, $messageId);
+            $existingMedia = $liveSnapshot ? [] : ($existingMedia ?? $this->mediaStorage->existingForMessage($chatId, $messageId));
             foreach (array_keys($handledPositions) as $handledPosition) {
                 unset($existingMedia[$handledPosition]);
             }
@@ -960,6 +1011,17 @@ final readonly class TelegramImportService
 
         return $incomingTime < $previousTime
             || ($incomingTime === $previousTime && (int)($incoming['bot_update_id'] ?? 0) < (int)($previous['bot_update_id'] ?? 0));
+    }
+
+    /** @return array<mixed> */
+    private function mappedMediaState(mixed $sourceData): array
+    {
+        if (!\is_array($sourceData) || !\is_array($sourceData['telegram'] ?? null)) {
+            return [];
+        }
+
+        $state = $sourceData['telegram']['media_state'] ?? null;
+        return \is_array($state) ? $state : [];
     }
 
     private function mappedString(mixed $sourceData, string $key): ?string

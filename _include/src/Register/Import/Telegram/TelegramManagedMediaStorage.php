@@ -14,9 +14,11 @@ final readonly class TelegramManagedMediaStorage
 {
     private const int MAX_MEDIA_BYTES = 200_000_000;
 
-    private const string URL_ROOT = '/_pictures/bolknote/comments/telegram';
+    private const string URL_ROOT = '/_pictures/telegram/comments';
 
-    public function __construct(private string $publicRootDir)
+    private const string LEGACY_URL_ROOT = '/_pictures/bolknote/comments/telegram';
+
+    public function __construct(private string $publicRootDir, private string $basePath = '')
     {
         if ($publicRootDir === '') {
             throw new \InvalidArgumentException('The public root directory is not configured.');
@@ -154,7 +156,7 @@ final readonly class TelegramManagedMediaStorage
         $digest = hash_final($hash);
         $filename = \sprintf('%02d-%s.%s', max(1, $position), substr($digest, 0, 20), $extension);
         $storagePath = $directory . '/' . $filename;
-        $url = self::URL_ROOT . '/' . $chatId . '/' . $messageId . '/' . $filename;
+        $url = rtrim($this->basePath, '/') . self::URL_ROOT . '/' . $chatId . '/' . $messageId . '/' . $filename;
 
         if ($dryRun) {
             return [
@@ -192,48 +194,51 @@ final readonly class TelegramManagedMediaStorage
      *     created_file: null
      * }>
      */
-    public function existingForMessage(int $chatId, int $messageId): array
+    public function existingForMessage(int $chatId, int $messageId, string $storageId = ''): array
     {
         if ($chatId <= 0 || $messageId <= 0) {
             throw new \InvalidArgumentException('Telegram media identity must be positive.');
         }
 
-        $directory = $this->messageDirectory($chatId, $messageId);
-        if (!is_dir($directory) || is_link($directory)) {
-            return [];
-        }
-
-        $entries = register_call_without_warnings(static fn(): array|false => scandir($directory));
-        if (!\is_array($entries)) {
-            return [];
-        }
-
         $candidates = [];
-        foreach ($entries as $entry) {
-            if (preg_match('/^([0-9]+)-([a-f0-9]{20})\.[a-z0-9]+$/D', $entry, $matches) !== 1) {
+        foreach ([self::URL_ROOT, self::LEGACY_URL_ROOT] as $urlRoot) {
+            $directory = rtrim($this->publicRootDir, '/') . $urlRoot . '/' . $chatId . '/' . $messageId;
+            if (!$this->isSafeDirectory($directory)) {
                 continue;
             }
 
-            $position = (int)$matches[1];
-            $path = $directory . '/' . $entry;
-            $size = register_call_without_warnings(static fn(): int|false => filesize($path));
-            if ($position <= 0
-                || !is_file($path)
-                || is_link($path)
-                || $size === false
-                || $size <= 0
-                || $size > self::MAX_MEDIA_BYTES
-            ) {
-                continue;
-            }
+            $entries = register_call_without_warnings(static fn(): array|false => scandir($directory));
+            foreach (\is_array($entries) ? $entries : [] as $entry) {
+                if (preg_match('/^([0-9]+)-([a-f0-9]{20})\.[a-z0-9]+$/D', $entry, $matches) !== 1) {
+                    continue;
+                }
 
-            $modifiedAt = register_call_without_warnings(static fn(): int|false => filemtime($path));
-            $candidates[$position][] = [
-                'entry'       => $entry,
-                'path'        => $path,
-                'storage_id'  => $matches[2],
-                'modified_at' => $modifiedAt === false ? 0 : $modifiedAt,
-            ];
+                if ($storageId !== '' && $storageId !== $matches[2]) {
+                    continue;
+                }
+
+                $position = (int)$matches[1];
+                $path = $directory . '/' . $entry;
+                $size = register_call_without_warnings(static fn(): int|false => filesize($path));
+                if ($position <= 0
+                    || !is_file($path)
+                    || is_link($path)
+                    || $size === false
+                    || $size <= 0
+                    || $size > self::MAX_MEDIA_BYTES
+                ) {
+                    continue;
+                }
+
+                $modifiedAt = register_call_without_warnings(static fn(): int|false => filemtime($path));
+                $candidates[$position][] = [
+                    'entry'       => $entry,
+                    'path'        => $path,
+                    'storage_id'  => $matches[2],
+                    'modified_at' => $modifiedAt === false ? 0 : $modifiedAt,
+                    'url_root'    => $urlRoot,
+                ];
+            }
         }
 
         $result = [];
@@ -252,7 +257,7 @@ final readonly class TelegramManagedMediaStorage
             }
 
             $result[$position] = [
-                'url'          => self::URL_ROOT . '/' . $chatId . '/' . $messageId . '/' . $candidate['entry'],
+                'url'          => rtrim($this->basePath, '/') . $candidate['url_root'] . '/' . $chatId . '/' . $messageId . '/' . $candidate['entry'],
                 'kind'         => $kind,
                 'mime_type'    => $mimeType,
                 'storage_id'   => $candidate['storage_id'],
@@ -263,6 +268,34 @@ final readonly class TelegramManagedMediaStorage
         ksort($result);
 
         return $result;
+    }
+
+    /** @return array{url: string, kind: 'image'|'video'|'audio'|'file'|'lottie', mime_type: string, storage_id: string, created_file: null}|null */
+    public function findForMessage(int $chatId, int $messageId, string $storageId): ?array
+    {
+        if (preg_match('/^[a-f0-9]{20}$/D', $storageId) !== 1) {
+            return null;
+        }
+
+        $files = $this->existingForMessage($chatId, $messageId, $storageId);
+        return $files === [] ? null : reset($files);
+    }
+
+    private function isSafeDirectory(string $directory): bool
+    {
+        $current = rtrim($this->publicRootDir, '/');
+        if (!is_dir($current) || is_link($current)) {
+            return false;
+        }
+
+        foreach (explode('/', ltrim(substr($directory, \strlen($current)), '/')) as $segment) {
+            $current .= '/' . $segment;
+            if (!is_dir($current) || is_link($current)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /** @param resource|null $output */
@@ -286,14 +319,14 @@ final readonly class TelegramManagedMediaStorage
 
     private function ensureDirectory(string $directory): void
     {
-        $base = rtrim($this->publicRootDir, '/') . '/_pictures/bolknote/comments';
+        $base = rtrim($this->publicRootDir, '/');
         if (!is_dir($base) || is_link($base)) {
             throw new \RuntimeException('The managed comment-media directory is unavailable.');
         }
 
         $current = $base;
         foreach (array_slice(explode('/', substr($directory, \strlen($base))), 1) as $segment) {
-            if ($segment === '' || preg_match('/^[1-9][0-9]*$|^telegram$/D', $segment) !== 1) {
+            if ($segment === '' || preg_match('/^[1-9][0-9]*$|^(_pictures|telegram|comments)$/D', $segment) !== 1) {
                 throw new \LogicException('The Telegram media directory is invalid.');
             }
 

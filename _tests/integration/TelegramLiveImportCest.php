@@ -16,6 +16,7 @@ use Register\Content\ContentType;
 use Register\Core\Pdo\DbLayer;
 use Register\Import\Telegram\TelegramImportService;
 use Register\Import\Telegram\TelegramLiveImportController;
+use Register\Import\Telegram\TelegramLiveImportConfig;
 use Register\Import\Telegram\TelegramSettings;
 use Register\Import\Telegram\TelegramFileClientInterface;
 use Register\Import\Telegram\TelegramManagedMediaStorage;
@@ -26,6 +27,9 @@ use Register\Import\Telegram\TelegramMediaUploadStorage;
 use Register\Import\ExternalImportMapRepository;
 use Register\Module\Reactions\ReactionAggregateSchema;
 use Register\Module\Reactions\ReactionRepository;
+use Register\Url\ContentUrlAliasSchema;
+use Register\Url\ContentUrlGenerator;
+use Symfony\Component\HttpFoundation\Request;
 
 final class TelegramLiveImportCest
 {
@@ -406,7 +410,7 @@ final class TelegramLiveImportCest
             $this->send($I, $snapshot);
             $I->seeResponseCodeIs(503);
             $I->assertSame(0, $I->grabService(CommentRepository::class)->count(ContentId::post($id), true));
-            $I->assertSame([], glob($root . '/_pictures/bolknote/comments/telegram/123/2/*'));
+            $I->assertSame([], glob($root . '/_pictures/telegram/comments/123/2/*'));
             $client->failOn = '';
             $this->send($I, $snapshot);
             $I->seeResponseCodeIs(200);
@@ -415,7 +419,7 @@ final class TelegramLiveImportCest
             $I->assertStringContainsString('<img ', $comment->text);
             $I->assertStringContainsString('<video ', $comment->text);
             $I->assertStringContainsString('comment-sticker', $comment->text);
-            $storedFiles = glob($root . '/_pictures/bolknote/comments/telegram/123/2/*');
+            $storedFiles = glob($root . '/_pictures/telegram/comments/123/2/*');
             $I->assertIsArray($storedFiles);
             $I->assertCount(5, $storedFiles);
             $calls = $client->calls;
@@ -500,6 +504,176 @@ final class TelegramLiveImportCest
         } finally {
             (new \Symfony\Component\Filesystem\Filesystem())->remove($root);
         }
+    }
+
+    public function removesAndReordersAlreadyOwnedMediaInAFreshPublicRoot(\IntegrationTester $I): void
+    {
+        $id = $this->post($I);
+        $this->enable($I);
+        $root = sys_get_temp_dir() . '/register-media-reorder-' . bin2hex(random_bytes(6));
+        mkdir($root, 0755);
+        $managed = new TelegramManagedMediaStorage($root);
+        $uploads = new TelegramMediaUploadStorage($root . '/private', 123, $I->grabService(ExternalImportMapRepository::class), $managed);
+        $I->replaceService(TelegramManagedMediaStorage::class, $managed, [TelegramImportService::class, TelegramLiveReactionService::class, TelegramLiveImportController::class]);
+        $I->replaceService(TelegramFileClientInterface::class, $uploads, [TelegramLiveImportController::class]);
+        $I->replaceService(TelegramMediaUploadStorage::class, $uploads, [TelegramLiveMediaController::class]);
+        try {
+            $files = [
+                'photo' => (string)file_get_contents(__DIR__ . '/../_resources/telegram-media/photo.png'),
+                'sticker' => gzencode((string)file_get_contents(__DIR__ . '/../_resources/telegram-sticker.json')),
+            ];
+            $snapshot = $this->snapshot();
+            $snapshot['messages'] = array_slice($snapshot['messages'], 0, 2);
+            $media = [];
+            foreach ($files as $uniqueId => $bytes) {
+                $I->assertIsString($bytes);
+                $extension = $uniqueId === 'photo' ? 'png' : 'tgs';
+                $media[] = ['kind' => 'file', 'path' => 'live/2/' . (\count($media) + 1) . '-' . $uniqueId . '.' . $extension,
+                    'file_id' => $uniqueId, 'file_unique_id' => $uniqueId, 'file_size' => \strlen($bytes),
+                    'file_name' => $uniqueId . '.' . $extension, 'mime_type' => 'application/octet-stream', 'sticker' => $uniqueId === 'sticker', 'emoji' => ''];
+            }
+
+            $I->sendJson(TelegramLiveMediaController::PATH, ['chat_id' => 123, 'message_id' => 2,
+                'files' => array_map(static fn(array $file): array => ['file_unique_id' => $file['file_unique_id'], 'file_size' => $file['file_size']], $media)],
+                headers: ['X-Register-Telegram-Token' => self::TOKEN]);
+            $I->seeResponseCodeIs(200);
+            foreach ($files as $uniqueId => $bytes) {
+                $I->assertIsString($bytes);
+                $I->sendBinary(TelegramLiveMediaController::PATH, $bytes, [
+                    'X-Register-Telegram-Token' => self::TOKEN, 'X-Register-Telegram-Chat' => '123',
+                    'X-Register-Telegram-Message' => '2', 'X-Register-Telegram-File' => $uniqueId,
+                    'X-Register-Telegram-Size' => (string)\strlen($bytes), 'X-Register-Telegram-Offset' => '0',
+                ]);
+                $I->seeResponseCodeIs(200);
+            }
+
+            $snapshot['messages'][1]['telegram_media'] = $media;
+            $this->send($I, $snapshot);
+            $I->seeResponseCodeIs(200);
+            $I->assertSame([], glob($root . '/private/*.part'));
+            $I->assertDirectoryExists($root . '/_pictures/telegram/comments/123/2');
+            $I->assertDirectoryDoesNotExist($root . '/_pictures/bolknote');
+            $snapshot['messages'][1]['telegram_media'] = [array_replace($media[1], ['path' => 'live/2/1-sticker.tgs'])];
+            $snapshot['messages'][1]['edited_unixtime'] = '200';
+            $snapshot['messages'][1]['bot_update_id'] = 200;
+            $I->sendJson(TelegramLiveMediaController::PATH,
+                ['chat_id' => 123, 'message_id' => 2, 'file_unique_id' => 'sticker'],
+                headers: ['X-Register-Telegram-Token' => self::TOKEN]);
+            $I->assertTrue($I->grabJson()['owned'] ?? false);
+            $this->send($I, $snapshot);
+            $I->seeResponseCodeIs(200);
+            $I->assertSame(1, $this->change($I, 'comments_updated'));
+            $comment = $I->grabService(CommentRepository::class)->findForContent(ContentId::post($id), true)[0];
+            $I->assertStringContainsString('comment-sticker', $comment->text);
+            $I->assertStringNotContainsString('<img ', $comment->text);
+            $I->assertSame(1, substr_count($comment->text, 'data-animation='));
+            $I->assertSame([], glob($root . '/private/*.part'));
+            $this->send($I, $snapshot);
+            $I->seeResponseCodeIs(200);
+            $I->assertSame(0, $this->change($I, 'comments_updated'));
+
+            $comments = $I->grabService(CommentRepository::class);
+            $comments->edit($comment->id, ContentType::POST, 'Local correction');
+            $newBytes = $files['photo'] . 'replacement';
+            $uploads->append(2, 'replacement', \strlen($newBytes), 0, $newBytes);
+            $snapshot['messages'][1]['telegram_media'] = [array_replace($media[0], [
+                'path' => 'live/2/1-replacement.png', 'file_unique_id' => 'replacement', 'file_id' => 'replacement', 'file_size' => \strlen($newBytes),
+            ])];
+            $snapshot['messages'][1]['edited_unixtime'] = '201';
+            $snapshot['messages'][1]['bot_update_id'] = 201;
+            $this->send($I, $snapshot);
+            $I->seeResponseCodeIs(200);
+            $I->assertSame(1, $this->change($I, 'comments_local_edits_preserved'));
+            $I->assertSame('Local correction', $comments->find($comment->id)?->text);
+            $I->assertSame([], glob($root . '/private/*.part'));
+            $I->assertSame([], glob($root . '/private/*.json'));
+        } finally {
+            (new \Symfony\Component\Filesystem\Filesystem())->remove($root);
+        }
+    }
+
+    public function acceptsCompactAncestorsOnlyAfterImportAndNeverRewritesTheirSources(\IntegrationTester $I): void
+    {
+        $id = $this->post($I);
+        $this->enable($I);
+        $json = (string)file_get_contents(__DIR__ . '/../_resources/telegram-live-snapshot-part.json');
+        $part = json_decode($json, true, 32, JSON_THROW_ON_ERROR);
+        $this->send($I, $part);
+        $I->seeResponseCodeIs(409);
+        $I->assertSame(0, $I->grabService(CommentRepository::class)->count(ContentId::post($id), true));
+
+        $snapshot = $this->snapshot();
+        $snapshot['messages'] = array_slice($snapshot['messages'], 0, 2);
+        $this->send($I, $snapshot);
+        $I->seeResponseCodeIs(200);
+        $map = $I->grabService(ExternalImportMapRepository::class)->find('telegram', '123', 'comment', '2');
+        $this->send($I, $part);
+        $I->seeResponseCodeIs(200);
+        $I->assertSame(1, $this->change($I, 'comments_inserted'));
+        $I->assertSame($map, $I->grabService(ExternalImportMapRepository::class)->find('telegram', '123', 'comment', '2'));
+        $part['messages'][0]['id'] = 99;
+        $part['messages'][1]['reply_to_message_id'] = 99;
+        $this->send($I, $part);
+        $I->seeResponseCodeIs(409);
+        $part['messages'][1]['text'] = 'Do not overwrite the parent';
+        $this->send($I, $part);
+        $I->seeResponseCodeIs(422);
+    }
+
+    public function importsLongChainsInBoundedPartsWithoutTruncatingCommentText(\IntegrationTester $I): void
+    {
+        $id = $this->post($I);
+        $this->enable($I);
+        $snapshot = $this->snapshot();
+        $root = $snapshot['messages'][0];
+        $template = $snapshot['messages'][1];
+        $references = [];
+        for ($messageId = 2; $messageId <= 36; ++$messageId) {
+            $comment = array_replace($template, ['id' => $messageId,
+                'reply_to_message_id' => $messageId - 1, 'text' => str_repeat('x', 4096),
+                'text_entities' => [['type' => 'plain', 'text' => str_repeat('x', 4096)]]]);
+            $snapshot['messages'] = [$root, ...$references, $comment];
+            $I->assertLessThanOrEqual(TelegramLiveImportController::MAX_BYTES, \strlen(json_encode($snapshot, JSON_THROW_ON_ERROR)));
+            $this->send($I, $snapshot);
+            $I->seeResponseCodeIs(200);
+            $references[] = ['id' => $messageId, 'type' => 'message', 'telegram_reference' => true, 'reply_to_message_id' => $messageId - 1];
+        }
+
+        $comments = $I->grabService(CommentRepository::class)->findForContent(ContentId::post($id), true);
+        $I->assertCount(35, $comments);
+        foreach ($comments as $comment) {
+            $I->assertSame(4096, \strlen(strip_tags($comment->text)));
+        }
+    }
+
+    public function resolvesGeneratedPostLinksAndAliasesUnderTheInstalledBasePath(\IntegrationTester $I): void
+    {
+        $id = $this->post($I);
+        $this->enable($I);
+        $db = $I->grabService(DbLayer::class);
+        $db->update(ContentSchema::TABLE_NAME)->set('slug', ':slug')->where('id = :id')->execute(['slug' => 'all/apos', 'id' => $id]);
+        $db->insert(ContentUrlAliasSchema::TABLE_NAME)->values(['path' => "'old-apos'", 'content_id' => ':id'])->execute(['id' => $id]);
+        $application = $I->createApplication(['base_path' => '/blog', 'base_url' => 'http://register.localhost/blog']);
+        $pdo = $I->grabService(\PDO::class);
+        $config = $I->grabService(TelegramLiveImportConfig::class);
+        $application->container->decorate(\PDO::class, static fn(): \PDO => $pdo);
+        $application->container->decorate(DbLayer::class, static fn(): DbLayer => $db);
+        $application->container->decorate(TelegramLiveImportConfig::class, static fn(): TelegramLiveImportConfig => $config);
+
+        $url = $application->container->get(ContentUrlGenerator::class)->post('all/apos');
+        $I->assertSame('/blog/all/apos', $url);
+        $snapshot = $this->snapshot();
+        foreach ([$url, '/blog/old-apos', '/apos', '/blog-other/apos'] as $path) {
+            $snapshot['messages'][0]['text_entities'][0]['href'] = 'http://register.localhost' . $path;
+            $response = $application->container->get(TelegramLiveImportController::class)->handle(Request::create(
+                'http://register.localhost/blog' . TelegramLiveImportController::PATH, 'POST',
+                server: ['CONTENT_TYPE' => 'application/json', 'HTTP_X_REGISTER_TELEGRAM_TOKEN' => self::TOKEN],
+                content: json_encode($snapshot, JSON_THROW_ON_ERROR),
+            ));
+            $I->assertSame(str_starts_with($path, '/blog/') ? 200 : 409, $response->getStatusCode());
+        }
+
+        $I->assertSame(2, $I->grabService(CommentRepository::class)->count(ContentId::post($id), true));
     }
 
     private function change(\IntegrationTester $I, string $name): int

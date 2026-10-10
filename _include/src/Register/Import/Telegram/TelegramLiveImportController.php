@@ -107,6 +107,8 @@ final readonly class TelegramLiveImportController implements ControllerInterface
             }
 
             return $this->response(['success' => true, 'changes' => $report['changes']]);
+        } catch (TelegramMissingReference) {
+            return $this->response(['success' => false, 'error' => 'missing_target'], 409);
         } catch (TelegramMediaDownloadFailed) {
             return $this->response(['success' => false, 'error' => 'media_pending'], 503);
         } catch (\Throwable $exception) {
@@ -140,6 +142,15 @@ final readonly class TelegramLiveImportController implements ControllerInterface
                 || isset($message['photo']) || isset($message['file'])
             ) {
                 throw new \UnexpectedValueException('A snapshot contains an unsupported message or channel.');
+            }
+
+            if (isset($message['telegram_reference'])) {
+                if ($message['telegram_reference'] !== true || ($message['type'] ?? null) !== 'message'
+                    || !\is_int($message['reply_to_message_id'] ?? null) || $message['reply_to_message_id'] <= 0
+                    || array_diff(array_keys($message), ['id', 'type', 'telegram_reference', 'reply_to_message_id']) !== []
+                ) {
+                    throw new \UnexpectedValueException('The ancestor reference is invalid.');
+                }
             }
 
             if (isset($message['channel_message_id']) && (!\is_int($message['channel_message_id']) || $message['channel_message_id'] <= 0)) {

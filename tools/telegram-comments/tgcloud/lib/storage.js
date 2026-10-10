@@ -1,18 +1,29 @@
 import { sourceTime } from './protocol.js';
 
 export function createStore(db, sql) {
+    let migration;
+    async function scopeLegacyCache(fallbackConfig) {
+        if (!migration) migration = (async () => {
+            const row = await db.get(sql`SELECT payload FROM configuration WHERE id = 1`);
+            const previous = row ? JSON.parse(row.payload) : fallbackConfig;
+            const prefix = `${previous.discussionChatId}:${previous.channelChatId}:`;
+            // Bind the old cache once, before changing settings. Late legacy writes
+            // cannot enter the new cache after this marker has been committed.
+            await db.run(sql`INSERT INTO scoped_messages (id, source_time, update_id, payload)
+                SELECT ${prefix} || id, source_time, update_id, payload FROM messages
+                WHERE NOT EXISTS (SELECT 1 FROM configuration WHERE id = 2)
+                ON CONFLICT(id) DO NOTHING`);
+            await db.run(sql`INSERT INTO configuration (id, payload) VALUES (2, 'scoped_cache') ON CONFLICT(id) DO NOTHING`);
+        })();
+        try { await migration; } catch (error) { migration = null; throw error; }
+    }
     return {
         async getConfig() {
             const row = await db.get(sql`SELECT payload FROM configuration WHERE id = 1`);
             return row ? JSON.parse(row.payload) : null;
         },
-        async saveConfig(config, previousConfig) {
-            const previous = await this.getConfig();
-            if ((previous?.discussionChatId ?? previousConfig.discussionChatId) !== config.discussionChatId
-                || (previous?.channelChatId ?? previousConfig.channelChatId) !== config.channelChatId) {
-                // Message IDs are local to a group. Never reuse another group's ancestry.
-                await db.run(sql`DELETE FROM messages`);
-            }
+        async saveConfig(config, previousConfig = config) {
+            await scopeLegacyCache(previousConfig);
             await db.run(sql`INSERT INTO configuration (id, payload) VALUES (1, ${JSON.stringify(config)})
                 ON CONFLICT(id) DO UPDATE SET payload = excluded.payload`);
         },
@@ -20,20 +31,24 @@ export function createStore(db, sql) {
             await db.run(sql`INSERT INTO pending (id, payload, last_attempt, last_error)
                 VALUES (${id}, ${JSON.stringify(payload)}, 0, '') ON CONFLICT(id) DO NOTHING`);
         },
-        async remember(message) {
-            const existing = message.forwarded_from_id && message.text ? await this.getMessage(message.id) : null;
+        async remember(message, config) {
+            await scopeLegacyCache(config);
+            const key = `${config.discussionChatId}:${config.channelChatId}:${message.id}`;
+            const existing = message.forwarded_from_id && message.text ? await this.getMessage(message.id, config) : null;
             const completesRoot = Boolean(existing && existing.forwarded_from_id === message.forwarded_from_id
                 && !existing.text && sourceTime(message) >= sourceTime(existing));
             if (completesRoot) message = { ...message, bot_update_id: Math.max(message.bot_update_id, existing.bot_update_id) };
-            await db.run(sql`INSERT INTO messages (id, source_time, update_id, payload)
-                VALUES (${message.id}, ${sourceTime(message)}, ${message.bot_update_id}, ${JSON.stringify(message)})
+            await db.run(sql`INSERT INTO scoped_messages (id, source_time, update_id, payload)
+                VALUES (${key}, ${sourceTime(message)}, ${message.bot_update_id}, ${JSON.stringify(message)})
                 ON CONFLICT(id) DO UPDATE SET source_time = excluded.source_time, update_id = excluded.update_id, payload = excluded.payload
-                WHERE excluded.source_time > messages.source_time
-                   OR (excluded.source_time = messages.source_time AND (excluded.update_id > messages.update_id
-                       OR (${completesRoot ? 1 : 0} = 1 AND messages.payload = ${JSON.stringify(existing)})))`);
+                WHERE excluded.source_time > scoped_messages.source_time
+                   OR (excluded.source_time = scoped_messages.source_time AND (excluded.update_id > scoped_messages.update_id
+                       OR (${completesRoot ? 1 : 0} = 1 AND scoped_messages.payload = ${JSON.stringify(existing)})))`);
         },
-        async getMessage(id) {
-            const row = await db.get(sql`SELECT payload FROM messages WHERE id = ${id}`);
+        async getMessage(id, config) {
+            await scopeLegacyCache(config);
+            const key = `${config.discussionChatId}:${config.channelChatId}:${id}`;
+            const row = await db.get(sql`SELECT payload FROM scoped_messages WHERE id = ${key}`);
             return row ? JSON.parse(row.payload) : null;
         },
         async pending(limit) {

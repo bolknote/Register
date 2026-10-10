@@ -59,7 +59,29 @@ final readonly class TelegramLiveMediaController implements ControllerInterface
             $uniqueId = $data['file_unique_id'] ?? null;
             if (($data['chat_id'] ?? null) !== $this->config->discussionExportId()
                 || !\is_int($messageId) || $messageId <= 0 || $messageId > 9_007_199_254_740_991
-                || !\is_string($uniqueId) || preg_match('/^[A-Za-z0-9_-]{1,128}$/D', $uniqueId) !== 1) {
+            ) {
+                throw new \UnexpectedValueException('The media identity is invalid.');
+            }
+
+            if ($probe && isset($data['files'])) {
+                $files = $data['files'];
+                if (!\is_array($files) || !array_is_list($files) || $files === [] || \count($files) > 10) {
+                    throw new \UnexpectedValueException('The media reservation is invalid.');
+                }
+
+                foreach ($files as $file) {
+                    if (!\is_array($file) || !\is_string($file['file_unique_id'] ?? null)
+                        || !\is_int($file['file_size'] ?? null)
+                    ) {
+                        throw new \UnexpectedValueException('The media reservation is invalid.');
+                    }
+                }
+
+                $this->storage->reserveMessage($messageId, $files);
+                return $this->response(['success' => true, 'received' => 0, 'complete' => false, 'owned' => false]);
+            }
+
+            if (!\is_string($uniqueId) || preg_match('/^[A-Za-z0-9_-]{1,128}$/D', $uniqueId) !== 1) {
                 throw new \UnexpectedValueException('The media identity is invalid.');
             }
 

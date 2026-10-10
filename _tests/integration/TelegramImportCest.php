@@ -93,7 +93,7 @@ final class TelegramImportCest
         $dbLayer = $I->grabService(DbLayer::class);
         $contentId = $this->insertPost($dbLayer);
         $publicRoot = sys_get_temp_dir() . '/register-telegram-import-' . bin2hex(random_bytes(6)) . '/';
-        $I->assertTrue(mkdir($publicRoot . '_pictures/bolknote/comments', 0755, true));
+        $I->assertTrue(mkdir($publicRoot, 0755, true));
         $I->replaceService(
             TelegramManagedMediaStorage::class,
             new TelegramManagedMediaStorage($publicRoot),
@@ -155,7 +155,7 @@ final class TelegramImportCest
             $I->assertSame($commentId, $comments[0]->id);
             $I->assertStringContainsString('<figure class="comment-media"><img ', $comments[0]->text);
             $I->assertStringNotContainsString('comment-media-missing', $comments[0]->text);
-            if (preg_match('~src="(/_pictures/bolknote/comments/telegram/[^"]+)"~', $comments[0]->text, $matches) !== 1) {
+            if (preg_match('~src="(/_pictures/telegram/comments/[^"]+)"~', $comments[0]->text, $matches) !== 1) {
                 throw new \RuntimeException('The imported comment has no managed media URL.');
             }
 
@@ -206,25 +206,7 @@ final class TelegramImportCest
                 unlink($storedFile);
             }
 
-            foreach (['123/2', '123', ''] as $suffix) {
-                $directory = $publicRoot . '_pictures/bolknote/comments/telegram'
-                    . ($suffix === '' ? '' : '/' . $suffix);
-                if (is_dir($directory)) {
-                    rmdir($directory);
-                }
-            }
-
-            foreach ([
-                $publicRoot . '_pictures/bolknote/comments',
-                $publicRoot . '_pictures/bolknote',
-                $publicRoot . '_pictures',
-                $publicRoot,
-            ] as $directory) {
-                if (is_dir($directory)) {
-                    rmdir($directory);
-                }
-            }
-
+            (new \Symfony\Component\Filesystem\Filesystem())->remove($publicRoot);
             if (is_file($jsonPath)) {
                 unlink($jsonPath);
             }

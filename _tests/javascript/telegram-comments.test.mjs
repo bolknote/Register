@@ -7,6 +7,7 @@ import { messageMedia } from '../../tools/telegram-comments/tgcloud/lib/media.js
 import { createStore } from '../../tools/telegram-comments/tgcloud/lib/storage.js';
 import { ingest, ingestChannelPost, ingestReaction, flush } from '../../tools/telegram-comments/tgcloud/lib/relay.js';
 import { refreshConfig, restoreConfig } from '../../tools/telegram-comments/tgcloud/lib/settings.js';
+import { sendSnapshot, snapshotParts, jsonBytes, MAX_SNAPSHOT_BYTES } from '../../tools/telegram-comments/tgcloud/lib/transfer.js';
 import { uploadMedia, CHUNK_BYTES } from '../../tools/telegram-comments/tgcloud/lib/upload.js';
 
 const config = {
@@ -62,14 +63,17 @@ test('the bot resumes byte uploads after a lost reply and skips files already ow
     () => assert.fail('Owned media must not be downloaded again'))).ok, true);
 });
 
-function sqliteStore(t) {
+function sqliteStore(t, legacy = [], previousConfig = null) {
     const sqlite = new DatabaseSync(':memory:');
     t.after(() => sqlite.close());
     sqlite.exec(`CREATE TABLE messages (id INTEGER PRIMARY KEY, source_time INTEGER NOT NULL, update_id INTEGER NOT NULL, payload TEXT NOT NULL);
+        CREATE TABLE scoped_messages (id TEXT PRIMARY KEY, source_time INTEGER NOT NULL, update_id INTEGER NOT NULL, payload TEXT NOT NULL);
         CREATE TABLE pending (id INTEGER PRIMARY KEY, payload TEXT NOT NULL, last_attempt INTEGER NOT NULL DEFAULT 0, last_error TEXT NOT NULL DEFAULT '');
         CREATE TABLE configuration (id INTEGER PRIMARY KEY, payload TEXT NOT NULL);`);
     const sql = (strings, ...values) => ({ text: strings.join('?'), values });
     const query = (method, q) => sqlite.prepare(q.text)[method](...q.values);
+    for (const message of legacy) query('run', sql`INSERT INTO messages VALUES (${message.id}, ${message.date_unixtime}, ${message.bot_update_id}, ${JSON.stringify(message)})`);
+    if (previousConfig) query('run', sql`INSERT INTO configuration VALUES (1, ${JSON.stringify(previousConfig)})`);
     return createStore({
         run: async q => query('run', q), get: async q => query('get', q), all: async q => query('all', q),
     }, sql);
@@ -121,11 +125,11 @@ test('an older update and an inline reply target cannot overwrite a newer edit',
     await ingest(first, 100, config, store);
     await ingest(reply, 101, config, store);
     await flush(config, store, async () => ({ ok: true }));
-    assert.equal((await store.getMessage(2)).text, 'edited');
+    assert.equal((await store.getMessage(2, config)).text, 'edited');
     const late = { ...first, text: 'same-second older edit', edit_date: 200 };
     await ingest(late, 199, config, store);
     await flush(config, store, async () => ({ ok: true }));
-    assert.equal((await store.getMessage(2)).text, 'edited');
+    assert.equal((await store.getMessage(2, config)).text, 'edited');
 });
 
 test('filters other groups and roots from other channels, and never trusts manual forwards', async t => {
@@ -181,7 +185,7 @@ test('channel post IDs never collide with discussion IDs and reaction events sur
     await flush(config, store, async archive => { archives.push(archive); return { ok: true }; });
     assert.equal(archives[0].id, 111);
     assert.equal(archives[0].messages[0].channel_message_id, 1);
-    assert.equal((await store.getMessage(1)).forwarded_from_id, 'channel111');
+    assert.equal((await store.getMessage(1, config)).forwarded_from_id, 'channel111');
     assert.equal(archives.find(archive => archive.reaction_update)?.reaction_update.actor, 'user22');
     assert.equal((await store.status()).count, 0);
     await ingestReaction({ ...event, chat: post.chat, reactions: [{ type: { type: 'emoji', emoji: '👍' }, total_count: 3 }] }, 23, config, store, true);
@@ -237,13 +241,13 @@ test('retry reparses the retained source instead of keeping an obsolete incomple
 test('a full root snapshot repairs an empty cached root without changing its event identity', async t => {
     const store = sqliteStore(t);
     const fullRoot = normaliseMessage(root, 99, config);
-    await store.remember({ ...fullRoot, text: '', text_entities: [] });
+    await store.remember({ ...fullRoot, text: '', text_entities: [] }, config);
     await ingest(first, 100, config, store);
     await flush(config, store, async archive => {
         assert.equal(archive.messages[0].text, 'Example post');
         return { ok: true };
     });
-    assert.equal((await store.getMessage(1)).bot_update_id, 99);
+    assert.equal((await store.getMessage(1, config)).bot_update_id, 99);
 });
 
 test('UTF-16 links, nested formatting, and unsafe URLs preserve all visible text for server sanitization', () => {
@@ -263,8 +267,8 @@ test('busy and invalid responses keep the event, and cycles never become a blog 
     assert.equal((await store.status()).count, 1);
     await flush(config, store, async () => ({ ok: false, status: 200, error: 'unexpected_response' }));
     assert.equal((await store.status()).count, 1);
-    await store.remember({ ...normaliseMessage(first, 300, config), reply_to_message_id: 3 });
-    await store.remember({ ...normaliseMessage(reply, 301, config), reply_to_message_id: 2 });
+    await store.remember({ ...normaliseMessage(first, 300, config), reply_to_message_id: 3 }, config);
+    await store.remember({ ...normaliseMessage(reply, 301, config), reply_to_message_id: 2 }, config);
     assert.deepEqual(await snapshot(2, store, config), { error: 'reply_cycle_or_depth' });
 });
 
@@ -310,14 +314,140 @@ test('switching groups never uses another groups message IDs or loses its pendin
     const store = sqliteStore(t);
     const current = { ...config, botApiToken: 'test-bot-token' };
     await ingest(first, 100, current, store);
-    await store.remember(normaliseMessage(root, 99, current));
+    await store.remember(normaliseMessage(root, 99, current), current);
     await refreshConfig(current, store, async () => ({ ok: true, json: async () => ({ success: true, config: {
         enabled: true, token: config.token, ownerUserId: config.ownerUserId,
         discussionChatId: -1_000_000_000_999, channelChatId: config.channelChatId,
     } }) }));
-    assert.equal(await store.getMessage(1), null);
+    assert.equal(await store.getMessage(1, current), null);
     await flush(current, store, async () => assert.fail('the old group must not be delivered into the new scope'));
     assert.equal((await store.status()).count, 1);
     assert.equal((await store.status()).errors[0].last_error, 'scope_changed');
     assert.equal((await store.pending(1))[0].payload.source.text, 'First comment');
+});
+
+test('a paused worker cannot restore another scopes ancestors after settings change', async t => {
+    const store = sqliteStore(t);
+    const current = { ...config };
+    const oldScope = { ...current };
+    await ingest({ ...first, date: 200, edit_date: 350, text: 'Old group text' }, 100, current, store);
+    let resume;
+    let paused;
+    const gate = new Promise(resolve => { resume = resolve; });
+    const entered = new Promise(resolve => { paused = resolve; });
+    const workerStore = { ...store, async remember(message, scope) {
+        paused();
+        await gate;
+        return store.remember(message, scope);
+    } };
+    const worker = flush(current, workerStore, async (archive, scope) => {
+        assert.equal(archive.id, 123);
+        assert.deepEqual(scope, oldScope);
+        return { ok: false, status: 422, error: 'invalid_snapshot' };
+    });
+    await entered;
+    current.discussionChatId = -1_000_000_000_456;
+    current.token = 'b'.repeat(64);
+    await store.saveConfig(current, oldScope);
+    const newGroup = { ...group, id: current.discussionChatId };
+    const newRoot = { ...root, chat: newGroup, text: 'New group post' };
+    const newFirst = { ...first, chat: newGroup, date: 150, text: 'New group parent', reply_to_message: newRoot };
+    await store.remember(normaliseMessage(newRoot, 200, current), current);
+    await store.remember(normaliseMessage(newFirst, 201, current), current);
+    resume();
+    await worker;
+    await ingest({ ...reply, chat: newGroup, reply_to_message: { ...newFirst, reply_to_message: undefined } }, 202, current, store);
+    await flush(current, store, async (archive, scope) => {
+        assert.equal(archive.id, 456);
+        assert.equal(scope.token, current.token);
+        assert.equal(archive.messages[0].text, 'New group post');
+        assert.equal(archive.messages[1].text, 'New group parent');
+        return { ok: true };
+    });
+    assert.equal((await store.status()).count, 1);
+    assert.equal((await store.status()).errors[0].last_error, 'scope_changed');
+    assert.equal(await store.getMessage(1, { ...current, channelChatId: -1_000_000_000_789 }), null);
+});
+
+test('the additive cache migration preserves existing ancestry under its previous scope', async t => {
+    const messages = [normaliseMessage(root, 1, config), normaliseMessage(first, 2, config)];
+    const store = sqliteStore(t, messages, config);
+    const changed = { ...config, discussionChatId: -1_000_000_000_456 };
+    await store.saveConfig(changed, config);
+    assert.equal(await store.getMessage(1, changed), null);
+    assert.deepEqual((await snapshot(2, store, config)).archive.messages, messages);
+    assert.equal((await store.getConfig()).discussionChatId, changed.discussionChatId);
+});
+
+test('long full-length reply chains use bounded packets and retain the event until all parts succeed', async t => {
+    const store = sqliteStore(t);
+    await store.remember(normaliseMessage(root, 1, config), config);
+    for (let id = 2; id <= 36; id++) {
+        await store.remember({ ...normaliseMessage(first, id, config), id,
+            reply_to_message_id: id - 1, text: 'x'.repeat(4096),
+            text_entities: [{ type: 'plain', text: 'x'.repeat(4096) }] }, config);
+    }
+    await store.enqueue(1000, { current: await store.getMessage(36, config),
+        discussionChatId: config.discussionChatId, channelChatId: config.channelChatId });
+    const { archive } = await snapshot(36, store, config);
+    assert.ok(jsonBytes(archive) > MAX_SNAPSHOT_BYTES);
+    const parts = snapshotParts(archive);
+    assert.equal(parts.length, 35);
+    const fixture = JSON.parse(readFileSync(new URL('../_resources/telegram-live-snapshot-part.json', import.meta.url)));
+    const shared = JSON.parse(readFileSync(new URL('../_resources/telegram-live-snapshot.json', import.meta.url)));
+    assert.deepEqual(snapshotParts(shared)[1], fixture);
+    let calls = 0;
+    const imported = new Map();
+    const fetch = async (_url, options) => {
+        const part = JSON.parse(options.body);
+        assert.ok(jsonBytes(part) <= MAX_SNAPSHOT_BYTES);
+        for (const message of part.messages.slice(1)) {
+            if (message.telegram_reference) {
+                assert.ok(imported.has(message.id));
+                assert.equal(message.text, undefined);
+            } else imported.set(message.id, message.text);
+        }
+        calls++;
+        if (calls === 3) throw new Error('acknowledgement lost');
+        return { ok: true, status: 200, json: async () => ({ success: true }) };
+    };
+    await flush(config, store, (payload, scope) => sendSnapshot(payload, scope, fetch, () => assert.fail()));
+    assert.equal((await store.status()).count, 1);
+    assert.equal(imported.size, 3);
+    await flush(config, store, (payload, scope) => sendSnapshot(payload, scope, fetch, () => assert.fail()));
+    assert.equal((await store.status()).count, 0);
+    assert.equal(imported.size, 35);
+    assert.ok([...imported.values()].every(text => text.length === 4096));
+    assert.equal(jsonBytes({ text: '😀я' }), Buffer.byteLength(JSON.stringify({ text: '😀я' })));
+});
+
+test('a six-file comment reserves all 120 MB before sending its first byte', async () => {
+    const bytes = new Uint8Array(20_000_000);
+    const media = Array.from({ length: 6 }, (_, i) => ({ file_id: `file${i}`,
+        file_unique_id: `unique${i}`, file_size: bytes.length }));
+    let reserved = false;
+    let uploaded = 0;
+    const received = new Map();
+    const fetch = async (_url, options) => {
+        if (options.body instanceof Uint8Array) {
+            assert.equal(reserved, true);
+            const id = options.headers['X-Register-Telegram-File'];
+            const offset = Number(options.headers['X-Register-Telegram-Offset']);
+            const size = offset + options.body.length;
+            received.set(id, size);
+            uploaded += options.body.length;
+            return { ok: true, status: 200, json: async () => ({ success: true, received: size,
+                complete: size === bytes.length, owned: false }) };
+        }
+        const payload = JSON.parse(options.body);
+        if (payload.files) {
+            assert.equal(payload.files.length, 6);
+            assert.equal(payload.files.reduce((sum, file) => sum + file.file_size, 0), 120_000_000);
+            reserved = true;
+        }
+        return { ok: true, status: 200, json: async () => ({ success: true, received: 0, complete: false, owned: false }) };
+    };
+    assert.equal((await uploadMedia({ id: 123, messages: [{ id: 2, telegram_media: media }] }, config, fetch, () => bytes)).ok, true);
+    assert.equal(received.size, 6);
+    assert.equal(uploaded, 120_000_000);
 });

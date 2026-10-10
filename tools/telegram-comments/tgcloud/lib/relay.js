@@ -9,7 +9,8 @@ export async function ingest(message, updateId, config, store) {
     // a newer copy already observed by this bot.
     const parent = message.reply_to_message ? normaliseMessage(message.reply_to_message, 0, config) : null;
     // Keep the source until acknowledgement so a parser fix can repair a queued event.
-    await store.enqueue(updateId, { current, parent, source: message, discussionChatId: config.discussionChatId });
+    await store.enqueue(updateId, { current, parent, source: message, discussionChatId: config.discussionChatId,
+        channelChatId: config.channelChatId });
     return true;
 }
 
@@ -29,6 +30,9 @@ export async function ingestReaction(event, updateId, config, store, counts = fa
 }
 
 export async function flush(config, store, send, now = Date.now, limit = 20) {
+    // Settings may change while another handler awaits delivery. Keep this operation's
+    // scope and credentials together all the way through cache access and HTTP delivery.
+    config = { ...config };
     let delivered = 0;
     let ignored = 0;
     for (const row of await store.pending(limit)) {
@@ -54,8 +58,8 @@ export async function flush(config, store, send, now = Date.now, limit = 20) {
                 await store.failed(row.id, 'unsupported_message', now());
                 continue;
             }
-            if (parent) await store.remember(parent);
-            await store.remember(current);
+            if (parent) await store.remember(parent, config);
+            await store.remember(current, config);
             result = await snapshot(current.id, store, config);
         }
         if (result.ignored) {
@@ -68,7 +72,7 @@ export async function flush(config, store, send, now = Date.now, limit = 20) {
             continue;
         }
         try {
-            const response = await send(result.archive);
+            const response = await send(result.archive, config);
             if (!response.ok) {
                 await store.failed(row.id, response.error, now());
                 if (response.status >= 500 || response.status === 429 || response.status === 401 || response.status === 404) break;

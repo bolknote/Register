@@ -131,7 +131,7 @@ final class TelegramDiscussionArchiveTest extends Unit
         self::assertTrue($zip->close());
 
         $publicRoot = sys_get_temp_dir() . '/register-telegram-media-' . bin2hex(random_bytes(6)) . '/';
-        self::assertTrue(mkdir($publicRoot . '_pictures/bolknote/comments', 0755, true));
+        self::assertTrue(mkdir($publicRoot, 0755, true));
         $createdFile = null;
         try {
             $package = TelegramExportPackage::fromFile($archivePath, 'ChatExport.zip');
@@ -155,7 +155,7 @@ final class TelegramDiscussionArchiveTest extends Unit
             self::assertNotNull($stored);
             self::assertSame('image', $stored['kind']);
             self::assertSame('image/png', $stored['mime_type']);
-            self::assertStringStartsWith('/_pictures/bolknote/comments/telegram/123/2/', $stored['url']);
+            self::assertStringStartsWith('/_pictures/telegram/comments/123/2/', $stored['url']);
             $createdFile = $stored['created_file'];
             self::assertIsString($createdFile);
             self::assertFileExists($createdFile);
@@ -164,18 +164,7 @@ final class TelegramDiscussionArchiveTest extends Unit
                 unlink($createdFile);
             }
 
-            foreach (['123/2', '123', ''] as $suffix) {
-                $directory = $publicRoot . '_pictures/bolknote/comments/telegram'
-                    . ($suffix === '' ? '' : '/' . $suffix);
-                if (is_dir($directory)) {
-                    rmdir($directory);
-                }
-            }
-
-            rmdir($publicRoot . '_pictures/bolknote/comments');
-            rmdir($publicRoot . '_pictures/bolknote');
-            rmdir($publicRoot . '_pictures');
-            rmdir($publicRoot);
+            (new \Symfony\Component\Filesystem\Filesystem())->remove($publicRoot);
             unlink($archivePath);
         }
     }

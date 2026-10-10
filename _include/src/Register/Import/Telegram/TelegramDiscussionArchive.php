@@ -207,6 +207,16 @@ final class TelegramDiscussionArchive
             $parentCommentMessageId = $parentMessageId === $rootId ? null : $parentMessageId;
             $parentCommentMessageId === null ? ++$directComments : ++$nestedComments;
 
+            if (($message['telegram_reference'] ?? false) === true) {
+                $threads[$acceptedRoots[$rootId]]['comments'][] = [
+                    'message_id' => $messageId,
+                    'parent_message_id' => $parentCommentMessageId,
+                    'reference' => true,
+                    'reactions' => [],
+                ];
+                continue;
+            }
+
             $createdAt = $this->positiveInt($message['date_unixtime'] ?? null, 'message timestamp');
             $modifiedAt = (int)($message['edited_unixtime'] ?? 0);
             if ($modifiedAt <= $createdAt) {

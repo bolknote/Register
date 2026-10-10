@@ -18,7 +18,7 @@ final readonly class TelegramMediaUploadStorage implements TelegramFileClientInt
 
     public const int CHUNK_BYTES = 1_048_576;
 
-    private const int MAX_STAGED_BYTES = 100_000_000;
+    private const int MAX_STAGED_BYTES = 200_000_000;
 
     public function __construct(private string $directory, private int $chatId, private ExternalImportMapRepository $maps, private TelegramManagedMediaStorage $managed)
     {
@@ -39,6 +39,36 @@ final readonly class TelegramMediaUploadStorage implements TelegramFileClientInt
 
         $complete = $meta !== [] && $size === (int)$meta['size'];
         return ['received' => $complete ? $size : intdiv($size, self::CHUNK_BYTES) * self::CHUNK_BYTES, 'complete' => $complete, 'owned' => false];
+    }
+
+    /** Reserve an entire comment before accepting any of its bytes.
+     * @param list<array{file_unique_id: string, file_size: int}> $files
+     */
+    public function reserveMessage(int $messageId, array $files): void
+    {
+        if ($files === [] || \count($files) > 10) {
+            throw new \UnexpectedValueException('The media reservation is invalid.');
+        }
+
+        $entries = [];
+        foreach ($files as $file) {
+            $total = $file['file_size'];
+            $prefix = $this->prefix($messageId, $file['file_unique_id']);
+            if ($total <= 0 || $total > self::MAX_BYTES || (isset($entries[$prefix]) && $entries[$prefix] !== $total)) {
+                throw new \UnexpectedValueException('The media reservation is invalid.');
+            }
+
+            $entries[$prefix] = $total;
+        }
+
+        foreach ($files as $file) {
+            if ($this->owned($messageId, $file['file_unique_id'])) {
+                unset($entries[$this->prefix($messageId, $file['file_unique_id'])]);
+            }
+        }
+
+        $this->ensureDirectory();
+        $this->reserveFiles($entries);
     }
 
     /** @return array{received: int, complete: bool, owned: bool} */
@@ -75,7 +105,7 @@ final readonly class TelegramMediaUploadStorage implements TelegramFileClientInt
                     throw new \UnexpectedValueException('The media upload has a missing chunk.');
                 }
 
-                $this->reserve($prefix, $total);
+                $this->reserveFiles([$prefix => $total]);
             }
 
             $file = fopen($prefix . '.part', 'c+b');
@@ -160,7 +190,9 @@ final readonly class TelegramMediaUploadStorage implements TelegramFileClientInt
             }
 
             foreach ((array)($message['telegram_media'] ?? []) as $media) {
-                if (\is_array($media) && $this->owned((int)$message['id'], (string)$media['file_unique_id'])) {
+                // A successful import also acknowledges stale sources and preserved
+                // local edits. Their staged bytes no longer need quota reservations.
+                if (\is_array($media)) {
                     $this->discard($this->prefix((int)$message['id'], (string)$media['file_unique_id']));
                 }
             }
@@ -237,7 +269,8 @@ final readonly class TelegramMediaUploadStorage implements TelegramFileClientInt
         }
     }
 
-    private function reserve(string $prefix, int $total): void
+    /** @param array<string, int> $entries */
+    private function reserveFiles(array $entries): void
     {
         $lock = fopen($this->directory . '/quota.lock', 'c');
         if (!\is_resource($lock)) {
@@ -274,16 +307,36 @@ final readonly class TelegramMediaUploadStorage implements TelegramFileClientInt
                 ++$count;
             }
 
-            if ($reserved + $total > self::MAX_STAGED_BYTES || $count >= 64) {
+            foreach ($entries as $prefix => $total) {
+                $meta = $this->metadata($prefix);
+                if ($meta !== [] && (int)$meta['size'] !== $total) {
+                    throw new \UnexpectedValueException('The media upload size changed.');
+                }
+
+                if ($meta === []) {
+                    $reserved += $total;
+                    ++$count;
+                }
+            }
+
+            if ($reserved > self::MAX_STAGED_BYTES || $count > 64) {
                 throw new \RuntimeException('The private media staging quota is full.');
             }
 
-            $json = json_encode(['size' => $total, 'updated_at' => time()], JSON_THROW_ON_ERROR);
-            if (file_put_contents($prefix . '.json', $json, LOCK_EX) !== \strlen($json)) {
-                throw new \RuntimeException('The media upload metadata cannot be written.');
-            }
+            foreach ($entries as $prefix => $total) {
+                $fileLock = fopen($prefix . '.lock', 'c');
+                if (!\is_resource($fileLock)) {
+                    throw new \RuntimeException('The media upload lock is unavailable.');
+                }
 
-            chmod($prefix . '.json', 0600);
+                fclose($fileLock);
+                $json = json_encode(['size' => $total, 'updated_at' => time()], JSON_THROW_ON_ERROR);
+                if (file_put_contents($prefix . '.json', $json, LOCK_EX) !== \strlen($json)) {
+                    throw new \RuntimeException('The media upload metadata cannot be written.');
+                }
+
+                chmod($prefix . '.json', 0600);
+            }
         } finally {
             flock($lock, LOCK_UN);
             fclose($lock);
@@ -299,14 +352,15 @@ final readonly class TelegramMediaUploadStorage implements TelegramFileClientInt
         $telegram = \is_array($data) ? $data : [];
         $media = (array)($telegram['comment']['media'] ?? []);
         $state = (array)($telegram['media_state'] ?? []);
-        $existing = null;
         foreach ($media as $position => $item) {
             if (!\is_array($item) || !\is_string($item['path'] ?? null) || preg_match('~^live/' . $messageId . '/[1-9][0-9]*-' . preg_quote($uniqueId, '~') . '\\.[a-z0-9]+$~D', $item['path']) !== 1) {
                 continue;
             }
 
-            $existing ??= $this->managed->existingForMessage($this->chatId, $messageId);
-            $file = $existing[(int)$position + 1] ?? null;
+            $sourceIdentity = (string)($state[$position]['source_sha256'] ?? '');
+            $prefix = hash('sha256', $item['path']) . ':';
+            $file = str_starts_with($sourceIdentity, $prefix)
+                ? $this->managed->findForMessage($this->chatId, $messageId, substr($sourceIdentity, \strlen($prefix))) : null;
             if ($file !== null && ($state[$position]['source_sha256'] ?? '') === hash('sha256', $item['path']) . ':' . $file['storage_id']) {
                 return true;
             }

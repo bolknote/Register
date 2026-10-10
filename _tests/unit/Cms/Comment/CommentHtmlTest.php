@@ -163,6 +163,21 @@ TEXT;
         );
     }
 
+    public function testGenericImportedMediaWorksUnderABasePathAndRejectsTraversal(): void
+    {
+        foreach (['', '/blog'] as $basePath) {
+            $source = $basePath . '/_pictures/telegram/comments/123/2/01-0123456789abcdef0123.png';
+            $stored = CommentHtml::sanitizeImportedForStorage('<figure class="comment-media"><img src="' . $source . '"></figure>');
+            self::assertStringContainsString($source, CommentHtml::render($stored, 'wrote:'));
+            self::assertSame('', CommentHtml::sanitizeForStorage('<img src="' . $source . '">'));
+        }
+
+        foreach (['..', '%2e%2e', '%2fprivate', '%5cprivate', '%00'] as $segment) {
+            $source = '/blog/_pictures/telegram/comments/123/' . $segment . '/file.png';
+            self::assertSame('', CommentHtml::sanitizeImportedForStorage('<img src="' . $source . '">'));
+        }
+    }
+
     public function testImportedUnavailableAttachmentKeepsSemanticMarkerAndUsesRenderLocale(): void
     {
         $stored = CommentHtml::sanitizeImportedForStorage(

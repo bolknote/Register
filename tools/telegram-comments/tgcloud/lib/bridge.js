@@ -4,24 +4,10 @@ import { store } from './store.js';
 import { ingest, ingestChannelPost, ingestReaction, flush } from './relay.js';
 import { ready } from './protocol.js';
 import { refreshConfig, restoreConfig } from './settings.js';
-import { uploadMedia } from './upload.js';
+import { sendSnapshot } from './transfer.js';
 
-async function send(archive) {
-    const uploads = await uploadMedia(archive, config, fetch, id => api.getFileContent(id));
-    if (!uploads.ok) return uploads;
-    const response = await fetch(`${config.blogUrl.replace(/\/$/, '')}/_live/telegram/comments`, {
-        method: 'POST',
-        redirect: 'error',
-        headers: { 'Content-Type': 'application/json', 'X-Register-Telegram-Token': config.token },
-        body: JSON.stringify(archive),
-    });
-    let result;
-    try { result = await response.json(); } catch { result = null; }
-    return {
-        ok: response.ok && result?.success === true,
-        status: response.status,
-        error: `http_${response.status}_${['disabled', 'unauthorized', 'post_not_found', 'missing_target', 'invalid_snapshot', 'busy', 'media_pending'].includes(result?.error) ? result.error : 'unexpected_response'}`,
-    };
+async function send(archive, deliveryConfig) {
+    return sendSnapshot(archive, deliveryConfig, fetch, id => api.getFileContent(id));
 }
 
 async function checkReceiver() {
