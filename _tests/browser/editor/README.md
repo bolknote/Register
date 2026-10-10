@@ -80,6 +80,15 @@ Undo/redo, cell editing, existing following paragraphs, authored comments and
 repeated saves retain the complete content. The editor-only empty line after a
 last table is never included in saved HTML until the author types there.
 
+Inline-code boundary regressions also run independently with
+`node inline-code-boundary-tests.mjs`. They reproduce a leading code chip after
+block code through the public editor and its actual formatting tool. Real padding
+clicks and Left/Right keys place the caret outside or back inside inline code.
+All three engines check rendered caret pixels, leading/middle text, both themes
+and mobile layouts, nested and adjacent code, spaces, native word editing and
+double-click selection. Undo/redo, local recovery and repeated saves retain exact
+text and formatting; runtime separators never contain or serialize author text.
+
 Saving a post containing a script or style element performs a full document load:
 fragment insertion cannot initialize scripts or grant the document's CSP nonce.
 The HTML-block and PHP end-to-end suites check immediately usable published

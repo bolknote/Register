@@ -86,7 +86,7 @@
 
     const {createEditorFieldSurfaces} = window.RegisterEditorFields.create({});
 
-    const {clearBoundaryCaret, clearSyntheticBoundaryCaret, boundaryNodeIsEmpty, isMediaBoundaryElement, editorBoundaryParagraphIsEmpty, topLevelBodyChild, hoistMediaFromParagraph, normalizeLeadingNestedMedia, leadingMediaIndex, prepareMediaInsertionRange, focusBeforeLeadingMedia, focusBeforeMedia, focusAfterMedia, mediaBesideCaret, revealBoundaryCaret, mediaBoundaryAtRange, syncBoundaryCaret, moveInsertionBeforeMediaBoundary, protectSelectedMediaBoundary, collapseEmptyParagraphBesideMedia, expandCollapsedBoundaryParagraph, collapseEmptyLeadingParagraphAfterDelete, isMediaOwnedDirectChild, normalizeMediaBodyStructure} = window.RegisterEditorBoundaries.create({
+    const {clearBoundaryCaret, clearSyntheticBoundaryCaret, boundaryNodeIsEmpty, isMediaBoundaryElement, editorBoundaryParagraphIsEmpty, topLevelBodyChild, hoistMediaFromParagraph, normalizeLeadingNestedMedia, leadingMediaIndex, prepareMediaInsertionRange, focusBeforeLeadingMedia, focusBeforeMedia, focusAfterMedia, mediaBesideCaret, revealBoundaryCaret, mediaBoundaryAtRange, inlineCodeBoundaryMarkerAtRange, syncBoundaryCaret, moveInsertionBeforeMediaBoundary, protectSelectedMediaBoundary, collapseEmptyParagraphBesideMedia, expandCollapsedBoundaryParagraph, collapseEmptyLeadingParagraphAfterDelete, isMediaOwnedDirectChild, normalizeMediaBodyStructure} = window.RegisterEditorBoundaries.create({
         rangeIsInside, editorStates,
     });
 
@@ -1342,7 +1342,10 @@
             focusAfter: node => focusAfterHtmlBlock(state, node),
         });
         state.htmlBlocks.prepare();
-        state.history = createBodyHistory(state, () => state.htmlBlocks.prepare());
+        state.history = createBodyHistory(state, () => {
+            state.htmlBlocks.prepare();
+            restoreInlineCodeBoundary(state);
+        });
         state.titleHistory = createFieldHistory(state, elements.title, new AbortController(), () => {
             state.titleDirty = true;
         });
@@ -3340,7 +3343,7 @@
         return block?.tagName === 'BLOCKQUOTE' ? block : null;
     }
 
-    function inlineCodeAtCaretEnd(root, selection) {
+    function inlineCodeAtCaretBoundary(root, selection, atEnd) {
         if (!selection || selection.rangeCount !== 1) {
             return null;
         }
@@ -3350,19 +3353,115 @@
         }
 
         const ancestors = inlineCodeAncestors(root, range.startContainer);
+        const candidate = range.startContainer instanceof HTMLElement
+            ? range.startContainer.childNodes[range.startOffset] : null;
         const inlineCode = ancestors.at(-1) || (
             range.startContainer instanceof HTMLElement
             && range.startContainer.tagName === 'TT'
                 ? range.startContainer
                 : null
-        );
+        ) || (!atEnd && candidate instanceof HTMLElement && candidate.tagName === 'TT' ? candidate : null);
         if (!(inlineCode instanceof HTMLElement)) {
             return null;
         }
 
-        const tail = range.cloneRange();
-        tail.setEnd(inlineCode, inlineCode.childNodes.length);
-        return tail.cloneContents().textContent === '' ? inlineCode : null;
+        const edge = range.cloneRange();
+        if (atEnd) edge.setEnd(inlineCode, inlineCode.childNodes.length);
+        else edge.setStart(inlineCode, 0);
+        return edge.cloneContents().textContent === '' ? inlineCode : null;
+    }
+
+    function focusAtInlineCodeBoundary(state, inlineCode, after) {
+        const parent = inlineCode.parentNode;
+        if (!parent) return false;
+        const sibling = after ? inlineCode.nextSibling : inlineCode.previousSibling;
+        const range = document.createRange();
+        const marker = sibling instanceof HTMLElement && sibling.hasAttribute('data-post-inline-code-exit')
+            ? sibling : document.createElement('span');
+        if (!marker.hasAttribute('data-post-inline-code-exit')) {
+            marker.setAttribute('data-post-inline-code-exit', '');
+            marker.setAttribute('contenteditable', 'false');
+            marker.setAttribute('aria-hidden', 'true');
+            parent.insertBefore(marker, after ? inlineCode.nextSibling : inlineCode);
+        }
+        const neighbour = after ? marker.nextSibling : marker.previousSibling;
+        if (neighbour instanceof HTMLElement && neighbour.tagName === 'TT') {
+            const shield = marker.cloneNode(false);
+            shield.removeAttribute('class');
+            parent.insertBefore(shield, after ? neighbour : marker);
+        }
+        // Keep a noneditable separator on the code side of the insertion
+        // point. Bare DOM/text edges can inherit the neighbouring TT style.
+        if (after) range.setStartAfter(marker);
+        else range.setStartBefore(marker);
+        range.collapse(true);
+        return selectRange(state, range);
+    }
+
+    function moveBeforeInlineCode(event, state) {
+        if (event.target !== state.body || event.key !== 'ArrowLeft' || event.isComposing || event.shiftKey
+            || event.altKey || event.ctrlKey || event.metaKey) return false;
+        const inlineCode = inlineCodeAtCaretBoundary(state.body, window.getSelection(), false);
+        if (!inlineCode || inlineCode.closest('pre')) return false;
+        event.preventDefault();
+        event.stopPropagation();
+        return focusAtInlineCodeBoundary(state, inlineCode, false);
+    }
+
+    function moveBeforeInlineCodeClick(event, state) {
+        if (event.button !== 0 || event.detail > 1 || event.shiftKey || event.altKey
+            || event.ctrlKey || event.metaKey || state.imageCaptionEditor || state.mediaCaptionEditors.size > 0) return false;
+        const inlineCode = event.target instanceof Element ? event.target.closest('tt') : null;
+        const selection = window.getSelection();
+        if (!inlineCode || !state.body.contains(inlineCode) || inlineCode.closest('pre, [contenteditable="false"]')
+            || !selection?.isCollapsed) return false;
+        const rect = inlineCode.getClientRects()[0];
+        const padding = parseFloat(getComputedStyle(inlineCode).paddingLeft) || 0;
+        // Only the leading padding is an outside-code click. Text, later
+        // wrapped fragments, drags and multi-click selections stay native.
+        if (!rect || event.clientY < rect.top || event.clientY > rect.bottom
+            || event.clientX < rect.left || event.clientX >= rect.left + padding) return false;
+        event.preventDefault();
+        return focusAtInlineCodeBoundary(state, inlineCode, false);
+    }
+
+    function restoreInlineCodeBoundary(state) {
+        const selection = window.getSelection();
+        const range = selection?.rangeCount === 1 ? selection.getRangeAt(0) : null;
+        const parent = range?.startContainer;
+        if (!range?.collapsed || !(parent instanceof HTMLElement) || !state.body.contains(parent)) return;
+        const next = parent.childNodes[range.startOffset];
+        const previous = parent.childNodes[range.startOffset - 1];
+        const code = next instanceof HTMLElement && next.tagName === 'TT' ? next
+            : previous instanceof HTMLElement && previous.tagName === 'TT' ? previous : null;
+        if (code && !code.closest('pre, [contenteditable="false"]')) {
+            focusAtInlineCodeBoundary(state, code, code === previous);
+        }
+    }
+
+    function moveIntoInlineCode(event, state) {
+        if (event.target !== state.body || !['ArrowLeft', 'ArrowRight'].includes(event.key)
+            || event.isComposing || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) return false;
+        const selection = window.getSelection();
+        const range = selection?.rangeCount === 1 ? selection.getRangeAt(0) : null;
+        if (!range?.collapsed) return false;
+        const parent = range.startContainer;
+        const next = parent.nodeType === Node.TEXT_NODE
+            ? (range.startOffset === parent.data.length ? parent.nextSibling : null)
+            : parent.childNodes[range.startOffset];
+        const previous = parent.nodeType === Node.TEXT_NODE
+            ? (range.startOffset === 0 ? parent.previousSibling : null)
+            : parent.childNodes[range.startOffset - 1];
+        const marker = event.key === 'ArrowRight' ? next : previous;
+        if (!(marker instanceof HTMLElement) || !marker.hasAttribute('data-post-inline-code-exit')) return false;
+        const code = event.key === 'ArrowRight' ? marker.nextSibling : marker.previousSibling;
+        if (!(code instanceof HTMLElement) || code.tagName !== 'TT') return false;
+        event.preventDefault();
+        event.stopPropagation();
+        const inside = document.createRange();
+        inside.selectNodeContents(code);
+        inside.collapse(event.key === 'ArrowRight');
+        return selectRange(state, inside);
     }
 
     function moveAfterInlineCode(event, state) {
@@ -3376,40 +3475,14 @@
         ) {
             return false;
         }
-        const inlineCode = inlineCodeAtCaretEnd(state.body, window.getSelection());
+        const inlineCode = inlineCodeAtCaretBoundary(state.body, window.getSelection(), true);
         if (!inlineCode) {
             return false;
         }
 
         event.preventDefault();
         event.stopPropagation();
-        const parent = inlineCode.parentNode;
-        if (!parent) {
-            return false;
-        }
-        const next = inlineCode.nextSibling;
-        if (next?.nodeType === Node.TEXT_NODE && next.data !== '') {
-            const range = document.createRange();
-            range.setStart(next, 0);
-            range.collapse(true);
-            selectRange(state, range);
-            return true;
-        }
-        const marker = next instanceof HTMLElement
-            && next.hasAttribute('data-post-inline-code-exit')
-            ? next
-            : document.createElement('span');
-        if (!marker.hasAttribute('data-post-inline-code-exit')) {
-            marker.setAttribute('data-post-inline-code-exit', '');
-            marker.setAttribute('contenteditable', 'false');
-            marker.setAttribute('aria-hidden', 'true');
-            parent.insertBefore(marker, inlineCode.nextSibling);
-        }
-        const range = document.createRange();
-        range.setStartAfter(marker);
-        range.collapse(true);
-        selectRange(state, range);
-        return true;
+        return focusAtInlineCodeBoundary(state, inlineCode, true);
     }
 
     function exitStyledBlockOnEnter(event, state) {
@@ -5159,7 +5232,8 @@
             return true;
         }
 
-        if (state.body.contains(event.target) && moveAfterInlineCode(event, state)) {
+        if (state.body.contains(event.target) && (moveIntoInlineCode(event, state)
+            || moveBeforeInlineCode(event, state) || moveAfterInlineCode(event, state))) {
             return true;
         }
 
@@ -5429,6 +5503,8 @@
             }
         });
         if (card?.classList.contains('is-editing')) {
+            const state = editorStates.get(card);
+            if (state && moveBeforeInlineCodeClick(event, state)) return;
             const editableLink = target?.closest('a');
             if (editableLink && (
                 card.querySelector('[data-post-inplace-title]')?.contains(editableLink)
@@ -5623,6 +5699,31 @@
     }, false);
 
     document.addEventListener('beforeinput', moveInsertionBeforeMediaBoundary, false);
+
+    document.addEventListener('beforeinput', (event) => {
+        const state = editorStates.get(cardFor(event.target));
+        if (!state || event.target !== state.body || event.defaultPrevented || event.isComposing
+            || event.inputType !== 'insertText' || typeof event.data !== 'string' || event.data === '') return;
+        const selection = window.getSelection();
+        const range = selection?.rangeCount === 1 ? selection.getRangeAt(0) : null;
+        const marker = range && inlineCodeBoundaryMarkerAtRange(state.body, range);
+        if (!marker) return;
+        // WebKit can retain the adjacent TT as its cached native input target,
+        // especially in a body mixing block and bare inline nodes. Insert the
+        // first character at the actual outside-code Range, never in the chip.
+        event.preventDefault();
+        const offset = range.startOffset;
+        const existing = range.startContainer.nodeType === Node.TEXT_NODE;
+        const text = existing ? range.startContainer : document.createTextNode(event.data);
+        if (existing) text.insertData(offset, event.data);
+        else range.insertNode(text);
+        const caret = document.createRange();
+        caret.setStart(text, existing ? offset + event.data.length : text.data.length);
+        caret.collapse(true);
+        selectRange(state, caret);
+        state.body.dispatchEvent(new InputEvent('input', {bubbles: true,
+            inputType: event.inputType, data: event.data}));
+    }, false);
 
     document.addEventListener('beforeinput', collapseEmptyParagraphBesideMedia, false);
 

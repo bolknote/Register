@@ -31,6 +31,7 @@ import {runMediaDragRegressions} from './media-drag-tests.mjs';
 import {runMediaSpacingRegressions} from './media-spacing-tests.mjs';
 import {runMediaNavigationRegressions} from './media-navigation-tests.mjs';
 import {runTableNavigationRegressions} from './table-navigation-tests.mjs';
+import {runInlineCodeBoundaryRegressions} from './inline-code-boundary-tests.mjs';
 import {runAdminAiTargetRegressions} from './admin-ai-target-tests.mjs';
 import {runImageInsertionTextRegressions, runSmartParagraphRegressions, runSocialPreviewTextRegressions} from './admin-text-tests.mjs';
 import {runAltLayoutRegressions, runTemplateFieldRegressions, runPreviewDocumentRegressions, runPreviewLineRegressions} from './admin-layout-preview-tests.mjs';
@@ -463,6 +464,7 @@ try {
             await runMediaSpacingRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runMediaNavigationRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runTableNavigationRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runInlineCodeBoundaryRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runRecoveryRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runSaveRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runReviewRegressions(browser, `http://127.0.0.1:${server.address().port}`);

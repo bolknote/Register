@@ -430,6 +430,40 @@
             return null;
         }
 
+        function inlineCodeBoundaryMarkerAtRange(body, range) {
+            if (!range.collapsed || !body.contains(range.startContainer)) return null;
+            const text = range.startContainer;
+            if (text.nodeType === Node.TEXT_NODE) {
+                const after = range.startOffset === 0 && text.previousSibling instanceof HTMLElement
+                    && text.previousSibling.tagName === 'TT';
+                const before = range.startOffset === text.data.length && text.nextSibling instanceof HTMLElement
+                    && text.nextSibling.tagName === 'TT';
+                const code = after ? text.previousSibling : before ? text.nextSibling : null;
+                if (code && !code.closest('pre, [contenteditable="false"]')) {
+                    const marker = document.createElement('span');
+                    marker.setAttribute('data-post-inline-code-exit', '');
+                    marker.setAttribute('contenteditable', 'false');
+                    marker.setAttribute('aria-hidden', 'true');
+                    code.parentNode.insertBefore(marker, after ? text : code);
+                }
+                const leading = range.startOffset === text.data.length ? text.nextSibling : null;
+                if (leading instanceof HTMLElement && leading.hasAttribute('data-post-inline-code-exit')
+                    && leading.nextSibling instanceof HTMLElement && leading.nextSibling.tagName === 'TT') return leading;
+                const trailing = range.startOffset === 0 ? text.previousSibling : null;
+                return trailing instanceof HTMLElement && trailing.hasAttribute('data-post-inline-code-exit')
+                    && trailing.previousSibling instanceof HTMLElement && trailing.previousSibling.tagName === 'TT'
+                    ? trailing : null;
+            }
+            if (!(range.startContainer instanceof HTMLElement)) return null;
+            const next = range.startContainer.childNodes[range.startOffset];
+            const previous = range.startContainer.childNodes[range.startOffset - 1];
+            if (next instanceof HTMLElement && next.hasAttribute('data-post-inline-code-exit')
+                && next.nextSibling instanceof HTMLElement && next.nextSibling.tagName === 'TT') return next;
+            return previous instanceof HTMLElement && previous.hasAttribute('data-post-inline-code-exit')
+                && previous.previousSibling instanceof HTMLElement && previous.previousSibling.tagName === 'TT'
+                ? previous : null;
+        }
+
         function syncBoundaryCaret() {
             const selection = window.getSelection();
             const active = document.activeElement;
@@ -451,7 +485,10 @@
             ) {
                 const range = selection.getRangeAt(0);
                 if (range.collapsed) {
-                    if (range.startContainer === active && range.startOffset === 0) {
+                    const inlineCodeMarker = inlineCodeBoundaryMarkerAtRange(active, range);
+                    if (inlineCodeMarker) {
+                        nextElement = inlineCodeMarker;
+                    } else if (range.startContainer === active && range.startOffset === 0) {
                         nextElement = active;
                     } else {
                         nextElement = mediaBoundaryAtRange(active, range);
@@ -914,7 +951,7 @@
             return changed;
         }
 
-        return {clearBoundaryCaret, clearSyntheticBoundaryCaret, boundaryNodeIsEmpty, isMediaBoundaryElement, editorBoundaryParagraphIsEmpty, topLevelBodyChild, hoistMediaFromParagraph, normalizeLeadingNestedMedia, leadingMediaIndex, prepareMediaInsertionRange, focusBeforeLeadingMedia, focusBeforeMedia, focusAfterMedia, mediaBesideCaret, revealBoundaryCaret, mediaBoundaryAtRange, syncBoundaryCaret, moveInsertionBeforeMediaBoundary, protectSelectedMediaBoundary, collapseEmptyParagraphBesideMedia, expandCollapsedBoundaryParagraph, collapseEmptyLeadingParagraphAfterDelete, isMediaOwnedDirectChild, normalizeMediaBodyStructure};
+        return {clearBoundaryCaret, clearSyntheticBoundaryCaret, boundaryNodeIsEmpty, isMediaBoundaryElement, editorBoundaryParagraphIsEmpty, topLevelBodyChild, hoistMediaFromParagraph, normalizeLeadingNestedMedia, leadingMediaIndex, prepareMediaInsertionRange, focusBeforeLeadingMedia, focusBeforeMedia, focusAfterMedia, mediaBesideCaret, revealBoundaryCaret, mediaBoundaryAtRange, inlineCodeBoundaryMarkerAtRange, syncBoundaryCaret, moveInsertionBeforeMediaBoundary, protectSelectedMediaBoundary, collapseEmptyParagraphBesideMedia, expandCollapsedBoundaryParagraph, collapseEmptyLeadingParagraphAfterDelete, isMediaOwnedDirectChild, normalizeMediaBodyStructure};
     }
 
     window.RegisterEditorBoundaries = Object.freeze({create});

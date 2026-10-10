@@ -20,9 +20,11 @@ const testableEditorSource = editorModulesSource + '\n' + editorSource.replace(
         '        exitStyledBlockOnEnter,',
         '        focusAfterMedia,',
         '        focusBeforeLeadingMedia,',
-        '        inlineCodeAtCaretEnd,',
+        '        inlineCodeAtCaretEnd: (root, selection) => inlineCodeAtCaretBoundary(root, selection, true),',
         '        mergeAdjacentInlineCode,',
         '        moveAfterInlineCode,',
+        '        moveBeforeInlineCode,',
+        '        moveIntoInlineCode,',
         '        moveFromLeadingMediaCaption,',
         '        moveFromBodyMediaBoundary,',
         '        moveFromInlineMediaCaption,',
@@ -793,7 +795,7 @@ test('inline-code exit does not intercept navigation before its visual end or wi
     assert.equal(harness.currentRange().startOffset, 2);
 });
 
-test('inline-code exit uses existing normal text without adding a marker', function () {
+test('inline-code exit shields existing normal text without changing or replacing it', function () {
     const harness = createHarness();
     const body = new FakeHTMLElement();
     const paragraph = new FakeHTMLElement({tagName: 'P'});
@@ -820,9 +822,60 @@ test('inline-code exit uses existing normal text without adding a marker', funct
         stopPropagation() {},
     }, state), true);
 
+    const marker = paragraph.childNodes[1];
+    assert.equal(marker.hasAttribute('data-post-inline-code-exit'), true);
+    assert.equal(marker.getAttribute('contenteditable'), 'false');
+    assert.deepEqual(paragraph.childNodes, [inlineCode, marker, normalText]);
+    assert.equal(normalText.data, ' after');
+    assert.equal(harness.currentRange().startContainer, paragraph);
+    assert.equal(harness.currentRange().startOffset, 2);
+    harness.helpers.removeInlineCodeExitMarkers(body);
     assert.deepEqual(paragraph.childNodes, [inlineCode, normalText]);
-    assert.equal(harness.currentRange().startContainer, normalText);
+});
+
+test('ArrowLeft at the first inline-code character creates an outside caret with no text changes', function () {
+    const harness = createHarness();
+    const body = new FakeHTMLElement();
+    const paragraph = new FakeHTMLElement({tagName: 'P'});
+    const code = new FakeHTMLElement({tagName: 'TT'});
+    const text = new FakeTextNode(null, 'command');
+    code.append(text); paragraph.append(code); body.append(paragraph);
+    const state = {body, form: new FakeHTMLElement(), card: new FakeHTMLElement()};
+    function selectStart(prefix = '') {
+        harness.select(text, prefix.length);
+        Object.assign(harness.currentRange(), {
+            commonAncestorContainer: text,
+            cloneRange: () => ({setStart() {}, cloneContents: () => ({textContent: prefix})}),
+        });
+    }
+    let prevented = false;
+    const event = {target: body, key: 'ArrowLeft', preventDefault() { prevented = true; }, stopPropagation() {}};
+    selectStart();
+    assert.equal(harness.helpers.moveBeforeInlineCode(event, state), true);
+    assert.equal(prevented, true);
+    const marker = paragraph.childNodes[0];
+    assert.equal(marker.hasAttribute('data-post-inline-code-exit'), true);
+    assert.equal(marker.getAttribute('contenteditable'), 'false');
+    assert.equal(marker.textContent, '');
+    assert.equal(harness.currentRange().startContainer, paragraph);
     assert.equal(harness.currentRange().startOffset, 0);
+    assert.equal(body.textContent, 'command');
+    assert.equal(state.bodyDirty, undefined);
+    selectStart();
+    assert.equal(harness.helpers.moveBeforeInlineCode(event, state), true);
+    assert.deepEqual(paragraph.childNodes, [marker, code], 'Repeated visits reuse the same empty separator');
+    assert.equal(harness.helpers.moveIntoInlineCode({target: body, key: 'ArrowRight',
+        preventDefault() {}, stopPropagation() {}}, state), true);
+    assert.equal(harness.currentRange().startContainer, code);
+    assert.equal(harness.currentRange().startOffset, 0);
+    for (const modifier of ['shiftKey', 'ctrlKey', 'metaKey', 'altKey', 'isComposing']) {
+        selectStart();
+        assert.equal(harness.helpers.moveBeforeInlineCode({...event, [modifier]: true}, state), false);
+    }
+    selectStart('co');
+    assert.equal(harness.helpers.moveBeforeInlineCode(event, state), false, 'Interior movement stays native');
+    harness.helpers.removeInlineCodeExitMarkers(body);
+    assert.deepEqual(paragraph.childNodes, [code]);
 });
 
 test('inline-code exit markers are removed before editor HTML is serialized', function () {
