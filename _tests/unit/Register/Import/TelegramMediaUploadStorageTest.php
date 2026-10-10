@@ -145,4 +145,19 @@ final class TelegramMediaUploadStorageTest extends Unit
         self::assertTrue($storage->append(2, 'repeated', 3, 0, 'abc')['complete']);
         self::assertSame('abc', $storage->download(['path' => 'live/2/2-repeated.bin', 'file_unique_id' => 'repeated']));
     }
+
+    public function testConflictingRepeatedAttachmentSizesDoNotLeaveAnyReservations(): void
+    {
+        $storage = $this->storage();
+        try {
+            $storage->reserveMessage(2, [
+                ['file_unique_id' => 'repeated', 'file_size' => 3],
+                ['file_unique_id' => 'repeated', 'file_size' => 4],
+            ]);
+            self::fail('The same attachment identity must not reserve conflicting sizes.');
+        } catch (\UnexpectedValueException) {
+            self::assertCount(0, $this->reservations());
+            self::assertDirectoryDoesNotExist($this->root . '/private');
+        }
+    }
 }

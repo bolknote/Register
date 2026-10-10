@@ -54,7 +54,7 @@ final readonly class TelegramMediaUploadStorage implements TelegramFileClientInt
         foreach ($files as $file) {
             $total = $file['file_size'];
             $prefix = $this->prefix($messageId, $file['file_unique_id']);
-            if ($total <= 0 || $total > self::MAX_BYTES || (isset($entries[$prefix]) && $entries[$prefix] !== $total)) {
+            if ($total <= 0 || $total > self::MAX_BYTES || ($entries[$prefix] ?? $total) !== $total) {
                 throw new \UnexpectedValueException('The media reservation is invalid.');
             }
 
