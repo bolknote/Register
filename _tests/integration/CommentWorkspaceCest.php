@@ -199,6 +199,48 @@ final class CommentWorkspaceCest
         $I->assertCount(0, $I->grabSubscriberMails());
     }
 
+    public function testCommentMailDeliveryPreservesParagraphsAndQuotesForEveryRecipient(\IntegrationTester $I): void
+    {
+        [$comments, $contentId] = $this->context($I);
+        /** @var PublicAuthRepository $identities */
+        $identities = $I->grabService(PublicAuthRepository::class);
+        $subscriberId = $identities->findOrCreateIdentity('email', 'subscriber@example.test', 'subscriber@example.test', 'Subscriber');
+        $parentUserId = $identities->findOrCreateIdentity('email', 'parent@example.test', 'parent@example.test', 'Parent');
+        $subscription = $comments->save($contentId, 'Subscriber', 'subscriber@example.test', true, 'Subscribed comment', '192.0.2.20', null, $subscriberId);
+        $comments->publish($subscription, $contentId->type);
+        $parentId = $comments->save($contentId, 'Parent', 'parent@example.test', false, 'Parent comment', '192.0.2.21', null, $parentUserId);
+        $comments->publish($parentId, $contentId->type);
+        $stored = CommentHtml::sanitizeForStorage(
+            '<p>First paragraph.</p><p>Second paragraph.<br>Next line.</p>'
+                . '<blockquote><p>Quoted line.<br>Another quoted line.</p></blockquote><p>Answer.</p>',
+        );
+        $commentId = $comments->save($contentId, 'Author', 'author@example.test', false, $stored, '192.0.2.22', $parentId);
+        $comments->publish($commentId, $contentId->type);
+
+        /** @var CommentMailPublisher $publisher */
+        $publisher = $I->grabService(CommentMailPublisher::class);
+        $publisher->moderator($commentId, $contentId->type, 'admin@example.com', true, 'ham');
+        /** @var ContentCommentNotifier $notifier */
+        $notifier = $I->grabService(ContentCommentNotifier::class);
+        $notifier->notify($commentId, $contentId->type);
+
+        $expected = "First paragraph.\n\nSecond paragraph.\nNext line."
+            . "\n\n> Quoted line.\n> Another quoted line.\n\nAnswer.";
+        $moderatorMails = $I->grabModeratorMails();
+        $subscriberMails = $I->grabSubscriberMails();
+        $I->assertCount(1, $moderatorMails);
+        $I->assertCount(2, $subscriberMails);
+        foreach (array_merge($moderatorMails, $subscriberMails) as $mail) {
+            $I->assertSame($expected, $mail['text']);
+        }
+
+        $I->assertSame('subscriber@example.test', $subscriberMails[0]['subscriberEmail']);
+        $I->assertNotNull($subscriberMails[0]['unsubscribeLink']);
+        $I->assertSame('parent@example.test', $subscriberMails[1]['subscriberEmail']);
+        $I->assertTrue($subscriberMails[1]['directReply']);
+        $I->assertSame($stored, $comments->find($commentId)?->text);
+    }
+
     public function testModeratorBulkHideMatchesIndividualHideWithoutDeletePermission(\IntegrationTester $I): void
     {
         [$comments, $contentId] = $this->context($I);

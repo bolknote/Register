@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace unit\Cms\Mail;
 
 use Codeception\Test\Unit;
+use Register\Core\Comment\CommentHtml;
 use Register\Core\Mail\ApplicationMailerInterface;
 use Register\Core\Mail\CommentMailer;
 use Register\Core\Mail\MailDelivery;
@@ -34,11 +35,18 @@ final class CommentMailerTest extends Unit
         };
         $mailer = new CommentMailer($this->translator(), $transport);
         $url = 'https://example.test/post?from=mail&item=1#comment-42';
+        $text = CommentHtml::mailText(CommentHtml::sanitizeForStorage(
+            '<p>Первая строка<br>Вторая &lt;строка&gt;</p>'
+                . '<blockquote><p>Цитата<br>Продолжение цитаты</p></blockquote>'
+                . '<p>Последний абзац</p>',
+        ));
+        $expectedText = "Первая строка\nВторая <строка>\n\n> Цитата\n> Продолжение цитаты\n\nПоследний абзац";
+        self::assertSame($expectedText, $text);
 
         $mailer->mailToSubscriber(
             'Читатель',
             'reader@example.test',
-            "Первая строка\nВторая <строка>",
+            $text,
             'Церкви & храмы',
             $url,
             'Автор <комментария>',
@@ -47,7 +55,7 @@ final class CommentMailerTest extends Unit
         $mailer->mailToReplyRecipient(
             'Евгений Степанищев',
             'owner@example.test',
-            "Первая строка\nВторая <строка>",
+            $text,
             'Церкви & храмы',
             $url,
             'Автор <комментария>',
@@ -55,7 +63,7 @@ final class CommentMailerTest extends Unit
         $mailer->mailToModerator(
             'admin',
             'admin@example.test',
-            "Первая строка\nВторая <строка>",
+            $text,
             'Церкви & храмы',
             $url,
             'Автор <комментария>',
@@ -66,6 +74,7 @@ final class CommentMailerTest extends Unit
 
         self::assertCount(3, $transport->messages);
         foreach ($transport->messages as $message) {
+            self::assertStringContainsString($expectedText, $message->textBody);
             $htmlBody = $message->htmlBody;
             if ($htmlBody === null) {
                 self::fail('The comment notification has no HTML body.');
@@ -75,6 +84,8 @@ final class CommentMailerTest extends Unit
             self::assertStringContainsString('<hr>', $htmlBody);
             self::assertStringContainsString('Первая строка<br', $htmlBody);
             self::assertStringContainsString('Вторая &lt;строка&gt;', $htmlBody);
+            self::assertStringContainsString("&lt;строка&gt;<br />\n<br />\n&gt; Цитата<br />\n", $htmlBody);
+            self::assertStringContainsString("&gt; Продолжение цитаты<br />\n<br />\nПоследний абзац", $htmlBody);
             self::assertStringContainsString('Церкви &amp; храмы', $htmlBody);
             self::assertStringNotContainsString('----------------------------------------------------------------------', $htmlBody);
             self::assertStringNotContainsString('<pre', $htmlBody);

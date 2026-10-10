@@ -86,6 +86,108 @@ TEXT;
         );
     }
 
+    public function testMailTextPreservesParagraphsAndExplicitLineBreaks(): void
+    {
+        $stored = CommentHtml::sanitizeForStorage(
+            '<p>First paragraph.</p><p>Second paragraph.<br>Next line.</p>'
+                . '<p>Last &amp; final.</p>',
+        );
+
+        self::assertSame(
+            "First paragraph.\n\nSecond paragraph.\nNext line.\n\nLast & final.",
+            CommentHtml::mailText($stored),
+        );
+        // Mail formatting must not change the text used for validation and spam checks.
+        self::assertSame(
+            "First paragraph.\nSecond paragraph.\nNext line.\nLast & final.",
+            CommentHtml::plainText($stored),
+        );
+    }
+
+    public function testMailTextPrefixesEveryQuotedLineIncludingNestedQuotes(): void
+    {
+        $stored = CommentHtml::sanitizeForStorage(
+            '<p>Introduction.</p><blockquote><p>First line.<br>Second line.</p>'
+                . '<blockquote><p>Nested quote.</p><p>Another paragraph.</p></blockquote>'
+                . '<p>Outer quote again.</p></blockquote><p>Answer.</p>',
+        );
+
+        self::assertSame(
+            "Introduction.\n\n> First line.\n> Second line.\n>\n> > Nested quote."
+                . "\n> >\n> > Another paragraph.\n>\n> Outer quote again.\n\nAnswer.",
+            CommentHtml::mailText($stored),
+        );
+    }
+
+    public function testMailTextDoesNotJoinTextToAdjacentQuotesOrTreatHtmlIndentationAsLines(): void
+    {
+        $stored = CommentHtml::sanitizeForStorage(
+            "Before <strong>the quote</strong><blockquote>Quoted text.</blockquote>After the quote.\n"
+                . "<p>Next <strong>formatted</strong> <em>paragraph</em>.</p>\n",
+        );
+
+        self::assertSame(
+            "Before the quote\n\n> Quoted text.\n\nAfter the quote.\n\nNext formatted paragraph.",
+            CommentHtml::mailText($stored),
+        );
+    }
+
+    public function testMailTextKeepsRepeatedExplicitBreaksAndPreformattedIndentation(): void
+    {
+        $stored = CommentHtml::sanitizeForStorage(
+            '<p>One<br><br><br>Two</p><pre><code>  first();' . "\n    second();"
+                . '</code></pre><p>End.</p>',
+        );
+
+        self::assertSame(
+            "One\n\n\nTwo\n\n  first();\n    second();\n\nEnd.",
+            CommentHtml::mailText($stored),
+        );
+        self::assertSame(
+            "  first();\n    second();",
+            CommentHtml::mailText(CommentHtml::sanitizeForStorage("<pre>  first();\n    second();</pre>")),
+        );
+    }
+
+    public function testMailTextDoesNotDiscardBreaksInEmptyParagraphs(): void
+    {
+        self::assertSame(
+            "Before.\n\n\n\nAfter.",
+            CommentHtml::mailText(CommentHtml::sanitizeForStorage(
+                '<p>Before.</p><p><br></p><p><br></p><p>After.</p>',
+            )),
+        );
+    }
+
+    public function testMailTextKeepsListsAndSafeLinkTargetsReadable(): void
+    {
+        $stored = CommentHtml::sanitizeForStorage(
+            '<p>Read <a href="https://example.test/page?a=1&amp;b=2">this page</a>.</p>'
+                . '<ul><li>First</li><li>Second<br>Continued</li></ul>'
+                . '<p><a href="https://example.test/">https://example.test/</a></p>',
+        );
+
+        self::assertSame(
+            "Read this page (https://example.test/page?a=1&b=2).\n\n- First\n- Second\nContinued"
+                . "\n\nhttps://example.test/",
+            CommentHtml::mailText($stored),
+        );
+    }
+
+    public function testMailTextRetainsLegacyQuoteFormattingAndManagedAttachmentPaths(): void
+    {
+        $legacy = "[Q]First quoted line\nSecond quoted line[/Q]\n\nAnswer.";
+        self::assertSame(CommentHtml::plainText($legacy), CommentHtml::mailText($legacy));
+        self::assertStringContainsString('> First quoted line', CommentHtml::mailText($legacy));
+        self::assertStringContainsString('> Second quoted line', CommentHtml::mailText($legacy));
+
+        $source = '/_pictures/telegram/comments/123/2/image.png';
+        $stored = CommentHtml::sanitizeImportedForStorage(
+            '<p>Attachment:</p><figure class="comment-media"><img src="' . $source . '"></figure><p>Answer.</p>',
+        );
+        self::assertSame("Attachment:\n\n" . $source . "\n\nAnswer.", CommentHtml::mailText($stored));
+    }
+
     public function testLegacyCommentsKeepTheirOldBbcodeRendering(): void
     {
         self::assertSame(

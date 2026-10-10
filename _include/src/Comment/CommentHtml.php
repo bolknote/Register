@@ -184,6 +184,22 @@ final class CommentHtml
         return self::plainTextFromHtml($html, $includeLinkTargets);
     }
 
+    /** Formats notification text without changing storage, rendering or spam-analysis text. */
+    public static function mailText(string $stored): string
+    {
+        if (!str_starts_with($stored, self::STORAGE_PREFIX)) {
+            return self::plainText($stored);
+        }
+
+        $html = self::sanitizeFragment(substr($stored, \strlen(self::STORAGE_PREFIX)), true);
+        $body = self::parseFragment($html);
+        if (!$body instanceof \DOMElement) {
+            return '';
+        }
+
+        return str_replace("\u{00A0}", ' ', trim(self::mailChildrenText($body), "\n"));
+    }
+
     /** @param array<string, string> $telegramAttachmentLabels */
     private static function sanitizeFragment(
         string $input,
@@ -503,7 +519,7 @@ final class CommentHtml
         return trim($text);
     }
 
-    private static function nodeText(\DOMNode $node, bool $includeLinkTargets): string
+    private static function nodeText(\DOMNode $node, bool $includeLinkTargets, bool $forMail = false): string
     {
         if ($node instanceof \DOMText) {
             return $node->nodeValue ?? '';
@@ -522,9 +538,11 @@ final class CommentHtml
             return self::managedCommentMediaSource($node->getAttribute('src')) ?? '';
         }
 
-        $text = '';
-        foreach ($node->childNodes as $child) {
-            $text .= self::nodeText($child, $includeLinkTargets);
+        $text = $forMail ? self::mailChildrenText($node) : '';
+        if (!$forMail) {
+            foreach ($node->childNodes as $child) {
+                $text .= self::nodeText($child, $includeLinkTargets);
+            }
         }
 
         if ($tag === 'a' && $includeLinkTargets) {
@@ -538,7 +556,60 @@ final class CommentHtml
             return '- ' . trim($text) . "\n";
         }
 
-        return isset(self::BLOCK_TAGS[$tag]) ? $text . "\n" : $text;
+        if ($forMail && $tag === 'blockquote') {
+            return implode("\n", array_map(
+                static fn(string $line): string => $line === '' ? '>' : '> ' . $line,
+                explode("\n", trim($text, "\n")),
+            ));
+        }
+
+        return !$forMail && isset(self::BLOCK_TAGS[$tag]) ? $text . "\n" : $text;
+    }
+
+    private static function mailChildrenText(\DOMNode $node): string
+    {
+        $separatorLength = in_array($node->nodeName, ['ul', 'ol'], true) ? 1 : 2;
+        $text = '';
+        $previousWasBlock = false;
+        foreach ($node->childNodes as $child) {
+            $childText = self::nodeText($child, true, true);
+            if ($childText === '') {
+                continue;
+            }
+
+            // Ignore source indentation around blocks, but keep spaces between inline tags
+            // and the exact indentation/line breaks inside preformatted text.
+            if ($child instanceof \DOMText && trim($childText) === '' && $node->nodeName !== 'pre'
+                && ($previousWasBlock || ($child->nextSibling !== null && self::isBlockNode($child->nextSibling)))
+            ) {
+                continue;
+            }
+
+            $childIsBlock = self::isBlockNode($child);
+            if ($text !== '' && ($previousWasBlock || $childIsBlock)) {
+                $before = rtrim($text, "\n");
+                $after = ltrim($childText, "\n");
+                // Supply a block boundary without collapsing explicit <br> or code newlines.
+                $breaks = max($separatorLength, \strlen($text) - \strlen($before) + \strlen($childText) - \strlen($after));
+                if ($after === '') {
+                    // Each empty paragraph still contributes its own explicit line breaks.
+                    $breaks = max($separatorLength, \strlen($text) - \strlen($before)) + \strlen($childText);
+                }
+
+                $text = $before . str_repeat("\n", $breaks) . $after;
+            } else {
+                $text .= $childText;
+            }
+
+            $previousWasBlock = $childIsBlock;
+        }
+
+        return $text;
+    }
+
+    private static function isBlockNode(\DOMNode $node): bool
+    {
+        return $node instanceof \DOMElement && isset(self::BLOCK_TAGS[mb_strtolower($node->tagName)]);
     }
 
     private static function parseFragment(string $html): ?\DOMElement

@@ -65,7 +65,7 @@ final readonly class CommentMailDelivery
             $this->commentMailer->mailToReplyRecipient(
                 $receiver->name,
                 $receiver->email,
-                CommentHtml::plainText($comment->text),
+                CommentHtml::mailText($comment->text),
                 $content->title,
                 $this->contentUrlGenerator->absolutePath($content->path) . '#comment-' . $comment->id,
                 $comment->name,
@@ -81,7 +81,7 @@ final readonly class CommentMailDelivery
         $this->commentMailer->mailToSubscriber(
             $receiver->name,
             $receiver->email,
-            CommentHtml::plainText($comment->text),
+            CommentHtml::mailText($comment->text),
             $content->title,
             $this->contentUrlGenerator->absolutePath($content->path) . '#comment-' . $comment->id,
             $comment->name,
@@ -114,7 +114,7 @@ final readonly class CommentMailDelivery
             $this->commentMailer->mailToModerator(
                 $moderator->displayName(),
                 $moderator->email,
-                CommentHtml::plainText($comment->text),
+                CommentHtml::mailText($comment->text),
                 $content->title,
                 $this->contentUrlGenerator->absolutePath($content->path) . '#comment-' . $comment->id,
                 $comment->name,
