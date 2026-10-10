@@ -132,6 +132,38 @@ test('an older update and an inline reply target cannot overwrite a newer edit',
     assert.equal((await store.getMessage(2, config)).text, 'edited');
 });
 
+test('a newer inline edit retains its original reply ancestry', async t => {
+    const store = sqliteStore(t);
+    await ingest(first, 100, config, store);
+    await flush(config, store, async () => ({ ok: true }));
+    const editedReply = { ...reply, reply_to_message: {
+        ...first, text: 'Edited parent', edit_date: 200, reply_to_message: undefined,
+    } };
+    await ingest(editedReply, 201, config, store);
+    const archives = [];
+    const result = await flush(config, store, async archive => { archives.push(archive); return { ok: true }; });
+    assert.equal(result.delivered, 1);
+    assert.deepEqual(archives[0].messages.map(message => message.id), [1, 2, 3]);
+    assert.equal(archives[0].messages[1].text, 'Edited parent');
+    assert.equal((await store.status()).count, 0);
+});
+
+test('an older complete event restores missing ancestry without replacing a newer inline edit', async t => {
+    const truncated = normaliseMessage({ ...first, text: 'Edited parent', edit_date: 200,
+        reply_to_message: undefined }, 0, config);
+    const store = sqliteStore(t);
+    await store.remember(normaliseMessage(root, 1, config), config);
+    await store.remember(truncated, config);
+    await ingest(first, 100, config, store);
+    await ingest(reply, 101, config, store);
+    const archives = [];
+    await flush(config, store, async archive => { archives.push(archive); return { ok: true }; });
+    assert.equal(archives.length, 2);
+    assert.deepEqual(archives.at(-1).messages.map(message => message.id), [1, 2, 3]);
+    assert.equal(archives.at(-1).messages[1].text, 'Edited parent');
+    assert.equal((await store.status()).count, 0);
+});
+
 test('filters other groups and roots from other channels, and never trusts manual forwards', async t => {
     assert.equal(exportChatId(config.discussionChatId), 123);
     assert.throws(() => exportChatId(-123));
