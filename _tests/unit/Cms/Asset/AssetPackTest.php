@@ -410,7 +410,7 @@ final class AssetPackTest extends Unit
                 . ':where\(\.post-picture, \.post-media-picture, figure\)'
                 . '\.has-leading-boundary-caret:has\(img, video, audio\)::before\s*,\s*'
                 . '\.post-card\.is-editing\s*>\s*\.post\.body\[data-post-inplace-body\]\s*'
-                . 'p\.has-leading-boundary-caret::before\s*'
+                . ':is\(p, \[data-post-inline-code-exit\]\)\.has-leading-boundary-caret::before\s*'
                 . '\{[^}]*position:\s*absolute;[^}]*left:\s*0;'
                 . '[^}]*height:\s*1em;'
                 . '[^}]*background:\s*var\(--accent-color\);/s',
