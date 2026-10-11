@@ -34,7 +34,7 @@ export async function receiveEvent(event, ctx, kind) {
     await refreshConfig(config, store, fetch);
     if (!ready(config)) return;
     if (!ingested) await ingestEvent();
-    await flush(config, store, send);
+    await flush(config, store, send, Date.now, 20, true);
 }
 
 export async function receive(message, ctx) {
@@ -72,5 +72,5 @@ export async function receive(message, ctx) {
     }
     if (message.chat?.id !== config.discussionChatId || !ready(config)) return;
     if (!ingested) await ingest(message, ctx.update.update_id, config, store);
-    await flush(config, store, send);
+    await flush(config, store, send, Date.now, 20, true);
 }

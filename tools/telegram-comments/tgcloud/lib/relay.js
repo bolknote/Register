@@ -29,12 +29,13 @@ export async function ingestReaction(event, updateId, config, store, counts = fa
     return true;
 }
 
-export async function flush(config, store, send, now = Date.now, limit = 20) {
+export async function flush(config, store, send, now = Date.now, limit = 20, requireDelivery = false) {
     // Settings may change while another handler awaits delivery. Keep this operation's
     // scope and credentials together all the way through cache access and HTTP delivery.
     config = { ...config };
     let delivered = 0;
     let ignored = 0;
+    let transientFailure = false;
     for (const row of await store.pending(limit)) {
         const sourceGroup = row.payload.discussionChatId ?? row.payload.source?.chat?.id;
         if ((sourceGroup !== undefined && sourceGroup !== config.discussionChatId && row.payload.kind !== 'channel_post')
@@ -75,15 +76,23 @@ export async function flush(config, store, send, now = Date.now, limit = 20) {
             const response = await send(result.archive, config);
             if (!response.ok) {
                 await store.failed(row.id, response.error, now());
-                if (response.status >= 500 || response.status === 429 || response.status === 401 || response.status === 404) break;
+                if (response.status >= 500 || response.status === 429) {
+                    transientFailure = true;
+                    break;
+                }
+                if (response.status === 401 || response.status === 404) break;
                 continue;
             }
             await store.remove(row.id); // Only an explicit success acknowledges delivery.
             delivered++;
         } catch {
             await store.failed(row.id, 'network_error', now());
+            transientFailure = true;
             break;
         }
+    }
+    if (requireDelivery && transientFailure) {
+        throw new Error('Register delivery is temporarily unavailable; retry this Telegram update.');
     }
     return { delivered, ignored };
 }

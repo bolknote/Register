@@ -107,6 +107,46 @@ test('failed delivery persists and retries, including a duplicated event and a l
     assert.equal((await store.status()).count, 0);
 });
 
+test('a failed incoming update remains retryable and replaying it cannot duplicate the event', async t => {
+    const store = sqliteStore(t);
+    await ingest(first, 100, config, store);
+    await assert.rejects(flush(config, store, async () => { throw new Error('network down'); }, () => 1, 20, true),
+        /retry this Telegram update/);
+    assert.equal((await store.status()).count, 1);
+    assert.equal((await store.status()).errors[0].last_error, 'network_error');
+    await ingest(first, 100, config, store);
+    assert.equal((await store.status()).count, 1);
+    assert.deepEqual(await flush(config, store, async () => ({ ok: true }), () => 2, 20, true),
+        { delivered: 1, ignored: 0 });
+    assert.equal((await store.status()).count, 0);
+});
+
+test('temporary HTTP failure retains the undelivered event after earlier successful acknowledgements', async t => {
+    for (const status of [429, 503]) {
+        const store = sqliteStore(t);
+        await ingest(first, 100, config, store);
+        await ingest(reply, 101, config, store);
+        let sends = 0;
+        await assert.rejects(flush(config, store, async () => ++sends === 1 ? { ok: true }
+            : { ok: false, status, error: 'temporarily_unavailable' }, () => 1, 20, true),
+        /retry this Telegram update/);
+        assert.equal((await store.status()).count, 1);
+        assert.equal((await store.pending(20))[0].id, 101);
+        assert.deepEqual(await flush(config, store, async () => ({ ok: true }), () => 2, 20, true),
+            { delivered: 1, ignored: 0 });
+    }
+});
+
+test('missing history and permanent snapshot errors do not request repeated Telegram delivery', async t => {
+    const store = sqliteStore(t);
+    await ingest(reply, 101, config, store);
+    assert.deepEqual(await flush(config, store, () => assert.fail('Incomplete history must not be sent'), () => 1, 20, true),
+        { delivered: 0, ignored: 0 });
+    await ingest(first, 100, config, store);
+    await flush(config, store, async () => ({ ok: false, status: 422, error: 'invalid_snapshot' }), () => 2, 20, true);
+    assert.equal((await store.status()).count, 2);
+});
+
 test('a reply received before its parent stays queued until the root can be resolved', async t => {
     const store = sqliteStore(t);
     await ingest(reply, 101, config, store);
