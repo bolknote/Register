@@ -250,6 +250,27 @@ final class TelegramLiveImportCest
         $I->seeResponseCodeIs(404);
     }
 
+    public function changingThePersonalAuthorRepairsIdentityWhilePreservingLocalText(\IntegrationTester $I): void
+    {
+        $contentId = ContentId::post($this->post($I));
+        $this->enable($I);
+        $I->setConfigValue(TelegramSettings::OWNER_TELEGRAM_ID, '22');
+        $this->send($I, $this->snapshot());
+        $I->seeResponseCodeIs(200);
+        $repository = $I->grabService(CommentRepository::class);
+        $comment = $repository->findForContent($contentId)[0];
+        $I->assertNotNull($comment->userId);
+        $repository->edit($comment->id, ContentType::POST, 'Local correction');
+        $I->setConfigValue(TelegramSettings::OWNER_TELEGRAM_ID, '33');
+        $this->send($I, $this->snapshot());
+        $I->seeResponseCodeIs(200);
+        $updated = $repository->find($comment->id);
+        $I->assertNotNull($updated);
+        $I->assertNull($updated->userId);
+        $I->assertSame('Reader', $updated->name);
+        $I->assertSame('Local correction', $updated->text);
+    }
+
     private function enable(\IntegrationTester $I): void
     {
         foreach ([

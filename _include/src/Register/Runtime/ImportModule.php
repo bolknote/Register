@@ -65,6 +65,7 @@ final readonly class ImportModule implements ContainerModuleInterface
             $container->get(ExternalImportMapRepository::class),
             $container->get(TelegramManagedMediaStorage::class),
             $container->getStringParameter('base_url'),
+            $container->get(TelegramSettings::class),
         ));
         $container->set(TelegramSettings::class, static fn(Container $container): TelegramSettings => new TelegramSettings(
             $container->get(DynamicConfigProvider::class),

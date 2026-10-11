@@ -16,11 +16,116 @@ use Register\Content\ContentType;
 use Register\Core\Pdo\DbLayer;
 use Register\Import\Telegram\TelegramImportService;
 use Register\Import\Telegram\TelegramManagedMediaStorage;
+use Register\Import\Telegram\TelegramSettings;
+use Register\Import\ExternalImportMapRepository;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Register\Module\Reactions\Manifest as ReactionManifest;
 use Register\Module\Reactions\ReactionRepository;
 
 final class TelegramImportCest
 {
+    public function olderArchivesPreserveTheNewestCommentAndItsProvenance(\IntegrationTester $I): void
+    {
+        $contentId = ContentId::post($this->insertPost($I->grabService(DbLayer::class)));
+        $path = tempnam(sys_get_temp_dir(), 'register-telegram-version-');
+        $I->assertIsString($path);
+        $importer = $I->grabService(TelegramImportService::class);
+        $latest = $this->export(null, 'The newest comment');
+        $latest['messages'][1]['edited_unixtime'] = '300';
+        $latest['messages'][1]['bot_update_id'] = 300;
+        try {
+            $importer->importLiveSnapshot(json_encode($latest, JSON_THROW_ON_ERROR));
+            $maps = $I->grabService(ExternalImportMapRepository::class);
+            $mapping = $maps->find('telegram', '123', 'comment', '2');
+            foreach ([null, '200'] as $editedAt) {
+                $older = $this->export(null, 'An obsolete comment');
+                if ($editedAt !== null) {
+                    $older['messages'][1]['edited_unixtime'] = $editedAt;
+                }
+
+                file_put_contents($path, json_encode($older, JSON_THROW_ON_ERROR));
+                $report = $importer->importFile($path);
+                $I->assertSame(1, $report['changes']['comments_stale_ignored']);
+                $I->assertSame($mapping, $maps->find('telegram', '123', 'comment', '2'));
+                $comment = $I->grabService(CommentRepository::class)->findForContent($contentId)[0];
+                $I->assertStringContainsString('The newest comment', $comment->text);
+                $I->assertSame(300, $comment->modifyTime);
+            }
+
+            $sameVersion = $latest;
+            unset($sameVersion['messages'][1]['bot_update_id']);
+            file_put_contents($path, json_encode($sameVersion, JSON_THROW_ON_ERROR));
+            $importer->importFile($path);
+            $sameMapping = $maps->find('telegram', '123', 'comment', '2');
+            $I->assertSame($mapping['source_hash'], $sameMapping['source_hash']);
+            $I->assertSame(300, $sameMapping['source_data']['telegram']['comment']['bot_update_id']);
+            $delayed = $latest;
+            $delayed['messages'][1]['bot_update_id'] = 299;
+            $delayed['messages'][1]['text'] = 'A delayed same-second edit';
+            $delayed['messages'][1]['text_entities'] = [['type' => 'plain', 'text' => $delayed['messages'][1]['text']]];
+            $I->assertSame(1, $importer->importLiveSnapshot(json_encode($delayed, JSON_THROW_ON_ERROR))['changes']['comments_stale_ignored']);
+
+            $newer = $this->export(null, 'A newer archive correction');
+            $newer['messages'][1]['edited_unixtime'] = '400';
+            file_put_contents($path, json_encode($newer, JSON_THROW_ON_ERROR));
+            $I->assertSame(1, $importer->importFile($path)['changes']['comments_updated']);
+        } finally {
+            unlink($path);
+        }
+    }
+
+    public function adminArchiveImportUsesTheSelectedAuthorInsteadOfTheUploadingAdministrator(\IntegrationTester $I): void
+    {
+        $contentId = ContentId::post($this->insertPost($I->grabService(DbLayer::class)));
+        $authorId = (int)$I->grabService(DbLayer::class)->select('id')->from('users')->where("login = 'author'")->execute()->result();
+        $I->setConfigValue(TelegramSettings::OWNER_TELEGRAM_ID, '22');
+        $I->setConfigValue(TelegramSettings::AUTHOR_ID, (string)$authorId);
+        $I->login('admin', 'admin');
+
+        $path = tempnam(sys_get_temp_dir(), 'register-telegram-admin-author-');
+        $I->assertIsString($path);
+        try {
+            file_put_contents($path, json_encode($this->export(null, 'An author comment'), JSON_THROW_ON_ERROR));
+            $I->amOnPage('https://localhost/_admin/index.php?entity=TelegramImport');
+            $token = $I->grabValueFrom('[data-telegram-import-form] input[name="csrf_token"]');
+            $I->assertIsString($token);
+            $I->sendPost('https://localhost/_admin/ajax.php?action=register_telegram_import',
+                ['csrf_token' => $token], ['telegram_export' => new UploadedFile($path, 'result.json', 'application/json', UPLOAD_ERR_OK, true)]);
+            $I->seeResponseCodeIs(200);
+            $I->assertSame($authorId, $I->grabService(CommentRepository::class)->findForContent($contentId)[0]->userId);
+        } finally {
+            unlink($path);
+        }
+    }
+
+    public function archiveImportRecognisesTheConfiguredPersonalAuthorWhenTheBotIsDisabled(\IntegrationTester $I): void
+    {
+        $db = $I->grabService(DbLayer::class);
+        $contentId = ContentId::post($this->insertPost($db));
+        $authorId = (int)$db->select('id')->from('users')->where("login = 'author'")->execute()->result();
+        foreach ([TelegramSettings::OWNER_TELEGRAM_ID => '22', TelegramSettings::AUTHOR_ID => (string)$authorId] as $key => $value) {
+            $I->setConfigValue($key, $value);
+        }
+
+        $path = tempnam(sys_get_temp_dir(), 'register-telegram-author-');
+        $I->assertIsString($path);
+        try {
+            $export = $this->export(null, 'A personal author comment');
+            $export['messages'][] = array_replace($export['messages'][1], ['id' => 3, 'from_id' => 'user33', 'from' => 'Guest']);
+            file_put_contents($path, json_encode($export, JSON_THROW_ON_ERROR));
+            $importer = $I->grabService(TelegramImportService::class);
+            $importer->importFile($path);
+            $comments = $I->grabService(CommentRepository::class)->findForContent($contentId);
+            $I->assertSame($authorId, $comments[0]->userId);
+            $I->assertNull($comments[1]->userId);
+            $I->assertSame('Guest', $comments[1]->name);
+            $importer->importFile($path);
+            $I->assertSame($authorId, $I->grabService(CommentRepository::class)->find($comments[0]->id)?->userId);
+        } finally {
+            unlink($path);
+        }
+    }
+
     public function preservesLocalSiteReactionsWhileReconcilingTelegramAggregates(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */

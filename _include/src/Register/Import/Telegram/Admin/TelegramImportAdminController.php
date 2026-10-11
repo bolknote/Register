@@ -59,7 +59,7 @@ final readonly class TelegramImportAdminController
         try {
             $report = $this->importService->importFile(
                 $file->getPathname(),
-                $this->permissionChecker->getUserId(),
+                null,
                 false,
                 $file->getClientOriginalName(),
             );

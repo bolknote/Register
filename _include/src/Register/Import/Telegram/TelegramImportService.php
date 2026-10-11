@@ -41,6 +41,7 @@ final readonly class TelegramImportService
         private ExternalImportMapRepository $mapRepository,
         private TelegramManagedMediaStorage $mediaStorage,
         private string                      $baseUrl,
+        private ?TelegramSettings           $settings = null,
     ) {
     }
 
@@ -60,10 +61,14 @@ final readonly class TelegramImportService
         string $clientOriginalName = '',
     ): array
     {
+        $config = $this->settings?->liveConfig();
+        $authorUserId = $config->authorUserId ?? 0;
+        $ownerTelegramId = $config->ownerTelegramUserId ?? 0;
         return $this->importPackage(
             TelegramExportPackage::fromFile($path, $clientOriginalName),
-            $siteAuthorUserId,
+            $siteAuthorUserId ?? ($authorUserId > 0 ? $authorUserId : null),
             $dryRun,
+            siteAuthorTelegramIds: $ownerTelegramId > 0 ? ['user' . $ownerTelegramId] : [],
         );
     }
 
@@ -234,8 +239,19 @@ final readonly class TelegramImportService
                     $modifiedAt = (int)($sourceComment['edited_unixtime'] ?? 0);
                     $modifiedAt = $modifiedAt > $createdAt ? $modifiedAt : null;
                     $existingMap = $maps[$externalId] ?? null;
-                    if ($liveSnapshot && \is_array($existingMap)
-                        && $this->isOlderSource($sourceComment, $existingMap['source_data'] ?? [])
+                    if (!$liveSnapshot && \is_array($existingMap)) {
+                        $previous = $this->mappedSourceComment($existingMap['source_data'] ?? []);
+                        // Desktop exports have no bot update ID. Keep the last known event
+                        // at the same timestamp so a delayed callback cannot undo this import.
+                        if ($this->sourceTime($sourceComment) === $this->sourceTime($previous)
+                            && (int)($previous['bot_update_id'] ?? 0) > 0
+                        ) {
+                            $sourceComment['bot_update_id'] = max((int)($sourceComment['bot_update_id'] ?? 0), (int)$previous['bot_update_id']);
+                        }
+                    }
+
+                    if (\is_array($existingMap)
+                        && $this->isOlderSource($sourceComment, $existingMap['source_data'] ?? [], $liveSnapshot)
                     ) {
                         ++$changes['comments_stale_ignored'];
                         continue;
@@ -333,8 +349,11 @@ final readonly class TelegramImportService
                         $hasMediaChange = $previousMediaHash !== null
                             && !hash_equals($previousMediaHash, $currentMediaHash);
                         $repairsLegacyPlaceholder = $this->hasLegacyMediaPlaceholder($storedComment->text);
+                        $previousComment = $this->mappedSourceComment($previousSourceData);
+                        $wasSiteAuthor = ($previousComment['author']['is_site_author'] ?? false) === true;
                         $hasIdentityChange = $isSiteAuthor && $userId !== null
-                            && ($storedComment->userId !== $userId || $storedComment->name !== $name);
+                            && ($storedComment->userId !== $userId || $storedComment->name !== $name)
+                            || ($wasSiteAuthor && !$isSiteAuthor && $storedComment->userId !== null);
                         $needsSynchronization = ($modifiedAt !== null && $modifiedAt > $previousModifiedAt)
                             || $hasSourceChange
                             || $hasMediaChange
@@ -1004,14 +1023,20 @@ final readonly class TelegramImportService
     }
 
     /** @param array<string, mixed> $incoming */
-    private function isOlderSource(array $incoming, mixed $sourceData): bool
+    private function isOlderSource(array $incoming, mixed $sourceData, bool $useUpdateId): bool
     {
         $previous = $this->mappedSourceComment($sourceData);
-        $previousTime = max((int)($previous['date_unixtime'] ?? 0), (int)($previous['edited_unixtime'] ?? 0));
-        $incomingTime = max((int)($incoming['date_unixtime'] ?? 0), (int)($incoming['edited_unixtime'] ?? 0));
+        $previousTime = $this->sourceTime($previous);
+        $incomingTime = $this->sourceTime($incoming);
 
         return $incomingTime < $previousTime
-            || ($incomingTime === $previousTime && (int)($incoming['bot_update_id'] ?? 0) < (int)($previous['bot_update_id'] ?? 0));
+            || ($useUpdateId && $incomingTime === $previousTime && (int)($incoming['bot_update_id'] ?? 0) < (int)($previous['bot_update_id'] ?? 0));
+    }
+
+    /** @param array<string, mixed> $comment */
+    private function sourceTime(array $comment): int
+    {
+        return max((int)($comment['date_unixtime'] ?? 0), (int)($comment['edited_unixtime'] ?? 0));
     }
 
     /** @return array<mixed> */
