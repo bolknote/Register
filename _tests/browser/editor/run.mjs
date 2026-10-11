@@ -29,6 +29,7 @@ import {runAdminFieldErrorRegressions, runAdminErrorRefreshRegressions, runActiv
 import {runMediaInsertionAltRegressions, runMediaInsertionCaretRegressions, runMixedMediaCaretRegressions, runRejectedMediaRegressions} from './media-insertion-tests.mjs';
 import {runMediaDragRegressions} from './media-drag-tests.mjs';
 import {runMediaSpacingRegressions} from './media-spacing-tests.mjs';
+import {runMediaDeleteBoundaryRegressions} from './media-delete-boundary-tests.mjs';
 import {runMediaNavigationRegressions} from './media-navigation-tests.mjs';
 import {runTableNavigationRegressions} from './table-navigation-tests.mjs';
 import {runInlineCodeBoundaryRegressions} from './inline-code-boundary-tests.mjs';
@@ -462,6 +463,7 @@ try {
             }
             await runAuthorWorkflowRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runMediaSpacingRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runMediaDeleteBoundaryRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runMediaNavigationRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runTableNavigationRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runInlineCodeBoundaryRegressions(browser, `http://127.0.0.1:${server.address().port}`);

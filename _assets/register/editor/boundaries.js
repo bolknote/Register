@@ -673,6 +673,45 @@
             selection.setBaseAndExtent(...(backwards ? finish : start), ...(backwards ? start : finish));
         }
 
+        function protectMediaParagraphDeletion(event) {
+            if (event.defaultPrevented || !event.cancelable || !String(event.inputType || '').startsWith('delete')) return false;
+            const direction = event.inputType.endsWith('Backward') ? -1 : event.inputType.endsWith('Forward') ? 1 : 0;
+            const target = event.target instanceof HTMLElement ? event.target : null;
+            const body = target?.closest('.post-card.is-editing > .post.body[data-post-inplace-body]');
+            const selection = window.getSelection();
+            if (!direction || !body || target.closest('.is-editing-inline-caption, .is-editing-caption')
+                || selection?.rangeCount !== 1) return false;
+            const range = selection.getRangeAt(0);
+            if (!range.collapsed || !rangeIsInside(body, range)) return false;
+
+            let neighbour;
+            if (range.startContainer === body) {
+                neighbour = body.childNodes[range.startOffset + (direction < 0 ? -1 : 0)];
+            } else {
+                const element = range.startContainer instanceof HTMLElement ? range.startContainer : range.startContainer.parentElement;
+                const paragraph = element?.closest('p');
+                // Empty lines have their own gap-collapsing handler. A character or
+                // soft break inside a nonempty paragraph must remain deletable.
+                if (!paragraph || !body.contains(paragraph) || editorBoundaryParagraphIsEmpty(paragraph)) return false;
+                const edge = range.cloneRange();
+                edge.selectNodeContents(paragraph);
+                if (direction < 0) edge.setEnd(range.startContainer, range.startOffset);
+                else edge.setStart(range.startContainer, range.startOffset);
+                const remaining = edge.cloneContents();
+                if (remaining.textContent !== '' || remaining.querySelector('br, img, video, audio, iframe, table, hr')) return false;
+                neighbour = direction < 0 ? paragraph.previousSibling : paragraph.nextSibling;
+            }
+            while (neighbour && boundaryNodeIsEmpty(neighbour)) {
+                neighbour = direction < 0 ? neighbour.previousSibling : neighbour.nextSibling;
+            }
+            if (!isMediaBoundaryElement(body, neighbour)) return false;
+            // Native paragraph merging can move only the image or discard its
+            // noneditable caption. Keep the atomic media block intact; explicitly
+            // selecting the block still permits ordinary whole-media deletion.
+            event.preventDefault();
+            return true;
+        }
+
         function collapseEmptyParagraphBesideMedia(event) {
             const direction = event.inputType.endsWith('Backward')
                 ? -1
@@ -951,7 +990,7 @@
             return changed;
         }
 
-        return {clearBoundaryCaret, clearSyntheticBoundaryCaret, boundaryNodeIsEmpty, isMediaBoundaryElement, editorBoundaryParagraphIsEmpty, topLevelBodyChild, hoistMediaFromParagraph, normalizeLeadingNestedMedia, leadingMediaIndex, prepareMediaInsertionRange, focusBeforeLeadingMedia, focusBeforeMedia, focusAfterMedia, mediaBesideCaret, revealBoundaryCaret, mediaBoundaryAtRange, inlineCodeBoundaryMarkerAtRange, syncBoundaryCaret, moveInsertionBeforeMediaBoundary, protectSelectedMediaBoundary, collapseEmptyParagraphBesideMedia, expandCollapsedBoundaryParagraph, collapseEmptyLeadingParagraphAfterDelete, isMediaOwnedDirectChild, normalizeMediaBodyStructure};
+        return {clearBoundaryCaret, clearSyntheticBoundaryCaret, boundaryNodeIsEmpty, isMediaBoundaryElement, editorBoundaryParagraphIsEmpty, topLevelBodyChild, hoistMediaFromParagraph, normalizeLeadingNestedMedia, leadingMediaIndex, prepareMediaInsertionRange, focusBeforeLeadingMedia, focusBeforeMedia, focusAfterMedia, mediaBesideCaret, revealBoundaryCaret, mediaBoundaryAtRange, inlineCodeBoundaryMarkerAtRange, syncBoundaryCaret, moveInsertionBeforeMediaBoundary, protectSelectedMediaBoundary, protectMediaParagraphDeletion, collapseEmptyParagraphBesideMedia, expandCollapsedBoundaryParagraph, collapseEmptyLeadingParagraphAfterDelete, isMediaOwnedDirectChild, normalizeMediaBodyStructure};
     }
 
     window.RegisterEditorBoundaries = Object.freeze({create});

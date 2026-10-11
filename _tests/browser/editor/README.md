@@ -266,6 +266,12 @@ finish caption sessions before changing the DOM, restore typing and history, and
 retain unrelated caption edits; stale whole-body replies leave the active caption
 intact. Both caption types use the native clipboard menu without losing selection.
 
+Nine media-deletion scenarios enter the real editor with noneditable caption controls.
+Backspace/Delete at nonempty paragraph and root boundaries cannot merge or split an
+unselected image/caption block. They also cover inserting a photo in the middle of
+prose and copying its lower half above it, normal character and explicit whole-picture
+deletion, visual caption spacing, undo/redo, saving and reopening in all three engines.
+
 Nine field/history scenarios cover independent keyboard and native-menu undo in
 the title, body redo, saving, and fresh editing sessions. AI title suggestions and
 restored draft titles participate in the same bounded title history. Body history

@@ -86,7 +86,7 @@
 
     const {createEditorFieldSurfaces} = window.RegisterEditorFields.create({});
 
-    const {clearBoundaryCaret, clearSyntheticBoundaryCaret, boundaryNodeIsEmpty, isMediaBoundaryElement, editorBoundaryParagraphIsEmpty, topLevelBodyChild, hoistMediaFromParagraph, normalizeLeadingNestedMedia, leadingMediaIndex, prepareMediaInsertionRange, focusBeforeLeadingMedia, focusBeforeMedia, focusAfterMedia, mediaBesideCaret, revealBoundaryCaret, mediaBoundaryAtRange, inlineCodeBoundaryMarkerAtRange, syncBoundaryCaret, moveInsertionBeforeMediaBoundary, protectSelectedMediaBoundary, collapseEmptyParagraphBesideMedia, expandCollapsedBoundaryParagraph, collapseEmptyLeadingParagraphAfterDelete, isMediaOwnedDirectChild, normalizeMediaBodyStructure} = window.RegisterEditorBoundaries.create({
+    const {clearBoundaryCaret, clearSyntheticBoundaryCaret, boundaryNodeIsEmpty, isMediaBoundaryElement, editorBoundaryParagraphIsEmpty, topLevelBodyChild, hoistMediaFromParagraph, normalizeLeadingNestedMedia, leadingMediaIndex, prepareMediaInsertionRange, focusBeforeLeadingMedia, focusBeforeMedia, focusAfterMedia, mediaBesideCaret, revealBoundaryCaret, mediaBoundaryAtRange, inlineCodeBoundaryMarkerAtRange, syncBoundaryCaret, moveInsertionBeforeMediaBoundary, protectSelectedMediaBoundary, protectMediaParagraphDeletion, collapseEmptyParagraphBesideMedia, expandCollapsedBoundaryParagraph, collapseEmptyLeadingParagraphAfterDelete, isMediaOwnedDirectChild, normalizeMediaBodyStructure} = window.RegisterEditorBoundaries.create({
         rangeIsInside, editorStates,
     });
 
@@ -5726,6 +5726,8 @@
     }, false);
 
     document.addEventListener('beforeinput', collapseEmptyParagraphBesideMedia, false);
+
+    document.addEventListener('beforeinput', protectMediaParagraphDeletion, false);
 
     document.addEventListener('beforeinput', expandCollapsedBoundaryParagraph, false);
 
