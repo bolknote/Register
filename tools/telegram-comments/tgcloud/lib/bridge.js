@@ -34,7 +34,7 @@ export async function receiveEvent(event, ctx, kind) {
     await refreshConfig(config, store, fetch);
     if (!ready(config)) return;
     if (!ingested) await ingestEvent();
-    await flush(config, store, send, Date.now, 20, true);
+    await flush(config, store, send, Date.now, 20, true, 3);
 }
 
 export async function receive(message, ctx) {
@@ -64,7 +64,7 @@ export async function receive(message, ctx) {
             await api.sendMessage({ chat_id: message.chat.id, text: 'Настрой blogUrl, token, discussionChatId и channelChatId; затем разверни конфигурацию.' });
             return;
         }
-        const result = command === '/retry' && ready(config) ? await flush(config, store, send) : null;
+        const result = command === '/retry' && ready(config) ? await flush(config, store, send, Date.now, 20, false, 3) : null;
         const status = await store.status();
         const health = await checkReceiver();
         await api.sendMessage({ chat_id: message.chat.id, text: `${config.enabled === false ? 'Импорт выключен в настройках блога.\n' : ''}${result ? `Передано: ${result.delivered}.\n` : ''}В очереди: ${status.count}.\n${health}\n${status.errors.map(e => `${e.last_error || 'ожидает'}: ${e.count}`).join('\n')}` });
@@ -72,5 +72,5 @@ export async function receive(message, ctx) {
     }
     if (message.chat?.id !== config.discussionChatId || !ready(config)) return;
     if (!ingested) await ingest(message, ctx.update.update_id, config, store);
-    await flush(config, store, send, Date.now, 20, true);
+    await flush(config, store, send, Date.now, 20, true, 3);
 }

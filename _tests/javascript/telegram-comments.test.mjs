@@ -147,6 +147,91 @@ test('missing history and permanent snapshot errors do not request repeated Tele
     assert.equal((await store.status()).count, 2);
 });
 
+test('a brief outage is retried within the same invocation without resending acknowledged events', async t => {
+    const store = sqliteStore(t);
+    await ingest(first, 100, config, store);
+    await ingest(reply, 101, config, store);
+    const sent = [];
+    const result = await flush(config, store, async archive => {
+        const id = archive.messages.at(-1).id;
+        sent.push(id);
+        if (sent.length === 2) throw new Error('connection interrupted');
+        if (sent.length === 3) return { ok: false, status: 503, error: 'busy' };
+        assert.equal((await store.status()).count, id === 2 ? 2 : 1);
+        return { ok: true };
+    }, () => 1, 20, true, 3);
+    assert.deepEqual(sent, [2, 3, 3, 3]);
+    assert.deepEqual(result, { delivered: 2, ignored: 0 });
+    assert.equal((await store.status()).count, 0);
+});
+
+test('persistent outages have bounded attempts and keep the durable event for a later invocation', async t => {
+    for (const status of ['network', 503]) {
+        const store = sqliteStore(t);
+        await ingest(first, 100, config, store);
+        let sends = 0;
+        await assert.rejects(flush(config, store, async () => {
+            sends++;
+            assert.equal((await store.status()).count, 1);
+            if (status === 'network') throw new Error('network down');
+            return { ok: false, status, error: 'busy' };
+        }, () => 1, 20, true, 100), /retry this Telegram update/);
+        assert.equal(sends, 3);
+        assert.equal((await store.status()).count, 1);
+        assert.equal((await store.status()).errors[0].last_error, status === 'network' ? 'network_error' : 'busy');
+        assert.equal((await flush(config, store, async () => ({ ok: true }), () => 2, 20, true, 3)).delivered, 1);
+        assert.equal((await store.status()).count, 0);
+    }
+});
+
+test('rate limits, invalid acknowledgements and permanent errors are not retried immediately', async t => {
+    for (const status of [429, 401, 404, 422, 200]) {
+        const store = sqliteStore(t);
+        await ingest(first, 100, config, store);
+        let sends = 0;
+        const operation = flush(config, store, async () => {
+            sends++;
+            return { ok: false, status, error: 'rejected' };
+        }, () => 1, 20, true, 3);
+        if (status === 429) await assert.rejects(operation, /retry this Telegram update/);
+        else await operation;
+        assert.equal(sends, 1);
+        assert.equal((await store.status()).count, 1);
+    }
+});
+
+test('an automatic delivery retry resumes an upload whose chunk acknowledgement was lost', async t => {
+    const store = sqliteStore(t);
+    const bytes = new Uint8Array(CHUNK_BYTES + 3).fill(7);
+    await ingest({ ...first, photo: [{ file_id: 'opaque', file_unique_id: 'unique',
+        file_size: bytes.length, width: 10, height: 10 }] }, 100, config, store);
+    let received = 0;
+    let lost = true;
+    let comments = 0;
+    const offsets = [];
+    const fetch = async (url, options) => {
+        assert.equal((await store.status()).count, 1);
+        if (url.endsWith('/comments')) {
+            comments++;
+            assert.equal(received, bytes.length);
+            return { ok: true, status: 200, json: async () => ({ success: true }) };
+        }
+        if (options.body instanceof Uint8Array) {
+            const offset = Number(options.headers['X-Register-Telegram-Offset']);
+            offsets.push(offset);
+            received = offset + options.body.length;
+            if (lost) { lost = false; throw new Error('chunk acknowledgement lost'); }
+        }
+        return { ok: true, status: 200, json: async () => ({ success: true, received,
+            complete: received === bytes.length, owned: false }) };
+    };
+    assert.equal((await flush(config, store, (archive, scope) => sendSnapshot(archive, scope, fetch, () => bytes),
+        () => 1, 20, true, 3)).delivered, 1);
+    assert.deepEqual(offsets, [0, CHUNK_BYTES]);
+    assert.equal(comments, 1);
+    assert.equal((await store.status()).count, 0);
+});
+
 test('a reply received before its parent stays queued until the root can be resolved', async t => {
     const store = sqliteStore(t);
     await ingest(reply, 101, config, store);

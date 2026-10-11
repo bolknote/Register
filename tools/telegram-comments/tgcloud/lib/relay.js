@@ -29,10 +29,29 @@ export async function ingestReaction(event, updateId, config, store, counts = fa
     return true;
 }
 
-export async function flush(config, store, send, now = Date.now, limit = 20, requireDelivery = false) {
+async function deliver(row, archive, config, store, send, now, attempts) {
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+        let response;
+        try {
+            response = await send(archive, config);
+        } catch {
+            await store.failed(row.id, 'network_error', now());
+            if (attempt === attempts) return { ok: false, status: 503 };
+            continue;
+        }
+        if (response.ok) return response;
+        await store.failed(row.id, response.error, now());
+        // Serverless has no timers. Retry a short outage within this invocation,
+        // but leave rate limits and permanent errors for a later invocation.
+        if (!(response.status >= 500 && response.status < 600) || attempt === attempts) return response;
+    }
+}
+
+export async function flush(config, store, send, now = Date.now, limit = 20, requireDelivery = false, attempts = 1) {
     // Settings may change while another handler awaits delivery. Keep this operation's
     // scope and credentials together all the way through cache access and HTTP delivery.
     config = { ...config };
+    attempts = Number.isSafeInteger(attempts) ? Math.max(1, Math.min(3, attempts)) : 1;
     let delivered = 0;
     let ignored = 0;
     let transientFailure = false;
@@ -72,24 +91,17 @@ export async function flush(config, store, send, now = Date.now, limit = 20, req
             await store.failed(row.id, result.error, now());
             continue;
         }
-        try {
-            const response = await send(result.archive, config);
-            if (!response.ok) {
-                await store.failed(row.id, response.error, now());
-                if (response.status >= 500 || response.status === 429) {
-                    transientFailure = true;
-                    break;
-                }
-                if (response.status === 401 || response.status === 404) break;
-                continue;
+        const response = await deliver(row, result.archive, config, store, send, now, attempts);
+        if (!response.ok) {
+            if ((response.status >= 500 && response.status < 600) || response.status === 429) {
+                transientFailure = true;
+                break;
             }
-            await store.remove(row.id); // Only an explicit success acknowledges delivery.
-            delivered++;
-        } catch {
-            await store.failed(row.id, 'network_error', now());
-            transientFailure = true;
-            break;
+            if (response.status === 401 || response.status === 404) break;
+            continue;
         }
+        await store.remove(row.id); // Only an explicit success acknowledges delivery.
+        delivered++;
     }
     if (requireDelivery && transientFailure) {
         throw new Error('Register delivery is temporarily unavailable; retry this Telegram update.');
