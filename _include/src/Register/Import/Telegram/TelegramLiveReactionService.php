@@ -54,6 +54,11 @@ final readonly class TelegramLiveReactionService
     {
         $scope = -(int)$event['chat_id'] - 1_000_000_000_000;
         $messageId = (int)$event['message_id'];
+        $eventId = $messageId . ':' . (int)$event['date'] . ':' . (int)$event['update_id'];
+        if ($this->maps->find('telegram', (string)$scope, 'reaction_event', $eventId) !== null) {
+            return ['success' => true, 'duplicate' => true];
+        }
+
         $target = $this->importer->liveReactionTarget($scope, $messageId);
         if ($target === null) {
             return ['success' => false, 'error' => 'missing_target'];
@@ -64,6 +69,10 @@ final readonly class TelegramLiveReactionService
         $version = [(int)$event['date'], (int)$event['update_id']];
         $startedTransaction = $this->beginImportTransaction();
         try {
+            // The actor epoch may change after an archive import. An acknowledged event
+            // remains acknowledged across those baseline changes, including stale events.
+            $this->maps->store('telegram', (string)$scope, 'reaction_event', $eventId, $target['type'], $target['id'],
+                hash('sha256', json_encode($event, JSON_THROW_ON_ERROR)), ['date' => $version[0], 'update_id' => $version[1]], time());
             $current = $this->countMap($this->importer->liveReactionCounts($target));
             $stateMap = $this->maps->find('telegram', $stateScope, 'reaction_state', $identity);
             $state = $this->sourceData($stateMap);

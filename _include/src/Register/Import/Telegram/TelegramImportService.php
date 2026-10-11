@@ -61,9 +61,9 @@ final readonly class TelegramImportService
         string $clientOriginalName = '',
     ): array
     {
-        $config = $this->settings?->liveConfig();
-        $authorUserId = $config->authorUserId ?? 0;
-        $ownerTelegramId = $config->ownerTelegramUserId ?? 0;
+        $config = $this->settings?->liveConfig() ?? new TelegramLiveImportConfig();
+        $authorUserId = $config->authorUserId;
+        $ownerTelegramId = $config->ownerTelegramUserId;
         return $this->importPackage(
             TelegramExportPackage::fromFile($path, $clientOriginalName),
             $siteAuthorUserId ?? ($authorUserId > 0 ? $authorUserId : null),

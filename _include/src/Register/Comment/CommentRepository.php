@@ -11,6 +11,7 @@ namespace Register\Comment;
 
 use Register\Content\ContentId;
 use Register\Content\ContentType;
+use Register\Import\ExternalImportMapSchema;
 use Register\Live\LiveUpdateRepository;
 use Register\Core\Model\UserpicSchema;
 use Register\Core\Pdo\DbLayer;
@@ -42,6 +43,7 @@ final readonly class CommentRepository
         if ($parentId !== null && !$this->isValidParent(
             $contentId,
             $parentId,
+            $source === CommentMutationSource::IMPORTED,
             $source === CommentMutationSource::IMPORTED,
         )) {
             throw new \InvalidArgumentException('The parent comment does not belong to the commented content.');
@@ -98,7 +100,7 @@ final readonly class CommentRepository
     public function synchronizeImported(int $commentId, CommentImport $comment): bool
     {
         if ($commentId <= 0
-            || ($comment->parentId !== null && !$this->isValidParent($comment->contentId, $comment->parentId, true))
+            || ($comment->parentId !== null && !$this->isValidParent($comment->contentId, $comment->parentId, true, true))
         ) {
             throw new \InvalidArgumentException('The imported comment parent is invalid.');
         }
@@ -219,7 +221,7 @@ final readonly class CommentRepository
         return array_values(array_map($this->hydrate(...), $rows));
     }
 
-    public function isValidParent(ContentId $contentId, int $parentId, bool $includeHidden = false): bool
+    public function isValidParent(ContentId $contentId, int $parentId, bool $includeHidden = false, bool $includeDeleted = false): bool
     {
         if ($parentId <= 0) {
             return false;
@@ -231,8 +233,11 @@ final readonly class CommentRepository
             ->where('id = :id')->setParameter('id', $parentId)
             ->andWhere('content_type = :content_type')->setParameter('content_type', $contentId->type->value)
             ->andWhere('content_id = :content_id')->setParameter('content_id', $contentId->value)
-            ->andWhere('deleted = 0')
         ;
+        if (!$includeDeleted) {
+            $query->andWhere('deleted = 0');
+        }
+
         if (!$includeHidden) {
             $query->andWhere('shown = 1');
         }
@@ -508,10 +513,10 @@ final readonly class CommentRepository
         return $updated;
     }
 
-    /** Hourly maintenance removes expired leaf deletions in bounded batches. Reply anchors stay. */
+    /** Hourly maintenance removes expired leaves. Reply and external-identity anchors stay. */
     public function purgeExpiredDeletions(int $before, int $limit = 100): int
     {
-        $rows = $this->dbLayer
+        $query = $this->dbLayer
             ->select('c.id')
             ->from(CommentSchema::TABLE_NAME . ' AS c')
             ->leftJoin(CommentSchema::TABLE_NAME . ' AS child', 'child.parent_id = c.id')
@@ -520,11 +525,18 @@ final readonly class CommentRepository
             ->andWhere('child.id IS NULL')
             ->orderBy('c.modify_time', 'c.id')
             ->limit(max(1, min(100, $limit)))
-            ->execute()->fetchColumn();
+        ;
+        if ($this->dbLayer->tableExists(ExternalImportMapSchema::TABLE_NAME)) {
+            $query->leftJoin(ExternalImportMapSchema::TABLE_NAME . ' AS external_identity',
+                "external_identity.target_id = c.id AND external_identity.target_type = 'comment'")
+                ->andWhere('external_identity.target_id IS NULL');
+        }
+
+        $rows = $query->execute()->fetchColumn();
         $count = 0;
         foreach ($rows as $id) {
             $comment = $this->find((int)$id);
-            if ($comment === null || $this->hasReplies($comment->id, $comment->contentId)) {
+            if ($comment === null || $this->hasReplies($comment->id, $comment->contentId) || $this->hasExternalIdentity($comment->id)) {
                 continue;
             }
 
@@ -543,7 +555,7 @@ final readonly class CommentRepository
         return $count;
     }
 
-    /** Retained reply anchors lose their original text and personal data after Undo retention. */
+    /** Retained deletion anchors lose their original text and personal data after Undo retention. */
     public function anonymizeExpiredDeletions(int $before, int $limit = 100): int
     {
         $rows = $this->dbLayer
@@ -593,8 +605,8 @@ final readonly class CommentRepository
     }
 
     /**
-     * A tombstone is useful only while it anchors replies. Removing the last reply can make an
-     * already deleted ancestor unnecessary as well, so prune the whole empty tombstone chain.
+     * Keep tombstones that anchor replies or external identities. Removing the last reply can
+     * make an unreferenced deleted ancestor unnecessary, so prune the empty tombstone chain.
      *
      * @return list<int>
      */
@@ -604,6 +616,10 @@ final readonly class CommentRepository
         $currentId  = $comment->id;
         $parentId   = $comment->parentId;
         while (!$this->hasReplies($currentId, $comment->contentId)) {
+            if ($this->hasExternalIdentity($currentId)) {
+                break;
+            }
+
             $removed = $this->dbLayer
                 ->delete(CommentSchema::TABLE_NAME)
                 ->where('id = :id')->setParameter('id', $currentId)
@@ -636,6 +652,17 @@ final readonly class CommentRepository
         }
 
         return $removedIds;
+    }
+
+    private function hasExternalIdentity(int $commentId): bool
+    {
+        if (!$this->dbLayer->tableExists(ExternalImportMapSchema::TABLE_NAME)) {
+            return false;
+        }
+
+        return (int)$this->dbLayer->select('COUNT(*)')->from(ExternalImportMapSchema::TABLE_NAME)
+            ->where("target_type = 'comment'")->andWhere('target_id = :id')->setParameter('id', $commentId)
+            ->execute()->result() > 0;
     }
 
     private function hasReplies(int $commentId, ContentId $contentId): bool

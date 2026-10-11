@@ -283,6 +283,132 @@ final class TelegramLiveImportCest
         }
     }
 
+    public function deletedImportedCommentsKeepAnAnonymousAnchorForLaterReplies(\IntegrationTester $I): void
+    {
+        $contentId = ContentId::post($this->post($I));
+        $this->enable($I);
+        $snapshot = $this->snapshot();
+        $snapshot['messages'] = array_slice($snapshot['messages'], 0, 2);
+        $this->send($I, $snapshot);
+        $I->seeResponseCodeIs(200);
+        $comments = $I->grabService(CommentRepository::class);
+        $parent = $comments->findForContent($contentId)[0];
+        $I->assertNotNull($comments->deleteRecoverably($parent));
+        $I->assertSame(0, $comments->purgeExpiredDeletions(time() + 86400));
+        $I->assertSame(1, $comments->anonymizeExpiredDeletions(time() + 86400));
+        $I->assertFalse($comments->isValidParent($contentId, $parent->id, true));
+        $I->expectThrowable(\InvalidArgumentException::class,
+            static fn(): int => $comments->save($contentId, 'Local', '', false, 'Local reply', '', $parent->id));
+        $this->send($I, $snapshot);
+        $I->seeResponseCodeIs(200);
+        $this->send($I, $this->snapshot());
+        $I->seeResponseCodeIs(200);
+        $child = $comments->findForContent($contentId)[1];
+        $I->assertTrue($child->shown);
+        $I->assertSame($parent->id, $child->parentId);
+
+        $edit = $this->snapshot();
+        $edit['messages'][2]['text'] = 'Edited reply';
+        $edit['messages'][2]['text_entities'] = [['type' => 'plain', 'text' => 'Edited reply']];
+        $edit['messages'][2]['edited_unixtime'] = '200';
+        $edit['messages'][2]['bot_update_id'] = 200;
+        $this->send($I, $edit);
+        $I->seeResponseCodeIs(200);
+        $I->assertSame(1, $this->change($I, 'comments_updated'));
+
+        $editedChild = $comments->find($child->id);
+        $I->assertNotNull($editedChild);
+        $I->assertStringContainsString('Edited reply', $editedChild->text);
+
+        $anchor = $comments->find($parent->id);
+        $I->assertNotNull($anchor);
+        $I->assertTrue($anchor->deleted);
+        $I->assertSame('', $anchor->text);
+        $I->assertSame('', $anchor->name);
+        $I->assertNull($anchor->userId);
+    }
+
+    public function authoritativeDeletionKeepsTheImportedIdentityAndDoesNotStarveLocalCleanup(\IntegrationTester $I): void
+    {
+        $contentId = ContentId::post($this->post($I));
+        $this->enable($I);
+        $snapshot = $this->snapshot();
+        $snapshot['messages'] = array_slice($snapshot['messages'], 0, 2);
+        $this->send($I, $snapshot);
+        $I->seeResponseCodeIs(200);
+        $comments = $I->grabService(CommentRepository::class);
+        $parent = $comments->findForContent($contentId)[0];
+        $I->assertTrue($comments->tombstone($parent->id, $contentId->type));
+        $I->assertNotNull($comments->find($parent->id));
+
+        $localId = $comments->save($contentId, 'Local', '', false, 'Local leaf', '', null);
+        $local = $comments->find($localId);
+        $I->assertNotNull($local);
+        $I->assertNotNull($comments->deleteRecoverably($local));
+
+        $db = $I->grabService(DbLayer::class);
+        $db->update('comments')->set('modify_time', ':time')->where('id = :id')->execute(['time' => time() - 3 * 86400, 'id' => $parent->id]);
+        $I->assertSame(1, $comments->purgeExpiredDeletions(time() + 86400, 1));
+        $I->assertNull($comments->find($localId));
+        $I->assertNotNull($comments->find($parent->id));
+    }
+
+    public function acknowledgedReactionEventsStayIdempotentAfterAnArchiveChangesTheBaseline(\IntegrationTester $I): void
+    {
+        $contentId = ContentId::post($this->post($I));
+        $this->enable($I);
+        $this->send($I, $this->snapshot());
+        $commentId = $I->grabService(CommentRepository::class)->findForContent($contentId)[0]->id;
+        $emoji = static fn(string $value): array => ['type' => 'emoji', 'emoji' => $value];
+        $event = ['type' => 'change', 'chat_id' => -1000000000123, 'message_id' => 2,
+            'actor' => 'user22', 'date' => 202, 'update_id' => 202, 'old_reaction' => [], 'new_reaction' => [$emoji('👍')]];
+        $path = tempnam(sys_get_temp_dir(), 'register-telegram-rebase-');
+        $I->assertIsString($path);
+        try {
+            $this->send($I, ['reaction_update' => $event]);
+            $I->seeResponseCodeIs(200);
+            $archive = $this->snapshot();
+            $archive['messages'][1]['reactions'] = [['type' => 'emoji', 'count' => 5, 'emoji' => '👍']];
+            file_put_contents($path, json_encode($archive, JSON_THROW_ON_ERROR));
+            $I->grabService(TelegramImportService::class)->importFile($path);
+            $this->send($I, ['reaction_update' => $event]);
+            $I->seeResponseCodeIs(200);
+            $I->assertSame(['👍' => 5], $this->commentReactionCounts($I, $commentId));
+            $next = [...$event, 'date' => 203, 'update_id' => 203, 'old_reaction' => [$emoji('👍')], 'new_reaction' => [$emoji('❤')]];
+            $this->send($I, ['reaction_update' => $next]);
+            $I->seeResponseCodeIs(200);
+            $this->send($I, ['reaction_update' => $event]);
+            $I->seeResponseCodeIs(200);
+            $I->assertSame(['❤' => 1, '👍' => 4], $this->commentReactionCounts($I, $commentId));
+            $count = ['type' => 'count', 'chat_id' => -1000000000123, 'message_id' => 2, 'date' => 300, 'update_id' => 300,
+                'reactions' => [['type' => $emoji('👍'), 'total_count' => 8]]];
+            $this->send($I, ['reaction_update' => $count]);
+            $I->seeResponseCodeIs(200);
+            $staleChange = [...$event, 'actor' => 'user44', 'date' => 298, 'update_id' => 298];
+            $staleCount = [...$count, 'date' => 299, 'update_id' => 299,
+                'reactions' => [['type' => $emoji('👍'), 'total_count' => 1]]];
+            foreach ([$staleChange, $staleCount] as $stale) {
+                $this->send($I, ['reaction_update' => $stale]);
+                $I->seeResponseCodeIs(200);
+                $I->assertTrue(json_decode($I->grabResponse(), true, 512, JSON_THROW_ON_ERROR)['stale']);
+            }
+
+            $archive['messages'][1]['reactions'][0]['count'] = 7;
+            file_put_contents($path, json_encode($archive, JSON_THROW_ON_ERROR));
+            $I->grabService(TelegramImportService::class)->importFile($path);
+            $this->send($I, ['reaction_update' => $count]);
+            $I->seeResponseCodeIs(200);
+            $I->assertSame(['👍' => 7], $this->commentReactionCounts($I, $commentId));
+            foreach ([$staleChange, $staleCount] as $stale) {
+                $this->send($I, ['reaction_update' => $stale]);
+                $I->seeResponseCodeIs(200);
+                $I->assertSame(['👍' => 7], $this->commentReactionCounts($I, $commentId));
+            }
+        } finally {
+            unlink($path);
+        }
+    }
+
     public function importsPersonalReactionsAndRemovalsOnceEvenWhenEventsAreReordered(\IntegrationTester $I): void
     {
         $id = $this->post($I);
