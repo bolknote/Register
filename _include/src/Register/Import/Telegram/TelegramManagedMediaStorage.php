@@ -41,6 +41,7 @@ final readonly class TelegramManagedMediaStorage
         int                   $messageId,
         int                   $position,
         bool                  $dryRun,
+        bool                  $sticker = false,
     ): ?array {
         $expectedSize = $package->mediaSize($relativePath);
         $input = $package->openMediaStream($relativePath);
@@ -72,7 +73,7 @@ final readonly class TelegramManagedMediaStorage
         $hash = hash_init('sha256');
         $prefix = '';
         $bytes = 0;
-        $isSticker = str_ends_with(mb_strtolower($relativePath), '.tgs');
+        $isSticker = $sticker && str_ends_with(mb_strtolower($relativePath), '.tgs');
         $stickerBytes = '';
         $stickerJson = null;
         try {

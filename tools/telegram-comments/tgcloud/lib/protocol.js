@@ -185,7 +185,7 @@ export async function snapshot(messageId, store, config) {
         if (!message) return { error: 'missing_parent' };
         chain.push(message);
         if (message.forwarded_from_id) {
-            if (chain.length === 1 && !rootLinksToBlog(message, config)) return { ignored: true };
+            if (!rootLinksToBlog(message, config)) return { ignored: true };
             return { archive: {
                 id: exportChatId(config.discussionChatId),
                 name: 'Telegram discussion',

@@ -63,7 +63,7 @@ test('the bot resumes byte uploads after a lost reply and skips files already ow
     () => assert.fail('Owned media must not be downloaded again'))).ok, true);
 });
 
-function sqliteStore(t, legacy = [], previousConfig = null) {
+function sqliteStore(t, legacy = [], previousConfig = null, beforeWrite = async () => {}) {
     const sqlite = new DatabaseSync(':memory:');
     t.after(() => sqlite.close());
     sqlite.exec(`CREATE TABLE messages (id INTEGER PRIMARY KEY, source_time INTEGER NOT NULL, update_id INTEGER NOT NULL, payload TEXT NOT NULL);
@@ -75,7 +75,11 @@ function sqliteStore(t, legacy = [], previousConfig = null) {
     for (const message of legacy) query('run', sql`INSERT INTO messages VALUES (${message.id}, ${message.date_unixtime}, ${message.bot_update_id}, ${JSON.stringify(message)})`);
     if (previousConfig) query('run', sql`INSERT INTO configuration VALUES (1, ${JSON.stringify(previousConfig)})`);
     return createStore({
-        run: async q => query('run', q), get: async q => query('get', q), all: async q => query('all', q),
+        run: async q => {
+            await beforeWrite(q);
+            const result = query('run', q);
+            return { rowsAffected: result.changes, lastInsertRowid: result.lastInsertRowid, rows: [] };
+        }, get: async q => query('get', q), all: async q => query('all', q),
     }, sql);
 }
 
@@ -164,6 +168,36 @@ test('an older complete event restores missing ancestry without replacing a newe
     assert.equal((await store.status()).count, 0);
 });
 
+test('concurrent complete and truncated snapshots preserve both ancestry and the newest edit', async t => {
+    for (const inlineFirst of [false, true]) {
+        const gates = [];
+        let releaseReads;
+        const readsFinished = new Promise(resolve => { releaseReads = resolve; });
+        const store = sqliteStore(t, [], null, async query => {
+            if (!query.text.startsWith('INSERT INTO scoped_messages') || !query.values[0].endsWith(':2') || gates.length === 2) return;
+            const paused = new Promise(resolve => { gates.push(resolve); });
+            if (gates.length === 2) releaseReads();
+            await paused;
+        });
+        await store.remember(normaliseMessage(root, 99, config), config);
+        const complete = store.remember(normaliseMessage(first, 100, config), config);
+        const inline = store.remember(normaliseMessage({ ...first, text: 'Edited inline', edit_date: 200,
+            reply_to_message: undefined }, 0, config), config);
+        await readsFinished;
+        const workers = [complete, inline];
+        const firstWriter = inlineFirst ? 1 : 0;
+        gates[firstWriter]();
+        await workers[firstWriter];
+        gates[1 - firstWriter]();
+        await workers[1 - firstWriter];
+        const cached = await store.getMessage(2, config);
+        assert.equal(cached.text, 'Edited inline');
+        assert.equal(cached.edited_unixtime, '200');
+        assert.equal(cached.reply_to_message_id, 1);
+        assert.equal((await snapshot(2, store, config)).archive.messages.length, 2);
+    }
+});
+
 test('filters other groups and roots from other channels, and never trusts manual forwards', async t => {
     assert.equal(exportChatId(config.discussionChatId), 123);
     assert.throws(() => exportChatId(-123));
@@ -177,6 +211,23 @@ test('filters other groups and roots from other channels, and never trusts manua
         assert.equal(archive.messages.length, 1); // Register the post for later reactions without inserting a comment.
         return { ok: true };
     }), { delivered: 1, ignored: 0 });
+});
+
+test('replies to known channel posts without a first-line blog link never enter delivery', async t => {
+    const roots = [
+        { ...root, text: 'A conversation', entities: undefined },
+        { ...root, entities: [{ ...root.entities[0], url: 'https://elsewhere.test/post' }] },
+        { ...root, text: 'A conversation\nExample post', entities: [{ ...root.entities[0], offset: 15 }] },
+    ];
+    for (const discussionRoot of roots) {
+        const store = sqliteStore(t);
+        await ingest({ ...first, reply_to_message: discussionRoot, photo: [
+            { file_id: 'opaque', file_unique_id: 'photo', file_size: 3, width: 10, height: 10 },
+        ] }, 100, config, store);
+        const result = await flush(config, store, () => assert.fail('An unrelated discussion must not upload media or contact the receiver'));
+        assert.deepEqual(result, { delivered: 0, ignored: 1 });
+        assert.equal((await store.status()).count, 0);
+    }
 });
 
 test('real photo sizes, captionless videos and all sticker formats retain downloadable file identities', () => {
@@ -243,7 +294,7 @@ test('automatic discussion forwards are scoped by sender_chat even when origin i
 test('rich channel posts retain the first-line article link and formatted comment text', async t => {
     const store = sqliteStore(t);
     const richRoot = { ...root, text: undefined, entities: undefined, rich_message: { blocks: [
-        { type: 'paragraph', text: [{ type: 'url', url: 'https://example.org/post', text: { type: 'bold', text: 'Article' } }, '\nExcerpt'] },
+        { type: 'paragraph', text: [{ type: 'url', url: 'https://register.localhost/post', text: { type: 'bold', text: 'Article' } }, '\nExcerpt'] },
         { type: 'photo', caption: { text: 'Photo caption' } },
     ] } };
     const richComment = { ...first, text: undefined, reply_to_message: richRoot, rich_message: { blocks: [
@@ -251,7 +302,7 @@ test('rich channel posts retain the first-line article link and formatted commen
     ] } };
     await ingest(richComment, 100, config, store);
     await flush(config, store, async archive => {
-        assert.deepEqual(archive.messages[0].text_entities[0], { type: 'text_link', text: 'Article', href: 'https://example.org/post' });
+        assert.deepEqual(archive.messages[0].text_entities[0], { type: 'text_link', text: 'Article', href: 'https://register.localhost/post' });
         assert.equal(archive.messages[0].text, 'Article\nExcerpt\nPhoto caption');
         assert.equal(archive.messages[1].text, '😀 A rich comment');
         assert.equal(archive.messages[1].text_entities[1].type, 'italic');

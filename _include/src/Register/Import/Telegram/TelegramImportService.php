@@ -797,6 +797,7 @@ final readonly class TelegramImportService
                     $messageId,
                     $mediaPosition,
                     $dryRun,
+                    ($media['sticker'] ?? false) === true,
                 );
                 $mediaStateIdentity = $storedMedia === null ? null : substr($storedMedia['sha256'] ?? $storedMedia['storage_id'] ?? '', 0, 20);
                 if ($storedMedia === null && !$liveSnapshot) {

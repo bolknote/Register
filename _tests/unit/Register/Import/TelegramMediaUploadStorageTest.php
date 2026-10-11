@@ -160,4 +160,62 @@ final class TelegramMediaUploadStorageTest extends Unit
             self::assertDirectoryDoesNotExist($this->root . '/private');
         }
     }
+
+    public function testInterruptedMetadataDoesNotBlockOtherUploadsAndCanBeRecovered(): void
+    {
+        $storage = $this->storage();
+        $chunk = str_repeat('a', TelegramMediaUploadStorage::CHUNK_BYTES);
+        $total = \strlen($chunk) + 3;
+        $storage->append(2, 'file_1', $total, 0, $chunk);
+        $path = $this->root . '/private/' . hash('sha256', '123:2:file_1') . '.json';
+        file_put_contents($path, '{'); // A worker died after truncating the metadata file.
+        self::assertTrue($storage->append(3, 'healthy', 3, 0, 'abc')['complete']);
+        foreach (['', '{', '{"size":0}'] as $broken) {
+            file_put_contents($path, $broken);
+            self::assertSame(['received' => 0, 'complete' => false, 'owned' => false], $storage->status(2, 'file_1'));
+            $storage->reserveMessage(2, [['file_unique_id' => 'file_1', 'file_size' => $total]]);
+            $storage->append(2, 'file_1', $total, 0, $chunk);
+            self::assertTrue($storage->append(2, 'file_1', $total, \strlen($chunk), 'end')['complete']);
+            self::assertSame($chunk . 'end', $storage->download(['path' => 'live/2/1-file_1.bin', 'file_unique_id' => 'file_1']));
+        }
+
+        self::assertSame('abc', $storage->download(['path' => 'live/3/1-healthy.bin', 'file_unique_id' => 'healthy']));
+    }
+
+    public function testExpiredBrokenMetadataReleasesItsReservationAndIncompleteBytes(): void
+    {
+        $storage = $this->storage();
+        $storage->append(2, 'expired', 3, 0, 'abc');
+
+        $prefix = $this->root . '/private/' . hash('sha256', '123:2:expired');
+        file_put_contents($prefix . '.json', '{');
+        touch($prefix . '.json', time() - 86401);
+        $storage->reserveMessage(3, [['file_unique_id' => 'healthy', 'file_size' => 3]]);
+        self::assertFileDoesNotExist($prefix . '.json');
+        self::assertFileDoesNotExist($prefix . '.part');
+        self::assertTrue($storage->append(3, 'healthy', 3, 0, 'abc')['complete']);
+    }
+
+    public function testBrokenMetadataStillCountsAgainstTheStagingQuota(): void
+    {
+        $storage = $this->storage();
+        $files = [];
+        for ($index = 1; $index <= 10; ++$index) {
+            $files[] = ['file_unique_id' => 'file_' . $index, 'file_size' => TelegramMediaUploadStorage::MAX_BYTES];
+        }
+
+        $storage->reserveMessage(2, $files);
+
+        $path = $this->root . '/private/' . hash('sha256', '123:2:file_1') . '.json';
+        file_put_contents($path, '{');
+        try {
+            $storage->reserveMessage(3, [['file_unique_id' => 'extra', 'file_size' => 3]]);
+            self::fail('Unreadable metadata must not allow the quota to be exceeded.');
+        } catch (\RuntimeException) {
+            $storage->reserveMessage(2, $files);
+
+            $repaired = json_decode((string)file_get_contents($path), true, 8, JSON_THROW_ON_ERROR);
+            self::assertSame(TelegramMediaUploadStorage::MAX_BYTES, $repaired['size']);
+        }
+    }
 }

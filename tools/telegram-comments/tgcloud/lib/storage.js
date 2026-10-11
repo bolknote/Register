@@ -34,32 +34,43 @@ export function createStore(db, sql) {
         async remember(message, config) {
             await scopeLegacyCache(config);
             const key = `${config.discussionChatId}:${config.channelChatId}:${message.id}`;
-            const existing = await this.getMessage(message.id, config);
-            const sameMessage = existing && existing.from_id === message.from_id
-                && existing.date_unixtime === message.date_unixtime;
-            // Inline reply targets omit their own reply target, including after edits.
-            // Editing text never changes the message's ancestry.
-            const completesAncestry = Boolean(sameMessage && !existing.forwarded_from_id && !message.forwarded_from_id
-                && !existing.reply_to_message_id && message.reply_to_message_id);
-            if (sameMessage && !message.forwarded_from_id && !message.reply_to_message_id && existing.reply_to_message_id) {
-                message = { ...message, reply_to_message_id: existing.reply_to_message_id };
-            }
-            if (completesAncestry) {
-                if (sourceTime(message) < sourceTime(existing)
-                    || (sourceTime(message) === sourceTime(existing) && message.bot_update_id < existing.bot_update_id)) {
-                    message = { ...existing, reply_to_message_id: message.reply_to_message_id };
+            const incoming = message;
+            while (true) {
+                message = incoming;
+                const row = await db.get(sql`SELECT payload FROM scoped_messages WHERE id = ${key}`);
+                const existingPayload = row?.payload ?? null;
+                const existing = row ? JSON.parse(row.payload) : null;
+                const sameMessage = existing && existing.from_id === message.from_id
+                    && existing.date_unixtime === message.date_unixtime;
+                // Inline reply targets omit their own reply target, including after edits.
+                // Editing text never changes the message's ancestry.
+                const completesAncestry = Boolean(sameMessage && !existing.forwarded_from_id && !message.forwarded_from_id
+                    && !existing.reply_to_message_id && message.reply_to_message_id);
+                if (sameMessage && !message.forwarded_from_id && !message.reply_to_message_id && existing.reply_to_message_id) {
+                    message = { ...message, reply_to_message_id: existing.reply_to_message_id };
                 }
-                message = { ...message, bot_update_id: Math.max(message.bot_update_id, existing.bot_update_id) };
+                if (completesAncestry) {
+                    if (sourceTime(message) < sourceTime(existing)
+                        || (sourceTime(message) === sourceTime(existing) && message.bot_update_id < existing.bot_update_id)) {
+                        message = { ...existing, reply_to_message_id: message.reply_to_message_id };
+                    }
+                    message = { ...message, bot_update_id: Math.max(message.bot_update_id, existing.bot_update_id) };
+                }
+                const completesRoot = Boolean(message.forwarded_from_id && message.text && existing && existing.forwarded_from_id === message.forwarded_from_id
+                    && !existing.text && sourceTime(message) >= sourceTime(existing));
+                if (completesRoot) message = { ...message, bot_update_id: Math.max(message.bot_update_id, existing.bot_update_id) };
+                const result = await db.run(sql`INSERT INTO scoped_messages (id, source_time, update_id, payload)
+                    VALUES (${key}, ${sourceTime(message)}, ${message.bot_update_id}, ${JSON.stringify(message)})
+                    ON CONFLICT(id) DO UPDATE SET source_time = excluded.source_time, update_id = excluded.update_id, payload = excluded.payload
+                    WHERE scoped_messages.payload = ${existingPayload}
+                      AND (excluded.source_time > scoped_messages.source_time
+                       OR (excluded.source_time = scoped_messages.source_time AND (excluded.update_id > scoped_messages.update_id
+                           OR ${completesRoot || completesAncestry ? 1 : 0} = 1)))`);
+                if (result.rowsAffected > 0) return;
+                const latest = await db.get(sql`SELECT payload FROM scoped_messages WHERE id = ${key}`);
+                if ((latest?.payload ?? null) === existingPayload) return; // Unchanged cache: the source was stale.
+                // A concurrent writer changed the row. Merge against its version before retrying.
             }
-            const completesRoot = Boolean(message.forwarded_from_id && message.text && existing && existing.forwarded_from_id === message.forwarded_from_id
-                && !existing.text && sourceTime(message) >= sourceTime(existing));
-            if (completesRoot) message = { ...message, bot_update_id: Math.max(message.bot_update_id, existing.bot_update_id) };
-            await db.run(sql`INSERT INTO scoped_messages (id, source_time, update_id, payload)
-                VALUES (${key}, ${sourceTime(message)}, ${message.bot_update_id}, ${JSON.stringify(message)})
-                ON CONFLICT(id) DO UPDATE SET source_time = excluded.source_time, update_id = excluded.update_id, payload = excluded.payload
-                WHERE excluded.source_time > scoped_messages.source_time
-                   OR (excluded.source_time = scoped_messages.source_time AND (excluded.update_id > scoped_messages.update_id
-                       OR (${completesRoot || completesAncestry ? 1 : 0} = 1 AND scoped_messages.payload = ${JSON.stringify(existing)})))`);
         },
         async getMessage(id, config) {
             await scopeLegacyCache(config);

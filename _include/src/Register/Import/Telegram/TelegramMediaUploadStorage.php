@@ -33,11 +33,15 @@ final readonly class TelegramMediaUploadStorage implements TelegramFileClientInt
 
         $prefix = $this->prefix($messageId, $uniqueId);
         $meta = $this->metadata($prefix);
+        if ($meta === []) {
+            return ['received' => 0, 'complete' => false, 'owned' => false];
+        }
+
         clearstatcache(true, $prefix . '.part');
         $size = is_file($prefix . '.part') ? filesize($prefix . '.part') : 0;
         $size = $size === false ? 0 : $size;
 
-        $complete = $meta !== [] && $size === (int)$meta['size'];
+        $complete = $size === (int)$meta['size'];
         return ['received' => $complete ? $size : intdiv($size, self::CHUNK_BYTES) * self::CHUNK_BYTES, 'complete' => $complete, 'owned' => false];
     }
 
@@ -145,10 +149,7 @@ final readonly class TelegramMediaUploadStorage implements TelegramFileClientInt
                 }
 
                 chmod($prefix . '.part', 0600);
-                $json = json_encode(['size' => $total, 'updated_at' => time()], JSON_THROW_ON_ERROR);
-                if (file_put_contents($prefix . '.json', $json, LOCK_EX) !== \strlen($json)) {
-                    throw new \RuntimeException('The media upload metadata cannot be written.');
-                }
+                $this->writeMetadata($prefix, $total);
 
                 return ['received' => $received, 'complete' => $received === $total, 'owned' => false];
             } finally {
@@ -249,10 +250,15 @@ final readonly class TelegramMediaUploadStorage implements TelegramFileClientInt
             return [];
         }
 
-        $json = file_get_contents($prefix . '.json');
-        $data = \is_string($json) ? json_decode($json, true, 8, JSON_THROW_ON_ERROR) : null;
+        $json = register_call_without_warnings(static fn(): string|false => file_get_contents($prefix . '.json'));
+        try {
+            $data = \is_string($json) ? json_decode($json, true, 8, JSON_THROW_ON_ERROR) : null;
+        } catch (\JsonException) {
+            return [];
+        }
+
         if (!\is_array($data) || !\is_int($data['size'] ?? null) || $data['size'] <= 0 || $data['size'] > self::MAX_BYTES) {
-            throw new \RuntimeException('The staged media metadata is invalid.');
+            return [];
         }
 
         return $data;
@@ -282,8 +288,7 @@ final readonly class TelegramMediaUploadStorage implements TelegramFileClientInt
                 throw new \RuntimeException('The media quota is busy.');
             }
 
-            $reserved = 0;
-            $count = 0;
+            $reservations = [];
             $paths = glob(rtrim($this->directory, '/') . '/*.json');
             foreach ($paths === false ? [] : $paths as $path) {
                 if (is_link($path)) {
@@ -292,19 +297,22 @@ final readonly class TelegramMediaUploadStorage implements TelegramFileClientInt
 
                 $entryPrefix = substr($path, 0, -5);
                 $meta = $this->metadata($entryPrefix);
-                if ($meta === []) {
-                    continue;
+                $modifiedAt = register_call_without_warnings(static fn(): int|false => filemtime($path));
+                if ($modifiedAt === false) {
+                    continue; // An acknowledged import can remove staging during this scan.
                 }
 
-                if ((int)($meta['updated_at'] ?? 0) < time() - 86400) {
+                $updatedAt = (int)($meta['updated_at'] ?? $modifiedAt);
+                if ($updatedAt < time() - 86400) {
                     $this->discard($entryPrefix);
                     if (!is_file($path)) {
                         continue;
                     }
                 }
 
-                $reserved += (int)$meta['size'];
-                ++$count;
+                // A killed legacy writer may have left an unreadable metadata file.
+                // Reserve conservatively until its own retry supplies the true size.
+                $reservations[$entryPrefix] = (int)($meta['size'] ?? self::MAX_BYTES);
             }
 
             foreach ($entries as $prefix => $total) {
@@ -313,13 +321,10 @@ final readonly class TelegramMediaUploadStorage implements TelegramFileClientInt
                     throw new \UnexpectedValueException('The media upload size changed.');
                 }
 
-                if ($meta === []) {
-                    $reserved += $total;
-                    ++$count;
-                }
+                $reservations[$prefix] = $total;
             }
 
-            if ($reserved > self::MAX_STAGED_BYTES || $count > 64) {
+            if (array_sum($reservations) > self::MAX_STAGED_BYTES || \count($reservations) > 64) {
                 throw new \RuntimeException('The private media staging quota is full.');
             }
 
@@ -330,16 +335,32 @@ final readonly class TelegramMediaUploadStorage implements TelegramFileClientInt
                 }
 
                 fclose($fileLock);
-                $json = json_encode(['size' => $total, 'updated_at' => time()], JSON_THROW_ON_ERROR);
-                if (file_put_contents($prefix . '.json', $json, LOCK_EX) !== \strlen($json)) {
-                    throw new \RuntimeException('The media upload metadata cannot be written.');
-                }
-
-                chmod($prefix . '.json', 0600);
+                $this->writeMetadata($prefix, $total);
             }
         } finally {
             flock($lock, LOCK_UN);
             fclose($lock);
+        }
+    }
+
+    private function writeMetadata(string $prefix, int $total): void
+    {
+        $temporary = tempnam($this->directory, '.metadata-');
+        if (!\is_string($temporary)) {
+            throw new \RuntimeException('The media upload metadata cannot be staged.');
+        }
+
+        try {
+            $json = json_encode(['size' => $total, 'updated_at' => time()], JSON_THROW_ON_ERROR);
+            if (file_put_contents($temporary, $json) !== \strlen($json) || !chmod($temporary, 0600)
+                || !rename($temporary, $prefix . '.json')
+            ) {
+                throw new \RuntimeException('The media upload metadata cannot be written.');
+            }
+        } finally {
+            if (is_file($temporary)) {
+                unlink($temporary);
+            }
         }
     }
 

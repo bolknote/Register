@@ -217,6 +217,49 @@ final class TelegramImportCest
         }
     }
 
+    public function distinguishesDocumentsNamedTgsFromAnimatedStickersInZipExports(\IntegrationTester $I): void
+    {
+        $contentId = ContentId::post($this->insertPost($I->grabService(DbLayer::class)));
+        $root = sys_get_temp_dir() . '/register-telegram-document-' . bin2hex(random_bytes(6));
+        mkdir($root . '/public', 0755, true);
+        $I->replaceService(TelegramManagedMediaStorage::class, new TelegramManagedMediaStorage($root . '/public'), [TelegramImportService::class]);
+        try {
+            $export = $this->export(null, 'A regular document');
+            $export['messages'][1]['file'] = 'files/document.tgs';
+            $export['messages'][1]['file_name'] = 'document.tgs';
+            $export['messages'][1]['media_type'] = 'file';
+            $export['messages'][] = array_replace($export['messages'][1], [
+                'id' => 3, 'reply_to_message_id' => 2, 'text' => '', 'text_entities' => [],
+                'file' => 'files/sticker.tgs', 'file_name' => 'sticker.tgs', 'media_type' => 'sticker',
+            ]);
+            $document = "A regular document with a .tgs filename\n";
+            $sticker = gzencode((string)file_get_contents(__DIR__ . '/../_resources/telegram-sticker.json'));
+            $I->assertIsString($sticker);
+            $zip = new \ZipArchive();
+            $I->assertTrue($zip->open($root . '/export.zip', \ZipArchive::CREATE));
+            $I->assertTrue($zip->addFromString('result.json', json_encode($export, JSON_THROW_ON_ERROR)));
+            $I->assertTrue($zip->addFromString('files/document.tgs', $document));
+            $I->assertTrue($zip->addFromString('files/sticker.tgs', $sticker));
+            $I->assertTrue($zip->close());
+            $importer = $I->grabService(TelegramImportService::class);
+            $report = $importer->importFile($root . '/export.zip');
+            $I->assertSame(2, $report['changes']['comments_inserted']);
+            $comments = $I->grabService(CommentRepository::class)->findForContent($contentId);
+            $I->assertCount(2, $comments);
+            $I->assertStringContainsString('comment-media-file', $comments[0]->text);
+            $I->assertStringContainsString('document.tgs', $comments[0]->text);
+            $I->assertStringNotContainsString('comment-sticker', $comments[0]->text);
+            $I->assertStringContainsString('comment-sticker', $comments[1]->text);
+            $stored = glob($root . '/public/_pictures/telegram/comments/123/2/*.bin');
+            $I->assertIsArray($stored);
+            $I->assertCount(1, $stored);
+            $I->assertSame($document, file_get_contents($stored[0]));
+            $I->assertSame(0, $importer->importFile($root . '/export.zip')['changes']['comments_updated']);
+        } finally {
+            (new \Symfony\Component\Filesystem\Filesystem())->remove($root);
+        }
+    }
+
     private function insertPost(DbLayer $dbLayer): int
     {
         $dbLayer
