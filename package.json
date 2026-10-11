@@ -11,6 +11,7 @@
   },
   "devDependencies": {
     "@gfx/zopfli": "1.0.15",
+    "@xmldom/xmldom": "0.9.12",
     "acorn": "8.19.0",
     "lightningcss": "1.33.0",
     "oxc-minify": "0.153.0",

@@ -38,8 +38,14 @@ of extension; only Retina images receive `@2x`. Thus `yyyy.mm.dd.webp` is follow
 - A source at least 2000 pixels wide is Retina-ready. It is reduced to 2000 physical pixels when
   wider and inserted at half its physical dimensions. Only this `@2x` file is stored.
 - A source narrower than 2000 pixels stays at its natural dimensions and is never enlarged.
-- The resize uses Lanczos3 in linear sRGB with premultiplied alpha.
+- The resize uses Lanczos3 in linear light, with premultiplied alpha for SDR images.
 - Inputs above the decoder safety limits are rejected before allocating an unsafe canvas.
+
+HDR JPEGs with Adobe or ISO 21496-1 gain maps follow the same 2000-pixel Retina policy.
+An isolated libultrahdr worker decodes both SDR and linear half-float HDR renditions, applies
+orientation and Lanczos3 resizing, and recomputes the gain map for the resized pixels.
+HDR inputs are limited to 24 million pixels per JPEG layer and 8 million output pixels because
+the floating-point renditions require more memory than an SDR canvas.
 
 ## Format selection and quality
 
@@ -54,6 +60,11 @@ candidate:
 - indexed PNG must reach SSIM 0.98 and PSNR 40 dB;
 - lossless WebP and optimized truecolor PNG cover transparency and lossless fallbacks.
 
+HDR output stays JPEG with a gain map. Quality is searched from 75 to 95 against both decoded
+renditions, using the same 0.985 / Retina 0.97 SSIM thresholds. The gain map initially retains its
+source resolution ratio; its resolution increases if needed to meet the quality threshold.
+An efficient, unresized and unrotated HDR source can still win after metadata sanitization.
+
 `exact` is not a gamma or color-correction option. It only retains RGB samples that cannot be seen
 because their alpha is zero. Quality checks compare transparent images on both black and white
 backgrounds, so those invisible samples do not distort the decision.
@@ -66,6 +77,14 @@ ICC profile remains embedded. EXIF, XMP, comments, timestamps, and PNG text chun
 public output. EXIF orientation in JPEG, PNG, or WebP is applied before re-encoding when it is not
 the identity transform.
 
+For recompressed HDR JPEGs, libultrahdr keeps the source sRGB, Display P3, or Rec.2020 gamut and writes
+the matching ICC profile. Resizing works in that gamut's linear light. The source display headroom
+and gain-map transition remain unchanged. Both ISO and Adobe HDR metadata are written for decoder
+compatibility; private EXIF, XMP, GPS and camera details are removed. An efficient original keeps its
+ICC profile and compressed layers, with a rebuilt MPF index and container lengths. Adobe RGB gain
+coefficients are also represented in ISO metadata for the native decoder. Invalid gain maps or
+unsupported HDR profiles fail explicitly instead of silently becoming SDR.
+
 Animated PNG and animated WebP are rejected rather than silently flattened to the first frame.
 
 ## Loading behavior
@@ -75,6 +94,7 @@ The editor uses a computed dynamic import only after it has accepted an image fo
 optimizer then starts each codec worker on demand: resize Wasm only when dimensions must change,
 libwebp while comparing a WebP candidate, and OxiPNG while optimizing a PNG candidate. A failed
 module download is not cached for the rest of the page session, so the next image can retry it.
+The HDR worker and its codec load only for HDR JPEGs and are terminated after each job or cancellation.
 
 ## Reproducible codecs and checks
 
@@ -84,6 +104,7 @@ refresh them with:
 ```bash
 tools/image/build-webp-wasm.sh
 tools/image/update-resize-wasm.sh
+tools/image/build-ultrahdr-wasm.sh
 ```
 
 Run the deterministic policy and metadata tests with:

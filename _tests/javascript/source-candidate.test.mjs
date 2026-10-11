@@ -1,13 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFile} from 'node:fs/promises';
 
-const source = await readFile(
-    new URL('../../_assets/register/image-optimizer/js/source-candidate.js', import.meta.url),
-    'utf8'
-);
 const {sanitizeJpeg, sanitizePng, sanitizeWebp} = await import(
-    'data:text/javascript;base64,' + Buffer.from(source).toString('base64')
+    new URL('../../_assets/register/image-optimizer/js/source-candidate.js', import.meta.url)
 );
 
 const encoder = new TextEncoder();

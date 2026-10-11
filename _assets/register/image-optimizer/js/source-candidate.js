@@ -6,6 +6,8 @@
  * @package   Register
  */
 
+import {sanitizeHdrJpeg} from './hdr-jpeg.js';
+
 const textDecoder = new TextDecoder('latin1');
 
 function bytesEqual(bytes, offset, expected) {
@@ -74,6 +76,8 @@ function embeddedExifOrientation(bytes, payloadOffset, payloadLength) {
 }
 
 function sanitizeJpeg(bytes) {
+    const hdr = sanitizeHdrJpeg(bytes);
+    if (hdr) return hdr.blob;
     if (!bytesEqual(bytes, 0, [0xff, 0xd8])) {
         throw new Error('The JPEG file is invalid.');
     }
@@ -270,6 +274,12 @@ function sanitizeWebp(bytes) {
 
 async function createSanitizedSourceCandidate(file) {
     const bytes = new Uint8Array(await file.arrayBuffer());
+    const hdr = sanitizeHdrJpeg(bytes);
+    if (hdr) return {
+        type: 'original-hdr', blob: hdr.blob, size: hdr.blob.size, ssim: 1, extension: 'jpg',
+        preserveHdr: true, width: hdr.width, height: hdr.height,
+        gainWidth: hdr.gainWidth, gainHeight: hdr.gainHeight, orientation: hdr.orientation,
+    };
     let blob;
     let extension;
     switch (String(file.type || '').toLowerCase()) {

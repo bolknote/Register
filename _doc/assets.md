@@ -42,6 +42,12 @@ Current product assets:
   `@jsquash/resize` 2.1.1, pinned by its npm archive SHA-256. The editor uses its Lanczos3,
   premultiplied-alpha, linear-sRGB path; the Apache 2.0 package license and underlying MIT codec
   license are bundled beside the files, and `tools/image/update-resize-wasm.sh` reproduces them.
+- `_assets/register/image-optimizer/lib/register-ultrahdr.js` and `register-ultrahdr.wasm` use Google's
+  libultrahdr 1.5.0 and libjpeg-turbo 3.1.2, built without GPU or threads. The source archives and
+  SHA-256 checksums are pinned in `tools/image/build-ultrahdr-wasm.sh`; the MIT wrapper performs
+  linear-light Lanczos3 resizing and checks both display renditions before selecting JPEG quality.
+  The upstream MIT/Apache, image_io, modp_b64, BSD and IJG notices are included in
+  `register-ultrahdr.LICENSE`. This software is based in part on the work of the Independent JPEG Group.
 - Reaction emoji are Unicode characters rendered by the visitor's platform; no Facebook or Telegram
   artwork is bundled.
 

@@ -9,6 +9,9 @@
 const imagePolicy = Object.freeze({
     retinaSourceWidth: 2000,
     maxDecodedPixels: 80 * 1000 * 1000,
+    // HDR decoding needs a linear half-float rendition in addition to the SDR base.
+    maxHdrDecodedPixels: 24 * 1000 * 1000,
+    maxHdrOutputPixels: 8 * 1000 * 1000,
     maxOutputPixels: 20 * 1000 * 1000,
     maxDecodedEdge: 32767,
     jpegMinSsim: 0.985,
@@ -53,6 +56,18 @@ function planImageDimensions(width, height) {
         displayHeight: retina ? Math.max(1, Math.floor(targetHeight / 2)) : targetHeight,
         resized: targetWidth !== width || targetHeight !== height,
     };
+}
+
+function planHdrImageDimensions(width, height, gainWidth, gainHeight) {
+    const plan = planImageDimensions(width, height);
+    planImageDimensions(gainWidth, gainHeight);
+    if (width * height > imagePolicy.maxHdrDecodedPixels || gainWidth * gainHeight > imagePolicy.maxHdrDecodedPixels) {
+        throw new Error('The HDR image dimensions are too large to optimize safely.');
+    }
+    if (plan.targetWidth * plan.targetHeight > imagePolicy.maxHdrOutputPixels) {
+        throw new Error('The optimized HDR image dimensions are too large to process safely.');
+    }
+    return plan;
 }
 
 function candidateIsAccepted(candidate, hasAlpha) {
@@ -121,6 +136,7 @@ function webpEncodeOptions(quality, lossless, method = 6) {
 }
 
 export {
+    planHdrImageDimensions,
     imagePolicy,
     planImageDimensions,
     candidateIsAccepted,

@@ -17,11 +17,13 @@ import {resizeImageDataLinear} from './resize.js';
 import {createImageQualityScorer} from './image-quality.js';
 import {createWebpEncoder} from './webp-encode.js';
 import {createSanitizedSourceCandidate} from './source-candidate.js';
+import {optimizeHdrImage} from './hdr-optimize.js';
 import {
     chooseBestCandidate,
     extensionForCandidate,
     imagePolicy,
     planImageDimensions,
+    planHdrImageDimensions,
     webpEncodeOptions,
 } from './policy.js';
 
@@ -222,6 +224,19 @@ export async function optimizeImage(file, {signal = null, onProgress = null} = {
     throwIfAborted(signal);
     report(onProgress, 'decoding');
     const sourceCandidate = await createSanitizedSourceCandidate(file);
+    if (sourceCandidate?.preserveHdr) {
+        const plan = planHdrImageDimensions(sourceCandidate.width, sourceCandidate.height,
+            sourceCandidate.gainWidth, sourceCandidate.gainHeight);
+        const result = await optimizeHdrImage(sourceCandidate, plan, {signal, policy: imagePolicy, onProgress});
+        throwIfAborted(signal);
+        report(onProgress, 'ready');
+        return {
+            ...result, extension: 'jpg', mimeType: 'image/jpeg',
+            width: plan.targetWidth, height: plan.targetHeight,
+            displayWidth: plan.displayWidth, displayHeight: plan.displayHeight,
+            retina: plan.retina, resized: plan.resized, preserveHdr: true,
+        };
+    }
     const decoded = await decodeImageToSrgb(file, imagePolicy);
     const plan = planImageDimensions(decoded.width, decoded.height);
     throwIfAborted(signal);
