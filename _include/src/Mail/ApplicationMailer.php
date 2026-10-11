@@ -142,10 +142,7 @@ final readonly class ApplicationMailer implements ApplicationMailerInterface
             return $code;
         }
 
-        if (preg_match('/(?:^|\D)([45][0-9]{2})(?:\D|$)/', $throwable->getMessage(), $matches) === 1) {
-            return (int)$matches[1];
-        }
-
+        // Hostnames, port numbers and timings in error text are not SMTP reply codes.
         return null;
     }
 
@@ -170,7 +167,7 @@ final readonly class ApplicationMailer implements ApplicationMailerInterface
         try {
             $this->deliveryLog->accepted($message, $delivery);
         } catch (\Throwable $throwable) {
-            $this->logger->warning('Unable to record accepted mail delivery.', ['exception' => $throwable]);
+            $this->reportLogFailure('Unable to record accepted mail delivery.', $throwable);
         }
     }
 
@@ -184,7 +181,16 @@ final readonly class ApplicationMailer implements ApplicationMailerInterface
         try {
             $this->deliveryLog->failed($message, $transport, $duration, $code, $error);
         } catch (\Throwable $throwable) {
-            $this->logger->warning('Unable to record failed mail delivery.', ['exception' => $throwable]);
+            $this->reportLogFailure('Unable to record failed mail delivery.', $throwable);
+        }
+    }
+
+    private function reportLogFailure(string $message, \Throwable $throwable): void
+    {
+        try {
+            $this->logger->warning($message, ['exception' => $throwable]);
+        } catch (\Throwable) {
+            // Logging must not cause an accepted message to be retried or hide a transport failure.
         }
     }
 }
