@@ -473,6 +473,52 @@ final class LinkHealthCest
         );
     }
 
+    public function newerRecheckSurvivesAnOlderProbeContinuation(\IntegrationTester $I): void
+    {
+        $dbLayer = $I->grabService(DbLayer::class);
+        $url = 'https://outside.example/recheck-race';
+        $postId = $this->insertPost($dbLayer, 'recheck-race-source', '<a href="' . $url . '">External</a>');
+        $I->grabService(LinkInventory::class)->synchronize(ContentId::post($postId), time());
+        $targetId = $this->targetId($dbLayer, $url);
+        $queuePdo = $this->shutdownQueue();
+        $publisher = new QueuePublisher($queuePdo, '');
+        $publisher->publish(LinkQueue::targetJobId($targetId), LinkQueue::CHECK_CODE, LinkQueue::checkPayload($targetId), 0);
+
+        $requestedPayload = LinkQueue::checkPayload($targetId, true);
+        $requestedJob = false;
+        $probe = new SequencedLinkProbe([
+            LinkProbeStep::pending(new LinkProbeState($url, LinkProbeMethod::GET)),
+            LinkProbeStep::complete(new LinkProbeResult($url, 200)),
+        ], function () use ($publisher, $targetId, $requestedPayload, $queuePdo, &$requestedJob): void {
+            // The same publication as the administrator's Recheck action, during network I/O.
+            $publisher->publish(LinkQueue::targetJobId($targetId), LinkQueue::CHECK_CODE, $requestedPayload);
+            $requestedJob = $this->queueJob($queuePdo, $targetId);
+        });
+        $clock = time() + 60;
+        $handler = new LinkCheckQueueHandler(
+            $I->grabService(LinkHealthRepository::class),
+            $I->grabService(LinkHealthPolicy::class),
+            $probe,
+            $I->grabService(HostRequestThrottle::class),
+            $I->grabService(LinkHealthResultRecorder::class),
+            $publisher,
+            static function () use (&$clock): int {
+                return $clock;
+            },
+        );
+        $consumer = new QueueConsumer($queuePdo, '', new NullLogger(), new QueueHandlerRegistry($handler));
+        $I->assertTrue($consumer->runQueue($clock, new QueueExecutionBudget(5.0)));
+        $I->assertIsArray($requestedJob);
+        $I->assertSame($requestedJob, $this->queueJob($queuePdo, $targetId));
+        $clock += HostRequestThrottle::INTERVAL_SECONDS;
+        $I->assertTrue($consumer->runQueue($clock, new QueueExecutionBudget(5.0)));
+        $I->assertCount(2, $probe->states);
+        $I->assertSame(LinkProbeMethod::HEAD, $probe->states[1]->method);
+        $I->assertFalse($this->queueJob($queuePdo, $targetId));
+        $I->assertSame('healthy', $dbLayer->select('health_status')->from(Manifest::TARGET_TABLE)
+            ->where('id = :id')->setParameter('id', $targetId)->execute()->result());
+    }
+
     public function recordsProbeAndArchiveFollowUpExactlyOnce(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */
@@ -1479,8 +1525,10 @@ final class SequencedLinkProbe implements LinkProbeInterface
     /** @var list<LinkProbeState> */
     public array $states = [];
 
-    /** @param list<LinkProbeStep> $steps */
-    public function __construct(private array $steps)
+    /** @param list<LinkProbeStep> $steps
+     * @param (\Closure(): void)|null $onFirstStep
+     */
+    public function __construct(private array $steps, private ?\Closure $onFirstStep = null)
     {
     }
 
@@ -1488,6 +1536,9 @@ final class SequencedLinkProbe implements LinkProbeInterface
     public function step(LinkProbeState $state): LinkProbeStep
     {
         $this->states[] = $state;
+        $callback = $this->onFirstStep;
+        $this->onFirstStep = null;
+        $callback?->__invoke();
 
         return array_shift($this->steps)
             ?? throw new \LogicException('No fake link-probe step remains.');

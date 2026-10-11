@@ -573,6 +573,54 @@ final class QueueCest
         $I->assertFalse($this->findJob($pdo, 'race', 'test'));
     }
 
+    public function continuationAcknowledgementPreservesTheNextGeneration(IntegrationTester $I): void
+    {
+        $pdo = $this->pdo($I);
+        $publisher = new QueuePublisher($pdo, '');
+        $initial = ['operation' => 'first'];
+        $next = [...$initial, 'cursor' => 10];
+        $handler = new QueueTestHandler();
+        $handler->callback = function () use ($publisher, $handler, $initial, $next, $I): void {
+            $handler->callback = null;
+            $I->assertTrue($publisher->publishIfPayloadMatches('continuation', 'test', $initial, $next, 0));
+        };
+        $consumer = $this->consumer($pdo, $handler);
+        $publisher->publish('continuation', 'test', $initial, 0, QueuePublisher::PRIORITY_HIGH);
+        $I->assertTrue($consumer->runQueue());
+        $row = $this->job($pdo, 'continuation', 'test');
+        $I->assertSame(2, (int)$row['generation']);
+        $I->assertSame(QueuePublisher::PRIORITY_HIGH, (int)$row['priority']);
+        $I->assertSame(json_encode($next, JSON_THROW_ON_ERROR), $row['payload']);
+        $I->assertTrue($consumer->runQueue());
+        $I->assertSame([$initial, $next], array_column($handler->calls, 2));
+        $I->assertFalse($this->findJob($pdo, 'continuation', 'test'));
+    }
+
+    public function staleContinuationsCannotReplaceNewFailedOrRemovedWork(IntegrationTester $I): void
+    {
+        $pdo = $this->pdo($I);
+        $publisher = new QueuePublisher($pdo, '');
+        $initial = ['operation' => 'First'];
+        $newer = ['operation' => 'first']; // Payload comparison must be case sensitive on every driver.
+        $next = [...$initial, 'cursor' => 10];
+        $publisher->publish('stale-continuation', 'test', $initial);
+        $publisher->publish('stale-continuation', 'test', $newer, time() + 120, QueuePublisher::PRIORITY_HIGH);
+
+        $pdo->exec("UPDATE queue SET attempts = 2, last_error = 'new request backoff' WHERE id = 'stale-continuation'");
+        $requested = $this->job($pdo, 'stale-continuation', 'test');
+        $I->assertFalse($publisher->publishIfPayloadMatches('stale-continuation', 'test', $initial, $next));
+        $I->assertSame($requested, $this->job($pdo, 'stale-continuation', 'test'));
+
+        $pdo->exec("UPDATE queue SET failed_at = 123 WHERE id = 'stale-continuation'");
+        $failed = $this->job($pdo, 'stale-continuation', 'test');
+        $I->assertFalse($publisher->publishIfPayloadMatches('stale-continuation', 'test', $newer, $next));
+        $I->assertSame($failed, $this->job($pdo, 'stale-continuation', 'test'));
+
+        $pdo->exec("DELETE FROM queue WHERE id = 'stale-continuation'");
+        $I->assertFalse($publisher->publishIfPayloadMatches('stale-continuation', 'test', $newer, $next));
+        $I->assertFalse($this->findJob($pdo, 'stale-continuation', 'test'));
+    }
+
     public function failedJobUsesBackoffAndEventuallyStops(IntegrationTester $I): void
     {
         $pdo       = $this->pdo($I);

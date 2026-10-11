@@ -88,9 +88,10 @@ final readonly class LinkCheckQueueHandler implements QueueHandlerInterface
 
         // Jobs created before operation tokens were introduced are upgraded before any network I/O.
         if ($token === null) {
-            $this->queuePublisher->publish(
+            $this->queuePublisher->publishIfPayloadMatches(
                 $id,
                 $code,
+                $payload,
                 LinkQueue::checkPayload($targetId, $force, $state),
                 ($this->clock)() + 1,
             );
@@ -105,9 +106,10 @@ final readonly class LinkCheckQueueHandler implements QueueHandlerInterface
         $now     = ($this->clock)();
         $retryAt = $this->requestThrottle->claim($state->url, $now);
         if ($retryAt !== null) {
-            $this->queuePublisher->publish(
+            $this->queuePublisher->publishIfPayloadMatches(
                 $id,
                 $code,
+                $payload,
                 LinkQueue::checkPayload($targetId, $force, $state, $token),
                 $retryAt,
             );
@@ -117,9 +119,10 @@ final readonly class LinkCheckQueueHandler implements QueueHandlerInterface
         $step = $this->httpProbe->step($state);
         $now  = ($this->clock)();
         if ($step->nextState instanceof LinkProbeState) {
-            $this->queuePublisher->publish(
+            $this->queuePublisher->publishIfPayloadMatches(
                 $id,
                 $code,
+                $payload,
                 LinkQueue::checkPayload($targetId, $force, $step->nextState, $token),
                 $now + 1,
             );

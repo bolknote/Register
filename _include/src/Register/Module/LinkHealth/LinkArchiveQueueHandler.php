@@ -83,9 +83,10 @@ final readonly class LinkArchiveQueueHandler implements QueueHandlerInterface
 
         // Jobs created before operation tokens were introduced are upgraded before any network I/O.
         if ($token === null) {
-            $this->queuePublisher->publish(
+            $this->queuePublisher->publishIfPayloadMatches(
                 $id,
                 $code,
+                $payload,
                 LinkQueue::archivePayload($targetId, $force),
                 ($this->clock)() + 1,
             );
