@@ -30,6 +30,73 @@ async function sanitized(input) {
     return Buffer.from(await sanitizeHdrJpeg(input).blob.arrayBuffer());
 }
 
+async function runCodec(context, input, options = {}) {
+    const worker = new CodecWorker(new URL('../../_assets/register/image-optimizer/js/hdr-optimize-worker.js', import.meta.url).href);
+    context.after(() => worker.terminate());
+    const data = Uint8Array.from(input).buffer;
+    return new Promise((resolve, reject) => {
+        worker.onerror = reject;
+        worker.onmessage = ({data: message}) => {
+            if (message.type === 'error') reject(new Error(message.message));
+            if (message.type === 'optimized') resolve(message);
+        };
+        worker.postMessage({data, width: 32, height: 18, orientation: 1,
+            minQuality: 75, maxQuality: 95, minSsim: 0.985, searchSteps: 6, ...options}, [data]);
+    });
+}
+
+test('a valid ISO gain map can carry only a legacy HDR version marker in primary XMP', async (context) => {
+    const input = hdrFixture({iso: true, adobe: false, primaryAdobe: true});
+    // The native reader independently validates the complete container before the sanitizer.
+    assert.ok((await runCodec(context, input)).ssim >= 0.985);
+    const oldWorker = globalThis.Worker;
+    context.after(() => { globalThis.Worker = oldWorker; });
+    globalThis.Worker = CodecWorker;
+    const result = await optimizeImage(new Blob([input], {type: 'image/jpeg'}));
+    assert.equal(result.preserveHdr, true);
+    const output = Buffer.from(await result.blob.arrayBuffer());
+    assert.ok(output.includes(Buffer.from('urn:iso:std:iso:ts:21496:-1\0')));
+    assert.ok(!output.includes(Buffer.from('PRIVATE_')));
+    assert.throws(() => sanitizeHdrJpeg(hdrFixture({adobe: false, primaryAdobe: true})), /metadata is incomplete/);
+});
+
+test('a valid unresized HDR source remains usable when JPEG recompression cannot meet quality', async (context) => {
+    const oldWorker = globalThis.Worker;
+    context.after(() => { globalThis.Worker = oldWorker; });
+    globalThis.Worker = CodecWorker;
+    const base = await readFile(new URL('../_resources/image-optimizer/hdr-dark-detail.jpg', import.meta.url));
+    const input = hdrFixture({base});
+    const expected = await sanitized(input);
+    const native = await runCodec(context, expected);
+    assert.equal(native.ssim, 1);
+    assert.deepEqual(Buffer.from(native.data), expected);
+    const result = await optimizeImage(new Blob([input], {type: 'image/jpeg'}));
+    assert.equal(result.selectedType, 'original-hdr');
+    assert.equal(result.ssim, 1);
+    assert.deepEqual(Buffer.from(await result.blob.arrayBuffer()), expected);
+});
+
+test('the quality fallback does not preserve invalid ISO metadata', async (context) => {
+    const oldWorker = globalThis.Worker;
+    context.after(() => { globalThis.Worker = oldWorker; });
+    globalThis.Worker = CodecWorker;
+    const input = hdrFixture({iso: true, adobe: false, primaryAdobe: true});
+    const namespace = Buffer.from('urn:iso:std:iso:ts:21496:-1\0');
+    const primary = input.indexOf(namespace);
+    const gain = input.indexOf(namespace, primary + namespace.length);
+    assert.ok(gain > primary);
+    input.writeUInt32BE(0, gain + namespace.length + 5); // All rational coefficients now have an invalid denominator.
+    await assert.rejects(optimizeImage(new Blob([input], {type: 'image/jpeg'})), /denominator/i);
+});
+
+test('the quality fallback cannot return untransformed pixels for a resize or rotation', async (context) => {
+    const base = await readFile(new URL('../_resources/image-optimizer/hdr-dark-detail.jpg', import.meta.url));
+    const bytes = await sanitized(hdrFixture({base}));
+    for (const options of [{width: 16, height: 9}, {width: 18, height: 32, orientation: 6}]) {
+        await assert.rejects(runCodec(context, bytes, {...options, minSsim: 1}), /quality threshold/);
+    }
+});
+
 test('HDR keeps both compressed images and ICC while removing private metadata', async () => {
     const output = await sanitized(hdrFixture());
     const [base, gain] = jpegImages(output);

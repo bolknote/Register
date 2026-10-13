@@ -320,9 +320,13 @@ export function sanitizeHdrJpeg(bytes) {
     const gain = jpeg(bytes, gainOffset, gainOffset + gainLength);
     if (gain.end !== gainOffset + gainLength) throw new Error('The HDR JPEG gain-map length is invalid.');
     const values = hdrValues([...xmpDocuments(primary), ...xmpDocuments(gain)]);
-    const adobe = values.size > 0;
-    if (adobe) validateValues(values);
     const gainHasIso = gain.segments.some(entry => entry.marker === 226 && starts(entry.payload, isoPrefix));
+    // An ISO container may advertise hdrgm:Version in its primary XMP without
+    // duplicating the actual gain coefficients there. The ISO gain packet is
+    // authoritative; a version marker alone is not an incomplete Adobe gain map.
+    const versionOnly = values.size === 1 && values.has('Version');
+    const adobe = values.size > 0 && !(hasIso && gainHasIso && versionOnly);
+    if (adobe) validateValues(values);
     if (!adobe && !(hasIso && gainHasIso)) throw new Error('The HDR JPEG gain-map metadata is missing.');
     const rotation = orientation(primary);
     const addVectorIso = adobe && !gainHasIso && Array.from(values.values()).some(value => Array.isArray(value) && value.length === 3);

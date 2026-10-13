@@ -64,6 +64,9 @@ HDR output stays JPEG with a gain map. Quality is searched from 75 to 95 against
 renditions, using the same 0.985 / Retina 0.97 SSIM thresholds. The gain map initially retains its
 source resolution ratio; its resolution increases if needed to meet the quality threshold.
 An efficient, unresized and unrotated HDR source can still win after metadata sanitization.
+If every recompressed candidate falls below the quality threshold, a validated original can be
+retained only when no resize or orientation transform is needed. This fallback never bypasses
+gain-map decoding or the dimension limits.
 
 `exact` is not a gamma or color-correction option. It only retains RGB samples that cannot be seen
 because their alpha is zero. Quality checks compare transparent images on both black and white

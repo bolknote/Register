@@ -24,7 +24,7 @@ export function exif(orientation, little = true) {
     return jpegSegment(225, bytes);
 }
 
-export function hdrFixture({orientation = 1, little = true, values = {}, iso = false, adobe = true, prefix = 'hdrgm', gainBase = gainJpeg, base = baseJpeg} = {}) {
+export function hdrFixture({orientation = 1, little = true, values = {}, iso = false, adobe = true, primaryAdobe = adobe, prefix = 'hdrgm', gainBase = gainJpeg, base = baseJpeg} = {}) {
     const defaults = {Version: '1.0', GainMapMin: '0', GainMapMax: '3', Gamma: '1', OffsetSDR: '0', OffsetHDR: '0', HDRCapacityMin: '0', HDRCapacityMax: '3', BaseRenditionIsHDR: 'False'};
     const tags = Object.entries({...defaults, ...values}).map(([key, value]) => Array.isArray(value)
         ? `<${prefix}:${key}><rdf:Seq>${value.map(item => `<rdf:li>${item}</rdf:li>`).join('')}</rdf:Seq></${prefix}:${key}>`
@@ -38,7 +38,7 @@ export function hdrFixture({orientation = 1, little = true, values = {}, iso = f
     const gain = Buffer.concat([gainBase.subarray(0, 2), jpegSegment(254, Buffer.from('PRIVATE_GAIN_COMMENT')),
         ...(adobe ? [jpegSegment(225, Buffer.from(xmpId + packet(tags)))] : []),
         ...(iso ? [jpegSegment(226, Buffer.concat([Buffer.from(isoId), isoMetadata]))] : []), gainBase.subarray(2)]);
-    const headers = Buffer.concat([exif(orientation, little), jpegSegment(225, Buffer.from(xmpId + (adobe ? packet(`<${prefix}:Version>1.0</${prefix}:Version>`) : '<private>PRIVATE_CREATOR</private>'))),
+    const headers = Buffer.concat([exif(orientation, little), jpegSegment(225, Buffer.from(xmpId + (primaryAdobe ? packet(`<${prefix}:Version>1.0</${prefix}:Version>`) : '<private>PRIVATE_CREATOR</private>'))),
         ...(iso ? [jpegSegment(226, Buffer.concat([Buffer.from(isoId), Buffer.alloc(4)]))] : [])]);
     const index = Buffer.alloc(86);
     index.write('MPF\0' + (little ? 'II' : 'MM'));

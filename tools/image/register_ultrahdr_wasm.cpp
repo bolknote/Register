@@ -292,12 +292,14 @@ uint8_t* register_hdr_optimize(const uint8_t* data, size_t size, int orientation
         dimensions(width, height, max_output_pixels);
         uhdr_gainmap_metadata_t metadata{};
         int gainmap_scale = 1;
+        bool can_keep_source = false;
         Pixels sdr, hdr;
         for (const bool is_hdr : {false, true}) {
             Decoder input = decoder(data, size, is_hdr);
             const int source_width = orientation >= 5 ? uhdr_dec_get_image_height(input.get()) : uhdr_dec_get_image_width(input.get());
             const int source_height = orientation >= 5 ? uhdr_dec_get_image_width(input.get()) : uhdr_dec_get_image_height(input.get());
             if (width > source_width || height > source_height) throw std::runtime_error("The HDR image must not be enlarged.");
+            can_keep_source = orientation == 1 && width == source_width && height == source_height;
             metadata = *uhdr_dec_get_gainmap_metadata(input.get());
             gainmap_scale = std::clamp(int(std::round(std::min(
                 float(uhdr_dec_get_image_width(input.get())) / uhdr_dec_get_gainmap_width(input.get()),
@@ -319,8 +321,14 @@ uint8_t* register_hdr_optimize(const uint8_t* data, size_t size, int orientation
         };
         int low = min_quality, high = max_quality;
         while (!probe(high) && gainmap_scale > 1) gainmap_scale = std::max(1, gainmap_scale / 2);
-        if (best.empty()) throw std::runtime_error("HDR compression could not meet the image quality threshold.");
-        if (low < high && !probe(low)) {
+        if (best.empty()) {
+            if (!can_keep_source) throw std::runtime_error("HDR compression could not meet the image quality threshold.");
+            // Both source renditions have been decoded and validated above. The
+            // caller supplies a sanitized container; retaining it is lossless.
+            // Resized and oriented uploads still require normalized output pixels.
+            best.assign(data, data + size);
+            best_score = 1;
+        } else if (low < high && !probe(low)) {
             for (int step = 0; step < search_steps && high - low > 1; ++step) {
                 const int middle = (low + high) / 2;
                 if (probe(middle)) high = middle;
