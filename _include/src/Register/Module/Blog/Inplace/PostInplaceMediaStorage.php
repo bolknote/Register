@@ -113,7 +113,7 @@ final readonly class PostInplaceMediaStorage
         $this->withNameLock(function () use ($move): void {
             $source = $this->fullPath($move['to']);
             $target = $this->fullPath($move['from']);
-            if (is_file($source) && !file_exists($target)) {
+            if (is_file($source) && !file_exists($target) && !is_link($target)) {
                 register_call_without_warnings(static fn(): bool => rename($source, $target));
             }
         });
@@ -183,7 +183,9 @@ final readonly class PostInplaceMediaStorage
         $pattern = '~^' . preg_quote($date, '~') . '(?:\.(?<number>\d+))?(?:@2x)?\.[a-z0-9]+$~D';
         foreach (new \DirectoryIterator($directory) as $item) {
             $match = [];
-            if ($item->isLink() || !$item->isFile() || preg_match($pattern, $item->getFilename(), $match) !== 1) {
+            // Directories and links occupy the same namespace as regular files.
+            // Reserving them also keeps a rename from replacing an existing alias.
+            if (preg_match($pattern, $item->getFilename(), $match) !== 1) {
                 continue;
             }
 

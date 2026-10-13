@@ -33,6 +33,9 @@ The unnumbered slot is first. Numeric slots are shared across all images and aud
 of extension; only Retina images receive `@2x`. Thus `yyyy.mm.dd.webp` is followed by
 `yyyy.mm.dd.1.mp3`, never by a hash or a second unnumbered filename.
 
+Matching directories and symbolic links reserve their ordinal too. Uploads and date changes must
+not replace them; a rollback leaves a moved file in place if its original pathname is occupied.
+
 ## Dimensions and Retina behavior
 
 - A source at least 2000 pixels wide is Retina-ready. It is reduced to 2000 physical pixels when
@@ -87,6 +90,10 @@ compatibility; private EXIF, XMP, GPS and camera details are removed. An efficie
 ICC profile and compressed layers, with a rebuilt MPF index and container lengths. Adobe RGB gain
 coefficients are also represented in ISO metadata for the native decoder. Invalid gain maps or
 unsupported HDR profiles fail explicitly instead of silently becoming SDR.
+
+When a saved post needs intrinsic dimensions, the server completes only actual editable image
+tags. Comments, attribute examples, raw-text elements and authored HTML blocks retain their
+original source, including image markup inside JavaScript strings.
 
 Animated PNG and animated WebP are rejected rather than silently flattened to the first frame.
 

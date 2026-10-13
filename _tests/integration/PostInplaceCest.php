@@ -74,6 +74,53 @@ final class PostInplaceCest
         $this->assertCreatedPostMetadata($I, 'HTML block preserves author source', $body, 'Before After');
     }
 
+    public function imageDimensionCompletionPreservesAuthorHtmlAndJavascript(\IntegrationTester $I): void
+    {
+        $I->login('author', 'author');
+        $I->amOnPage('https://localhost/');
+
+        $token = (string)$I->grabAttributeFrom('.post-create-template input[name="inplace_token"]', 'value');
+        $temporary = $this->temporaryFile((string)base64_decode(self::ONE_PIXEL_PNG, true));
+        $storedFile = null;
+        try {
+            $I->sendPost('https://localhost/_inplace/post/new', [
+                'inplace_action' => 'media', 'inplace_token' => $token,
+                'media_width' => '1', 'media_height' => '1', 'media_display_width' => '1', 'media_display_height' => '1',
+            ], ['media' => new UploadedFile($temporary, 'image.png', 'image/png', null, true)]);
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+            $upload = $I->grabJson();
+            $I->assertIsArray($upload);
+            $storedFile = $this->storedMediaPath($upload['url']);
+            $image = "<img src='" . $upload['url'] . "' data-post-media-id='" . $upload['media_id']
+                . "' data-post-media-identity='1' alt='Example'>";
+            $source = '<script>const example = "' . $image . '";</script><div>' . $image . '</div>';
+            $block = '<div class="post-html-block" data-post-html-source="'
+                . htmlspecialchars($source, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '">' . $source . '</div>';
+            $body = '<p>Before.</p><!-- ' . $image . ' -->' . $block . $image . '<p>After.</p>';
+            $I->sendAjaxPostRequest('https://localhost/_inplace/post/new', [
+                'inplace_action' => 'create', 'inplace_token' => $token,
+                'request_id' => 'html-dimension-source-regression', 'title' => 'Author image source',
+                'body' => $body, 'tags' => '', 'uploaded_media_ids' => (string)$upload['media_id'],
+            ]);
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+            $post = $I->grabJson();
+            $I->assertIsArray($post);
+            $expected = '<p>Before.</p><!-- ' . $image . ' -->' . $block
+                . substr($image, 0, -1) . ' width="1" height="1"><p>After.</p>';
+            $db = $I->grabService(DbLayer::class);
+            $I->assertSame($expected, $db->select('body')->from(ContentSchema::TABLE_NAME)
+                ->where('id = :id')->setParameter('id', $post['id'])->execute()->result());
+            $I->assertStringContainsString($source, $post['body_html']);
+            $I->assertFileExists($storedFile);
+        } finally {
+            foreach ([$temporary, $storedFile] as $file) {
+                if ($file !== null && is_file($file)) {
+                    unlink($file);
+                }
+            }
+        }
+    }
+
     public function generatedMetadataPreservesLiteralTextAndJoiningCharacters(\IntegrationTester $I): void
     {
         $text = "Use <widget> &lt;example&gt; 👩🏽‍💻 می\u{200C}روم. 20\u{2060}°C.";

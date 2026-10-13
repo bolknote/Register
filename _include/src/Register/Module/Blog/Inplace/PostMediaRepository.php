@@ -312,15 +312,45 @@ final readonly class PostMediaRepository
         /** @var array<int, array<string, mixed>|null> $mediaById */
         $mediaById = [];
         $imageCount = 0;
+        $sourceDepth = 0;
+        // Consume whole HTML tokens so an <img> example in a comment, quoted
+        // attribute or raw-text element cannot be rewritten as a live image.
+        $attributes = '(?:[^>"\']|"[^"]*"|\'[^\']*\')*';
+        $tokens = '~<!--[\s\S]*?(?:-->|$)|<!\[CDATA\[[\s\S]*?(?:\]\]>|$)'
+            . '|<(?<raw>script|style|textarea|title|xmp|iframe|noembed|noframes|noscript)(?=[\s/>])'
+            . $attributes . '>[\s\S]*?(?:</\k<raw>(?=[\s/>])' . $attributes . '>|$)'
+            . '|<' . $attributes . '>~iu';
         $completed = preg_replace_callback(
-            '/<img\b(?:[^>"\']|"[^"]*"|\'[^\']*\')*>/iu',
-            function (array $matches) use (&$mediaById, &$imageCount): string {
+            $tokens,
+            function (array $matches) use (&$mediaById, &$imageCount, &$sourceDepth): string {
                 $tag = $matches[0];
+                $isDiv = preg_match('~^<(/?)div(?=[\s/>])~i', $tag, $division) === 1;
+                if ($sourceDepth > 0) {
+                    if ($isDiv) {
+                        $sourceDepth += $division[1] === '/' ? -1 : 1;
+                    }
+
+                    return $tag;
+                }
+
+                if ($isDiv && $division[1] === '' && stripos($tag, 'data-post-html-source') !== false
+                    && $this->htmlElement($tag, 'div')?->hasAttribute('data-post-html-source') === true
+                ) {
+                    // The authored source and its live HTML must remain identical.
+                    $sourceDepth = 1;
+
+                    return $tag;
+                }
+
+                if (preg_match('~^<img(?=[\s/>])~i', $tag) !== 1) {
+                    return $tag;
+                }
+
                 if (++$imageCount > self::MAX_MEDIA_PER_POST) {
                     return $tag;
                 }
 
-                $image = $this->imageElement($tag);
+                $image = $this->htmlElement($tag, 'img');
                 if (!$image instanceof \DOMElement) {
                     return $tag;
                 }
@@ -381,13 +411,13 @@ final readonly class PostMediaRepository
         return $completed ?? $body;
     }
 
-    private function imageElement(string $tag): ?\DOMElement
+    private function htmlElement(string $tag, string $name): ?\DOMElement
     {
         $document = new \DOMDocument('1.0', 'UTF-8');
         $previous = libxml_use_internal_errors(true);
         try {
             $loaded = $document->loadHTML(
-                '<?xml encoding="UTF-8"><div>' . $tag . '</div>',
+                '<?xml encoding="UTF-8">' . $tag,
                 LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING,
             );
         } finally {
@@ -399,9 +429,9 @@ final readonly class PostMediaRepository
             return null;
         }
 
-        $image = $document->getElementsByTagName('img')->item(0);
+        $element = $document->getElementsByTagName($name)->item(0);
 
-        return $image instanceof \DOMElement ? $image : null;
+        return $element instanceof \DOMElement ? $element : null;
     }
 
     private function positiveImageDimension(\DOMElement $image, string $attribute): ?float

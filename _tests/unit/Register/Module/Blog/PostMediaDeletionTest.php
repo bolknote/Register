@@ -11,6 +11,37 @@ use Register\Module\Blog\Inplace\PostMediaRepository;
 
 final class PostMediaDeletionTest extends Unit
 {
+    public function testDimensionCompletionPreservesImageMarkupInsideHtmlText(): void
+    {
+        $pdo = new \PDO('sqlite::memory:');
+        $pdo->exec('PRAGMA foreign_keys = ON');
+        $pdo->exec('CREATE TABLE users (id INTEGER PRIMARY KEY)');
+        $pdo->exec("CREATE TABLE content (id INTEGER PRIMARY KEY, body TEXT DEFAULT '', social_image TEXT DEFAULT '')");
+        $pdo->exec('INSERT INTO users VALUES (1)');
+
+        $db = new DbLayerSqlite($pdo);
+        ContentMediaSchema::create($db);
+        $repository = new PostMediaRepository($db, '/media');
+        $id = $repository->register($this->media('/uploaded/real.png'));
+        $image = "<img src='/media/uploaded/real.png' data-post-media-id='" . $id . "' alt='Example'>";
+        $completed = substr($image, 0, -1) . ' width="1" height="1">';
+        foreach ([
+            '<!-- ' . $image . ' -->',
+            '<script>const example = "' . $image . '";</script>',
+            '<style>.example::before {content: "' . $image . '";}</style>',
+            '<textarea>' . $image . '</textarea>',
+            '<title>' . $image . '</title>',
+            '<div data-example="' . $image . '"></div>',
+            '<div class="post-html-block" data-post-html-source="'
+                . htmlspecialchars($image, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '">'
+                . '<script>const closing = "</div>";</script><div>' . $image . '</div></div>',
+            '<![CDATA[' . $image . ']]>',
+            '<!-- ' . str_repeat($image, 1001) . ' -->',
+        ] as $opaque) {
+            self::assertSame($opaque . $completed, $repository->completeImageDimensions($opaque . $image));
+        }
+    }
+
     public function testStaleMediaSkipsReferencesBeforeLimitWithoutChangingPublishedStatus(): void
     {
         foreach (['', 'cms_'] as $prefix) {
