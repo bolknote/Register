@@ -1,0 +1,224 @@
+import assert from 'node:assert/strict';
+import {chromium, firefox, webkit} from 'playwright';
+import {pathToFileURL} from 'node:url';
+import {createFixtureServer} from './server.mjs';
+
+const widths = [320, 390, 640, 719, 720, 721, 760, 761, 800, 880, 881, 1024, 1200, 1280, 1440, 1920, 2560, 3840];
+async function resize(page, width) {
+    await page.setViewportSize({width, height: 900});
+    // Viewport-unit invalidation can reach the next frame after resize. Wait
+    // for the actual computed type size, not an arbitrary animation timeout.
+    await page.waitForFunction(width => innerWidth === width
+        && Math.abs(parseFloat(getComputedStyle(document.querySelector('#responsive-prose')).fontSize)
+            - Math.max(18, Math.min(24, 16 + width * 0.004))) < 0.02, width);
+}
+const measure = page => page.evaluate(async () => {
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const p = document.querySelector('#responsive-prose');
+    const style = getComputedStyle(p);
+    const box = selector => document.querySelector(selector).getBoundingClientRect().toJSON();
+    const paragraph = p.getBoundingClientRect();
+    const drawing = document.createElement('canvas').getContext('2d');
+    drawing.font = `${style.fontSize} ${style.fontFamily}`;
+    const image = box('.post-media-image');
+    const caption = box('.post-caption');
+    return {font: parseFloat(style.fontSize), line: parseFloat(style.lineHeight),
+        textWidth: paragraph.width, textCh: paragraph.width / drawing.measureText('0').width,
+        imageWidth: image.width, captionGap: caption.top - image.bottom,
+        header: box('.site-header-copy'), card: box('.post-card'),
+        search: box('.register_search_form'), title: box('.site-title'),
+        account: box('.public-auth-user-menu > summary'),
+        overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+        codeScroll: document.querySelector('#responsive-code').scrollWidth > document.querySelector('#responsive-code').clientWidth,
+        tableScroll: document.querySelector('#responsive-table').scrollWidth > document.querySelector('#responsive-table').clientWidth,
+        bodyDisplay: getComputedStyle(document.querySelector('[data-post-inplace-body]')).display,
+        bodyHtml: document.querySelector('[data-post-inplace-body]').innerHTML};
+});
+
+export async function runResponsiveLayoutRegressions(browser, origin) {
+    for (const colorScheme of ['light', 'dark']) {
+        const context = await browser.newContext({viewport: {width: 1280, height: 900}, colorScheme, reducedMotion: 'reduce'});
+        const page = await context.newPage();
+        page.setDefaultTimeout(10000);
+        const errors = [];
+        page.on('pageerror', error => errors.push(String(error)));
+        await page.route('**/_inplace/tags', route => route.fulfill({json: {tags: []}}));
+        try {
+            await page.goto(origin + '/responsive-layout.html');
+            await page.waitForFunction(() => window.editorTest && [...document.images].every(image => image.complete));
+            const original = (await measure(page)).bodyHtml;
+            const readings = [];
+            for (const width of widths) {
+                await resize(page, width);
+                const current = await measure(page);
+                readings.push({width, ...current});
+                assert.equal(current.overflow, false, `Only wide code/tables may scroll at ${width}px: ${JSON.stringify(current)}`);
+                assert.ok(current.font >= 18 && current.font <= 24, 'Prose has bounded readable sizes');
+                assert.ok(current.textCh <= 75, `The reading measure is capped independently of media at ${width}px`);
+                assert.ok(Math.abs(current.header.left - current.card.left) < 1, 'Header and posts share the content origin');
+                assert.ok(current.captionGap >= 7 && current.captionGap <= 12, 'The caption remains attached to its image');
+                assert.equal(current.bodyHtml, original, 'Resizing never rewrites author HTML');
+                assert.ok(['block', 'flow-root'].includes(current.bodyDisplay), 'Contenteditable retains normal block flow');
+                if (width >= 1280) {
+                    assert.ok(current.imageWidth > current.textWidth + 100, 'A wide photo is not constrained by the prose measure');
+                    assert.ok(current.textCh >= 65, `Desktop prose uses the intended reading measure: ${JSON.stringify({width, font:current.font, textWidth:current.textWidth, textCh:current.textCh})}`);
+                }
+                if (width > 720) {
+                    const overlap = current.title.left < current.search.right && current.title.right > current.search.left
+                        && current.title.top < current.search.bottom && current.title.bottom > current.search.top;
+                    assert.equal(overlap, false, `Search must not cover the title at ${width}px`);
+                    assert.ok(current.account.bottom <= current.search.top + 1, 'Account controls stay above the search field');
+                }
+                if (process.env.RESPONSIVE_SCREENSHOT_DIR && [390, 800, 1920].includes(width)
+                    && colorScheme === 'dark' && browser.browserType().name() === 'chromium') {
+                    await page.locator('.post.body').hover();
+                    await page.screenshot({path: `${process.env.RESPONSIVE_SCREENSHOT_DIR}/layout-${width}.png`, fullPage: true});
+                }
+            }
+            for (let index = 1; index < readings.length; index++) {
+                assert.ok(readings[index].font >= readings[index - 1].font, 'Text grows monotonically with viewport width');
+            }
+            for (const edge of [720, 760, 880, 1200, 1440]) {
+                const first = readings.find(row => row.width === edge);
+                await resize(page, edge + 1);
+                const second = await measure(page);
+                assert.ok(Math.abs(second.font - first.font) < 0.05, `Typography has no jump at ${edge}px: ${JSON.stringify({first: first.font, second: second.font, readings: readings.map(row => [row.width, row.font])})}`);
+            }
+            assert.ok(readings.at(-1).font - readings[0].font >= 4, 'Typography is genuinely fluid, not fixed desktop/mobile values');
+            assert.equal(readings[0].codeScroll, true);
+            assert.equal(readings[0].tableScroll, true);
+            assert.deepEqual(errors, []);
+        } finally { await context.close(); }
+    }
+    console.log(`${browser.browserType().name()}: responsive prose/media, continuous type, local overflow and preserved HTML passed`);
+}
+
+export async function runResponsiveEditorRegressions(browser, origin) {
+    for (const hasTouch of [false, true]) {
+        const context = await browser.newContext({hasTouch, viewport: {width: 1280, height: 900}, reducedMotion: 'reduce'});
+        const page = await context.newPage();
+        page.setDefaultTimeout(10000);
+        const errors = [];
+        page.on('pageerror', error => errors.push(String(error)));
+        await page.route('**/_inplace/tags', route => route.fulfill({json: {tags: []}}));
+        try {
+            await page.goto(origin + '/responsive-layout.html');
+            await page.waitForFunction(() => window.editorTest && [...document.images].every(image => image.complete));
+            const original = await measure(page);
+            await page.locator('.post.body').hover();
+            await page.locator('.post-edit-start').click();
+            const body = page.locator('[data-post-inplace-body]');
+            const originalText = await body.textContent();
+            const editing = await measure(page);
+            assert.ok(Math.abs(original.textWidth - editing.textWidth) < 1, 'Opening the editor keeps the reading measure');
+            assert.ok(Math.abs(original.imageWidth - editing.imageWidth) < 1, 'Opening the editor keeps media geometry');
+            for (const width of [320, 390, 760, 800, 1280, 1920]) {
+                await resize(page, width);
+                const current = await measure(page);
+                assert.equal(current.overflow, false, `The active editor stays within the viewport at ${width}px`);
+                assert.equal(await body.textContent(), originalText, 'Resizing cannot change the edited text');
+                assert.ok(Math.abs(current.captionGap - original.captionGap) < 1, 'Editor resize retains the caption gap');
+                const tools = await page.locator('.post-inplace-tools').boundingBox();
+                const date = await page.locator('.post.time time').boundingBox();
+                const calendar = await page.locator('.post-inplace-date-button').boundingBox();
+                const overlaps = bounds => bounds.x < tools.x + tools.width && bounds.x + bounds.width > tools.x
+                    && bounds.y < tools.y + tools.height && bounds.y + bounds.height > tools.y;
+                assert.ok(!overlaps(date) && !overlaps(calendar), 'Tools do not cover the publication date');
+                if (hasTouch) {
+                    for (const selector of ['.post-edit-save', '.post-edit-cancel', '.post-edit-menu', '.post-create-start',
+                        '.register-reaction-primary', '.post-foot-comments a', '.public-auth-user-menu > summary']) {
+                        const control = page.locator(selector);
+                        // Reactions/comments are intentionally hidden while editing.
+                        if (!await control.isVisible()) continue;
+                        const bounds = await control.boundingBox();
+                        assert.ok(bounds.width >= 43.9 && bounds.height >= 43.9, `Touch target ${selector} is usable at ${width}px`);
+                    }
+                }
+            }
+            await resize(page, 1280);
+            await page.evaluate(() => {
+                const paragraph = document.querySelector('#responsive-after');
+                const range = document.createRange();
+                range.selectNodeContents(paragraph);
+                range.collapse(false);
+                const body = document.querySelector('[data-post-inplace-body]');
+                body.focus();
+                getSelection().removeAllRanges();
+                getSelection().addRange(range);
+            });
+            await page.keyboard.press('Enter');
+            await page.keyboard.type('Text entered after resizing.');
+            let savedBody;
+            await page.route('**/_inplace/post/7', async route => {
+                const request = route.request().postData() || '';
+                savedBody = request.match(/name="body"\r?\n\r?\n([\s\S]*?)\r?\n--/u)?.[1];
+                assert.ok(savedBody?.includes('Text entered after resizing.'));
+                await route.fulfill({json: {success: true, action: 'edit', revision: 2,
+                    title: 'Заметка с текстом и большой иллюстрацией',
+                    published_at: 1700000000, datetime: '2023-11-14T22:13:20Z', time: '14 ноября 2023 года, 22:13',
+                    scheduled: false, tags: [{name: 'тестовая заметка', url: '/tags/example/'}],
+                    body_html: `<div class="post body" data-post-inplace-body>${savedBody}</div>`, message: 'Saved'}});
+            });
+            await page.locator('.post-edit-save').click();
+            await page.waitForFunction(() => !document.querySelector('.post-card.is-editing'));
+            assert.ok((await body.textContent()).includes('Text entered after resizing.'));
+            assert.equal(await body.locator('img').count(), 1);
+            assert.equal(await body.locator('table').count(), 1);
+            await page.locator('.post.body').hover();
+            await page.locator('.post-edit-start').click();
+            assert.ok((await body.textContent()).includes('Text entered after resizing.'));
+            assert.ok(Math.abs((await measure(page)).captionGap - original.captionGap) < 1);
+            await page.locator('.post-edit-cancel').click();
+            await page.waitForFunction(() => !document.querySelector('.post-card.is-editing'));
+            if (hasTouch) {
+                for (const selector of ['.register-reaction-primary', '.post-foot-comments a']) {
+                    const bounds = await page.locator(selector).boundingBox();
+                    assert.ok(bounds.width >= 43.9 && bounds.height >= 43.9, `Published touch target ${selector} stays usable`);
+                }
+            }
+
+            // Equivalent layout widths for a 1280px window at browser zoom.
+            // Font size is evaluated in screen pixels, not compensated via JS.
+            let previousScreenFont = 0;
+            for (const zoom of [0.67, 0.8, 1, 1.25, 1.5, 2]) {
+                await resize(page, Math.round(1280 / zoom));
+                const state = await measure(page);
+                assert.equal(state.overflow, false);
+                assert.ok(state.font * zoom > previousScreenFont, 'Browser zoom increases the physical type size');
+                previousScreenFont = state.font * zoom;
+            }
+            await resize(page, 1280);
+            // Simulate a landscape cutout: the tools must stay inside the safe
+            // area as well as the text, and readers need no empty tool column.
+            await page.evaluate(() => { document.documentElement.style.setProperty('--safe-side', '48px'); });
+            await page.waitForFunction(() => document.querySelector('.post-edit-start').getBoundingClientRect().left >= 48);
+            const safe = await page.locator('.post-edit-start').boundingBox();
+            assert.ok(safe.x >= 48, 'The tool rail also respects the phone safe area');
+            await page.evaluate(() => { document.documentElement.style.removeProperty('--safe-side'); });
+            const normalFont = (await measure(page)).font;
+            await page.evaluate(() => { document.documentElement.style.fontSize = '32px'; });
+            await page.waitForFunction(() => parseFloat(getComputedStyle(document.querySelector('#responsive-prose')).fontSize) > 35);
+            const enlarged = await measure(page);
+            assert.ok(enlarged.font > normalFont * 1.6, 'The reading scale respects a larger user font');
+            assert.equal(enlarged.overflow, false);
+            assert.deepEqual(errors, []);
+        } finally { await context.close(); }
+    }
+    console.log(`${browser.browserType().name()}: responsive editor geometry, touch targets, native Enter/save/reopen and zoom passed`);
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+    const server = createFixtureServer();
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    try {
+        for (const engine of [chromium, firefox, webkit]) {
+            if (process.env.EDITOR_TEST_BROWSER && process.env.EDITOR_TEST_BROWSER !== engine.name()) continue;
+            const browser = await engine.launch();
+            try {
+                await runResponsiveLayoutRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+                await runResponsiveEditorRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            }
+            finally { await browser.close(); }
+        }
+    } finally { await new Promise(resolve => server.close(resolve)); }
+}

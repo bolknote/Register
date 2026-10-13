@@ -23,7 +23,7 @@ export async function assertToolsStayAttached(page) {
             assert.ok(geometry[name].left >= 0 && geometry[name].right <= width,
                 `${name} stays on screen at ${width}px: ${JSON.stringify(geometry)}`);
         }
-        if (width > 880) {
+        if (width > 760) {
             assert.ok(geometry.headerGap >= 0 && geometry.headerGap <= 24,
                 `Create stays next to the heading at ${width}px: ${JSON.stringify(geometry)}`);
             assert.ok(geometry.postGap >= 0 && geometry.postGap <= 24,

@@ -1,3 +1,12 @@
+/* Resolve the reading measure once in the prose font. Descendants such as
+ * headings and metadata inherit the same length instead of recalculating ch
+ * in their own, different fonts. No layout/typography transitions are used. */
+@property --text-width {
+    syntax: "<length>";
+    inherits: true;
+    initial-value: 1000px;
+}
+
 :root {
     color-scheme: light dark;
     --page-background: #f6f1e7;
@@ -25,19 +34,40 @@
     --register-border: var(--border-color);
     --register-accent: var(--accent-color);
     --register-ui-font: var(--ui-font);
-    --page-width: 1280px;
-    --article-width: 1280px;
+    --reading-font-size: clamp(1.125rem, calc(1rem + 0.4vw), 1.5rem);
+    --reading-measure: 70;
+    --comment-font-size: clamp(1.0625rem, calc(1rem + 0.2vw), 1.25rem);
+    --post-title-size: clamp(1.625rem, calc(1.1rem + 1.1vw), 2.25rem);
+    --page-width: 90rem;
+    --article-width: var(--page-width);
     --text-width: 1000px;
-    --comments-width: 900px;
-    --form-width: 760px;
+    --comments-width: min(var(--text-width), 56rem);
+    --form-width: min(var(--text-width), 47.5rem);
     --remark-width: clamp(180px, 15vw, 220px);
     --remark-gap: clamp(32px, 4vw, 60px);
-    --page-margin: clamp(18px, calc(10vw - 48px), 80px);
-    --tools-gutter: min(var(--page-margin), 4rem);
+    --safe-side: max(env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
+    --page-inset: clamp(1rem, 3vw, 4rem);
+    --page-margin: max(var(--page-inset), var(--safe-side));
+    --tools-gutter: 4rem;
+    --tools-rail-space: 0px;
+    --tool-button-size: 2.15rem;
     --header-top: clamp(2rem, 4vw, 3.5rem);
     --site-title-size: clamp(2.4rem, 4.2vw, 3.28125rem);
     --ui-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
     --text-font: Georgia, "Times New Roman", serif;
+}
+
+@media (min-width: 761px) {
+    :root {
+        /* The tool column is reserved next to the common content origin,
+         * independently of how much empty space a wide viewport provides. */
+        --page-margin: max(var(--page-inset), calc(var(--safe-side) + var(--tools-rail-space)));
+        --header-top: max(3.25rem, clamp(2rem, 4vw, 3.5rem));
+    }
+
+    :root:has(.site-header-tools, .post-inplace-tools, .comment-moderation) {
+        --tools-rail-space: var(--tools-gutter);
+    }
 }
 
 @media (min-resolution: 2dppx), (-webkit-min-device-pixel-ratio: 2) {
@@ -289,9 +319,11 @@ hr {
     max-width: none;
     margin: 0;
     color: inherit;
-    font: inherit;
+    font-family: var(--ui-font);
+    font-size: var(--site-title-size);
+    font-weight: 700;
     letter-spacing: inherit;
-    line-height: inherit;
+    line-height: 1;
 }
 
 #header a,
@@ -350,7 +382,8 @@ hr {
     width: min(100%, var(--article-width));
     min-width: 0;
     font-family: var(--text-font);
-    font-size: 20px;
+    --text-width: calc(var(--reading-measure) * 1ch);
+    font-size: var(--reading-font-size);
     line-height: 1.6;
 }
 
@@ -396,7 +429,7 @@ hr {
 #content > .tag-post-list > .post-card {
     position: relative;
     width: 100%;
-    max-width: var(--text-width);
+    max-width: var(--article-width);
     container: post-editor / inline-size;
 }
 
@@ -415,11 +448,16 @@ hr {
     text-wrap: pretty;
 }
 
-.post-card > :where(.post.author, .post.time, .post.body, .post.foot, .see-also) {
+.post-card > :where(.post.author, .post.time, .post.foot, .see-also) {
     max-width: var(--text-width);
 }
 
-.article-text :where(p, ol, ul, pre, blockquote, table, figure) {
+.post-card > .post.body {
+    max-width: var(--article-width);
+}
+
+.article-text :where(p, ol, ul, dl, blockquote),
+.post.body :where(p, ol, ul, dl, blockquote) {
     max-width: var(--text-width);
 }
 
@@ -436,7 +474,7 @@ hr {
 }
 
 #content :where(img, video, iframe, figure) {
-    max-width: min(100%, var(--text-width));
+    max-width: min(100%, var(--article-width));
 }
 
 #content figure {
@@ -605,19 +643,19 @@ h1 {
 
 h2 {
     margin: 1.9em 0 0.5em;
-    font-size: 30px;
+    font-size: clamp(1.5rem, calc(1.2rem + 0.7vw), 2rem);
     line-height: 1.2;
 }
 
 h3 {
     margin: 1.65em 0 0.45em;
-    font-size: 24px;
+    font-size: clamp(1.25rem, calc(1.05rem + 0.45vw), 1.625rem);
     line-height: 1.25;
 }
 
 h4 {
     margin: 1.5em 0 0.4em;
-    font-size: 20px;
+    font-size: var(--reading-font-size);
     line-height: 1.3;
 }
 
@@ -676,7 +714,7 @@ h2.preview,
 
 .post.head {
     color: var(--link-color);
-    font-size: 30px;
+    font-size: var(--post-title-size);
     line-height: 1.2;
 }
 
@@ -734,9 +772,12 @@ h2.preview,
 
 .site-header-shell {
     --site-header-tools-gutter: var(--tools-gutter);
+    --text-width: calc(var(--reading-measure) * 1ch);
     position: relative;
     width: 100%;
     min-width: 0;
+    font-family: var(--text-font);
+    font-size: var(--reading-font-size);
 }
 
 .site-header-copy {
@@ -768,7 +809,7 @@ h2.preview,
 .site-header-tools {
     position: absolute;
     z-index: 4;
-    top: calc((var(--site-title-size) - 2.15rem) / 2);
+    top: calc((var(--site-title-size) - var(--tool-button-size)) / 2);
     left: calc(-1 * var(--site-header-tools-gutter));
     display: flex;
     width: var(--site-header-tools-gutter);
@@ -815,7 +856,7 @@ h2.preview,
     transform: translateY(-0.12rem);
 }
 
-@media (min-width: 881px) {
+@media (min-width: 761px) {
     .post-card.is-manageable::before {
         position: absolute;
         z-index: 1;
@@ -876,8 +917,8 @@ h2.preview,
 
 .post-inplace-button {
     display: grid;
-    width: 2.15rem;
-    min-height: 2.15rem;
+    width: var(--tool-button-size);
+    min-height: var(--tool-button-size);
     margin: 0;
     padding: 0;
     border: 0;
@@ -2505,27 +2546,6 @@ h2.preview,
     font-size: 15px;
 }
 
-@media (max-width: 880px) {
-    .site-header-tools {
-        left: 0;
-        width: 2.5rem;
-    }
-
-    .site-header-shell:has(> .site-header-tools) .site-title {
-        text-indent: 2.5rem;
-    }
-
-    .post-inplace-tools {
-        right: auto;
-        left: 0;
-        width: 2.5rem;
-    }
-
-    .post-card.is-manageable > .post.body {
-        padding-left: 2.5rem;
-    }
-}
-
 @media (max-width: 760px) {
     .site-header-tools {
         top: calc(-2.4rem + 0.2rem);
@@ -2970,6 +2990,10 @@ span.favorite-star {
 }
 
 @media (min-width: 721px) {
+    #header .site-title {
+        max-width: calc(100% - min(22rem, 32vw) - 2rem);
+    }
+
     .register_search_form {
         position: absolute;
         z-index: 2;
@@ -2985,11 +3009,21 @@ span.favorite-star {
 }
 
 #content table {
+    display: block;
+    width: fit-content;
     max-width: 100%;
+    overflow-x: auto;
     border-collapse: collapse;
     font-family: var(--ui-font);
     font-size: 15px;
     line-height: 1.45;
+}
+
+/* A caption must stay in the native table formatting context. In particular,
+ * Firefox's Up/Down navigation follows its visual table-caption ordering. */
+#content table:has(caption) {
+    display: table;
+    overflow-wrap: anywhere;
 }
 
 #content th,
@@ -3024,7 +3058,7 @@ h2.comment {
 .comment-thread {
     --comment-thread-indent: clamp(1.5rem, 4vw, 3.25rem);
     container: comment-thread / inline-size;
-    font-size: 18px;
+    font-size: var(--comment-font-size);
     line-height: 1.55;
 }
 
@@ -3314,7 +3348,7 @@ h2.comment {
     min-height: 9.55rem;
     width: calc(var(--content-tools-gutter) + var(--comment-depth-offset));
     padding-top: 0;
-    padding-left: calc((var(--content-tools-gutter) - 2.15rem) / 2);
+    padding-left: calc((var(--content-tools-gutter) - var(--tool-button-size)) / 2);
     flex-direction: column;
     align-items: flex-start;
     gap: 0.15rem;
@@ -3342,8 +3376,8 @@ h2.comment {
 .comment-moderation-action {
     position: relative;
     display: block;
-    width: 2.15rem;
-    min-height: 2.15rem;
+    width: var(--tool-button-size);
+    min-height: var(--tool-button-size);
     margin: 0;
 }
 
@@ -4150,12 +4184,7 @@ ul.back_forward .empty {
     }
 
     #content {
-        font-size: 18px;
         line-height: 1.6;
-    }
-
-    h2 {
-        font-size: 26px;
     }
 
     blockquote {
@@ -4170,6 +4199,60 @@ ul.back_forward .empty {
 
     #footer {
         padding-top: 2.75rem;
+    }
+}
+
+/* Touch target size depends on the input device, not on an assumed phone
+ * width. The editor body remains ordinary block flow at every viewport. */
+@media (pointer: coarse) {
+    :root {
+        --tool-button-size: 2.75rem;
+    }
+
+    .post-inplace-button,
+    .site-header-tools .post-create-start,
+    .comment-moderation-action,
+    .register-reactions .register-reaction-chip,
+    .register-reactions .register-reaction-choice,
+    body .public-auth-user-menu > summary {
+        min-width: 2.75rem;
+        min-height: 2.75rem;
+    }
+
+    .post.foot > .register-reactions + .post-foot-comments > a {
+        min-width: 2.75rem;
+        min-height: 2.75rem;
+        justify-content: center;
+    }
+
+    .post-media-caption-toolbar button {
+        width: 2.75rem;
+        height: 2.75rem;
+        min-height: 2.75rem;
+        flex-basis: 2.75rem;
+    }
+}
+
+@media (pointer: coarse) and (max-width: 760px) {
+    :root {
+        --header-top: 3.75rem;
+    }
+
+    #header {
+        padding-top: var(--header-top);
+    }
+
+    .site-header-tools {
+        top: calc(-1 * var(--header-top) + 0.35rem);
+        width: var(--tool-button-size);
+    }
+
+    body .public-auth-header {
+        top: calc(-1 * var(--header-top) + 0.35rem);
+    }
+
+    #content .post-card.is-editing > .post.time {
+        padding-right: calc(3 * var(--tool-button-size) + 0.75rem);
     }
 }
 

@@ -61,6 +61,17 @@ final class AssetPackTest extends Unit
         self::assertSame(AssetPack::COLOR_SCHEME_LIGHT, $systemOne->getColorScheme());
     }
 
+    public function testRegisterLayoutCanUseThePhoneSafeAreaWithoutDisablingZoom(): void
+    {
+        $register = require \dirname(__DIR__, 4) . '/_styles/register/register.php';
+
+        self::assertInstanceOf(AssetPack::class, $register);
+        $markup = $register->getStyles('', null);
+        self::assertStringContainsString('width=device-width, initial-scale=1, viewport-fit=cover', $markup);
+        self::assertStringNotContainsString('user-scalable=no', $markup);
+        self::assertStringNotContainsString('maximum-scale=1', $markup);
+    }
+
     public function testBuiltInStylesLocalizeTimesBeforeRenderingTheBody(): void
     {
         $rootDir = \dirname(__DIR__, 4) . '/';

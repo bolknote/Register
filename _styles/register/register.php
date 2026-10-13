@@ -5,7 +5,7 @@ declare(strict_types = 1);
 use Register\Core\Asset\AssetPack;
 
 return (new AssetPack(__DIR__))
-    ->addMeta('<meta name="viewport" content="width=device-width, initial-scale=1">')
+    ->addMeta('<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">')
     ->setColorScheme(AssetPack::COLOR_SCHEME_SYSTEM)
     ->addMeta('<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f7f3e9">')
     ->addMeta('<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#202020">')

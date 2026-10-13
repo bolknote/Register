@@ -10,6 +10,12 @@ export function createFixtureServer() {
         response.setHeader('Cache-Control', 'no-store');
         response.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' data: blob:; media-src 'self'; object-src 'none'");
         try {
+            if (request.url === '/responsive-layout.html') {
+                response.setHeader('Content-Type', 'text/html; charset=utf-8');
+                response.end(execFileSync(process.env.PHP_BIN || 'php',
+                    [new URL('./responsive-layout-fixture.php', import.meta.url).pathname], {encoding: 'utf8'}));
+                return;
+            }
             if (request.url === '/tag-display.html') {
                 response.setHeader('Content-Type', 'text/html; charset=utf-8');
                 response.end(execFileSync(process.env.PHP_BIN || 'php',
@@ -110,6 +116,10 @@ export function createFixtureServer() {
                 return;
             }
             const files = new Map([
+                ['/responsive-layout-fixture.js', ['responsive-layout-fixture.js', 'text/javascript']],
+                ['/responsive-image.svg', ['responsive-image.svg', 'image/svg+xml']],
+                ['/responsive-blog.css', ['../../../_assets/register/blog/site.css', 'text/css']],
+                ['/responsive-auth.css', ['../../../_assets/register/public-auth.css', 'text/css']],
                 ['/telegram-stickers.html', ['telegram-stickers.html', 'text/html; charset=utf-8']],
                 ['/stickers.js', ['../../../_assets/register/telegram/stickers.js', 'text/javascript']],
                 ['/stickers.css', ['../../../_assets/register/telegram/stickers.css', 'text/css']],
