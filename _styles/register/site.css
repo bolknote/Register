@@ -33,6 +33,7 @@
     --remark-width: clamp(180px, 15vw, 220px);
     --remark-gap: clamp(32px, 4vw, 60px);
     --page-margin: clamp(18px, calc(10vw - 48px), 80px);
+    --tools-gutter: min(var(--page-margin), 4rem);
     --header-top: clamp(2rem, 4vw, 3.5rem);
     --site-title-size: clamp(2.4rem, 4.2vw, 3.28125rem);
     --ui-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
@@ -345,7 +346,7 @@ hr {
 }
 
 #content {
-    --content-tools-gutter: max(var(--page-margin), calc((100vw - var(--page-width)) / 2));
+    --content-tools-gutter: var(--tools-gutter);
     width: min(100%, var(--article-width));
     min-width: 0;
     font-family: var(--text-font);
@@ -732,7 +733,7 @@ h2.preview,
 }
 
 .site-header-shell {
-    --site-header-tools-gutter: max(var(--page-margin), calc((100vw - var(--page-width)) / 2));
+    --site-header-tools-gutter: var(--tools-gutter);
     position: relative;
     width: 100%;
     min-width: 0;

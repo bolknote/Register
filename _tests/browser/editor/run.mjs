@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {createFixtureServer} from './server.mjs';
 import {runDurabilityRegressions} from './durability-tests.mjs';
 import {runRecoveryRegressions} from './recovery-tests.mjs';
+import {runToolLayoutRegressions} from './tool-layout-tests.mjs';
 import {runHtmlBlockRegressions} from './html-block-tests.mjs';
 import {runContextMenuRegressions} from './context-menu-tests.mjs';
 import {runReactionRegressions} from './reactions-tests.mjs';
@@ -468,6 +469,7 @@ try {
             await runTableNavigationRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runInlineCodeBoundaryRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runRecoveryRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runToolLayoutRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runSaveRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runReviewRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runRecoveryPreviewRegressions(browser, `http://127.0.0.1:${server.address().port}`);

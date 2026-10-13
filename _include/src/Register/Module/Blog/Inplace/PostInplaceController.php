@@ -25,6 +25,7 @@ use Register\Content\PublicationMetadataGenerator;
 use Register\Content\TagRepository;
 use Register\Live\LiveFragmentRenderer;
 use Register\Module\Blog\BlogUrlBuilder;
+use Register\Module\Blog\Model\PostFooterRenderer;
 use Register\Module\Blog\Model\PostProvider;
 use Register\Url\ContentSlugService;
 use Register\Url\PostUrlNamespace;
@@ -86,6 +87,7 @@ final readonly class PostInplaceController implements ControllerInterface
         private ContentSlugService          $contentSlugService,
         private ContentUrlGenerator         $contentUrlGenerator,
         private PostProvider                $postProvider,
+        private PostFooterRenderer          $footerRenderer,
         private AiClient                   $aiClient,
         private AiSettings                 $aiSettings,
         private PublicationMetadataGenerator $publicationMetadataGenerator,
@@ -111,7 +113,7 @@ final readonly class PostInplaceController implements ControllerInterface
         }
 
         $post = $this->dbLayer
-            ->select('id, author_id, revision, title, excerpt, body, meta_description, slug, published, created_at, published_at, scheduled_at, date_label')
+            ->select('id, author_id, revision, title, excerpt, body, meta_description, slug, published, created_at, published_at, scheduled_at, date_label, comments_enabled')
             ->from(ContentSchema::TABLE_NAME)
             ->where('id = :id')->setParameter('id', $postId)
             ->andWhere('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
@@ -792,6 +794,9 @@ final readonly class PostInplaceController implements ControllerInterface
             'body_html' => $this->fragmentRenderer->render(
                 '<div class="post body" data-post-inplace-body>' . $body . '</div>',
             ),
+            'foot_html' => $this->fragmentRenderer->render($this->footerRenderer->render(
+                $postId, $this->contentUrlGenerator->post($slug), $savedTags, (bool)$post['comments_enabled'], $scheduled || $isDraft,
+            )),
             'tags'      => array_map(
                 fn(\Register\Content\Tag $tag): array => [
                     'name' => $tag->name,
@@ -976,6 +981,9 @@ final readonly class PostInplaceController implements ControllerInterface
             'body_html'      => $this->fragmentRenderer->render(
                 '<div class="post body" data-post-inplace-body>' . $body . '</div>',
             ),
+            'foot_html'      => $this->fragmentRenderer->render($this->footerRenderer->render(
+                $postId, $url, $savedTags, true, $scheduled,
+            )),
             'tags'           => array_map(
                 fn(\Register\Content\Tag $tag): array => [
                     'name' => $tag->name,
@@ -989,7 +997,7 @@ final readonly class PostInplaceController implements ControllerInterface
 
     private function replayCreation(Request $request, int $postId, bool $matched): Response
     {
-        $post = $this->dbLayer->select('author_id, revision, title, body, slug, published_at, scheduled_at, date_label, created_at')
+        $post = $this->dbLayer->select('author_id, revision, title, body, slug, published, published_at, scheduled_at, date_label, created_at, comments_enabled')
             ->from(ContentSchema::TABLE_NAME)
             ->where('id = :id')->setParameter('id', $postId)
             ->andWhere('content_type = :type')->setParameter('type', ContentType::POST->value)
@@ -1023,6 +1031,9 @@ final readonly class PostInplaceController implements ControllerInterface
             'time' => $this->postProvider->displayDate($publishedAt, (string)$post['date_label']),
             'scheduled' => $scheduled, 'schedule_message' => $this->translator->trans('Scheduled post preview'),
             'body_html' => $this->fragmentRenderer->render('<div class="post body" data-post-inplace-body>' . $post['body'] . '</div>'),
+            'foot_html' => $this->fragmentRenderer->render($this->footerRenderer->render(
+                $postId, $url, $tags, (bool)$post['comments_enabled'], (int)$post['published'] === 0,
+            )),
             'tags' => array_map(fn(\Register\Content\Tag $tag): array => [
                 'name' => $tag->name, 'url' => $this->blogUrlBuilder->tag($tag->slug),
             ], $tags),

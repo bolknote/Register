@@ -751,6 +751,13 @@ final class PostInplaceCest
         $I->assertGreaterThan($cursor, $payload['live_cursor']);
         $I->assertSame($publishedAt, $payload['published_at']);
         $I->assertStringStartsWith('/', $payload['url']);
+        $I->assertArrayHasKey('foot_html', $payload);
+        $I->assertStringContainsString('data-endpoint="/_reactions/post/' . $payload['id'] . '"', $payload['foot_html']);
+        $I->assertStringContainsString('data-reaction="like"', $payload['foot_html']);
+        $I->assertStringContainsString('href="' . $payload['url'] . '#add-comment"', $payload['foot_html']);
+        $I->assertStringContainsString('data-post-inplace-tags-values', $payload['foot_html']);
+        $I->assertStringContainsString('post-foot-views-count', $payload['foot_html']);
+        $I->assertStringNotContainsString('register-deferred-', $payload['foot_html']);
 
         $postId = (int)$payload['id'];
         $stored = $dbLayer
@@ -826,6 +833,10 @@ final class PostInplaceCest
         $created = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
         $I->assertTrue($created['scheduled']);
         $I->assertSame('Post scheduled', $created['message']);
+        $I->assertArrayHasKey('foot_html', $created);
+        $I->assertStringNotContainsString('data-register-reactions', $created['foot_html']);
+        $I->assertStringNotContainsString('post-foot-comments', $created['foot_html']);
+        $I->assertStringNotContainsString('post-foot-views', $created['foot_html']);
 
         $postId = (int)$created['id'];
         $stored = $dbLayer
@@ -858,6 +869,8 @@ final class PostInplaceCest
 
         $edited = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
         $I->assertFalse($edited['scheduled']);
+        $I->assertStringContainsString('data-register-reactions', $edited['foot_html']);
+        $I->assertStringContainsString('href="' . $created['url'] . '#add-comment"', $edited['foot_html']);
 
         $published = $dbLayer
             ->select('published, published_at, scheduled_at')

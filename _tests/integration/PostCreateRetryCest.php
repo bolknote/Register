@@ -20,6 +20,8 @@ final class PostCreateRetryCest
 
         $first = $I->grabJson();
         $I->assertIsArray($first);
+        $I->assertArrayHasKey('foot_html', $first);
+
         $count = (int)$db->select('COUNT(*)')->from(ContentSchema::TABLE_NAME)->execute()->result();
         $cursor = $I->grabService(LiveUpdateRepository::class)->currentCursor();
 
@@ -28,6 +30,7 @@ final class PostCreateRetryCest
         $I->seeResponseCodeIs(200);
         $I->assertJsonSubResponseEquals($first['id'], ['id']);
         $I->assertJsonSubResponseEquals(true, ['replayed']);
+        $I->assertJsonSubResponseEquals($first['foot_html'], ['foot_html']);
         $I->assertSame($count, (int)$db->select('COUNT(*)')->from(ContentSchema::TABLE_NAME)->execute()->result());
         $I->assertSame($cursor, $I->grabService(LiveUpdateRepository::class)->currentCursor());
 

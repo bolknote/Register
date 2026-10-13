@@ -2726,10 +2726,18 @@
         const time = state?.time || card.querySelector(':scope > .post.time > time');
         const dateInput = state?.dateInput || card.querySelector(':scope > .post.time > .post-inplace-datetime');
         const replacementBody = typeof payload.body_html === 'string' ? parseBody(payload.body_html) : null;
+        const currentFooter = card.querySelector(':scope > .post.foot');
+        const footerTemplate = document.createElement('template');
+        if (typeof payload.foot_html === 'string') footerTemplate.innerHTML = payload.foot_html;
+        const replacementFooter = footerTemplate.content.querySelector('.post.foot');
         if (
             !title
             || !currentBody
             || !replacementBody
+            || (payload.foot_html !== undefined && (
+                !currentFooter || !replacementFooter
+                || !replacementFooter.querySelector('.post-foot-tags [data-post-inplace-tags-values]')
+            ))
             || !(tagValues instanceof HTMLElement)
             || !(tagsHost instanceof HTMLElement)
             || !(time instanceof HTMLTimeElement)
@@ -2792,6 +2800,11 @@
         destroyWidgets(currentBody);
         currentBody.replaceWith(replacementBody);
         enhanceWidgets(replacementBody);
+        if (currentFooter && replacementFooter) {
+            destroyWidgets(currentFooter);
+            currentFooter.replaceWith(replacementFooter);
+            enhanceWidgets(replacementFooter);
+        }
 
         const titleField = form.elements.namedItem('title');
         const bodyField = form.elements.namedItem('body');

@@ -73,6 +73,7 @@ use Register\Module\Blog\Model\ContentViewResponseProcessor;
 use Register\Module\Blog\Model\ContentFeedItemProvider;
 use Register\Module\Blog\Model\PostProvider;
 use Register\Module\Blog\Model\PostFeedRenderer;
+use Register\Module\Blog\Model\PostFooterRenderer;
 use Register\Module\Blog\Model\PostPageContextProvider;
 use Register\Module\Blog\Model\PostPageContextResponseProcessor;
 use Register\Module\Blog\Model\SiteHeaderRenderer;
@@ -200,6 +201,19 @@ final class ServiceModule implements ContainerModuleInterface
                 $container->get(BlogPageCache::class),
             );
         });
+        $container->set(PostFooterRenderer::class, static function (Container $container): PostFooterRenderer {
+            $provider = $container->get(DynamicConfigProvider::class);
+            $container->get('register_blog_translator');
+
+            return new PostFooterRenderer(
+                $container->get(Viewer::class),
+                $container->get(BlogUrlBuilder::class),
+                $container->get(PostProvider::class),
+                $container->get(ContentViewRepository::class),
+                $provider->getBoolProxy('REGISTER_SHOW_COMMENTS'),
+                $provider->getBoolProxy('REGISTER_ENABLED_COMMENTS'),
+            );
+        });
         $container->set(SiteHeaderRenderer::class, static function (Container $container): SiteHeaderRenderer {
             $provider = $container->get(DynamicConfigProvider::class);
 
@@ -260,6 +274,7 @@ final class ServiceModule implements ContainerModuleInterface
             $container->get(ContentSlugService::class),
             $container->get(ContentUrlGenerator::class),
             $container->get(PostProvider::class),
+            $container->get(PostFooterRenderer::class),
             $container->get(\Register\Ai\AiClient::class),
             $container->get(\Register\Ai\AiSettings::class),
             $container->get(\Register\Content\PublicationMetadataGenerator::class),

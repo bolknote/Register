@@ -6,6 +6,7 @@ import {tmpdir} from 'node:os';
 import {resolve, dirname, relative} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createServer} from 'node:net';
+import {assertToolsStayAttached} from './tool-layout-tests.mjs';
 
 const directory = dirname(fileURLToPath(import.meta.url));
 const sourceRoot = resolve(directory, '../../..');
@@ -283,7 +284,12 @@ try {
     }
     for (const engine of [chromium, firefox, webkit]) {
         const browser = await engine.launch();
-        const context = await browser.newContext();
+        const probe = await browser.newPage();
+        // Chromium's default HeadlessChrome UA intentionally receives the
+        // bot-only assets. This workflow must exercise an ordinary browser.
+        const userAgent = (await probe.evaluate(() => navigator.userAgent)).replace(/Headless/giu, '');
+        await probe.close();
+        const context = await browser.newContext({userAgent});
         // Uploads stay in disposable storage outside the document root. Serve
         // those actual saved files to the browser; upload/save requests still
         // reach the real PHP application and database without a mock response.
@@ -312,6 +318,12 @@ try {
             if (process.env.REGISTER_E2E_ROOT && engine.name() === 'chromium') await measureGuestAssets(browser);
             if (process.env.REGISTER_E2E_ROOT) await verifySyntaxAssets(browser, engine.name());
             await login(page);
+            // The create response must be sufficient by itself. No live feed
+            // replacement may hide a missing footer on the temporary card.
+            await page.route('**/_live?**', route => route.fulfill({json: {
+                cursor: Number(new URL(route.request().url()).searchParams.get('cursor')),
+                patches: {}, more: false,
+            }}));
             await page.goto(origin + '/');
             if (process.env.REGISTER_E2E_ROOT) {
                 assert.equal(await page.locator('script[src*="/editor.bundle.js.asset?v="]').count(), 1,
@@ -319,6 +331,8 @@ try {
             }
             await page.locator('.post-create-start').click();
             const card = page.locator('[data-post-creating]');
+            const originalCard = await card.elementHandle();
+            const originalDocument = await page.evaluate(() => window.e2eDocumentId = crypto.randomUUID());
             const title = `Lost response ${engine.name()}`;
             await card.locator('[data-post-inplace-title]').fill(title);
             await card.locator('[data-post-inplace-body]').fill('Created once through the real server.');
@@ -344,6 +358,46 @@ try {
             const postId = ids[0];
             const savedCard = page.locator(`.post-card[data-post-id="${postId}"]`);
             await page.waitForLoadState('networkidle');
+            assert.equal(await originalCard.evaluate(card => card.isConnected), true,
+                'The original creation card is usable without a live replacement');
+            assert.equal(await page.evaluate(() => window.e2eDocumentId), originalDocument,
+                'An ordinary creation does not reload the document');
+            const like = savedCard.locator('.post.foot [data-reaction="like"]');
+            assert.equal(await like.isVisible(), true, 'The like control is visible immediately after creation/retry');
+            assert.equal(await savedCard.locator('.post.foot [data-register-reactions]').count(), 1);
+            const createdUrl = await savedCard.locator('.post.head > a').getAttribute('href');
+            assert.equal(await savedCard.locator('.post-foot-comments a').getAttribute('href'), createdUrl + '#add-comment');
+            await like.hover();
+            await savedCard.locator('.register-reaction-picker').waitFor();
+            await page.keyboard.press('Escape');
+            const reactionResponse = page.waitForResponse(response => response.request().method() === 'POST'
+                && new URL(response.url()).pathname === `/_reactions/post/${postId}`);
+            await like.click();
+            assert.equal((await (await reactionResponse).json()).success, true);
+            await page.waitForFunction(id => document.querySelector(`.post-card[data-post-id="${id}"] [data-reaction="like"]`)
+                ?.getAttribute('aria-pressed') === 'true', postId);
+            assert.equal(await like.getAttribute('data-count'), '1', 'The immediately created control really saves a reaction');
+            await assertToolsStayAttached(page);
+            if (process.env.EDITOR_TOOLS_SCREENSHOT && engine.name() === 'chromium') {
+                await page.setViewportSize({width: 1920, height: 900});
+                await page.emulateMedia({colorScheme: 'dark'});
+                await savedCard.locator('.post.body').hover();
+                await page.screenshot({path: process.env.EDITOR_TOOLS_SCREENSHOT});
+            }
+            await page.setViewportSize({width: 1280, height: 720});
+            const footerState = () => savedCard.locator('.post.foot').evaluate(foot => ({
+                reactions: foot.querySelectorAll('[data-register-reactions]').length,
+                endpoint: foot.querySelector('[data-register-reactions]')?.dataset.endpoint,
+                commentUrl: foot.querySelector('.post-foot-comments a')?.getAttribute('href'),
+                tags: [...foot.querySelectorAll('.post-tag-link')].map(tag => tag.textContent),
+                views: foot.querySelector('.post-foot-views-count')?.textContent,
+            }));
+            const beforeReload = await footerState();
+            await page.unroute('**/_live?**');
+            await page.reload();
+            assert.deepEqual(await footerState(), beforeReload, 'The immediate footer matches an ordinary full page');
+            assert.equal(await like.isVisible(), true);
+            console.log(`${engine.name()}: created/retried card has live reaction and comment controls before reload, with attached tools`);
             await savedCard.locator('.post-edit-start').focus();
             await savedCard.locator('.post-edit-start').press('Enter');
 
@@ -380,7 +434,7 @@ try {
 
             // The same real server-rendered button remains usable on phones
             // and wide touch devices, with the current text selection intact.
-            const touchContext = await browser.newContext({hasTouch: true,
+            const touchContext = await browser.newContext({hasTouch: true, userAgent,
                 viewport: {width: 390, height: 844}, storageState: await context.storageState()});
             try {
                 const touchPage = await touchContext.newPage();
