@@ -34,6 +34,31 @@ $body = '<p id="responsive-prose">' . str_repeat($paragraph, 3) . '</p>'
     . '<pre id="responsive-code"><code>' . str_repeat('sample_function(argument); ', 45) . '</code></pre>'
     . '<table id="responsive-table"><thead><tr><th>Название</th><th>Параметры</th><th>Описание</th></tr></thead>'
     . '<tbody><tr><td>Пример</td><td><code>' . str_repeat('unbroken_parameter_', 35) . '</code></td><td>Обычная таблица</td></tr></tbody></table>';
+if (($argv[1] ?? '') === 'image-dimensions') {
+    // The upload policy stores 2000px Retina files with 1000px display dimensions.
+    // Exercise ordinary image markup, independent of any real site's content.
+    $retina = '<img class="post-media-image" src="/responsive-retina-image.svg" width="1000" height="400" alt="Retina">';
+    $body = '<p id="responsive-prose">' . $paragraph . '</p>'
+        . '<div class="post-picture post-media-picture">' . $retina
+        . '<div class="post-caption">Подпись к Retina-иллюстрации.</div></div>'
+        . '<div class="post-picture post-media-picture"><a href="/image-example">'
+        . str_replace('alt="Retina"', 'alt="Linked Retina"', $retina) . '</a></div>'
+        . '<div class="post-picture post-media-picture"><picture><source srcset="/responsive-retina-image.svg">'
+        . str_replace('alt="Retina"', 'alt="Picture Retina"', $retina) . '</picture></div>'
+        . '<figure>' . str_replace(['class="post-media-image" ', 'alt="Retina"'], ['', 'alt="Figure Retina"'], $retina)
+        . '<figcaption>Подпись внутри figure.</figcaption></figure>'
+        . '<div class="post-picture post-media-picture"><div class="post-media-overlay" data-post-media-overlay>'
+        . str_replace('alt="Retina"', 'alt="Overlay Retina"', $retina)
+        . '<div class="post-media-overlay-caption">Подпись на изображении.</div></div></div>'
+        . '<div class="post-picture post-media-picture">'
+        . str_replace(['width="1000" height="400"', 'alt="Retina"'], ['width="320" height="128"', 'alt="Small image"'], $retina)
+        . '</div><div class="post-picture post-media-picture">'
+        . str_replace('alt="Retina"', 'style="width: 480px" alt="Authored width"', $retina)
+        . '</div><div class="post-picture post-media-picture">'
+        . '<img class="post-media-image" src="/responsive-image.svg" alt="Natural width"></div>'
+        . '<p id="responsive-after">Текст после иллюстраций.</p>';
+}
+
 $vars = [
     'id' => 7, 'author' => '', 'title' => 'Заметка с текстом и большой иллюстрацией',
     'title_link' => '/all/responsive-example', 'link' => '/all/responsive-example',

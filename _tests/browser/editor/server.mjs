@@ -16,6 +16,16 @@ export function createFixtureServer() {
                     [new URL('./responsive-layout-fixture.php', import.meta.url).pathname], {encoding: 'utf8'}));
                 return;
             }
+            if (request.url === '/image-dimensions.html') {
+                // Match the public page policy: authored style attributes are
+                // allowed, but inline scripts/style elements are not.
+                response.setHeader('Content-Security-Policy', response.getHeader('Content-Security-Policy')
+                    + "; style-src 'self'; style-src-attr 'unsafe-inline'");
+                response.setHeader('Content-Type', 'text/html; charset=utf-8');
+                response.end(execFileSync(process.env.PHP_BIN || 'php',
+                    [new URL('./responsive-layout-fixture.php', import.meta.url).pathname, 'image-dimensions'], {encoding: 'utf8'}));
+                return;
+            }
             if (request.url === '/tag-display.html') {
                 response.setHeader('Content-Type', 'text/html; charset=utf-8');
                 response.end(execFileSync(process.env.PHP_BIN || 'php',
@@ -118,6 +128,7 @@ export function createFixtureServer() {
             const files = new Map([
                 ['/responsive-layout-fixture.js', ['responsive-layout-fixture.js', 'text/javascript']],
                 ['/responsive-image.svg', ['responsive-image.svg', 'image/svg+xml']],
+                ['/responsive-retina-image.svg', ['responsive-retina-image.svg', 'image/svg+xml']],
                 ['/responsive-blog.css', ['../../../_assets/register/blog/site.css', 'text/css']],
                 ['/responsive-auth.css', ['../../../_assets/register/public-auth.css', 'text/css']],
                 ['/telegram-stickers.html', ['telegram-stickers.html', 'text/html; charset=utf-8']],

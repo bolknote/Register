@@ -7,7 +7,7 @@ import {runExpiredMediaRecoveryRegressions} from './expired-media-recovery-tests
 import {runPublicRecoveryWarningRegressions, runHtmlReloadLifecycleRegressions} from './review-followup-tests.mjs';
 import {runNavigationRecoveryRegressions} from './navigation-recovery-tests.mjs';
 import {runDateLayoutRegressions} from './date-layout-tests.mjs';
-import {runResponsiveLayoutRegressions, runResponsiveEditorRegressions} from './responsive-layout-tests.mjs';
+import {runResponsiveLayoutRegressions, runResponsiveImageDimensionsRegressions, runResponsiveEditorRegressions} from './responsive-layout-tests.mjs';
 
 const engines = [chromium, firefox, webkit];
 const selectedEngine = process.env.EDITOR_TEST_BROWSER;
@@ -23,6 +23,7 @@ try {
         try {
             console.log(`${engine.name()} editor reliability regressions`);
             await runResponsiveLayoutRegressions(browser, origin);
+            await runResponsiveImageDimensionsRegressions(browser, origin);
             await runResponsiveEditorRegressions(browser, origin);
             await runAdminRecoveryPresenceRegressions(browser, origin);
             await runAdminAsyncDeadlineRegressions(browser, origin);

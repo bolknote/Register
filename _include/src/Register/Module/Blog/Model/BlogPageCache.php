@@ -41,11 +41,11 @@ final class BlogPageCache implements StatefulServiceInterface
 
     private const string RECENT_DISCUSSIONS_KEY = 'register_blog_recent_discussions_v2';
 
-    // Adaptive viewport metadata and new asset URLs need fresh HTML shells,
+    // Updated stylesheet URLs need fresh HTML shells,
     // while expensive content fragments and indexes remain compatible and warm.
-    private const string FIRST_RESPONSE_PREFIX = 'register_blog_first_response_v7_';
+    private const string FIRST_RESPONSE_PREFIX = 'register_blog_first_response_v8_';
 
-    private const string ALL_RESPONSE_PREFIX = 'register_blog_all_response_v7_';
+    private const string ALL_RESPONSE_PREFIX = 'register_blog_all_response_v8_';
 
     private const string CONTENT_RESPONSE_GENERATION_KEY = 'register_content_response_generation_v1';
 
@@ -53,7 +53,7 @@ final class BlogPageCache implements StatefulServiceInterface
 
     private const string CONTENT_RESPONSE_PATH_PREFIX = 'register_content_response_path_v1_';
 
-    private const string CONTENT_RESPONSE_PREFIX = 'register_content_response_v7_';
+    private const string CONTENT_RESPONSE_PREFIX = 'register_content_response_v8_';
 
     /** Only crawler/prefetch HTML changed; keep ordinary reader responses warm. */
     private const string NON_INTERACTIVE_RESPONSE_SUFFIX = '_noninteractive_v2';

@@ -78,11 +78,11 @@ final class GeneratedAssetCacheCleanerTest extends Unit
         self::assertFileExists($this->temporaryRoot . '/_cache/picture-upload-quota.lock');
     }
 
-    public function testAssetAndViewportChangesRefreshHtmlWithoutDiscardingContentFragments(): void
+    public function testStylesheetChangesRefreshHtmlWithoutDiscardingContentFragments(): void
     {
         $oldAsset = $this->temporaryRoot . '/_cache/site.deadbeef.css';
         file_put_contents($oldAsset, 'old runtime CSS');
-        $oldHtml = '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        $oldHtml = '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">'
             . '<link rel="stylesheet" href="/_cache/site.deadbeef.css">';
         $oldResponse = CachedBlogResponse::fromResponse(new Response($oldHtml));
         self::assertNotNull($oldResponse);
@@ -97,7 +97,7 @@ final class GeneratedAssetCacheCleanerTest extends Unit
             $oldVariant = str_ends_with($variant, '_bot') ? $variant . '_noninteractive_v2' : $variant;
             // A warm response from the previous production representation must
             // refresh too, even though its content fragments remain compatible.
-            foreach ([4, 5, 6] as $version) {
+            foreach ([4, 5, 6, 7] as $version) {
                 $pool->get('register_blog_first_response_v' . $version . '_' . $oldVariant, static fn(): CachedBlogResponse => $oldResponse);
                 $pool->get('register_blog_all_response_v' . $version . '_' . $oldVariant, static fn(): CachedBlogResponse => $oldResponse);
                 $pool->get('register_content_response_v' . $version . '_' . hash('sha256', '/fixture') . '_' . $oldVariant,

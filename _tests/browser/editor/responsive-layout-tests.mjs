@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {chromium, firefox, webkit} from 'playwright';
 import {pathToFileURL} from 'node:url';
 import {createFixtureServer} from './server.mjs';
+import {formData, holdRequests} from './save-tests.mjs';
 
 const widths = [320, 390, 640, 719, 720, 721, 760, 761, 800, 880, 881, 1024, 1200, 1280, 1440, 1920, 2560, 3840];
 async function resize(page, width) {
@@ -91,6 +92,97 @@ export async function runResponsiveLayoutRegressions(browser, origin) {
         } finally { await context.close(); }
     }
     console.log(`${browser.browserType().name()}: responsive prose/media, continuous type, local overflow and preserved HTML passed`);
+}
+
+export async function runResponsiveImageDimensionsRegressions(browser, origin) {
+    const displayWidths = {'Retina': 1000, 'Linked Retina': 1000, 'Picture Retina': 1000,
+        'Figure Retina': 1000, 'Overlay Retina': 1000, 'Small image': 320,
+        'Authored width': 480, 'Natural width': 1600};
+    for (const deviceScaleFactor of [1, 2]) {
+        const context = await browser.newContext({deviceScaleFactor, viewport: {width: 1280, height: 900},
+            colorScheme: deviceScaleFactor === 2 ? 'dark' : 'light', reducedMotion: 'reduce'});
+        const page = await context.newPage();
+        page.setDefaultTimeout(10000);
+        const errors = [];
+        page.on('pageerror', error => errors.push(String(error)));
+        const metadata = () => page.locator('.post.body img').evaluateAll(images => images.map(image => ({
+            alt: image.alt, width: image.getAttribute('width'), height: image.getAttribute('height'),
+            style: image.getAttribute('style'),
+        })));
+        const assertDimensions = async label => {
+            const state = await page.evaluate(async () => {
+                await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+                const body = document.querySelector('.post.body');
+                const style = getComputedStyle(body);
+                const available = body.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+                return {available, overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+                    images: [...body.querySelectorAll('img')].map(image => ({
+                        alt: image.alt, naturalWidth: image.naturalWidth, naturalHeight: image.naturalHeight,
+                        width: image.getBoundingClientRect().width, height: image.getBoundingClientRect().height,
+                    }))};
+            });
+            assert.equal(state.overflow, false, label + ': no page overflow');
+            assert.equal(state.images.length, Object.keys(displayWidths).length);
+            for (const image of state.images) {
+                const expected = Math.min(displayWidths[image.alt], state.available);
+                assert.equal(image.naturalWidth, image.alt === 'Natural width' ? 1600 : 2000);
+                assert.ok(Math.abs(image.width - expected) < 1,
+                    `${label}: ${image.alt} must respect its display width, not the Retina file width: ${JSON.stringify({image, expected})}`);
+                assert.ok(Math.abs(image.height - image.width * image.naturalHeight / image.naturalWidth) < 1,
+                    label + ': resizing preserves aspect ratio');
+            }
+        };
+        try {
+            await page.route('**/_inplace/tags', route => route.fulfill({json: {tags: []}}));
+            const requests = holdRequests(page, '**/_inplace/post/7');
+            await requests.installed;
+            await page.goto(origin + '/image-dimensions.html');
+            await page.waitForFunction(() => window.editorTest && [...document.images]
+                .every(image => image.complete && image.naturalWidth > 0));
+            const originalMetadata = await metadata();
+            const originalHtml = await page.locator('.post.body').innerHTML();
+            await assertDimensions(`DPR ${deviceScaleFactor}, initial 1280px`);
+            for (const width of [320, 390, 800, 1280, 1920, 2560, 3840]) {
+                await resize(page, width);
+                await assertDimensions(`DPR ${deviceScaleFactor}, ${width}px`);
+                assert.equal(await page.locator('.post.body').innerHTML(), originalHtml, 'Resizing keeps authored markup');
+            }
+            await page.evaluate(() => { document.documentElement.style.fontSize = '32px'; });
+            await assertDimensions(`DPR ${deviceScaleFactor}, enlarged user font`);
+            await page.evaluate(() => { document.documentElement.style.removeProperty('font-size'); });
+            await resize(page, 1280);
+            await page.locator('.post.body').hover();
+            await page.locator('.post-edit-start').click();
+            for (const width of [390, 1280, 2560]) {
+                await resize(page, width);
+                await assertDimensions(`DPR ${deviceScaleFactor}, editing at ${width}px`);
+                assert.deepEqual(await metadata(), originalMetadata, 'Opening/resizing the editor preserves image dimensions');
+            }
+            await page.locator('#responsive-after').click();
+            await page.keyboard.press('End');
+            await page.keyboard.type(' Text entered with fixed image widths.');
+            await page.locator('.post-edit-save').click();
+            const request = await requests.next();
+            const data = await formData(request);
+            assert.equal(data.get('inplace_action'), 'edit');
+            const savedBody = data.get('body');
+            assert.ok(savedBody.includes('Text entered with fixed image widths.'));
+            await request.fulfill({json: {success: true, action: 'edit', revision: 2,
+                title: 'Заметка с текстом и большой иллюстрацией',
+                published_at: 1700000000, datetime: '2023-11-14T22:13:20Z', time: '14 ноября 2023 года, 22:13',
+                scheduled: false, tags: [], body_html: `<div class="post body" data-post-inplace-body>${savedBody}</div>`, message: 'Saved'}});
+            await page.waitForFunction(() => !document.querySelector('.post-card.is-editing'));
+            await assertDimensions(`DPR ${deviceScaleFactor}, saved`);
+            assert.deepEqual(await metadata(), originalMetadata, 'Saving preserves image attributes and authored width');
+            await page.locator('.post.body').hover();
+            await page.locator('.post-edit-start').click();
+            await assertDimensions(`DPR ${deviceScaleFactor}, reopened`);
+            assert.deepEqual(await metadata(), originalMetadata);
+            await page.locator('.post-edit-cancel').click();
+            assert.deepEqual(errors, []);
+        } finally { await context.close(); }
+    }
+    console.log(`${browser.browserType().name()}: authored image widths, Retina, responsive wrappers and save/reopen passed`);
 }
 
 export async function runResponsiveEditorRegressions(browser, origin) {
@@ -216,6 +308,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
             const browser = await engine.launch();
             try {
                 await runResponsiveLayoutRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+                await runResponsiveImageDimensionsRegressions(browser, `http://127.0.0.1:${server.address().port}`);
                 await runResponsiveEditorRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             }
             finally { await browser.close(); }

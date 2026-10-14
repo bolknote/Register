@@ -481,10 +481,11 @@ hr {
     margin: 1.8rem 0 2.1rem;
 }
 
+/* Keep authored width attributes, including half-size Retina display widths.
+ * max-width may shrink an image; width:auto would discard its display size. */
 #content figure img,
 #content .post-picture img {
     display: block;
-    width: auto;
     max-width: 100%;
 }
 
@@ -2071,7 +2072,6 @@ h2.preview,
 
 #content .post-media-image {
     display: block;
-    width: auto;
     max-width: 100%;
     height: auto;
     margin: 1.8rem 0 2.1rem;
