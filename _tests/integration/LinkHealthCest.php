@@ -892,7 +892,9 @@ final class LinkHealthCest
         $pdo = $I->grabService(\PDO::class);
         $pdo->exec('DELETE FROM queue');
 
-        $now = time();
+        // Deliberately cross a timestamp boundary without sleeping: the handler
+        // republishes using the current clock, not this original consumer time.
+        $now = time() - 1;
         $publisher->publish(
             LinkQueue::targetJobId($targetId),
             LinkQueue::REPAIR_CODE,
@@ -917,7 +919,12 @@ final class LinkHealthCest
                 ->execute()->result(),
         );
 
-        $I->assertTrue($consumer->runQueue($now, new QueueExecutionBudget(5.0)));
+        $retryAt = (int)$dbLayer->select('available_at')->from('queue')
+            ->where('id = :id')->setParameter('id', LinkQueue::targetJobId($targetId))
+            ->andWhere('code = :code')->setParameter('code', LinkQueue::REPAIR_CODE)
+            ->execute()->result();
+        $I->assertGreaterThan($now, $retryAt);
+        $I->assertTrue($consumer->runQueue($retryAt, new QueueExecutionBudget(5.0)));
 
         $row = $dbLayer->select('body, revision')->from(ContentSchema::TABLE_NAME)
             ->where('id = :id')->setParameter('id', $postId)
