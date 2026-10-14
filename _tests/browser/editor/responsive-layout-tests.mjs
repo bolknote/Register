@@ -7,12 +7,13 @@ import {formData, holdRequests} from './save-tests.mjs';
 const widths = [320, 390, 640, 719, 720, 721, 760, 761, 800, 880, 881, 1024, 1200, 1280, 1440, 1920, 2560, 3840];
 async function resize(page, width) {
     await page.setViewportSize({width, height: 900});
-    // Viewport-unit invalidation can reach the next frame after resize. Wait
-    // for the actual computed type size, not an arbitrary animation timeout.
-    await page.waitForFunction(width => innerWidth === width
+    // WebKit can apply the media query after the viewport change. Wait for
+    // computed typography before measuring layout, not an arbitrary delay.
+    await page.waitForFunction(({width, font}) => innerWidth === width
         && Math.abs(parseFloat(getComputedStyle(document.querySelector('#responsive-prose')).fontSize)
-            - Math.max(18, Math.min(24, 16 + width * 0.004))) < 0.02, width);
+            - font) < 0.02, {width, font: expectedProseSize(width)});
 }
+const expectedProseSize = width => width <= 720 ? 18 : 20;
 const measure = page => page.evaluate(async () => {
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     const p = document.querySelector('#responsive-prose');
@@ -54,7 +55,9 @@ export async function runResponsiveLayoutRegressions(browser, origin) {
                 const current = await measure(page);
                 readings.push({width, ...current});
                 assert.equal(current.overflow, false, `Only wide code/tables may scroll at ${width}px: ${JSON.stringify(current)}`);
-                assert.ok(current.font >= 18 && current.font <= 24, 'Prose has bounded readable sizes');
+                assert.ok(Math.abs(current.font - expectedProseSize(width)) < 0.02,
+                    `Prose keeps its original mobile/desktop size at ${width}px, without growing on wide screens: ${current.font}px`);
+                assert.ok(Math.abs(current.line - current.font * 1.6) < 0.02, 'The original line-height is preserved');
                 assert.ok(current.textCh <= 75, `The reading measure is capped independently of media at ${width}px`);
                 assert.ok(Math.abs(current.header.left - current.card.left) < 1, 'Header and posts share the content origin');
                 assert.ok(current.captionGap >= 7 && current.captionGap <= 12, 'The caption remains attached to its image');
@@ -76,22 +79,20 @@ export async function runResponsiveLayoutRegressions(browser, origin) {
                     await page.screenshot({path: `${process.env.RESPONSIVE_SCREENSHOT_DIR}/layout-${width}.png`, fullPage: true});
                 }
             }
-            for (let index = 1; index < readings.length; index++) {
-                assert.ok(readings[index].font >= readings[index - 1].font, 'Text grows monotonically with viewport width');
-            }
             for (const edge of [720, 760, 880, 1200, 1440]) {
                 const first = readings.find(row => row.width === edge);
                 await resize(page, edge + 1);
                 const second = await measure(page);
-                assert.ok(Math.abs(second.font - first.font) < 0.05, `Typography has no jump at ${edge}px: ${JSON.stringify({first: first.font, second: second.font, readings: readings.map(row => [row.width, row.font])})}`);
+                assert.ok(Math.abs(second.font - first.font
+                    - (expectedProseSize(edge + 1) - expectedProseSize(edge))) < 0.02,
+                    `Only the original mobile breakpoint changes the prose size at ${edge}px`);
             }
-            assert.ok(readings.at(-1).font - readings[0].font >= 4, 'Typography is genuinely fluid, not fixed desktop/mobile values');
             assert.equal(readings[0].codeScroll, true);
             assert.equal(readings[0].tableScroll, true);
             assert.deepEqual(errors, []);
         } finally { await context.close(); }
     }
-    console.log(`${browser.browserType().name()}: responsive prose/media, continuous type, local overflow and preserved HTML passed`);
+    console.log(`${browser.browserType().name()}: original 18/20px prose, responsive media, local overflow and preserved HTML passed`);
 }
 
 export async function runResponsiveImageDimensionsRegressions(browser, origin) {
@@ -110,8 +111,8 @@ export async function runResponsiveImageDimensionsRegressions(browser, origin) {
             style: image.getAttribute('style'),
         })));
         // This test deliberately changes the root font. Wait for the viewport
-        // and measure the actual image layout, not the separate 16px typography
-        // formula used by resize(). Its font constraints have their own tests.
+        // and measure the actual image layout independently of typography.
+        // Its font constraints have their own tests.
         const resizeImages = async width => {
             await page.setViewportSize({width, height: 900});
             await page.waitForFunction(width => innerWidth === width, width);
@@ -209,11 +210,14 @@ export async function runResponsiveEditorRegressions(browser, origin) {
             const body = page.locator('[data-post-inplace-body]');
             const originalText = await body.textContent();
             const editing = await measure(page);
+            assert.ok(Math.abs(editing.font - original.font) < 0.02, 'Opening the editor keeps the prose size');
             assert.ok(Math.abs(original.textWidth - editing.textWidth) < 1, 'Opening the editor keeps the reading measure');
             assert.ok(Math.abs(original.imageWidth - editing.imageWidth) < 1, 'Opening the editor keeps media geometry');
             for (const width of [320, 390, 760, 800, 1280, 1920]) {
                 await resize(page, width);
                 const current = await measure(page);
+                assert.ok(Math.abs(current.font - expectedProseSize(width)) < 0.02,
+                    `The active editor keeps the original prose size at ${width}px: ${current.font}px`);
                 assert.equal(current.overflow, false, `The active editor stays within the viewport at ${width}px`);
                 assert.equal(await body.textContent(), originalText, 'Resizing cannot change the edited text');
                 assert.ok(Math.abs(current.captionGap - original.captionGap) < 1, 'Editor resize retains the caption gap');
@@ -260,11 +264,13 @@ export async function runResponsiveEditorRegressions(browser, origin) {
             });
             await page.locator('.post-edit-save').click();
             await page.waitForFunction(() => !document.querySelector('.post-card.is-editing'));
+            assert.ok(Math.abs((await measure(page)).font - 20) < 0.02, 'Saving keeps the desktop prose size');
             assert.ok((await body.textContent()).includes('Text entered after resizing.'));
             assert.equal(await body.locator('img').count(), 1);
             assert.equal(await body.locator('table').count(), 1);
             await page.locator('.post.body').hover();
             await page.locator('.post-edit-start').click();
+            assert.ok(Math.abs((await measure(page)).font - 20) < 0.02, 'Reopening keeps the desktop prose size');
             assert.ok((await body.textContent()).includes('Text entered after resizing.'));
             assert.ok(Math.abs((await measure(page)).captionGap - original.captionGap) < 1);
             await page.locator('.post-edit-cancel').click();

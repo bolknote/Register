@@ -34,7 +34,7 @@
     --register-border: var(--border-color);
     --register-accent: var(--accent-color);
     --register-ui-font: var(--ui-font);
-    --reading-font-size: clamp(1.125rem, calc(1rem + 0.4vw), 1.5rem);
+    --reading-font-size: 1.25rem;
     --reading-measure: 70;
     --comment-font-size: clamp(1.0625rem, calc(1rem + 0.2vw), 1.25rem);
     --post-title-size: clamp(1.625rem, calc(1.1rem + 1.1vw), 2.25rem);
@@ -4165,6 +4165,10 @@ ul.back_forward .empty {
 }
 
 @media (max-width: 720px) {
+    :root {
+        --reading-font-size: 1.125rem;
+    }
+
     input:not([type="checkbox"]):not([type="radio"]),
     select,
     button {
