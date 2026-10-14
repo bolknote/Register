@@ -16,7 +16,9 @@ npm test
 
 The Quality workflow runs Chromium, Firefox and WebKit and blocks releases on failure.
 Responsive layout regressions also run independently with `node responsive-layout-tests.mjs`.
-They check the original 18/20px prose sizes, a shared reading/editing column from 320 to 3840px,
+They check the original 18/20px prose sizes and the established 1000 CSS-pixel reading/editing
+column from 320 to 3840px, shrinking only when the viewport requires it. Font metrics, larger
+user fonts and Retina DPR must not silently narrow or widen this column. The tests also cover
 image dimensions and captions, touch targets and zoom. Real character-by-character typing in an
 empty field must preserve every character and wrap on exactly the same lines after saving and
 reopening; the editor background cannot expand beyond the reading column.

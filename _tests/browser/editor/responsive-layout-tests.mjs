@@ -20,12 +20,10 @@ const measure = page => page.evaluate(async () => {
     const style = getComputedStyle(p);
     const box = selector => document.querySelector(selector).getBoundingClientRect().toJSON();
     const paragraph = p.getBoundingClientRect();
-    const drawing = document.createElement('canvas').getContext('2d');
-    drawing.font = `${style.fontSize} ${style.fontFamily}`;
     const image = box('.post-media-image');
     const caption = box('.post-caption');
     return {font: parseFloat(style.fontSize), line: parseFloat(style.lineHeight),
-        textWidth: paragraph.width, textCh: paragraph.width / drawing.measureText('0').width,
+        textWidth: paragraph.width,
         imageWidth: image.width, captionGap: caption.top - image.bottom,
         body: box('[data-post-inplace-body]'),
         header: box('.site-header-copy'), card: box('.post-card'),
@@ -59,7 +57,8 @@ export async function runResponsiveLayoutRegressions(browser, origin) {
                 assert.ok(Math.abs(current.font - expectedProseSize(width)) < 0.02,
                     `Prose keeps its original mobile/desktop size at ${width}px, without growing on wide screens: ${current.font}px`);
                 assert.ok(Math.abs(current.line - current.font * 1.6) < 0.02, 'The original line-height is preserved');
-                assert.ok(current.textCh <= 75, `The reading measure is capped independently of the page width at ${width}px`);
+                assert.ok(current.textWidth <= 1000.5,
+                    `The established reading column is capped at 1000 CSS pixels at ${width}px`);
                 assert.ok(Math.abs(current.header.left - current.card.left) < 1, 'Header and posts share the content origin');
                 assert.ok(current.captionGap >= 7 && current.captionGap <= 12, 'The caption remains attached to its image');
                 assert.equal(current.bodyHtml, original, 'Resizing never rewrites author HTML');
@@ -69,7 +68,8 @@ export async function runResponsiveLayoutRegressions(browser, origin) {
                 assert.ok(Math.abs(current.imageWidth - current.body.width) < 1,
                     'A large photo fits the same column in reading and editing');
                 if (width >= 1280) {
-                    assert.ok(current.textCh >= 65, `Desktop prose uses the intended reading measure: ${JSON.stringify({width, font:current.font, textWidth:current.textWidth, textCh:current.textCh})}`);
+                    assert.ok(Math.abs(current.textWidth - 1000) < 1,
+                        `Desktop prose retains the established 1000 CSS pixel column, not a font-dependent ch width: ${JSON.stringify({width, font:current.font, textWidth:current.textWidth})}`);
                 }
                 if (width > 720) {
                     const overlap = current.title.left < current.search.right && current.title.right > current.search.left
@@ -96,7 +96,7 @@ export async function runResponsiveLayoutRegressions(browser, origin) {
             assert.deepEqual(errors, []);
         } finally { await context.close(); }
     }
-    console.log(`${browser.browserType().name()}: original 18/20px prose, responsive media, local overflow and preserved HTML passed`);
+    console.log(`${browser.browserType().name()}: established 1000px column, original 18/20px prose, responsive media, local overflow and preserved HTML passed`);
 }
 
 export async function runResponsiveImageDimensionsRegressions(browser, origin) {
@@ -127,13 +127,18 @@ export async function runResponsiveImageDimensionsRegressions(browser, origin) {
                 const body = document.querySelector('.post.body');
                 const style = getComputedStyle(body);
                 const available = body.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
-                return {available, overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+                return {available, viewport: innerWidth,
+                    overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
                     images: [...body.querySelectorAll('img')].map(image => ({
                         alt: image.alt, naturalWidth: image.naturalWidth, naturalHeight: image.naturalHeight,
                         width: image.getBoundingClientRect().width, height: image.getBoundingClientRect().height,
                     }))};
             });
             assert.equal(state.overflow, false, label + ': no page overflow');
+            if (state.viewport >= 1280) {
+                assert.ok(Math.abs(state.available - 1000) < 1,
+                    label + ': the media column is 1000 CSS pixels independently of DPR or font size');
+            }
             assert.equal(state.images.length, Object.keys(displayWidths).length);
             for (const image of state.images) {
                 const expected = Math.min(displayWidths[image.alt], state.available);
@@ -216,6 +221,8 @@ export async function runResponsiveEditorRegressions(browser, origin) {
             const editing = await measure(page);
             assert.ok(Math.abs(editing.body.width - original.textWidth) < 1,
                 `The visual editor must use the reading column, not the full article width: ${JSON.stringify({body: editing.body.width, prose: original.textWidth})}`);
+            assert.ok(Math.abs(editing.body.width - 1000) < 1,
+                'Opening the visual editor retains the established 1000 CSS pixel column');
             assert.ok(Math.abs(editing.font - original.font) < 0.02, 'Opening the editor keeps the prose size');
             assert.ok(Math.abs(original.textWidth - editing.textWidth) < 1, 'Opening the editor keeps the reading measure');
             assert.ok(Math.abs(original.imageWidth - editing.imageWidth) < 1, 'Opening the editor keeps media geometry');
@@ -227,6 +234,8 @@ export async function runResponsiveEditorRegressions(browser, origin) {
                 const current = await measure(page);
                 assert.ok(Math.abs(current.body.width - current.textWidth) < 1,
                     `The editor stays within the reading column at ${width}px`);
+                if (width >= 1280) assert.ok(Math.abs(current.body.width - 1000) < 1,
+                    `The active editor retains the established 1000 CSS pixel column at ${width}px`);
                 assert.ok(Math.abs(current.font - expectedProseSize(width)) < 0.02,
                     `The active editor keeps the original prose size at ${width}px: ${current.font}px`);
                 assert.equal(current.overflow, false, `The active editor stays within the viewport at ${width}px`);
@@ -317,6 +326,8 @@ export async function runResponsiveEditorRegressions(browser, origin) {
             await page.waitForFunction(() => parseFloat(getComputedStyle(document.querySelector('#responsive-prose')).fontSize) > 35);
             const enlarged = await measure(page);
             assert.ok(enlarged.font > normalFont * 1.6, 'The reading scale respects a larger user font');
+            assert.ok(Math.abs(enlarged.textWidth - 1000) < 1,
+                'A larger user font changes typography, not the established column width');
             assert.equal(enlarged.overflow, false);
 
             // Native typing in an empty body can produce bare text/inline nodes

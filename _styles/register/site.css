@@ -1,6 +1,6 @@
-/* Resolve the reading measure once in the prose font. Descendants such as
- * headings and metadata inherit the same length instead of recalculating ch
- * in their own, different fonts. No layout/typography transitions are used. */
+/* Keep the established CSS-pixel reading width shared by text, headings,
+ * metadata and editor surfaces. The viewport may shrink it; changing font
+ * metrics must not narrow or widen it. No layout/typography transitions are used. */
 @property --text-width {
     syntax: "<length>";
     inherits: true;
@@ -35,7 +35,6 @@
     --register-accent: var(--accent-color);
     --register-ui-font: var(--ui-font);
     --reading-font-size: 1.25rem;
-    --reading-measure: 70;
     --comment-font-size: clamp(1.0625rem, calc(1rem + 0.2vw), 1.25rem);
     --post-title-size: clamp(1.625rem, calc(1.1rem + 1.1vw), 2.25rem);
     --page-width: 90rem;
@@ -382,7 +381,6 @@ hr {
     width: min(100%, var(--article-width));
     min-width: 0;
     font-family: var(--text-font);
-    --text-width: calc(var(--reading-measure) * 1ch);
     font-size: var(--reading-font-size);
     line-height: 1.6;
 }
@@ -770,7 +768,6 @@ h2.preview,
 
 .site-header-shell {
     --site-header-tools-gutter: var(--tools-gutter);
-    --text-width: calc(var(--reading-measure) * 1ch);
     position: relative;
     width: 100%;
     min-width: 0;
