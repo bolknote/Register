@@ -13,9 +13,10 @@ export async function assertToolsStayAttached(page) {
             const content = card.getBoundingClientRect();
             const edit = card.querySelector('.post-edit-start').getBoundingClientRect();
             const remove = card.querySelector('.post-delete-start').getBoundingClientRect();
-            const rect = bounds => ({left: bounds.left, right: bounds.right});
+            const rect = bounds => ({left: bounds.left, right: bounds.right, center: (bounds.left + bounds.right) / 2});
             return {header: rect(header), create: rect(create), content: rect(content), edit: rect(edit), remove: rect(remove),
                 headerGap: header.left - create.right, postGap: content.left - edit.right,
+                postCenterGap: content.left - (edit.left + edit.right) / 2,
                 overflow: document.documentElement.scrollWidth > innerWidth};
         });
         assert.equal(geometry.overflow, false, `No horizontal overflow at ${width}px: ${JSON.stringify(geometry)}`);
@@ -28,11 +29,13 @@ export async function assertToolsStayAttached(page) {
                 `Create stays next to the heading at ${width}px: ${JSON.stringify(geometry)}`);
             assert.ok(geometry.postGap >= 0 && geometry.postGap <= 24,
                 `Edit stays next to the post at ${width}px: ${JSON.stringify(geometry)}`);
-            assert.ok(Math.abs(geometry.create.left - geometry.edit.left) < 1,
-                'Header and post tools share the same narrow rail');
-            assert.ok(Math.abs(geometry.edit.left - geometry.remove.left) < 1,
-                'Edit and delete stay in the same rail');
-            if (width >= 1280) desktopGaps.push(geometry.postGap);
+            // Hover/focus scales a button around its center; its left edge is
+            // intentionally allowed to move without detaching from the rail.
+            assert.ok(Math.abs(geometry.create.center - geometry.edit.center) < 1,
+                `Header and post tools share the same narrow rail at ${width}px: ${JSON.stringify(geometry)}`);
+            assert.ok(Math.abs(geometry.edit.center - geometry.remove.center) < 1,
+                `Edit and delete stay in the same rail at ${width}px: ${JSON.stringify(geometry)}`);
+            if (width >= 1280) desktopGaps.push(geometry.postCenterGap);
         }
     }
     assert.ok(Math.max(...desktopGaps) - Math.min(...desktopGaps) < 1,
@@ -40,7 +43,7 @@ export async function assertToolsStayAttached(page) {
 }
 
 export async function runToolLayoutRegressions(browser, origin) {
-    const context = await browser.newContext({javaScriptEnabled: false, colorScheme: 'dark'});
+    const context = await browser.newContext({javaScriptEnabled: false, colorScheme: 'dark', reducedMotion: 'reduce'});
     const page = await context.newPage();
     try {
         await page.route('**/tool-layout.html', route => route.fulfill({contentType: 'text/html', body: `<!doctype html>
@@ -57,6 +60,10 @@ export async function runToolLayoutRegressions(browser, origin) {
                 <div class="post body"><p>Ordinary content independent of any site.</p></div>
             </article></div></main></html>`}));
         await page.goto(origin + '/tool-layout.html');
+        await assertToolsStayAttached(page);
+        await page.setViewportSize({width: 1280, height: 900});
+        await page.locator('.post-edit-start').hover();
+        assert.equal(await page.locator('.post-edit-start').evaluate(button => button.matches(':hover')), true);
         await assertToolsStayAttached(page);
         console.log(`${browser.browserType().name()}: tools stay attached from 320px mobile to a 3840px zoomed-out viewport`);
     } finally { await context.close(); }
