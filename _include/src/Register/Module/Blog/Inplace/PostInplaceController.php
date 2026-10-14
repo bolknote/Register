@@ -84,6 +84,7 @@ final readonly class PostInplaceController implements ControllerInterface
         private UrlBuilder                 $urlBuilder,
         private PostInplaceMediaStorage    $mediaStorage,
         private PostMediaRepository         $mediaRepository,
+        private PostMediaCleaner            $mediaCleaner,
         private ContentSlugService          $contentSlugService,
         private ContentUrlGenerator         $contentUrlGenerator,
         private PostProvider                $postProvider,
@@ -1323,9 +1324,7 @@ final readonly class PostInplaceController implements ControllerInterface
     {
         foreach ($media as $item) {
             try {
-                if ($this->mediaRepository->deleteUnused((int)$item['id'])) {
-                    $this->mediaStorage->delete((string)$item['storage_path']);
-                }
+                $this->mediaCleaner->deleteUnused((int)$item['id']);
             } catch (\RuntimeException $runtimeException) {
                 if ($strict) {
                     throw $runtimeException;

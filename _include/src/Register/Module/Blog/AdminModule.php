@@ -46,7 +46,7 @@ final class AdminModule implements ContainerModuleInterface, ContainerAwareListe
                 $container->get(PermissionChecker::class),
                 $container->get(\PDO::class),
                 $container->get(\Register\Module\Blog\Inplace\PostMediaRepository::class),
-                $container->get(\Register\Module\Blog\Inplace\PostInplaceMediaStorage::class),
+                $container->get(\Register\Module\Blog\Inplace\PostMediaCleaner::class),
             ),
             $container->getStringParameter('db_type'),
             $container->getStringParameter('db_prefix'),

@@ -256,6 +256,11 @@ final class ServiceModule implements ContainerModuleInterface
             $container->get(DbLayer::class),
             $container->getStringParameter('image_path'),
         ));
+        $container->set(Inplace\PostMediaCleaner::class, static fn(Container $container): Inplace\PostMediaCleaner => new Inplace\PostMediaCleaner(
+            $container->get(PostMediaRepository::class),
+            $container->get(PostInplaceMediaStorage::class),
+            $container->get(\Register\Url\UrlHistoryService::class),
+        ));
         $container->set(Inplace\PostCreateOperations::class, static fn(Container $container): Inplace\PostCreateOperations => new Inplace\PostCreateOperations($container->get(DbLayer::class)));
         $container->set(PostInplaceController::class, static fn(Container $container): PostInplaceController => new PostInplaceController(
             $container->get(DbLayer::class),
@@ -271,6 +276,7 @@ final class ServiceModule implements ContainerModuleInterface
             $container->get(UrlBuilder::class),
             $container->get(PostInplaceMediaStorage::class),
             $container->get(PostMediaRepository::class),
+            $container->get(Inplace\PostMediaCleaner::class),
             $container->get(ContentSlugService::class),
             $container->get(ContentUrlGenerator::class),
             $container->get(PostProvider::class),

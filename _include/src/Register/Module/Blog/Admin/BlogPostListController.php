@@ -23,7 +23,7 @@ use Register\AdminYard\Transformer\ViewTransformer;
 use Register\AdminYard\Translator;
 use Register\Core\Model\PermissionChecker;
 use Register\Module\Blog\BlogUrlBuilder;
-use Register\Module\Blog\Inplace\PostInplaceMediaStorage;
+use Register\Module\Blog\Inplace\PostMediaCleaner;
 use Register\Module\Blog\Inplace\PostMediaRepository;
 use Register\Url\ContentUrlGenerator;
 use Symfony\Component\EventDispatcher\EventDispatcher;
@@ -47,7 +47,7 @@ final class BlogPostListController extends EntityController
         private readonly PermissionChecker $permissions,
         private readonly \PDO $pdo,
         private readonly PostMediaRepository $mediaRepository,
-        private readonly PostInplaceMediaStorage $mediaStorage,
+        private readonly PostMediaCleaner $mediaCleaner,
     ) {
         parent::__construct($entityConfig, $eventDispatcher, $dataProvider, $viewTransformer, $translator, $templateRenderer, $formFactory, $settingStorage);
     }
@@ -90,9 +90,7 @@ final class BlogPostListController extends EntityController
         if ($ownsTransaction) {
             foreach ($unused as $media) {
                 try {
-                    if ($this->mediaRepository->deleteUnused((int)$media['id'])) {
-                        $this->mediaStorage->delete((string)$media['storage_path']);
-                    }
+                    $this->mediaCleaner->deleteUnused((int)$media['id']);
                 } catch (\Throwable $exception) {
                     $this->logger?->warning('Unable to remove deleted post media.', ['exception' => $exception]);
                 }

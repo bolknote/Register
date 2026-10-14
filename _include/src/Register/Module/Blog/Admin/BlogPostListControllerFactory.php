@@ -19,7 +19,7 @@ use Register\AdminYard\Transformer\ViewTransformer;
 use Register\AdminYard\Translator;
 use Register\Core\Model\PermissionChecker;
 use Register\Module\Blog\BlogUrlBuilder;
-use Register\Module\Blog\Inplace\PostInplaceMediaStorage;
+use Register\Module\Blog\Inplace\PostMediaCleaner;
 use Register\Module\Blog\Inplace\PostMediaRepository;
 use Register\Url\ContentUrlGenerator;
 use Symfony\Component\EventDispatcher\EventDispatcher;
@@ -32,7 +32,7 @@ final readonly class BlogPostListControllerFactory implements ControllerFactoryI
         private PermissionChecker $permissions,
         private \PDO $pdo,
         private PostMediaRepository $mediaRepository,
-        private PostInplaceMediaStorage $mediaStorage,
+        private PostMediaCleaner $mediaCleaner,
     ) {
     }
 
@@ -61,7 +61,7 @@ final readonly class BlogPostListControllerFactory implements ControllerFactoryI
             $this->permissions,
             $this->pdo,
             $this->mediaRepository,
-            $this->mediaStorage,
+            $this->mediaCleaner,
         );
     }
 }

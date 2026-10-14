@@ -32,9 +32,13 @@ use Register\Module\Blog\Admin\AdminConfigExtender;
 use Register\Module\Blog\Admin\BlogPostListController;
 use Register\Module\Blog\Admin\BlogPostListControllerFactory;
 use Register\Module\Blog\BlogUrlBuilder;
+use Register\Module\Blog\Inplace\PostMediaCleaner;
 use Register\Module\Blog\Inplace\PostMediaRepository;
 use Register\Module\Blog\Model\BlogPageCache;
 use Register\Url\ContentUrlGenerator;
+use Register\Url\ContentUrlAliasRepository;
+use Register\Url\TagUrlAliasRepository;
+use Register\Url\UrlHistoryService;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\HttpFoundation\Request;
@@ -189,6 +193,50 @@ final class BlogPostListTest extends Unit
         }
     }
 
+    public function testFailedFileDeletionLeavesMediaRegisteredForAnotherCleanupAttempt(): void
+    {
+        if (DIRECTORY_SEPARATOR === '\\') {
+            self::markTestSkipped('Requires POSIX directory permissions.');
+        }
+
+        $directory = sys_get_temp_dir() . '/register-list-media-' . bin2hex(random_bytes(6));
+        self::assertTrue(mkdir($directory, 0700));
+        $file = $directory . '/1901.01.01.png';
+        try {
+            [$controller, $renderer, $pdo, $repository, $cleaner] = $this->harness(true, true, $directory);
+            [$id] = $this->attachMedia($pdo, $repository, $file);
+            $controller->listAction(Request::create('/_admin/?state=published'));
+            $request = Request::create('/_admin/?id=2', 'POST', ['csrf_token' => $renderer->listData['rows'][0]['csrf_token']],
+                server: ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+            self::assertTrue(chmod($directory, 0500));
+            clearstatcache();
+            if (is_writable($directory)) {
+                self::markTestSkipped('The test user can override directory permissions.');
+            }
+
+            self::assertSame(200, $controller->deleteAction($request)->getStatusCode());
+            self::assertSame(0, $this->countRows($pdo, 'SELECT COUNT(*) FROM content WHERE id = 2'));
+            self::assertFileExists($file);
+            $media = $repository->find($id);
+            self::assertNotNull($media, 'A failed unlink must remain discoverable for garbage collection.');
+            self::assertSame(0, (int)$media['usage_count']);
+            self::assertContains($id, array_column($repository->staleUnusedMedia(time() + 1), 'id'));
+            self::assertFalse($pdo->inTransaction());
+            self::assertTrue(chmod($directory, 0700));
+            clearstatcache();
+            self::assertTrue($cleaner->deleteUnused($id));
+            self::assertNull($repository->find($id));
+            self::assertFileDoesNotExist($file);
+        } finally {
+            chmod($directory, 0700);
+            if (is_file($file)) {
+                unlink($file);
+            }
+
+            rmdir($directory);
+        }
+    }
+
     /** @return array{int, string} */
     private function attachMedia(\PDO $pdo, PostMediaRepository $repository, string $file): array
     {
@@ -213,11 +261,13 @@ final class BlogPostListTest extends Unit
         return (int)$rows->fetchColumn();
     }
 
-    /** @return array{BlogPostListController, BlogPostListTestRenderer, \PDO, PostMediaRepository} */
+    /** @return array{BlogPostListController, BlogPostListTestRenderer, \PDO, PostMediaRepository, PostMediaCleaner} */
     private function harness(bool $admin, bool $canWrite = true, ?string $mediaDirectory = null): array
     {
         $pdo = new \PDO('sqlite::memory:');
         $db = new DbLayerSqlite($pdo);
+        $pdo->exec('CREATE TABLE config (name TEXT PRIMARY KEY, value TEXT)');
+        $pdo->exec("INSERT INTO config VALUES ('REGISTER_SCHEMA_GENERATION', '38')");
         $pdo->exec('CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, login TEXT)');
         $pdo->exec("INSERT INTO users VALUES (7, 'Own author', 'own'), (8, 'Other author', 'other'), (9, 'Imported guest', 'external_import')");
         $pdo->exec('CREATE TABLE tags (id INTEGER PRIMARY KEY, name TEXT)');
@@ -252,16 +302,23 @@ final class BlogPostListTest extends Unit
         $blogUrls = new BlogUrlBuilder($urlBuilder, new StringProxy($configProvider, 'tags'), new StringProxy($configProvider, 'favorites'));
         $translator = new Translator([], 'en');
         $repository = new PostMediaRepository($db, '/images');
-        $factory = new BlogPostListControllerFactory(
-            new ContentUrlGenerator($db, $urlBuilder), $blogUrls, $permissions, $pdo,
+        $events = new EventDispatcher();
+        $urls = new ContentUrlGenerator($db, $urlBuilder);
+        $cleaner = new PostMediaCleaner(
             $repository,
             new \Register\Module\Blog\Inplace\PostInplaceMediaStorage(
                 new \Register\Admin\Picture\PictureFileNameHelper($translator, 'png'),
                 new \Register\Admin\Picture\PictureStorageQuota($translator, sys_get_temp_dir(), sys_get_temp_dir() . '/register-list-quota.lock', 1_000_000),
                 $translator, $mediaDirectory ?? sys_get_temp_dir(), '', sys_get_temp_dir(),
             ),
+            new UrlHistoryService($pdo, $db, $urls, new ContentUrlAliasRepository($db), new TagUrlAliasRepository($db),
+                new ContentChangeDispatcher($db, $events, new LiveUpdateRepository($db))),
         );
-        $events = new EventDispatcher();
+        $factory = new BlogPostListControllerFactory(
+            $urls, $blogUrls, $permissions, $pdo,
+            $repository,
+            $cleaner,
+        );
         $config = new AdminConfig();
         foreach (['User' => 'users', 'Comment' => 'comments', 'Tag' => 'tags'] as $name => $table) {
             $entity = new EntityConfig($name, $table);
@@ -294,7 +351,7 @@ final class BlogPostListTest extends Unit
             new FormFactory(new FormControlFactory(), $translator, $dataProvider),
             new SessionSettingStorage(new Session(new MockArraySessionStorage())),
         );
-        return [$controller, $renderer, $pdo, $repository];
+        return [$controller, $renderer, $pdo, $repository, $cleaner];
     }
 
     /** @return list<int> */

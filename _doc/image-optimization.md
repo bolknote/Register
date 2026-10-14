@@ -36,6 +36,9 @@ of extension; only Retina images receive `@2x`. Thus `yyyy.mm.dd.webp` is follow
 Matching directories and symbolic links reserve their ordinal too. Uploads and date changes must
 not replace them; a rollback leaves a moved file in place if its original pathname is occupied.
 
+Unused media are removed under the editorial mutex, using their current registered path. If the
+filesystem refuses a deletion, its registry row remains available for a later cleanup attempt.
+
 ## Dimensions and Retina behavior
 
 - A source at least 2000 pixels wide is Retina-ready. It is reduced to 2000 physical pixels when
