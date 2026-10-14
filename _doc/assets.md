@@ -8,6 +8,10 @@ the build prerequisites, precompression settings, content hashes and UTF-8 handl
 Reviewed ordered groups in `tools/assets/bundles.mjs` combine common public and editor assets at build
 time. The page selects a bundle only when all of its members are present in the same order; lazy
 libraries stay separate and use their own versioned URLs.
+`tools/assets/graphs.mjs` additionally treats the lazy image optimizer, its workers, libraries and
+Wasm binaries as one cache unit. Build-time URL rewriting gives every dependency the same graph
+hash; changing any member also changes the editor entry/bundle that requests it. Queries on an
+ES-module entry are not inherited by static imports, so versioning only the entry is insufficient.
 
 Register does not copy visual assets from Aegea. Product-interface symbols should be Unicode text,
 emoji, or original artwork. Emoji used as quiet monochrome controls are rendered with

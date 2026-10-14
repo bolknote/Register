@@ -109,6 +109,21 @@ libwebp while comparing a WebP candidate, and OxiPNG while optimizing a PNG cand
 module download is not cached for the rest of the page session, so the next image can retry it.
 The HDR worker and its codec load only for HDR JPEGs and are terminated after each job or cancellation.
 
+Release builds version the complete optimizer graph, including static imports, worker scripts,
+`importScripts` libraries and dynamically located Wasm. Any member change rotates all of these URLs
+and the editor asset that requests the optimizer. JS uses the hosting-compatible `.asset` route for
+prepared compression. Already cached, unversioned dependencies from older releases are not reused;
+authors do not need to clear their browser cache. Transient network/module-map failures still use
+the bounded fresh-context retry without reloading the editor or losing text.
+
+`_tests/browser/editor/image-optimizer-cache-tests.mjs` exercises an upgrade with a real year-long
+HTTP cache (without request interception), from both legacy URLs and a previous release, in
+Chromium, Firefox and WebKit. It covers worker/library/Wasm compatibility, native typing during
+processing, captions, save and reopen. The production-assets end-to-end suite also runs the real
+codecs against the minified release, not only this small cache fixture.
+An unversioned control build must reproduce the cached missing-export failure in the same suite,
+so cache clearing or a cold-cache-only test cannot silently mask the original defect.
+
 ## Reproducible codecs and checks
 
 The checked-in WebAssembly binaries are pinned and licensed in [`assets.md`](assets.md). Rebuild or

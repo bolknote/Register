@@ -95,8 +95,10 @@ optional modules, script execution modes, CSS cascade order, and editor permissi
 CSS-relative URLs are rebased to the bundle directory. ES modules and the small lazy library
 loaders keep their separate files. The original optimized files remain available for custom themes
 and extensions, and prepared assets bypass the PHP minifier. Their
-`.asset?v=<sha256>` URLs negotiate encodings in Apache and use immutable browser caching. Unversioned
-module imports and the service worker revalidate across releases. CSS containing literal Unicode
+`.asset?v=<sha256>` URLs negotiate encodings in Apache and use immutable browser caching. Lazy image
+optimizer imports, workers, libraries and Wasm share a build-time graph hash; any member change also
+invalidates the editor entry/bundle. This remains cache-safe when a hosting proxy gives raw JS a
+long cache lifetime. The service worker revalidates across releases. CSS containing literal Unicode
 retains an explicit UTF-8 charset, and Apache sends UTF-8 content types, covering Lightning CSS
 [#310](https://github.com/parcel-bundler/lightningcss/issues/310#issuecomment-2677659914).
 The post editor is included only for authenticated users with content-editing permissions.

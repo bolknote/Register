@@ -14,7 +14,9 @@
         const source = new URL(document.currentScript?.src || window.location.href, window.location.href);
         const target = new URL('image-optimizer/js/optimizer.js', source);
         const version = source.searchParams.get('v');
-        if (version !== null) {
+        // Release builds put the entire optimizer graph's hash in this URL.
+        // Do not replace it with the unrelated editor entry's version.
+        if (version !== null && !target.searchParams.has('v')) {
             target.searchParams.set('v', version);
         }
         return target.toString();
@@ -483,7 +485,9 @@
                 },
             };
             const script = frame.contentDocument.createElement('script');
-            script.src = new URL('optimizer-loader.js.asset', imageOptimizerUrl).toString();
+            const loaderUrl = new URL('optimizer-loader.js.asset', imageOptimizerUrl);
+            loaderUrl.search = new URL(imageOptimizerUrl).search;
+            script.src = loaderUrl.toString();
             script.onerror = () => reject(new Error('Unable to load the image processing loader.'));
             frame.contentDocument.head.append(script);
         });

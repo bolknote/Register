@@ -12,6 +12,7 @@ import {transform} from 'lightningcss';
 import {minify} from 'terser';
 import {minifySync as minifyOxc} from 'oxc-minify';
 import {assetBundles} from './bundles.mjs';
+import {assetGraphs, prepareAssetGraphs, versionAssetGraphReferences} from './graphs.mjs';
 
 export const assetDirectories = ['_admin', '_assets', '_extensions', '_styles'];
 export const manifestPath = '_include/asset-manifest.json';
@@ -199,7 +200,8 @@ async function prepareBundles(root, outputs, definitions) {
 }
 
 /** Optimize only a staged distribution. The repository's readable source is never overwritten. */
-export async function buildAssets(publicRoot, {onProgress = () => {}, bundles: definitions = assetBundles} = {}) {
+export async function buildAssets(publicRoot, {onProgress = () => {}, bundles: definitions = assetBundles,
+    graphs: graphDirectories = assetGraphs} = {}) {
     const bundlePaths = validateBundles(definitions);
     const root = await realpath(publicRoot);
     const repository = await realpath(sourceRoot);
@@ -235,6 +237,13 @@ export async function buildAssets(publicRoot, {onProgress = () => {}, bundles: d
         outputs.push({filename, path, sourceBytes: source.length, content, modifiedAt: (await stat(filename)).mtime});
     }
 
+    const graphs = await prepareAssetGraphs(root, outputs, graphDirectories);
+    for (const output of outputs) {
+        const versioned = versionAssetGraphReferences(output.path, output.content, graphs);
+        if (versioned === output.content) continue;
+        const minified = await minifyAsset(output.path, versioned);
+        output.content = compressedBrotli(versioned).length < compressedBrotli(minified).length ? versioned : minified;
+    }
     const bundles = await prepareBundles(root, outputs, definitions);
 
     const assets = {};

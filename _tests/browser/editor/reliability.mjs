@@ -9,6 +9,7 @@ import {runNavigationRecoveryRegressions} from './navigation-recovery-tests.mjs'
 import {runDateLayoutRegressions} from './date-layout-tests.mjs';
 import {runResponsiveLayoutRegressions, runResponsiveImageDimensionsRegressions, runResponsiveEditorRegressions} from './responsive-layout-tests.mjs';
 import {runImageOptimizerLoadRegressions} from './image-optimizer-load-tests.mjs';
+import {runImageOptimizerCacheRegressions} from './image-optimizer-cache-tests.mjs';
 
 const engines = [chromium, firefox, webkit];
 const selectedEngine = process.env.EDITOR_TEST_BROWSER;
@@ -27,6 +28,7 @@ try {
             await runResponsiveImageDimensionsRegressions(browser, origin);
             await runResponsiveEditorRegressions(browser, origin);
             await runImageOptimizerLoadRegressions(browser, origin);
+            await runImageOptimizerCacheRegressions(browser);
             await runAdminRecoveryPresenceRegressions(browser, origin);
             await runAdminAsyncDeadlineRegressions(browser, origin);
             await runHtmlContentLayoutRegressions(browser, origin);
