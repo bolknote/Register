@@ -109,6 +109,13 @@ export async function runResponsiveImageDimensionsRegressions(browser, origin) {
             alt: image.alt, width: image.getAttribute('width'), height: image.getAttribute('height'),
             style: image.getAttribute('style'),
         })));
+        // This test deliberately changes the root font. Wait for the viewport
+        // and measure the actual image layout, not the separate 16px typography
+        // formula used by resize(). Its font constraints have their own tests.
+        const resizeImages = async width => {
+            await page.setViewportSize({width, height: 900});
+            await page.waitForFunction(width => innerWidth === width, width);
+        };
         const assertDimensions = async label => {
             const state = await page.evaluate(async () => {
                 await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
@@ -143,18 +150,18 @@ export async function runResponsiveImageDimensionsRegressions(browser, origin) {
             const originalHtml = await page.locator('.post.body').innerHTML();
             await assertDimensions(`DPR ${deviceScaleFactor}, initial 1280px`);
             for (const width of [320, 390, 800, 1280, 1920, 2560, 3840]) {
-                await resize(page, width);
+                await resizeImages(width);
                 await assertDimensions(`DPR ${deviceScaleFactor}, ${width}px`);
                 assert.equal(await page.locator('.post.body').innerHTML(), originalHtml, 'Resizing keeps authored markup');
             }
             await page.evaluate(() => { document.documentElement.style.fontSize = '32px'; });
             await assertDimensions(`DPR ${deviceScaleFactor}, enlarged user font`);
             await page.evaluate(() => { document.documentElement.style.removeProperty('font-size'); });
-            await resize(page, 1280);
+            await resizeImages(1280);
             await page.locator('.post.body').hover();
             await page.locator('.post-edit-start').click();
             for (const width of [390, 1280, 2560]) {
-                await resize(page, width);
+                await resizeImages(width);
                 await assertDimensions(`DPR ${deviceScaleFactor}, editing at ${width}px`);
                 assert.deepEqual(await metadata(), originalMetadata, 'Opening/resizing the editor preserves image dimensions');
             }
