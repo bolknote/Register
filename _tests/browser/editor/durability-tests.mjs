@@ -101,9 +101,17 @@ export async function runDurabilityRegressions(browser, origin) {
         await page.route('**/_inplace/tags', route => route.fulfill({json: {tags: []}}));
         await page.route('**/durability.png', route => route.fulfill({contentType: 'image/png',
             body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQAAAAA3bvkkAAAACklEQVR4AWNgAAAAAgABc3UBGAAAAABJRU5ErkJggg==', 'base64')}));
-        const optimizer = holdRequests(page, '**/image-optimizer/js/optimizer.js');
+        // Module loading has its own bounded deadline. Stall image processing
+        // after a successful import, independently of the save deadline.
+        await page.route('**/image-optimizer/js/optimizer.js', route => route.fulfill({
+            contentType: 'text/javascript',
+            body: `export async function optimizeImage(blob) {
+                await new Promise(resolve => { window.resumeImagePreparation = resolve; });
+                return {blob, extension: 'png', retina: false, width: 1, height: 1,
+                    displayWidth: 1, displayHeight: 1};
+            }`,
+        }));
         const requests = holdRequests(page, '**/_inplace/post/9');
-        await optimizer.installed;
         await requests.installed;
         await page.goto(origin + '/recovery.html?timeout=200');
         await page.getByRole('button', {name: 'Edit', exact: true}).click();
@@ -122,7 +130,7 @@ export async function runDurabilityRegressions(browser, origin) {
             Object.defineProperty(event, 'clipboardData', {value: data});
             element.dispatchEvent(event);
         });
-        const loading = await optimizer.next();
+        await page.waitForFunction(() => typeof window.resumeImagePreparation === 'function');
         await card.getByRole('button', {name: 'Save', exact: true}).click();
         await page.waitForFunction(() => document.querySelector('.post-inplace-error:not([hidden])')?.textContent.includes('did not respond in time'));
         assert.equal(await card.evaluate(element => element.inert), false);
@@ -134,7 +142,7 @@ export async function runDurabilityRegressions(browser, origin) {
         assert.match(await body.textContent(), /More text/u);
 
         // When processing resumes, the author can retry and include the attachment.
-        await loading.continue();
+        await page.evaluate(() => window.resumeImagePreparation());
         await (await requests.next()).fulfill({json: {
             success: true, action: 'media', kind: 'image', media_id: 42, url: '/durability.png', width: 1, height: 1,
         }});
