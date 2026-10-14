@@ -26,6 +26,43 @@ use Symfony\Component\HttpFoundation\Response;
 
 final class BlogPageCacheTest extends TestCase
 {
+    public function testRestoredLayoutRefreshesStylesheetUrlsWithoutCoolingContentFragments(): void
+    {
+        $pool = new ArrayAdapter();
+        $oldHtml = '<link rel="stylesheet" href="/site.css?v=narrow-column">';
+        $newHtml = '<link rel="stylesheet" href="/site.css?v=established-column">';
+        $oldResponse = CachedBlogResponse::fromResponse(new Response($oldHtml));
+        self::assertNotNull($oldResponse);
+        $generation = str_repeat('a', 16);
+        $pool->get('register_content_response_generation_v1', static fn(): string => $generation);
+        $oldContent = CachedBlogResponse::fromResponse(new Response($oldHtml), $generation);
+        self::assertNotNull($oldContent);
+        $variants = ['full_new_visitor', 'full_known_visitor', 'partial_new_visitor', 'partial_known_visitor', 'full_bot', 'partial_bot'];
+        foreach ($variants as $variant) {
+            $suffix = str_ends_with($variant, '_bot') ? $variant . '_noninteractive_v2' : $variant;
+            $pool->get('register_blog_first_response_v9_' . $suffix, static fn(): CachedBlogResponse => $oldResponse);
+            $pool->get('register_blog_all_response_v9_' . $suffix, static fn(): CachedBlogResponse => $oldResponse);
+            $pool->get('register_content_response_v9_' . hash('sha256', '/sample') . '_' . $suffix, static fn(): CachedBlogResponse => $oldContent);
+        }
+
+        $pool->get('register_blog_first_page_v2', static fn(): PostFeed => new PostFeed('warm feed', null, null));
+        $pool->get('register_blog_all_posts_v2', static fn(): AllPostsPage => new AllPostsPage('All', 'warm index'));
+
+        $cache = new BlogPageCache($pool);
+        foreach ($variants as $variant) {
+            self::assertSame($newHtml, $cache->firstResponse($variant, static fn(): Response => new Response($newHtml))->getContent());
+            self::assertSame($newHtml, $cache->allResponse($variant, static fn(): Response => new Response($newHtml))->getContent());
+            self::assertSame($newHtml, $cache->contentResponse($variant, '/sample', static fn(): Response => new Response($newHtml))->getContent());
+        }
+
+        self::assertSame('warm feed', $cache->firstPage(static function (): PostFeed {
+            self::fail('A stylesheet update must not rebuild the post feed.');
+        })->html);
+        self::assertSame('warm index', $cache->allPosts(static function (): AllPostsPage {
+            self::fail('A stylesheet update must not rebuild the post index.');
+        })->html);
+    }
+
     public function testOnlyOldCrawlerHtmlIsDiscardedAfterAnInteractiveAssetChange(): void
     {
         $pool = new ArrayAdapter();
@@ -33,8 +70,8 @@ final class BlogPageCacheTest extends TestCase
         $oldReader = CachedBlogResponse::fromResponse(new Response('warm reader HTML'));
         self::assertNotNull($oldCrawler);
         self::assertNotNull($oldReader);
-        $pool->get('register_blog_first_response_v9_full_bot', static fn(): CachedBlogResponse => $oldCrawler);
-        $pool->get('register_blog_first_response_v9_full_new_visitor', static fn(): CachedBlogResponse => $oldReader);
+        $pool->get('register_blog_first_response_v10_full_bot', static fn(): CachedBlogResponse => $oldCrawler);
+        $pool->get('register_blog_first_response_v10_full_new_visitor', static fn(): CachedBlogResponse => $oldReader);
 
         $cache = new BlogPageCache($pool);
         self::assertSame('new crawler HTML', $cache->firstResponse('full_bot', static fn(): Response => new Response('new crawler HTML'))->getContent());
@@ -521,7 +558,7 @@ final class BlogPageCacheTest extends TestCase
         self::assertContains('register_content_response_generation_v1', $memoryKeys);
         self::assertSame([], array_values(array_filter(
             $memoryKeys,
-            static fn(string $key): bool => str_starts_with($key, 'register_content_response_v9_'),
+            static fn(string $key): bool => str_starts_with($key, 'register_content_response_v10_'),
         )));
 
         $cache->invalidateFirstPage();
@@ -605,7 +642,7 @@ final class BlogPageCacheTest extends TestCase
     {
         $result = [];
         foreach (array_keys($pool->getValues()) as $key) {
-            if (\is_string($key) && str_starts_with($key, 'register_content_response_v9_')) {
+            if (\is_string($key) && str_starts_with($key, 'register_content_response_v10_')) {
                 $result[] = $key;
             }
         }

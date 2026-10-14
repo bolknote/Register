@@ -107,6 +107,10 @@ stylesheet, so both use prepared compression and invalidate their browser cache 
 The complete HTML response-cache generation advances for this asset layout; already cached content
 fragments and operational data remain reusable.
 
+Restoring the established 1000 CSS-pixel reading column also advances only the complete HTML
+response generation, so warm page shells reference the new stylesheet instead of an immutable
+older version. Feed fragments, indexes and the page-cache storage ABI remain unchanged.
+
 Source checkouts and newly installed themes/extensions retain the existing runtime fallback.
 Generated CSS/JavaScript bundles receive ready gzip sidecars whenever PHP has zlib. Brotli and Zstd
 sidecars are generated too when their PHP extensions are installed. On a host with shell access,
