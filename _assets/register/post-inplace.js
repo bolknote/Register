@@ -20,6 +20,7 @@
         return target.toString();
     })();
     let imageOptimizerPromise = null;
+    let imageOptimizerNeedsFreshContext = false;
     const aiImagePreviewMaxDimension = 1600;
     const aiImagePreviewPreferPngBytes = 1.5 * 1024 * 1024;
     const aiImagePreviewMaxPngBytes = 9 * 1024 * 1024;
@@ -437,13 +438,91 @@
             : state.originalPublishedAt;
     }
 
-    function loadImageOptimizer() {
-        // This computed dynamic import is the loading boundary for every image codec and Wasm module.
-        // Opening the editor and uploading audio must not fetch any part of the image optimizer.
-        imageOptimizerPromise ||= import(imageOptimizerUrl).catch((error) => {
-            imageOptimizerPromise = null;
-            throw error;
+    function imageOptimizerFrame() {
+        // A failed module graph can remain in a browser's module map. Changing
+        // only the entry URL does not reset failed static dependencies. A fresh
+        // about:blank context inherits our CSP and retries the entire graph,
+        // without navigating the editor or using eval/inline/blob scripts.
+        const frame = document.createElement('iframe');
+        frame.hidden = true;
+        frame.setAttribute('aria-hidden', 'true');
+        frame.tabIndex = -1;
+        document.body.append(frame);
+        let disposed = false;
+        const destroy = () => {
+            disposed = true;
+            frame.remove();
+        };
+        const promise = new Promise((resolve, reject) => {
+            const realm = frame.contentWindow;
+            realm.RegisterImageOptimizerLoader = {
+                url: imageOptimizerUrl,
+                resolve(module) {
+                    if (disposed) return;
+                    if (typeof module.optimizeImage !== 'function') {
+                        reject(new Error('Invalid image processing module.'));
+                        return;
+                    }
+                    resolve({async optimizeImage(file, options) {
+                        try {
+                            // The optimizer validates Blob identity in its own
+                            // realm. Construct there, return a local Blob here.
+                            const input = new realm.File([file], file.name || 'image', {type: file.type});
+                            const result = await module.optimizeImage(input, options);
+                            return {...result, blob: new Blob([result.blob], {type: result.blob.type})};
+                        } catch (error) {
+                            if (error?.name === 'AbortError') {
+                                throw new DOMException(error.message, 'AbortError');
+                            }
+                            throw new Error(error?.message || 'Image processing failed.', {cause: error});
+                        }
+                    }});
+                },
+                reject(error) {
+                    if (!disposed) reject(error);
+                },
+            };
+            const script = frame.contentDocument.createElement('script');
+            script.src = new URL('optimizer-loader.js.asset', imageOptimizerUrl).toString();
+            script.onerror = () => reject(new Error('Unable to load the image processing loader.'));
+            frame.contentDocument.head.append(script);
         });
+        return {promise, destroy};
+    }
+
+    function loadImageOptimizer() {
+        // Opening the editor and uploading audio never load image codecs.
+        if (!imageOptimizerPromise) {
+            const options = {timeoutMs: Math.min(editorConfig().saveTimeoutMs ?? 15000, 15000),
+                timeoutMessage: 'The image processing module did not finish loading.'};
+            const loadFrame = async () => {
+                const frame = imageOptimizerFrame();
+                try {
+                    return await window.RegisterEditorRequest.withDeadline(frame.promise, options, frame.destroy);
+                } catch (error) {
+                    frame.destroy();
+                    throw error;
+                }
+            };
+            const load = async () => {
+                try {
+                    if (imageOptimizerNeedsFreshContext) return await loadFrame();
+                    const module = await window.RegisterEditorRequest.withDeadline(import(imageOptimizerUrl), options);
+                    if (typeof module.optimizeImage !== 'function') throw new Error('Invalid image processing module.');
+                    return module;
+                } catch (_error) {
+                    imageOptimizerNeedsFreshContext = true;
+                    return loadFrame();
+                }
+            };
+            const pending = load().catch((error) => {
+                if (imageOptimizerPromise === pending) imageOptimizerPromise = null;
+                const failure = new Error('Unable to load image processing.', {cause: error});
+                failure.name = 'ImageOptimizerLoadError';
+                throw failure;
+            });
+            imageOptimizerPromise = pending;
+        }
         return imageOptimizerPromise;
     }
 
@@ -2212,9 +2291,11 @@
                 if (error instanceof DOMException && error.name === 'AbortError') {
                     return;
                 }
-                const failure = error instanceof Error
-                    ? error
-                    : new Error(mediaMessage(editorConfig().mediaUploadFailed || 'Unable to upload “%s”.', file.name));
+                const failure = error?.name === 'ImageOptimizerLoadError'
+                    ? new Error(mediaMessage(editorConfig().mediaOptimizerUnavailable
+                        || 'Unable to load image processing for “%s”. The image was not uploaded; your text remains in the editor. Try inserting the image again.', file.name), {cause: error})
+                    : (error instanceof Error ? error
+                        : new Error(mediaMessage(editorConfig().mediaUploadFailed || 'Unable to upload “%s”.', file.name)));
                 showError(state.form, failure.message);
                 // Keep idle uploads handled, but let a waiting save detect failure.
                 return failure;

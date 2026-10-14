@@ -101,6 +101,15 @@ async function verifySyntaxAssets(browser, browserName) {
 }
 
 async function runMediaBoundarySaveRegression(page, browserName) {
+    // Real optimized release assets must recover a failed module import too,
+    // including iframe Blob identity, CSP, workers and Wasm codecs.
+    const optimizerPattern = '**/_assets/register/image-optimizer/js/optimizer.js*';
+    let optimizerRequests = 0;
+    await page.route(optimizerPattern, async route => {
+        optimizerRequests++;
+        if (optimizerRequests === 1) await route.abort('connectionreset');
+        else await route.continue();
+    });
     await page.goto(origin + '/');
     await page.locator('.post-create-start').click();
     let card = page.locator('[data-post-creating]');
@@ -126,6 +135,8 @@ async function runMediaBoundarySaveRegression(page, browserName) {
     await (await chooserPromise).setFiles({name: 'editor-fixture.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64')});
     const media = card.locator('.post-media-picture:not(.is-processing)');
     await media.waitFor();
+    assert.equal(optimizerRequests, 2, 'The real optimizer recovers the interrupted import without a page reload');
+    await page.unroute(optimizerPattern);
     await media.locator('img').evaluate(image => image.decode());
     const caption = media.locator('.post-caption');
     await caption.click();

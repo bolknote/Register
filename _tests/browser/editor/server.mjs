@@ -126,6 +126,7 @@ export function createFixtureServer() {
                 return;
             }
             const files = new Map([
+                ['/image-optimizer/js/optimizer-loader.js.asset', ['../../../_assets/register/image-optimizer/js/optimizer-loader.js', 'text/javascript']],
                 ['/responsive-layout-fixture.js', ['responsive-layout-fixture.js', 'text/javascript']],
                 ['/responsive-image.svg', ['responsive-image.svg', 'image/svg+xml']],
                 ['/responsive-retina-image.svg', ['responsive-retina-image.svg', 'image/svg+xml']],

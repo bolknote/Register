@@ -114,6 +114,7 @@ return [
     'Post media optimizing' => 'Optimizing “%s”…',
     'Post media uploading' => 'Uploading “%s”…',
     'Post media upload failed' => 'Unable to upload “%s”.',
+    'Post image processor unavailable' => 'Unable to load image processing for “%s”. The image was not uploaded; your text remains in the editor. Try inserting the image again.',
     'Unsupported dropped media' => '“%s” is not supported. Drop an image or audio file.',
     'Add image caption' => 'Add a caption…',
     'New post title' => 'New post title',

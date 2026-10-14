@@ -114,6 +114,7 @@ return [
     'Post media optimizing' => 'Оптимизирую «%s»…',
     'Post media uploading' => 'Загружаю «%s»…',
     'Post media upload failed' => 'Не удалось загрузить «%s».',
+    'Post image processor unavailable' => 'Не удалось загрузить модуль обработки картинки «%s». Картинка не загружена; текст остался в редакторе. Попробуйте вставить картинку ещё раз.',
     'Unsupported dropped media' => 'Файл «%s» не поддерживается: перетащите изображение или аудиофайл.',
     'Add image caption' => 'Добавить подпись…',
     'New post title' => 'Заголовок нового поста',

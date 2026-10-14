@@ -66,6 +66,13 @@ check selection preservation, responsive menu bounds, scrolling only in short
 viewports, and visibility before editing and after resizing. The PHP end-to-end
 suite also checks keyboard and touch access using the actual server-rendered controls.
 
+Optimizer loading regressions run with `node image-optimizer-load-tests.mjs` and are included in
+the reliability suite. They interrupt the entry or a static dependency, exercise bounded automatic
+retry, persistent failure, timeout and explicit retry in the same editor, and retain native text
+and the existing CSP. Cancellation followed by late completion cannot upload an image. The
+production-assets PHP/SQLite scenario also interrupts the real minified optimizer and then uses
+its actual workers and Wasm codecs to upload, save and reopen the complete post.
+
 Image-arrow regressions also run independently with `node media-navigation-tests.mjs`.
 They create a new post through the public UI, insert a file through the normal paste
 handler or the menu's file chooser, then send real Up/Down keys and type character by character. Each engine

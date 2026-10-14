@@ -27,6 +27,7 @@ $config = [
     'mediaOptimizing' => $trans('Post media optimizing'),
     'mediaUploading' => $trans('Post media uploading'),
     'mediaUploadFailed' => $trans('Post media upload failed'),
+    'mediaOptimizerUnavailable' => $trans('Post image processor unavailable'),
     'mediaUnsupported' => $trans('Unsupported dropped media'),
     'mediaClipboardUnavailable' => $trans('Post clipboard media unavailable'),
     'mediaCaptionPlaceholder' => $trans('Add image caption'),
