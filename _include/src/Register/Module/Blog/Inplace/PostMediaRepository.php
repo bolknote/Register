@@ -323,6 +323,9 @@ final readonly class PostMediaRepository
         $completed = preg_replace_callback(
             $tokens,
             function (array $matches) use (&$mediaById, &$imageCount, &$sourceDepth): string {
+                // preg_replace_callback shares this state across all tokens,
+                // rather than resetting it to the initial literal zero.
+                /** @var int $sourceDepth */
                 $tag = $matches[0];
                 $isDiv = preg_match('~^<(/?)div(?=[\s/>])~i', $tag, $division) === 1;
                 if ($sourceDepth > 0) {
