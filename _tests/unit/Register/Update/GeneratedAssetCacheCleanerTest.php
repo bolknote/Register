@@ -11,6 +11,7 @@ namespace unit\Register\Update;
 
 use Codeception\Test\Unit;
 use Register\Module\Blog\Model\BlogPageCache;
+use Register\Module\Blog\Model\AllPostsPage;
 use Register\Module\Blog\Model\CachedBlogResponse;
 use Register\Module\Blog\Model\PostFeed;
 use Register\Update\GeneratedAssetCacheCleaner;
@@ -77,11 +78,12 @@ final class GeneratedAssetCacheCleanerTest extends Unit
         self::assertFileExists($this->temporaryRoot . '/_cache/picture-upload-quota.lock');
     }
 
-    public function testPrebuiltAssetTransitionDiscardsOldHtmlWithoutDiscardingContentFragments(): void
+    public function testAssetAndViewportChangesRefreshHtmlWithoutDiscardingContentFragments(): void
     {
         $oldAsset = $this->temporaryRoot . '/_cache/site.deadbeef.css';
         file_put_contents($oldAsset, 'old runtime CSS');
-        $oldHtml = '<link rel="stylesheet" href="/_cache/site.deadbeef.css">';
+        $oldHtml = '<meta name="viewport" content="width=device-width, initial-scale=1">'
+            . '<link rel="stylesheet" href="/_cache/site.deadbeef.css">';
         $oldResponse = CachedBlogResponse::fromResponse(new Response($oldHtml));
         self::assertNotNull($oldResponse);
         $oldContentResponse = CachedBlogResponse::fromResponse(new Response($oldHtml), '0123456789abcdef');
@@ -93,9 +95,9 @@ final class GeneratedAssetCacheCleanerTest extends Unit
             'partial_bot', 'partial_new_visitor', 'partial_known_visitor'];
         foreach ($variants as $variant) {
             $oldVariant = str_ends_with($variant, '_bot') ? $variant . '_noninteractive_v2' : $variant;
-            // Both runtime-bundle HTML and the previous separate prebuilt-file layout
-            // must refresh without throwing away the already rendered content fragments.
-            foreach ([4, 5] as $version) {
+            // A warm response from the previous production representation must
+            // refresh too, even though its content fragments remain compatible.
+            foreach ([4, 5, 6] as $version) {
                 $pool->get('register_blog_first_response_v' . $version . '_' . $oldVariant, static fn(): CachedBlogResponse => $oldResponse);
                 $pool->get('register_blog_all_response_v' . $version . '_' . $oldVariant, static fn(): CachedBlogResponse => $oldResponse);
                 $pool->get('register_content_response_v' . $version . '_' . hash('sha256', '/fixture') . '_' . $oldVariant,
@@ -104,13 +106,21 @@ final class GeneratedAssetCacheCleanerTest extends Unit
         }
 
         $feed = new PostFeed('warm content fragment', null, null);
-        (new BlogPageCache($pool))->firstPage(static fn(): PostFeed => $feed);
+        $index = new AllPostsPage('All posts', 'warm index fragment');
+        $navigation = ['menu' => ['one']];
+        $warmCache = new BlogPageCache($pool);
+        $warmCache->firstPage(static fn(): PostFeed => $feed);
+        $warmCache->allPosts(static fn(): AllPostsPage => $index);
+        $warmCache->navigation(static fn(): array => $navigation);
         (new GeneratedAssetCacheCleaner($this->temporaryRoot))->clear();
         self::assertFileDoesNotExist($oldAsset);
 
         $cache = new BlogPageCache($pool);
         self::assertSame($feed->html, $cache->firstPage(static fn(): PostFeed => new PostFeed('cold content fragment', null, null))->html);
-        $newHtml = '<link rel="stylesheet" href="/_styles/example/site.css.asset?v=' . str_repeat('a', 64) . '">';
+        self::assertSame($index->html, $cache->allPosts(static fn(): AllPostsPage => new AllPostsPage('Cold', 'cold index'))->html);
+        self::assertSame($navigation, $cache->navigation(static fn(): array => ['cold navigation']));
+        $newHtml = '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">'
+            . '<link rel="stylesheet" href="/_styles/example/site.css.asset?v=' . str_repeat('a', 64) . '">';
         foreach ($variants as $variant) {
             self::assertSame($newHtml, $cache->firstResponse($variant, static fn(): Response => new Response($newHtml))->getContent());
             self::assertSame($newHtml, $cache->allResponse($variant, static fn(): Response => new Response($newHtml))->getContent());
