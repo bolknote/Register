@@ -27,6 +27,7 @@ const measure = page => page.evaluate(async () => {
     return {font: parseFloat(style.fontSize), line: parseFloat(style.lineHeight),
         textWidth: paragraph.width, textCh: paragraph.width / drawing.measureText('0').width,
         imageWidth: image.width, captionGap: caption.top - image.bottom,
+        body: box('[data-post-inplace-body]'),
         header: box('.site-header-copy'), card: box('.post-card'),
         search: box('.register_search_form'), title: box('.site-title'),
         account: box('.public-auth-user-menu > summary'),
@@ -58,13 +59,16 @@ export async function runResponsiveLayoutRegressions(browser, origin) {
                 assert.ok(Math.abs(current.font - expectedProseSize(width)) < 0.02,
                     `Prose keeps its original mobile/desktop size at ${width}px, without growing on wide screens: ${current.font}px`);
                 assert.ok(Math.abs(current.line - current.font * 1.6) < 0.02, 'The original line-height is preserved');
-                assert.ok(current.textCh <= 75, `The reading measure is capped independently of media at ${width}px`);
+                assert.ok(current.textCh <= 75, `The reading measure is capped independently of the page width at ${width}px`);
                 assert.ok(Math.abs(current.header.left - current.card.left) < 1, 'Header and posts share the content origin');
                 assert.ok(current.captionGap >= 7 && current.captionGap <= 12, 'The caption remains attached to its image');
                 assert.equal(current.bodyHtml, original, 'Resizing never rewrites author HTML');
                 assert.ok(['block', 'flow-root'].includes(current.bodyDisplay), 'Contenteditable retains normal block flow');
+                assert.ok(Math.abs(current.body.width - current.textWidth) < 1,
+                    `The published body and its text share a reading column at ${width}px`);
+                assert.ok(Math.abs(current.imageWidth - current.body.width) < 1,
+                    'A large photo fits the same column in reading and editing');
                 if (width >= 1280) {
-                    assert.ok(current.imageWidth > current.textWidth + 100, 'A wide photo is not constrained by the prose measure');
                     assert.ok(current.textCh >= 65, `Desktop prose uses the intended reading measure: ${JSON.stringify({width, font:current.font, textWidth:current.textWidth, textCh:current.textCh})}`);
                 }
                 if (width > 720) {
@@ -210,12 +214,19 @@ export async function runResponsiveEditorRegressions(browser, origin) {
             const body = page.locator('[data-post-inplace-body]');
             const originalText = await body.textContent();
             const editing = await measure(page);
+            assert.ok(Math.abs(editing.body.width - original.textWidth) < 1,
+                `The visual editor must use the reading column, not the full article width: ${JSON.stringify({body: editing.body.width, prose: original.textWidth})}`);
             assert.ok(Math.abs(editing.font - original.font) < 0.02, 'Opening the editor keeps the prose size');
             assert.ok(Math.abs(original.textWidth - editing.textWidth) < 1, 'Opening the editor keeps the reading measure');
             assert.ok(Math.abs(original.imageWidth - editing.imageWidth) < 1, 'Opening the editor keeps media geometry');
+            if (process.env.RESPONSIVE_SCREENSHOT_DIR && !hasTouch && browser.browserType().name() === 'chromium') {
+                await page.screenshot({path: `${process.env.RESPONSIVE_SCREENSHOT_DIR}/editor-column-1280.png`, fullPage: true});
+            }
             for (const width of [320, 390, 760, 800, 1280, 1920]) {
                 await resize(page, width);
                 const current = await measure(page);
+                assert.ok(Math.abs(current.body.width - current.textWidth) < 1,
+                    `The editor stays within the reading column at ${width}px`);
                 assert.ok(Math.abs(current.font - expectedProseSize(width)) < 0.02,
                     `The active editor keeps the original prose size at ${width}px: ${current.font}px`);
                 assert.equal(current.overflow, false, `The active editor stays within the viewport at ${width}px`);
@@ -252,10 +263,11 @@ export async function runResponsiveEditorRegressions(browser, origin) {
             await page.keyboard.press('Enter');
             await page.keyboard.type('Text entered after resizing.');
             let savedBody;
+            let expectedSavedText = 'Text entered after resizing.';
             await page.route('**/_inplace/post/7', async route => {
                 const request = route.request().postData() || '';
                 savedBody = request.match(/name="body"\r?\n\r?\n([\s\S]*?)\r?\n--/u)?.[1];
-                assert.ok(savedBody?.includes('Text entered after resizing.'));
+                assert.ok(savedBody?.includes(expectedSavedText));
                 await route.fulfill({json: {success: true, action: 'edit', revision: 2,
                     title: 'Заметка с текстом и большой иллюстрацией',
                     published_at: 1700000000, datetime: '2023-11-14T22:13:20Z', time: '14 ноября 2023 года, 22:13',
@@ -306,10 +318,84 @@ export async function runResponsiveEditorRegressions(browser, origin) {
             const enlarged = await measure(page);
             assert.ok(enlarged.font > normalFont * 1.6, 'The reading scale respects a larger user font');
             assert.equal(enlarged.overflow, false);
+
+            // Native typing in an empty body can produce bare text/inline nodes
+            // before the first Enter. Paragraph-only width rules miss that case.
+            await page.evaluate(() => { document.documentElement.style.removeProperty('font-size'); });
+            await resize(page, 1280);
+            await page.locator('.post.body').hover();
+            await page.locator('.post-edit-start').click();
+            await body.click({position: {x: 40, y: 20}});
+            await page.keyboard.press('ControlOrMeta+A');
+            await page.keyboard.press('Backspace');
+            const nativeText = 'A paragraph entered directly in the visual editor. '
+                + 'The text and its editable field must use the same column before and after saving. '.repeat(7).trim();
+            expectedSavedText = 'A paragraph entered directly in the visual editor.';
+            const nativeLayout = () => body.evaluate(async element => {
+                await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+                const style = getComputedStyle(element);
+                const bounds = element.getBoundingClientRect();
+                const card = element.closest('.post-card').getBoundingClientRect();
+                const surface = element.closest('.post-card').querySelector('[data-editor-field-surface="body"]');
+                const lines = [];
+                const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+                let previousTop = null;
+                let node;
+                while ((node = walker.nextNode())) {
+                    for (let index = 0; index < node.length; index++) {
+                        const range = document.createRange();
+                        range.setStart(node, index);
+                        range.setEnd(node, index + 1);
+                        const rect = range.getBoundingClientRect();
+                        if (!rect.height) continue;
+                        if (previousTop === null || Math.abs(rect.top - previousTop) > 1) {
+                            lines.push('');
+                            previousTop = rect.top;
+                        }
+                        lines[lines.length - 1] += node.data[index].replace(/\u00a0/u, ' ');
+                    }
+                }
+                return {width: bounds.width, expectedWidth: Math.min(card.width,
+                    parseFloat(style.getPropertyValue('--text-width'))), font: parseFloat(style.fontSize),
+                    surfaceWidth: surface?.getBoundingClientRect().width ?? null, lines};
+            });
+            const empty = await nativeLayout();
+            assert.ok(Math.abs(empty.width - empty.expectedWidth) < 1, 'An empty editor cannot expand to the page width');
+            await page.keyboard.type(nativeText);
+            assert.equal((await body.textContent()).replace(/\u00a0/gu, ' '), nativeText, 'Every typed character remains in the editor');
+            let typed;
+            for (const width of [390, 1280, 1920, 3840]) {
+                await page.setViewportSize({width, height: 900});
+                await page.waitForFunction(({width, font}) => innerWidth === width
+                    && Math.abs(parseFloat(getComputedStyle(document.querySelector('[data-post-inplace-body]')).fontSize)
+                        - font) < 0.02, {width, font: expectedProseSize(width)});
+                typed = await nativeLayout();
+                assert.ok(Math.abs(typed.width - typed.expectedWidth) < 1,
+                    `Bare/native text keeps the reading column at ${width}px`);
+                assert.ok(Math.abs(typed.surfaceWidth - typed.width - 16) < 1,
+                    'The background follows the constrained field, with only its existing 8px outer padding');
+                assert.ok(typed.lines.length > 2, 'Native typing wraps instead of filling the entire page');
+                if (process.env.RESPONSIVE_SCREENSHOT_DIR && width === 1920 && !hasTouch
+                    && browser.browserType().name() === 'chromium') {
+                    await page.screenshot({path: `${process.env.RESPONSIVE_SCREENSHOT_DIR}/editor-native-column-1920.png`, fullPage: true});
+                }
+            }
+            await page.locator('.post-edit-save').click();
+            await page.waitForFunction(() => !document.querySelector('.post-card.is-editing'));
+            const published = await nativeLayout();
+            assert.ok(Math.abs(published.width - typed.width) < 1, 'Saving does not change the native text column');
+            assert.deepEqual(published.lines, typed.lines, 'Every line wraps identically when editing and reading');
+            assert.equal((await body.textContent()).replace(/\u00a0/gu, ' '), nativeText, 'Saving retains all typed text');
+            await page.locator('.post.body').hover();
+            await page.locator('.post-edit-start').click();
+            const reopened = await nativeLayout();
+            assert.ok(Math.abs(reopened.width - published.width) < 1, 'Reopening keeps the published column');
+            assert.deepEqual(reopened.lines, published.lines, 'Reopening keeps the published line breaks');
+            await page.locator('.post-edit-cancel').click();
             assert.deepEqual(errors, []);
         } finally { await context.close(); }
     }
-    console.log(`${browser.browserType().name()}: responsive editor geometry, touch targets, native Enter/save/reopen and zoom passed`);
+    console.log(`${browser.browserType().name()}: WYSIWYG column/line breaks, touch targets, native Enter/save/reopen and zoom passed`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

@@ -448,12 +448,9 @@ hr {
     text-wrap: pretty;
 }
 
-.post-card > :where(.post.author, .post.time, .post.foot, .see-also) {
+/* The editable body, including bare/native text, uses the reading column too. */
+.post-card > :where(.post.author, .post.time, .post.body, .post.foot, .see-also) {
     max-width: var(--text-width);
-}
-
-.post-card > .post.body {
-    max-width: var(--article-width);
 }
 
 .article-text :where(p, ol, ul, dl, blockquote),

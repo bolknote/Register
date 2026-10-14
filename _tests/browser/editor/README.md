@@ -15,7 +15,13 @@ npm test
 ```
 
 The Quality workflow runs Chromium, Firefox and WebKit and blocks releases on failure.
-Its PHP end-to-end scenarios run against a staged, optimized production asset tree. Install the root
+Responsive layout regressions also run independently with `node responsive-layout-tests.mjs`.
+They check the original 18/20px prose sizes, a shared reading/editing column from 320 to 3840px,
+image dimensions and captions, touch targets and zoom. Real character-by-character typing in an
+empty field must preserve every character and wrap on exactly the same lines after saving and
+reopening; the editor background cannot expand beyond the reading column.
+
+The workflow's PHP end-to-end scenarios run against a staged, optimized production asset tree. Install the root
 build dependencies with `npm ci --ignore-scripts`, then run
 `node _tests/browser/editor/production-assets.mjs` from the repository root to reproduce this check.
 It covers actual login, post editing, image workers and guest comments in all three engines, plus
