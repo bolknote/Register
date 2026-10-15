@@ -136,6 +136,11 @@ final class PostMediaDeletionTest extends Unit
                     str_replace('.', '&#46;', $path),
                     str_replace('/', '&sol;', $path),
                     str_replace('@', '&#37;40', $path),
+                    str_replace('/uploads', '&#47uploads', $path),
+                    str_replace('.png', '&#46png', $path),
+                    str_replace('.png', '&#x2Epng', $path),
+                    str_replace('/uploads', '&#' . str_repeat('0', 64) . '47uploads', $path),
+                    str_replace('/uploads', '&#x' . str_repeat('0', 64) . '2Fuploads', $path),
                 ] as $encoded) {
                     $reference = '/media' . $encoded;
                     $db->update('content')->set('body', ':body')->set('social_image', ':social')
@@ -152,6 +157,28 @@ final class PostMediaDeletionTest extends Unit
             $db->update('content')->set('body', "''")->set('social_image', "''")->execute();
             self::assertTrue($repository->deleteUnused($shared));
         }
+    }
+
+    public function testNumericReferencesConsumeTheCompleteNumber(): void
+    {
+        $pdo = new \PDO('sqlite::memory:');
+        $pdo->exec('CREATE TABLE users (id INTEGER PRIMARY KEY)');
+        $pdo->exec("CREATE TABLE content (id INTEGER PRIMARY KEY, body TEXT DEFAULT '', social_image TEXT DEFAULT '')");
+        $pdo->exec('INSERT INTO users VALUES (1)');
+        $pdo->exec('INSERT INTO content (id) VALUES (1)');
+
+        $db = new DbLayerSqlite($pdo);
+        ContentMediaSchema::create($db);
+        $repository = new PostMediaRepository($db, '/media');
+        $path = '/2026.01.02.png';
+        $mediaId = $repository->register($this->media($path));
+        foreach (['&#472026.01.02.png', '&#x2F2026.01.02.png'] as $encoded) {
+            $db->update('content')->set('body', ':body')
+                ->setParameter('body', '<img src="/media' . $encoded . '">')->where('id = 1')->execute();
+            self::assertFalse($repository->hasStoredReferences($path), $encoded);
+        }
+
+        self::assertTrue($repository->deleteUnused($mediaId));
     }
 
     public function testEncodedReferencesCannotStarveStaleMediaCleanup(): void

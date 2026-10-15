@@ -821,11 +821,19 @@ final readonly class PostInplaceController implements ControllerInterface
             ['title', 'body', 'tags', 'published_at', 'uploaded_media_ids'],
         )));
 
-        $operation = $requestId === '' ? null : $this->createOperations->find($editor->id, $requestId);
-        if ($operation !== null) {
-            return $this->urlHistory->run(fn(): Response => $this->replayCreation(
-                $request, $operation['post_id'], hash_equals($operation['request_hash'], $hash),
-            ));
+        if ($requestId !== '') {
+            // Read the receipt under the same mutex as its post. A deletion
+            // can tombstone it and SQLite can reuse the old post id before we lock.
+            $replayed = $this->urlHistory->run(function () use ($request, $editor, $requestId, $hash): ?Response {
+                $operation = $this->createOperations->find($editor->id, $requestId);
+
+                return $operation === null ? null : $this->replayCreation(
+                    $request, $operation['post_id'], hash_equals($operation['request_hash'], $hash),
+                );
+            });
+            if ($replayed instanceof Response) {
+                return $replayed;
+            }
         }
 
         return $this->createNew($request, $editor, $requestId, $hash);

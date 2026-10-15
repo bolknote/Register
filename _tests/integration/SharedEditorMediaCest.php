@@ -193,7 +193,7 @@ final class SharedEditorMediaCest
         $repository = $I->grabService(PostMediaRepository::class);
         $files = [];
         try {
-            foreach (['%2e', '&#46;'] as $index => $dot) {
+            foreach ([['.' => '%2e'], ['.' => '&#46;'], ['.png' => '&#46png'], ['.png' => '&#x2Epng']] as $index => $encoding) {
                 $file = tempnam(sys_get_temp_dir(), 'register-encoded-media-');
                 if ($file === false) {
                     throw new \RuntimeException('Unable to create an upload fixture.');
@@ -223,12 +223,18 @@ final class SharedEditorMediaCest
                 $url = 'https://localhost/_admin/index.php?entity=Article&action=edit&id=' . $pageId;
                 $I->amOnPage($url);
                 $values = $I->grabFormValues('form[name="article-form"]');
-                $body = '<p>A reused upload.</p><img src="' . str_replace('.', $dot, (string)$upload['url']) . '" alt="Shared">';
+                $body = '<p>A reused upload.</p><img src="' . str_replace(array_keys($encoding), array_values($encoding), (string)$upload['url']) . '" alt="Shared">';
                 $I->sendAjaxPostRequest($url, [...$values, 'body' => $body]);
                 $I->seeResponseCodeIs(Response::HTTP_OK);
                 $I->assertTrue($this->response($I)['success']);
                 $I->assertSame($body, $db->select('body')->from(ContentSchema::TABLE_NAME)
                     ->where('id = :id')->setParameter('id', $pageId)->execute()->result());
+                $I->amOnPage('https://localhost/encoded-image-' . $index);
+                // Percent escapes remain in the DOM attribute; numeric entities
+                // are decoded by the HTML parser even without their semicolon.
+                if ($index > 0) {
+                    $I->seeElement('img[src="' . $upload['url'] . '"]');
+                }
 
                 $I->sendAjaxPostRequest('https://localhost/_inplace/post/new', [
                     'inplace_action' => 'media_redate', 'inplace_token' => $token, 'media_ids' => (string)$mediaId,

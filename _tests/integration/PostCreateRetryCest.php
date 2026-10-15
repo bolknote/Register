@@ -6,7 +6,12 @@ namespace integration;
 
 use Register\Content\ContentSchema;
 use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\QueryResult;
 use Register\Live\LiveUpdateRepository;
+use Register\Module\Blog\Inplace\PostCreateOperations;
+use Register\Module\Blog\Inplace\PostInplaceController;
+use Register\Schema\SchemaManager;
+use Register\Url\UrlHistoryService;
 
 final class PostCreateRetryCest
 {
@@ -106,6 +111,50 @@ final class PostCreateRetryCest
         $I->assertJsonSubResponseEquals("<div class=\"post body\" data-post-inplace-body><p>Saved later.</p></div>\n", ['body_html']);
     }
 
+    public function retryCannotAdoptAReplacementCreatedBeforeTheEditorialLock(\IntegrationTester $I): void
+    {
+        $values = $this->form($I);
+        $url = 'https://localhost/_inplace/post/new';
+        $I->sendAjaxPostRequest($url, $values);
+        $I->seeResponseCodeIs(200);
+
+        $post = $I->grabJson();
+        $I->assertIsArray($post);
+        $db = $I->grabService(DbLayer::class);
+        $replacement = null;
+        // Model another ordinary delete/create request finishing immediately
+        // before the retry acquires the shared editorial mutex.
+        $probe = new PostCreateRetryLockProbe($I->grabService(\PDO::class), $db->getPrefix(),
+            function () use ($I, $post, $url, $values, &$replacement): void {
+                $I->sendAjaxPostRequest('https://localhost' . $post['action_url'], [
+                    'inplace_action' => 'delete', 'inplace_token' => $post['token'], 'revision' => (string)$post['revision'],
+                ]);
+                $I->seeResponseCodeIs(200);
+                $I->sendAjaxPostRequest($url, [...$values,
+                    'request_id' => '32345678-1234-4567-8901-123456789012',
+                    'title' => 'Unrelated replacement', 'body' => '<p>This is another post.</p>',
+                ]);
+                $I->seeResponseCodeIs(200);
+
+                $replacement = $I->grabJson();
+                $I->assertIsArray($replacement);
+                if ($I->grabService(\PDO::class)->getAttribute(\PDO::ATTR_DRIVER_NAME) === 'sqlite') {
+                    $I->assertSame($post['id'], $replacement['id']);
+                }
+            });
+        $dependencies = [PostCreateOperations::class, UrlHistoryService::class, PostInplaceController::class];
+        $I->replaceService(DbLayer::class, $probe, $dependencies);
+        try {
+            $I->sendAjaxPostRequest($url, $values);
+            $I->seeResponseCodeIs(404);
+            $I->assertIsArray($replacement, 'The concurrent delete/create scenario must have run.');
+            $I->assertSame('<p>This is another post.</p>', $db->select('body')->from(ContentSchema::TABLE_NAME)
+                ->where('id = :id')->setParameter('id', $replacement['id'])->execute()->result());
+        } finally {
+            $I->replaceService(DbLayer::class, $db, $dependencies);
+        }
+    }
+
     /** @return array<string, string> */
     private function form(\IntegrationTester $I): array
     {
@@ -119,5 +168,31 @@ final class PostCreateRetryCest
             'title' => 'Retry creation', 'body' => '<p>Original creation.</p>',
             'tags' => 'Retry tag', 'published_at' => (string)(time() - 60),
         ];
+    }
+}
+
+final class PostCreateRetryLockProbe extends DbLayer
+{
+    public function __construct(\PDO $pdo, string $prefix, private ?\Closure $beforeLock)
+    {
+        parent::__construct($pdo, $prefix);
+    }
+
+    /**
+     * @param array<int|string, mixed> $params
+     * @param array<int|string, int> $types
+     */
+    #[\Override]
+    public function query(string $sql, array $params = [], array $types = []): QueryResult
+    {
+        if ($this->beforeLock !== null && str_starts_with($sql, 'UPDATE ')
+            && ($params['name'] ?? null) === SchemaManager::CONFIG_KEY
+        ) {
+            $beforeLock = $this->beforeLock;
+            $this->beforeLock = null;
+            $beforeLock();
+        }
+
+        return parent::query($sql, $params, $types);
     }
 }

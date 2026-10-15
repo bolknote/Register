@@ -366,7 +366,7 @@ final readonly class PostMediaRepository
                 $afterId = (int)$row['id'];
                 ++$readCount;
                 foreach (['body', 'social_image'] as $column) {
-                    $html = html_entity_decode((string)$row[$column], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                    $html = $this->decodeReferenceEntities((string)$row[$column]);
                     $decoded = rawurldecode($html);
                     foreach ($paths as $id => $path) {
                         if (str_contains($html, $path) || str_contains($decoded, $path)) {
@@ -385,6 +385,20 @@ final readonly class PostMediaRepository
         } while ($readCount === self::CONTENT_REFERENCE_BATCH_SIZE);
 
         return $referenced;
+    }
+
+    /** Numeric references may omit their semicolon in an HTML attribute. */
+    private function decodeReferenceEntities(string $content): string
+    {
+        // PHP requires the delimiter, while HTML consumes the full run of
+        // decimal/hexadecimal digits even when no semicolon follows it.
+        $normalized = preg_replace_callback(
+            '/&#(?:[xX][0-9a-fA-F]+|[0-9]+);?/',
+            static fn(array $match): string => rtrim($match[0], ';') . ';',
+            $content,
+        );
+
+        return html_entity_decode($normalized ?? $content, ENT_QUOTES | ENT_HTML5, 'UTF-8');
     }
 
     private function mediaPathPattern(string $storagePath): string

@@ -32,6 +32,10 @@ Successful save or an explicit confirmed discard removes that session's copy.
 Switching editors retains the copy. This supports writing while a previously
 opened editor has no connection; it is not an offline server-synchronisation queue.
 
+Repeating a creation request after a lost response returns the original post's
+current state. If that post was deleted, the retry reports it as missing even when
+another post has reused its numeric identifier.
+
 Completed uploads referenced by a recovery copy are not released on page exit.
 They still obey the server's existing pending-upload expiry and may need to be
 uploaded again after an extended interruption. Incomplete uploads and temporary
