@@ -38,14 +38,19 @@ final class PostMediaCleanerTest extends Unit
             $pdo->exec('DELETE FROM content WHERE id = 1');
             self::assertFalse($cleaner->deleteUnused($id));
             self::assertTrue($pdo->inTransaction());
-            self::assertNotNull($repository->find($id));
+
+            $pendingMedia = $repository->find($id);
+            self::assertNotNull($pendingMedia);
             self::assertFileExists($file);
             $pdo->rollBack();
 
             $restored = $pdo->query('SELECT body FROM content WHERE id = 1');
             self::assertInstanceOf(\PDOStatement::class, $restored);
             self::assertSame($body, $restored->fetchColumn());
-            self::assertSame(1, (int)$repository->find($id)['usage_count']);
+
+            $restoredMedia = $repository->find($id);
+            self::assertNotNull($restoredMedia);
+            self::assertSame(1, (int)$restoredMedia['usage_count']);
             self::assertFileExists($file);
         });
     }
