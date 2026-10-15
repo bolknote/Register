@@ -9,6 +9,7 @@ import { ingest, ingestChannelPost, ingestReaction, flush } from '../../tools/te
 import { refreshConfig, restoreConfig } from '../../tools/telegram-comments/tgcloud/lib/settings.js';
 import { sendSnapshot, snapshotParts, jsonBytes, MAX_SNAPSHOT_BYTES } from '../../tools/telegram-comments/tgcloud/lib/transfer.js';
 import { uploadMedia, CHUNK_BYTES } from '../../tools/telegram-comments/tgcloud/lib/upload.js';
+import { createDeliverySession, createRetryingJsonFetch } from '../../tools/telegram-comments/tgcloud/lib/request.js';
 
 const config = {
     blogUrl: 'https://register.localhost', token: 'a'.repeat(64), ownerUserId: 22,
@@ -230,6 +231,279 @@ test('an automatic delivery retry resumes an upload whose chunk acknowledgement 
     assert.deepEqual(offsets, [0, CHUNK_BYTES]);
     assert.equal(comments, 1);
     assert.equal((await store.status()).count, 0);
+});
+
+test('request retries finish a photo whose successive delivery stages each lose one response', async t => {
+    const bytes = new Uint8Array([3, 7, 11]);
+    for (const requestRetries of [false, true]) {
+        const store = sqliteStore(t);
+        await ingest({ ...first, photo: [{ file_id: 'opaque', file_unique_id: 'unique',
+            file_size: bytes.length, width: 10, height: 10 }] }, 100, config, store);
+        const failed = new Set();
+        const phases = [];
+        const chunks = [];
+        let received = 0, comments = 0;
+        const rawFetch = async (url, options) => {
+            const binary = options.body instanceof Uint8Array;
+            const payload = binary ? null : JSON.parse(options.body);
+            const phase = url.endsWith('/comments') ? 'snapshot' : binary ? 'chunk' : payload.files ? 'reserve' : 'probe';
+            phases.push(phase);
+            if (binary) {
+                assert.equal(options.headers['X-Register-Telegram-Offset'], '0');
+                chunks.push([...options.body]);
+                received = options.body.length; // Its acknowledgement can be lost after the bytes arrive.
+            }
+            if (phase === 'snapshot') comments++;
+            if (!failed.has(phase)) {
+                failed.add(phase);
+                throw new Error('response lost');
+            }
+            return { ok: true, status: 200, json: async () => phase === 'snapshot' ? { success: true }
+                : { success: true, received, complete: received === bytes.length, owned: false } };
+        };
+        const fetch = requestRetries ? createRetryingJsonFetch(rawFetch) : rawFetch;
+        const operation = flush(config, store, (archive, scope) => sendSnapshot(archive, scope, fetch, () => bytes),
+            () => 1, 20, true, requestRetries ? 1 : 3);
+        if (requestRetries) {
+            assert.equal((await operation).delivered, 1);
+            assert.deepEqual(phases, ['probe', 'probe', 'reserve', 'reserve', 'chunk', 'chunk', 'snapshot', 'snapshot']);
+            assert.deepEqual(chunks, [[...bytes], [...bytes]]);
+            assert.equal(comments, 2);
+            assert.equal((await store.status()).count, 0);
+        } else {
+            await assert.rejects(operation, /retry this Telegram update/);
+            assert.deepEqual(phases, ['probe', 'probe', 'reserve', 'probe', 'reserve', 'chunk']);
+            assert.equal(comments, 0);
+            assert.equal((await store.status()).count, 1);
+        }
+    }
+});
+
+test('an unreadable successful JSON acknowledgement is retried and exhaustion requests webhook redelivery', async t => {
+    for (const failures of [1, 7]) {
+        const store = sqliteStore(t);
+        await ingest(first, 100, config, store);
+        let calls = 0, reads = 0;
+        const imported = new Set();
+        const fetch = createRetryingJsonFetch(async (_url, options) => {
+            calls++;
+            const unreadable = calls <= failures;
+            imported.add(JSON.parse(options.body).messages.at(-1).id);
+            return { ok: true, status: 200, json: async () => {
+                reads++;
+                if (unreadable) throw new SyntaxError('truncated JSON');
+                return { success: true };
+            } };
+        });
+        const operation = flush(config, store, (archive, scope) => sendSnapshot(archive, scope, fetch, () => assert.fail()),
+            () => 1, 20, true, 1);
+        if (failures === 1) {
+            assert.equal((await operation).delivered, 1);
+            assert.equal(calls, 2);
+            assert.equal((await store.status()).count, 0);
+        } else {
+            await assert.rejects(operation, /retry this Telegram update/);
+            assert.equal(calls, 7);
+            assert.equal((await store.status()).count, 1);
+            assert.equal((await store.status()).errors[0].last_error, 'network_error');
+        }
+        assert.equal(reads, calls);
+        assert.equal(imported.size, 1);
+    }
+});
+
+test('a plain comment can use all six session retries and a seventh failed connection remains queued', async t => {
+    for (const failures of [6, 7]) {
+        const store = sqliteStore(t);
+        await ingest(first, 100, config, store);
+        let clock = 0, calls = 0;
+        const fetch = createRetryingJsonFetch(async () => {
+            calls++;
+            clock += 1_000;
+            if (calls <= failures) throw new Error('connection interrupted');
+            return { ok: true, status: 200, json: async () => ({ success: true }) };
+        }, { now: () => clock });
+        const operation = flush(config, store, (archive, scope) => sendSnapshot(archive, scope, fetch, () => assert.fail()),
+            () => clock, 20, true, 1);
+        if (failures === 6) {
+            assert.equal((await operation).delivered, 1);
+            assert.equal((await store.status()).count, 0);
+        } else {
+            await assert.rejects(operation, /retry this Telegram update/);
+            assert.equal((await store.status()).count, 1);
+            assert.equal((await store.status()).errors[0].last_error, 'network_error');
+        }
+        assert.equal(calls, 7);
+        assert.equal(clock, 7_000);
+    }
+});
+
+test('JSON request retries recover HTTP 5xx and read the accepted response only once', async () => {
+    let calls = 0, reads = 0;
+    const headers = { get: name => name === 'content-type' ? 'application/json' : null };
+    const fetch = createRetryingJsonFetch(async () => {
+        const status = ++calls < 3 ? 503 : 200;
+        return { ok: status === 200, status, headers, json: async () => {
+            reads++;
+            return status === 200 ? { success: true } : { success: false, error: 'busy' };
+        } };
+    });
+    const response = await fetch('https://register.localhost/_live/telegram/comments');
+    assert.equal(response.ok, true);
+    assert.equal(response.status, 200);
+    assert.equal(response.headers, headers);
+    assert.deepEqual(await response.json(), { success: true });
+    assert.deepEqual(await response.json(), { success: true });
+    assert.equal(calls, 3);
+    assert.equal(reads, 3);
+});
+
+test('exhausted HTTP 5xx retries preserve the server error when attempts, budget or deadline expire', async t => {
+    for (const limit of ['attempts', 'budget', 'deadline']) {
+        const store = sqliteStore(t);
+        await ingest(first, 100, config, store);
+        let clock = 0, calls = 0, reads = 0;
+        const fetch = createRetryingJsonFetch(async () => {
+            calls++;
+            if (limit === 'deadline') clock += 10;
+            return { ok: false, status: 503, json: async () => {
+                reads++;
+                return { success: false, error: 'busy' };
+            } };
+        }, { attempts: 3, maxRetries: limit === 'budget' ? 0 : 6, maxDurationMs: 10, now: () => clock });
+        await assert.rejects(flush(config, store, (archive, scope) => sendSnapshot(archive, scope, fetch, () => assert.fail()),
+            () => 1, 20, true, 1), /retry this Telegram update/);
+        assert.equal(calls, limit === 'attempts' ? 3 : 1);
+        assert.equal(reads, calls);
+        assert.equal((await store.status()).count, 1);
+        assert.equal((await store.status()).errors[0].last_error, 'http_503_busy');
+    }
+});
+
+test('rate limits, permanent HTTP errors and valid negative acknowledgements do not consume retries', async () => {
+    let calls = 0;
+    const fetch = createRetryingJsonFetch(async status => {
+        calls++;
+        return { ok: status >= 200 && status < 300, status, json: async () => ({ success: false, error: 'rejected' }) };
+    }, { maxRetries: 0 });
+    for (const status of [429, 401, 404, 422, 200]) {
+        const response = await fetch(status);
+        assert.equal(response.status, status);
+        assert.deepEqual(await response.json(), { success: false, error: 'rejected' });
+    }
+    assert.equal(calls, 5);
+
+    const invalidBody = new SyntaxError('invalid error response');
+    const unreadable = createRetryingJsonFetch(async () => {
+        calls++;
+        return { ok: false, status: 401, json: async () => { throw invalidBody; } };
+    });
+    const response = await unreadable('https://register.localhost/_live/telegram/comments');
+    await assert.rejects(response.json(), error => error === invalidBody);
+    assert.equal(calls, 6);
+});
+
+test('a session shares its extra request budget across URLs and never starts an excess retry', async () => {
+    const calls = [];
+    const seen = new Set();
+    const fetch = createRetryingJsonFetch(async url => {
+        calls.push(url);
+        if (!seen.has(url)) { seen.add(url); throw new Error('connection interrupted'); }
+        return { ok: true, status: 200, json: async () => ({ success: true }) };
+    }, { maxRetries: 2 });
+    await fetch('https://register.localhost/_live/telegram/media');
+    await fetch('https://register.localhost/_live/telegram/comments');
+    await assert.rejects(fetch('https://register.localhost/_live/telegram/config'), /retry budget exhausted/);
+    assert.deepEqual(calls, [
+        'https://register.localhost/_live/telegram/media', 'https://register.localhost/_live/telegram/media',
+        'https://register.localhost/_live/telegram/comments', 'https://register.localhost/_live/telegram/comments',
+        'https://register.localhost/_live/telegram/config',
+    ]);
+});
+
+test('a session deadline bounds initial requests and retries across URLs from its first request', async () => {
+    let clock = 0, calls = 0;
+    const fetch = createRetryingJsonFetch(async () => {
+        calls++;
+        clock += 5;
+        return { ok: true, status: 200, json: async () => ({ success: true }) };
+    }, { maxDurationMs: 10, now: () => clock });
+    clock = 100; // Creating the adapter does not start the deadline.
+    await fetch('https://register.localhost/_live/telegram/media');
+    await fetch('https://register.localhost/_live/telegram/comments');
+    await assert.rejects(fetch('https://register.localhost/_live/telegram/config'), /deadline reached/);
+    assert.equal(calls, 2);
+
+    calls = 0;
+    const failing = createRetryingJsonFetch(async () => {
+        calls++;
+        clock += 10;
+        throw new Error('connection interrupted');
+    }, { maxDurationMs: 10, now: () => clock });
+    await assert.rejects(failing('https://register.localhost/_live/telegram/comments'), /deadline reached/);
+    assert.equal(calls, 1);
+});
+
+test('a native file download retries inside the same delivery session before its JSON acknowledgement', async t => {
+    const store = sqliteStore(t);
+    const bytes = new Uint8Array([3, 7, 11]);
+    await ingest({ ...first, photo: [{ file_id: 'opaque', file_unique_id: 'unique',
+        file_size: bytes.length, width: 10, height: 10 }] }, 100, config, store);
+    let downloads = 0, received = 0, comments = 0;
+    const session = createDeliverySession(async (url, options) => {
+        if (url.endsWith('/comments')) {
+            comments++;
+            assert.equal(received, bytes.length);
+            return { ok: true, status: 200, json: async () => ({ success: true }) };
+        }
+        if (options.body instanceof Uint8Array) {
+            assert.deepEqual(options.body, bytes);
+            received = options.body.length;
+        }
+        return { ok: true, status: 200, json: async () => ({ success: true, received,
+            complete: received === bytes.length, owned: false }) };
+    }, async id => {
+        assert.equal(id, 'opaque');
+        if (++downloads === 1) throw new Error('native file download interrupted');
+        return bytes;
+    });
+    assert.equal((await flush(config, store, (archive, scope) => sendSnapshot(archive, scope, session.fetch, session.download),
+        () => 1, 20, true, 1)).delivered, 1);
+    assert.equal(downloads, 2);
+    assert.equal(comments, 1);
+    assert.equal((await store.status()).count, 0);
+});
+
+test('native downloads and JSON requests share the same additional attempt budget', async () => {
+    let downloads = 0, requests = 0;
+    const bytes = new Uint8Array([7]);
+    const session = createDeliverySession(async () => {
+        requests++;
+        throw new Error('connection interrupted');
+    }, async () => {
+        if (++downloads <= 6) throw new Error('native file download interrupted');
+        return bytes;
+    });
+    assert.equal(await session.download('opaque'), bytes);
+    await assert.rejects(session.fetch('https://register.localhost/_live/telegram/comments'), /retry budget exhausted/);
+    assert.equal(downloads, 7);
+    assert.equal(requests, 1);
+});
+
+test('a native download uses the same deadline as subsequent JSON requests', async () => {
+    let clock = 100, downloads = 0, requests = 0;
+    const session = createDeliverySession(async () => {
+        requests++;
+        return { ok: true, status: 200, json: async () => ({ success: true }) };
+    }, async () => {
+        downloads++;
+        clock += 10;
+        return new Uint8Array([7]);
+    }, { maxDurationMs: 10, now: () => clock });
+    assert.deepEqual(await session.download('opaque'), new Uint8Array([7]));
+    await assert.rejects(session.fetch('https://register.localhost/_live/telegram/comments'), /deadline reached/);
+    assert.equal(downloads, 1);
+    assert.equal(requests, 0);
 });
 
 test('a reply received before its parent stays queued until the root can be resolved', async t => {

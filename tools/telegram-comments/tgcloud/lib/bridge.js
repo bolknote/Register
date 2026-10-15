@@ -5,9 +5,11 @@ import { ingest, ingestChannelPost, ingestReaction, flush } from './relay.js';
 import { ready } from './protocol.js';
 import { refreshConfig, restoreConfig } from './settings.js';
 import { sendSnapshot } from './transfer.js';
+import { createDeliverySession } from './request.js';
 
-async function send(archive, deliveryConfig) {
-    return sendSnapshot(archive, deliveryConfig, fetch, id => api.getFileContent(id));
+function createSender() {
+    const session = createDeliverySession(fetch, id => api.getFileContent(id));
+    return (archive, deliveryConfig) => sendSnapshot(archive, deliveryConfig, session.fetch, session.download);
 }
 
 async function checkReceiver() {
@@ -34,7 +36,7 @@ export async function receiveEvent(event, ctx, kind) {
     await refreshConfig(config, store, fetch);
     if (!ready(config)) return;
     if (!ingested) await ingestEvent();
-    await flush(config, store, send, Date.now, 20, true, 3);
+    await flush(config, store, createSender(), Date.now, 20, true);
 }
 
 export async function receive(message, ctx) {
@@ -64,7 +66,7 @@ export async function receive(message, ctx) {
             await api.sendMessage({ chat_id: message.chat.id, text: 'Настрой blogUrl, token, discussionChatId и channelChatId; затем разверни конфигурацию.' });
             return;
         }
-        const result = command === '/retry' && ready(config) ? await flush(config, store, send, Date.now, 20, false, 3) : null;
+        const result = command === '/retry' && ready(config) ? await flush(config, store, createSender(), Date.now, 20, false) : null;
         const status = await store.status();
         const health = await checkReceiver();
         await api.sendMessage({ chat_id: message.chat.id, text: `${config.enabled === false ? 'Импорт выключен в настройках блога.\n' : ''}${result ? `Передано: ${result.delivered}.\n` : ''}В очереди: ${status.count}.\n${health}\n${status.errors.map(e => `${e.last_error || 'ожидает'}: ${e.count}`).join('\n')}` });
@@ -72,5 +74,5 @@ export async function receive(message, ctx) {
     }
     if (message.chat?.id !== config.discussionChatId || !ready(config)) return;
     if (!ingested) await ingest(message, ctx.update.update_id, config, store);
-    await flush(config, store, send, Date.now, 20, true, 3);
+    await flush(config, store, createSender(), Date.now, 20, true);
 }
