@@ -183,6 +183,91 @@ final class SharedEditorMediaCest
         }
     }
 
+    public function encodedPageImagesProtectPendingUploadsFromRenamingAndCleanup(\IntegrationTester $I): void
+    {
+        $I->login('admin', 'admin');
+        $I->amOnPage('https://localhost/');
+
+        $token = (string)$I->grabAttributeFrom('.post-create-template input[name="inplace_token"]', 'value');
+        $db = $I->grabService(DbLayer::class);
+        $repository = $I->grabService(PostMediaRepository::class);
+        $files = [];
+        try {
+            foreach (['%2e', '&#46;'] as $index => $dot) {
+                $file = tempnam(sys_get_temp_dir(), 'register-encoded-media-');
+                if ($file === false) {
+                    throw new \RuntimeException('Unable to create an upload fixture.');
+                }
+
+                $files[] = $file;
+                file_put_contents($file, (string)base64_decode(self::PNG, true));
+                $I->sendPost('https://localhost/_inplace/post/new', [
+                    'inplace_action' => 'media', 'inplace_token' => $token, 'published_at' => (string)(time() - 60),
+                    'media_width' => '1', 'media_height' => '1', 'media_display_width' => '1', 'media_display_height' => '1',
+                ], ['media' => new UploadedFile($file, 'image.png', 'image/png', null, true)]);
+                $I->seeResponseCodeIs(Response::HTTP_OK);
+                $upload = $this->response($I);
+                $mediaId = (int)$upload['media_id'];
+                $files[] = $storedFile = __DIR__ . '/../_output/images' . $repository->find($mediaId)['storage_path'];
+
+                $root = (int)$db->select('id')->from(ContentSchema::TABLE_NAME)
+                    ->where("content_type = 'page' AND parent_id IS NULL")->execute()->result();
+                $db->insert(ContentSchema::TABLE_NAME)->values([
+                    'content_type' => "'page'", 'parent_id' => ':parent', 'slug_scope' => ':scope',
+                    'slug' => ':slug', 'title' => "'Encoded image page'", 'body' => "'<p>Original page.</p>'",
+                    'excerpt' => "''", 'published' => '1', 'published_at' => ':published',
+                    'created_at' => ':created', 'updated_at' => ':updated', 'revision' => '1',
+                ])->execute(['parent' => $root, 'scope' => 'page:' . $root, 'slug' => 'encoded-image-' . $index,
+                    'published' => time() - 60, 'created' => time() - 60, 'updated' => time() - 60]);
+                $pageId = (int)$db->insertId();
+                $url = 'https://localhost/_admin/index.php?entity=Article&action=edit&id=' . $pageId;
+                $I->amOnPage($url);
+                $values = $I->grabFormValues('form[name="article-form"]');
+                $body = '<p>A reused upload.</p><img src="' . str_replace('.', $dot, (string)$upload['url']) . '" alt="Shared">';
+                $I->sendAjaxPostRequest($url, [...$values, 'body' => $body]);
+                $I->seeResponseCodeIs(Response::HTTP_OK);
+                $I->assertTrue($this->response($I)['success']);
+                $I->assertSame($body, $db->select('body')->from(ContentSchema::TABLE_NAME)
+                    ->where('id = :id')->setParameter('id', $pageId)->execute()->result());
+
+                $I->sendAjaxPostRequest('https://localhost/_inplace/post/new', [
+                    'inplace_action' => 'media_redate', 'inplace_token' => $token, 'media_ids' => (string)$mediaId,
+                    'published_at' => (string)(time() - 4 * 86400),
+                ]);
+                $I->seeResponseCodeIs(Response::HTTP_OK);
+                $current = $this->response($I)['media'][0];
+                $files[] = __DIR__ . '/../_output/images' . $repository->find($mediaId)['storage_path'];
+                $I->assertSame($upload['url'], $current['url']);
+                $I->assertFileExists($storedFile);
+
+                $db->update(ContentMediaSchema::FILE_TABLE)->set('created_at', ':old')->setParameter('old', time() - 8 * 86400)
+                    ->where('id = :id')->setParameter('id', $mediaId)->execute();
+                $I->assertNotContains($mediaId, array_map(static fn(array $row): int => (int)$row['id'], $repository->staleUnusedMedia(time())));
+                $release = ['inplace_action' => 'media_release', 'inplace_token' => $token, 'media_ids' => (string)$mediaId];
+                $I->sendAjaxPostRequest('https://localhost/_inplace/post/new', $release);
+                $I->seeResponseCodeIs(Response::HTTP_OK);
+                $I->assertNotNull($repository->find($mediaId));
+                $I->assertFileExists($storedFile);
+
+                $I->amOnPage($url);
+                $values = $I->grabFormValues('form[name="article-form"]');
+                $I->sendAjaxPostRequest($url, [...$values, 'body' => '<p>No image anymore.</p>']);
+                $I->seeResponseCodeIs(Response::HTTP_OK);
+                $I->assertTrue($this->response($I)['success']);
+                $I->sendAjaxPostRequest('https://localhost/_inplace/post/new', $release);
+                $I->seeResponseCodeIs(Response::HTTP_OK);
+                $I->assertNull($repository->find($mediaId));
+                $I->assertFileDoesNotExist($storedFile);
+            }
+        } finally {
+            foreach ($files as $file) {
+                if (is_file($file)) {
+                    unlink($file);
+                }
+            }
+        }
+    }
+
     /** @return array<mixed> */
     private function response(\IntegrationTester $I): array
     {

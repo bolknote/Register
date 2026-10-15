@@ -111,6 +111,81 @@ final class PostMediaDeletionTest extends Unit
         }
     }
 
+    public function testEncodedReferencesProtectMediaInBodiesAndSocialMetadata(): void
+    {
+        foreach (['', 'cms_'] as $prefix) {
+            $pdo = new \PDO('sqlite::memory:');
+            $pdo->exec('CREATE TABLE ' . $prefix . 'users (id INTEGER PRIMARY KEY)');
+            $pdo->exec('CREATE TABLE ' . $prefix . "content (id INTEGER PRIMARY KEY, body TEXT DEFAULT '', social_image TEXT DEFAULT '')");
+            $pdo->exec('INSERT INTO ' . $prefix . 'users VALUES (1)');
+            $pdo->exec('INSERT INTO ' . $prefix . 'content (id) VALUES (1)');
+            $db = new DbLayerSqlite($pdo, $prefix);
+            ContentMediaSchema::create($db);
+            $repository = new PostMediaRepository($db, '/media');
+            $path = '/uploads/2026.01.02@2x.png';
+            $shared = $repository->register($this->media($path));
+            $orphan = $repository->register($this->media('/uploads/unused.png'));
+            $db->update(ContentMediaSchema::FILE_TABLE)->set('created_at', '1')->execute();
+
+            foreach (['body', 'social_image'] as $column) {
+                foreach ([
+                    str_replace('@', '%40', $path),
+                    str_replace('.', '%2e', $path),
+                    str_replace('/', '%2F', $path),
+                    str_replace('@', '&#x40;', $path),
+                    str_replace('.', '&#46;', $path),
+                    str_replace('/', '&sol;', $path),
+                    str_replace('@', '&#37;40', $path),
+                ] as $encoded) {
+                    $reference = '/media' . $encoded;
+                    $db->update('content')->set('body', ':body')->set('social_image', ':social')
+                        ->setParameter('body', $column === 'body' ? '<img src="' . $reference . '">' : '')
+                        ->setParameter('social', $column === 'social_image' ? $reference : '')
+                        ->where('id = 1')->execute();
+                    self::assertTrue($repository->hasStoredReferences($path), $reference);
+                    self::assertFalse($repository->hasStoredReferences('/uploads/2026.01.03@2x.png'));
+                    self::assertFalse($repository->deleteUnused($shared), $reference);
+                    self::assertSame([$orphan], array_column($repository->staleUnusedMedia(10, 1), 'id'));
+                }
+            }
+
+            $db->update('content')->set('body', "''")->set('social_image', "''")->execute();
+            self::assertTrue($repository->deleteUnused($shared));
+        }
+    }
+
+    public function testEncodedReferencesCannotStarveStaleMediaCleanup(): void
+    {
+        $pdo = new \PDO('sqlite::memory:');
+        $pdo->exec('CREATE TABLE users (id INTEGER PRIMARY KEY)');
+        $pdo->exec("CREATE TABLE content (id INTEGER PRIMARY KEY, body TEXT DEFAULT '', social_image TEXT DEFAULT '')");
+        $pdo->exec('INSERT INTO users VALUES (1)');
+        $pdo->exec('INSERT INTO content (id) VALUES (1)');
+
+        $db = new DbLayerSqlite($pdo);
+        ContentMediaSchema::create($db);
+        $repository = new PostMediaRepository($db, '/media');
+        for ($page = 2; $page <= 25; ++$page) {
+            $db->insert('content')->values(['id' => ':id', 'body' => ':body'])
+                ->execute(['id' => $page, 'body' => '<a href="/other?from=archive&amp;page=' . $page . '">Archive</a>']);
+        }
+
+        $images = [];
+        for ($index = 0; $index < 120; ++$index) {
+            $path = '/uploads/2026.01.02.' . $index . '@2x.png';
+            $repository->register($this->media($path));
+            $images[] = '<img src="/media' . str_replace('.', '%2e', $path) . '">';
+        }
+
+        $db->update('content')->set('body', ':body')->setParameter('body', implode('', $images))->where('id = 25')->execute();
+        $db->update(ContentMediaSchema::FILE_TABLE)->set('created_at', '1')->execute();
+        $orphan = $repository->register($this->media('/uploads/unused.png'));
+        $db->update(ContentMediaSchema::FILE_TABLE)->set('created_at', '2')->where('id = :id')->setParameter('id', $orphan)->execute();
+
+        self::assertSame([$orphan], array_column($repository->staleUnusedMedia(10, 1), 'id'));
+        self::assertSame([$orphan], array_column($repository->staleUnusedMedia(10), 'id'));
+    }
+
     /** @return array{original_name: string, normalized_name: string, storage_path: string, mime_type: string, kind: string, byte_size: int, width: int, height: int, uploaded_by: int} */
     private function media(string $path): array
     {

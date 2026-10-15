@@ -14,11 +14,14 @@ use Register\Content\ContentMediaIdentitySchema;
 use Register\Content\ContentSchema;
 use Register\Core\Pdo\DbLayer;
 use Register\Core\Pdo\DbLayerPostgres;
+use Register\Core\Pdo\QueryResult;
 
 /** Keeps the media registry in sync with media ids embedded by the post editor. */
 final readonly class PostMediaRepository
 {
     private const int MAX_MEDIA_PER_POST = 1000;
+
+    private const int CONTENT_REFERENCE_BATCH_SIZE = 16;
 
     private string $mediaUrlPrefix;
 
@@ -197,7 +200,7 @@ final readonly class PostMediaRepository
         return (int)$this->dbLayer->select('COUNT(*)')->from(ContentSchema::TABLE_NAME)
             ->where("body LIKE :body_media_path ESCAPE '!' OR social_image LIKE :social_media_path ESCAPE '!'")
             ->setParameter('body_media_path', $path)->setParameter('social_media_path', $path)
-            ->execute()->result() > 0;
+            ->execute()->result() > 0 || $this->encodedReferenceIds([$storagePath]) !== [];
     }
 
     /**
@@ -236,6 +239,10 @@ final readonly class PostMediaRepository
             return false;
         }
 
+        if ($this->encodedReferenceIds([$mediaId => (string)$media['storage_path']]) !== []) {
+            return false;
+        }
+
         // Pages and authored HTML can reuse a file without editor media ids.
         // Be conservative at the destructive boundary: a stored path anywhere
         // in content still owns the file, even without a post-usage relation.
@@ -267,31 +274,117 @@ final readonly class PostMediaRepository
             return [];
         }
 
+        $limit = min($limit, 1000);
+        $batchSize = max(100, $limit);
+        $rows = [];
+        $after = null;
+        do {
+            $result = $this->staleMediaBatch($createdBefore, $batchSize, $after);
+            $batch = [];
+            $paths = [];
+            while (($row = $result->fetchAssoc()) !== false) {
+                $batch[] = $row;
+                $paths[(int)$row['id']] = (string)$row['storage_path'];
+                $after = ['created_at' => (int)$row['created_at'], 'id' => (int)$row['id']];
+            }
+
+            // Filter encoded references in batches, continuing past protected
+            // rows so a gallery cannot starve unreferenced files after LIMIT.
+            $encodedReferences = $this->encodedReferenceIds($paths);
+            foreach ($batch as $row) {
+                if (isset($encodedReferences[(int)$row['id']])) {
+                    continue;
+                }
+
+                $rows[] = $row;
+                if (\count($rows) === $limit) {
+                    return $rows;
+                }
+            }
+        } while (\count($batch) === $batchSize);
+
+        return $rows;
+    }
+
+    /** @param array{created_at: int, id: int}|null $after */
+    private function staleMediaBatch(int $createdBefore, int $limit, ?array $after): QueryResult
+    {
         $fileTable = $this->dbLayer->getPrefix() . ContentMediaSchema::FILE_TABLE;
         $usageTable = $this->dbLayer->getPrefix() . ContentMediaSchema::USAGE_TABLE;
         $contentTable = $this->dbLayer->getPrefix() . ContentSchema::TABLE_NAME;
         $positionFunction = $this->dbLayer instanceof DbLayerPostgres ? 'STRPOS' : 'INSTR';
-        $result = $this->dbLayer
+        $query = $this->dbLayer
             ->select('*')
             ->from(ContentMediaSchema::FILE_TABLE)
             ->where('usage_count = 0')
             // Published orphans also need cleanup after a bulk-delete transaction.
-            // Exclude shared files before LIMIT so they cannot starve old uploads.
             ->andWhere('NOT EXISTS (SELECT 1 FROM ' . $usageTable . ' WHERE media_id = ' . $fileTable . '.id)')
             ->andWhere('NOT EXISTS (SELECT 1 FROM ' . $contentTable
                 . ' WHERE ' . $positionFunction . '(body, ' . $fileTable . '.storage_path) > 0 OR '
                 . $positionFunction . '(social_image, ' . $fileTable . '.storage_path) > 0)')
             ->andWhere('created_at < :created_before')->setParameter('created_before', $createdBefore)
             ->orderBy('created_at ASC, id ASC')
-            ->limit(min($limit, 1000))
-            ->execute()
+            ->limit($limit)
         ;
-        $rows = [];
-        while (($row = $result->fetchAssoc()) !== false) {
-            $rows[] = $row;
+        if ($after !== null) {
+            $query->andWhere('(created_at > :after_created OR (created_at = :same_created AND id > :after_id))')
+                ->setParameter('after_created', $after['created_at'])
+                ->setParameter('same_created', $after['created_at'])
+                ->setParameter('after_id', $after['id']);
         }
 
-        return $rows;
+        return $query->execute();
+    }
+
+    /**
+     * @param array<int, string> $paths Storage paths keyed by media id.
+     * @return array<int, true>
+     */
+    private function encodedReferenceIds(array $paths): array
+    {
+        if ($paths === []) {
+            return [];
+        }
+
+        // Retain the conservative substring check used for plain references,
+        // including authored HTML, CSS and social metadata without media ids.
+        // Only bodies with encoding markers need this additional scan.
+        $positionFunction = $this->dbLayer instanceof DbLayerPostgres ? 'STRPOS' : 'INSTR';
+        $referenced = [];
+        $afterId = 0;
+        do {
+            // PDO may buffer a whole result set, so do not select every body
+            // in a large archive at once. The id cursor also avoids OFFSET scans.
+            $result = $this->dbLayer->select('id, body, social_image')->from(ContentSchema::TABLE_NAME)
+                ->where('id > :after_id')->setParameter('after_id', $afterId)
+                ->andWhere($positionFunction . "(body, '%') > 0 OR " . $positionFunction . "(body, '&') > 0 OR "
+                    . $positionFunction . "(social_image, '%') > 0 OR " . $positionFunction . "(social_image, '&') > 0")
+                ->orderBy('id ASC')->limit(self::CONTENT_REFERENCE_BATCH_SIZE)
+                ->execute();
+            $readCount = 0;
+            while (($row = $result->fetchAssoc()) !== false) {
+                $afterId = (int)$row['id'];
+                ++$readCount;
+                foreach (['body', 'social_image'] as $column) {
+                    $html = html_entity_decode((string)$row[$column], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                    $decoded = rawurldecode($html);
+                    foreach ($paths as $id => $path) {
+                        if (str_contains($html, $path) || str_contains($decoded, $path)) {
+                            $referenced[$id] = true;
+                            unset($paths[$id]);
+                        }
+                    }
+
+                    if ($paths === []) {
+                        return $referenced;
+                    }
+                }
+            }
+
+            $result->freeResult();
+        } while ($readCount === self::CONTENT_REFERENCE_BATCH_SIZE);
+
+        return $referenced;
     }
 
     private function mediaPathPattern(string $storagePath): string

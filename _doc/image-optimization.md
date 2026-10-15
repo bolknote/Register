@@ -38,6 +38,8 @@ not replace them; a rollback leaves a moved file in place if its original pathna
 
 Unused media are removed under the editorial mutex, using their current registered path. If the
 filesystem refuses a deletion, its registry row remains available for a later cleanup attempt.
+Stored page content, authored HTML and social images protect shared uploads even when their URLs
+use percent escapes or HTML entities. Such references prevent both cleanup and date-based renaming.
 
 ## Dimensions and Retina behavior
 
