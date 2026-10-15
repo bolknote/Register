@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentMediaIdentitySchema;
 use Register\Content\ContentMediaSchema;
 use Register\Content\ContentSchema;
 use Register\Core\Pdo\DbLayer;
@@ -13,6 +14,82 @@ use Symfony\Component\HttpFoundation\Response;
 
 final class PostMediaRecoveryCest
 {
+    public function aPreUpgradeUploadCanBeReconciledAndSavedFromALegacyDraft(\IntegrationTester $I): void
+    {
+        $db = $I->grabService(DbLayer::class);
+        $repository = $I->grabService(PostMediaRepository::class);
+        $root = __DIR__ . '/../_output/images';
+        $yearDirectory = $root . '/1999';
+        $directory = $yearDirectory . '/01';
+        $hadYear = is_dir($yearDirectory);
+        $hadMonth = is_dir($directory);
+        if (!$hadMonth) {
+            $I->assertTrue(mkdir($directory, 0700, true));
+        }
+
+        $legacy = '/1999/01/' . bin2hex(random_bytes(16)) . '.png';
+        $file = $root . $legacy;
+        try {
+            $bytes = (string)base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQAAAAA3bvkkAAAACklEQVR4AWNgAAAAAgABc3UBGAAAAABJRU5ErkJggg==', true);
+            $I->assertNotFalse(file_put_contents($file, $bytes));
+            $author = (int)$db->select('id')->from('users')->where('login = :login')
+                ->setParameter('login', 'author')->execute()->result();
+            $id = $repository->register(['original_name' => 'scan.png', 'normalized_name' => 'scan.png',
+                'storage_path' => $legacy, 'mime_type' => 'image/png', 'kind' => 'image', 'byte_size' => \strlen($bytes),
+                'width' => 1, 'height' => 1, 'uploaded_by' => $author]);
+            // The identity migration retains pre-upgrade ids with a zero stamp.
+            $db->update(ContentMediaIdentitySchema::TABLE_NAME)->set('created_at', '0')
+                ->where('id = :id')->setParameter('id', $id)->execute();
+            $I->login('author', 'author');
+            $I->amOnPage('https://localhost/');
+            $token = (string)$I->grabAttributeFrom('.post-create-template input[name="inplace_token"]', 'value');
+            $publishedAt = (string)strtotime('2001-01-02 12:00:00');
+            $I->sendAjaxPostRequest('https://localhost/_inplace/post/new', [
+                'inplace_action' => 'media_redate', 'inplace_token' => $token,
+                'published_at' => $publishedAt, 'media_ids' => (string)$id, 'legacy_media_ids' => (string)$id,
+            ]);
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+
+            $response = $I->grabJson();
+            $I->assertIsArray($response);
+            $media = $response['media'][0];
+            $I->assertSame($repository->url($legacy), $media['url']);
+            $I->assertSame('scan.png', $media['name']);
+            $I->assertFalse($media['persistent_identity']);
+            $I->assertFileExists($file);
+            $I->assertSame($bytes, file_get_contents($file));
+
+            $body = '<p>Restored draft.</p><img src="' . $media['url'] . '" data-post-media-id="' . $id . '" width="1" height="1" alt="Scan">';
+            $I->sendAjaxPostRequest('https://localhost/_inplace/post/new', [
+                'inplace_action' => 'create', 'inplace_token' => $token,
+                'request_id' => 'legacy-upload-' . bin2hex(random_bytes(8)),
+                'title' => 'Restored legacy upload', 'body' => $body, 'tags' => '', 'published_at' => $publishedAt,
+                'uploaded_media_ids' => (string)$id, 'legacy_media_ids' => (string)$id,
+            ]);
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+
+            $saved = $I->grabJson();
+            $I->assertIsArray($saved);
+            $I->assertSame($body, $saved['body']);
+            $I->assertSame($legacy, $repository->find($id)['storage_path']);
+            $I->assertSame(1, (int)$repository->find($id)['usage_count']);
+            $I->assertSame(0, (int)$repository->find($id)['pending']);
+            $I->assertFileExists($file);
+        } finally {
+            if (is_file($file)) {
+                unlink($file);
+            }
+
+            if (!$hadMonth) {
+                rmdir($directory);
+            }
+
+            if (!$hadYear) {
+                rmdir($yearDirectory);
+            }
+        }
+    }
+
     public function expiredDraftCannotAdoptAnotherUploadAndCanBeSavedAfterReplacingItsImage(\IntegrationTester $I): void
     {
         $db = $I->grabService(DbLayer::class);

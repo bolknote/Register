@@ -17,9 +17,13 @@ Set the destination relative to `_pictures/` in the deployment configuration:
 An empty value keeps post media directly in `_pictures/`. The browser cannot override this
 directory or filename: the public upload controller chooses both under an exclusive allocation lock.
 
-The date always comes from the current publication-date field of the note, including a past or future
-date. If that field changes after an upload but before saving, pending media are renamed before the
-HTML is serialized.
+For new uploads, the date comes from the current publication-date field of the note, including a
+past or future date. If that field changes after an upload but before saving, pending media are
+renamed before the HTML is serialized.
+
+Uploads made before canonical naming keep their existing `yyyy/mm/<hash>.ext` URLs when restored
+from a local draft. Reconciliation verifies that a pending file exists even when no rename is
+needed, so a missing file cannot pass this preparation step merely because its date is unchanged.
 
 Names retain the historical sequence:
 

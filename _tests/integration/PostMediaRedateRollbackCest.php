@@ -94,6 +94,28 @@ final class PostMediaRedateRollbackCest
         });
     }
 
+    public function missingUploadsFailReconciliationEvenWithoutADateChange(\IntegrationTester $I): void
+    {
+        $this->withMediaDirectory($I, function (string $directory, string $token) use ($I): void {
+            $upload = $this->upload($I, $token);
+            $file = $directory . '/' . $upload['name'];
+            $bytes = file_get_contents($file);
+            $I->assertIsString($bytes);
+            $I->assertTrue(unlink($file));
+            $this->redate($I, $token, [(int)$upload['media_id']], '2001-01-01', 503);
+            $I->assertFileDoesNotExist($file);
+            $I->assertSame($upload['name'], basename($I->grabService(PostMediaRepository::class)
+                ->find((int)$upload['media_id'])['storage_path']));
+
+            // A transiently unavailable file can be restored and saved again.
+            $I->assertNotFalse(file_put_contents($file, $bytes));
+
+            $retry = $this->redate($I, $token, [(int)$upload['media_id']], '2001-01-01');
+            $I->assertSame($upload['url'], $retry['url']);
+            $I->assertFileExists($file);
+        });
+    }
+
     /** @param \Closure(string, string): void $test */
     private function withMediaDirectory(\IntegrationTester $I, \Closure $test): void
     {

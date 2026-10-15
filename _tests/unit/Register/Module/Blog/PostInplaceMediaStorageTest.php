@@ -87,6 +87,52 @@ final class PostInplaceMediaStorageTest extends Unit
         self::assertFileExists($this->directory . '/pictures' . $move['to']);
     }
 
+    public function testRedatingChecksTheFileEvenWhenItsDateIsUnchanged(): void
+    {
+        $storage = $this->storage();
+        $date = $this->date('2026-01-01');
+        $original = $storage->storeCanonical($this->upload(), $date, false);
+        self::assertSame(['from' => $original, 'to' => $original], $storage->redateCanonical($original, $date));
+        $storage->delete($original);
+        foreach ([$date, $date + 86400] as $publishedAt) {
+            $failure = null;
+            try {
+                $storage->redateCanonical($original, $publishedAt);
+            } catch (\RuntimeException $exception) {
+                $failure = $exception;
+            }
+
+            self::assertInstanceOf(\RuntimeException::class, $failure, 'A missing pending upload must not be accepted for saving.');
+            self::assertSame(503, $failure->getCode());
+            self::assertSame('The uploaded media file is missing.', $failure->getMessage());
+        }
+    }
+
+    public function testUploadsFromBeforeCanonicalNamingRetainTheirExistingPaths(): void
+    {
+        $legacy = '/2026/01/' . str_repeat('a', 32) . '.png';
+        $file = $this->directory . '/pictures' . $legacy;
+        self::assertTrue(mkdir(dirname($file), 0700, true));
+        self::assertNotFalse(file_put_contents($file, $this->png()));
+        $storage = $this->storage();
+        foreach (['2026-01-01', '2026-01-02', '2027-04-01'] as $date) {
+            self::assertSame(['from' => $legacy, 'to' => $legacy], $storage->redateCanonical($legacy, $this->date($date)));
+            self::assertFileExists($file);
+            self::assertSame($this->png(), file_get_contents($file));
+        }
+
+        $storage->delete($legacy);
+        $failure = null;
+        try {
+            $storage->redateCanonical($legacy, $this->date('2027-04-01'));
+        } catch (\RuntimeException $exception) {
+            $failure = $exception;
+        }
+
+        self::assertInstanceOf(\RuntimeException::class, $failure, 'Legacy uploads must be checked for missing files, too.');
+        self::assertSame(503, $failure->getCode());
+    }
+
     public function testNestedOperationsKeepTheNameLockUntilItsLastLeaseIsReleased(): void
     {
         $storage = $this->storage();

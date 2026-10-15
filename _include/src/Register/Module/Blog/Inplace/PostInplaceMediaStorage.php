@@ -20,6 +20,8 @@ final class PostInplaceMediaStorage
 {
     private const int MAX_CANONICAL_ORDINAL = 10000;
 
+    private const string LEGACY_PATH_PATTERN = '~^/[0-9]{4}/[0-9]{2}/[a-f0-9]{32}\.[a-z0-9]+$~D';
+
     private readonly string $mediaDirectory;
 
     private readonly string $contentDirectory;
@@ -84,16 +86,21 @@ final class PostInplaceMediaStorage
      */
     public function redateCanonical(string $storedFile, int $publishedAt): array
     {
-        $parts = $this->canonicalParts($storedFile);
+        $source = $this->fullPath($storedFile);
+        $parts = preg_match(self::LEGACY_PATH_PATTERN, $storedFile) === 1
+            ? null
+            : $this->canonicalParts($storedFile);
         $date = date('Y.m.d', $publishedAt);
-        if ($parts['date'] === $date) {
-            return ['from' => $storedFile, 'to' => $storedFile];
-        }
 
-        return $this->withNameLock(function () use ($storedFile, $parts, $date): array {
-            $source = $this->fullPath($storedFile);
+        return $this->withNameLock(function () use ($storedFile, $source, $parts, $date): array {
             if (!is_file($source)) {
                 throw new \RuntimeException('The uploaded media file is missing.', Response::HTTP_SERVICE_UNAVAILABLE);
+            }
+
+            // Pre-upgrade uploads retain their hash paths and original layout.
+            // An unchanged name still needs a file before a draft can use it.
+            if ($parts === null || $parts['date'] === $date) {
+                return ['from' => $storedFile, 'to' => $storedFile];
             }
 
             $storedName = $this->nextName($date, $parts['extension'], $parts['retina']);
@@ -325,8 +332,7 @@ final class PostInplaceMediaStorage
         $canonicalPrefix = preg_quote($this->contentDirectory, '~');
         $canonical = '~^' . $canonicalPrefix
             . '/\d{4}\.\d{2}\.\d{2}(?:\.\d+)?(?:@2x)?\.[a-z0-9]+$~D';
-        $legacy = '~^/[0-9]{4}/[0-9]{2}/[a-f0-9]{32}\.[a-z0-9]+$~D';
-        if (preg_match($canonical, $storedFile) !== 1 && preg_match($legacy, $storedFile) !== 1) {
+        if (preg_match($canonical, $storedFile) !== 1 && preg_match(self::LEGACY_PATH_PATTERN, $storedFile) !== 1) {
             throw new \InvalidArgumentException('Invalid stored media path.');
         }
 
