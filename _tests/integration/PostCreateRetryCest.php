@@ -26,6 +26,7 @@ final class PostCreateRetryCest
         $first = $I->grabJson();
         $I->assertIsArray($first);
         $I->assertArrayHasKey('foot_html', $first);
+        $I->assertJsonSubResponseEquals($values['body'], ['body']);
 
         $count = (int)$db->select('COUNT(*)')->from(ContentSchema::TABLE_NAME)->execute()->result();
         $cursor = $I->grabService(LiveUpdateRepository::class)->currentCursor();
@@ -105,10 +106,22 @@ final class PostCreateRetryCest
             'body' => '<p>Saved later.</p>',
         ]);
         $I->seeResponseCodeIs(200);
+        $I->assertJsonSubResponseEquals('<p>Saved later.</p>', ['body']);
         $I->sendAjaxPostRequest($url, $values);
         $I->seeResponseCodeIs(200);
         $I->assertJsonSubResponseEquals(2, ['revision']);
+        $I->assertJsonSubResponseEquals('<p>Saved later.</p>', ['body']);
         $I->assertJsonSubResponseEquals("<div class=\"post body\" data-post-inplace-body><p>Saved later.</p></div>\n", ['body_html']);
+
+        $replayed = $I->grabJson();
+        $I->assertIsArray($replayed);
+        $I->sendAjaxPostRequest('https://localhost' . $replayed['action_url'], [...$values,
+            'inplace_action' => 'edit', 'inplace_token' => $replayed['token'], 'revision' => (string)$replayed['revision'],
+            'title' => 'Title changed after replay', 'body' => $replayed['body'],
+        ]);
+        $I->seeResponseCodeIs(200);
+        $I->assertSame('<p>Saved later.</p>', $I->grabService(DbLayer::class)->select('body')->from(ContentSchema::TABLE_NAME)
+            ->where('id = :id')->setParameter('id', $post['id'])->execute()->result());
     }
 
     public function retryCannotAdoptAReplacementCreatedBeforeTheEditorialLock(\IntegrationTester $I): void

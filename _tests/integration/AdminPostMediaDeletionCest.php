@@ -201,11 +201,13 @@ final class AdminPostMediaDeletionCest
             $db->update(ContentMediaSchema::FILE_TABLE)->set('created_at', ':old')->setParameter('old', time() - 31 * 86400)
                 ->where('id = :id')->setParameter('id', $mediaId)->execute();
             $I->assertContains($mediaId, array_map(static fn(array $row): int => (int)$row['id'], $repository->staleUnusedMedia(time())));
-            // The ordinary upload workflow collects old unreferenced files.
+            // Upload-triggered cleanup also waits for the enclosing transaction;
+            // independent cleaner tests cover collection after the commit.
             $next = $this->upload($I, $token, $uploadFile, time() - 2 * 86400);
             $files[] = __DIR__ . '/../_output/images' . $repository->find((int)$next['media_id'])['storage_path'];
-            $I->assertNull($repository->find($mediaId));
-            $I->assertFileDoesNotExist($storedFile);
+            $I->assertNotNull($repository->find($mediaId));
+            $I->assertFileExists($storedFile);
+            $I->assertContains($mediaId, array_map(static fn(array $row): int => (int)$row['id'], $repository->staleUnusedMedia(time())));
         } finally {
             foreach ($files as $file) {
                 if (is_file($file)) {

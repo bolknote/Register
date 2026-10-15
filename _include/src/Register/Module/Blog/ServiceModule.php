@@ -260,6 +260,7 @@ final class ServiceModule implements ContainerModuleInterface
             $container->get(PostMediaRepository::class),
             $container->get(PostInplaceMediaStorage::class),
             $container->get(\Register\Url\UrlHistoryService::class),
+            $container->get(\PDO::class),
         ));
         $container->set(Inplace\PostCreateOperations::class, static fn(Container $container): Inplace\PostCreateOperations => new Inplace\PostCreateOperations($container->get(DbLayer::class)));
         $container->set(PostInplaceController::class, static fn(Container $container): PostInplaceController => new PostInplaceController(

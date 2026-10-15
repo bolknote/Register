@@ -51,6 +51,10 @@ final class PostMediaRecoveryCest
                 . '" data-post-media-id="' . $originalId . '" width="1" height="1" alt="Original">';
             $db->update(ContentMediaSchema::FILE_TABLE)->set('created_at', ':created')
                 ->setParameter('created', time() - 8 * 86400)->where('id = :id')->setParameter('id', $originalId)->execute();
+            // Model garbage collection already committed before the draft is
+            // restored; this test itself runs inside a rollback-only transaction.
+            $I->assertTrue($repository->deleteUnused($originalId));
+            $I->assertTrue(unlink($this->storedPath($original['url'])));
             $replacement = $upload(time() - 60);
             $replacementId = (int)$replacement['media_id'];
             $I->assertNotSame($originalId, $replacementId);

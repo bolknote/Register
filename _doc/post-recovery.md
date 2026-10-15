@@ -35,6 +35,8 @@ opened editor has no connection; it is not an offline server-synchronisation que
 Repeating a creation request after a lost response returns the original post's
 current state. If that post was deleted, the retry reports it as missing even when
 another post has reused its numeric identifier.
+The editor adopts the returned source and revision together, so a later title-only
+edit preserves changes saved in another window.
 
 Completed uploads referenced by a recovery copy are not released on page exit.
 They still obey the server's existing pending-upload expiry and may need to be

@@ -1286,7 +1286,7 @@ final class PostInplaceCest
         }
     }
 
-    public function tracksCanonicallyNamedImagesAndDeletesThemAfterRemoval(\IntegrationTester $I): void
+    public function tracksCanonicalImagesAndDefersRemovalInsideAnEnclosingTransaction(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabService(DbLayer::class);
@@ -1358,11 +1358,13 @@ final class PostInplaceCest
             $I->seeResponseCodeIs(Response::HTTP_OK);
             $unchanged = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
             $I->assertSame(2, $unchanged['revision']);
-            $I->assertFileDoesNotExist($discardedFile);
+            $I->assertFileExists($discardedFile);
+            $I->assertNotNull($mediaRegistry->find($discardedId));
+            $I->assertSame(0, (int)$mediaRegistry->find($discardedId)['usage_count']);
 
             $first = $upload();
             $I->seeResponseCodeIs(Response::HTTP_OK);
-            $I->assertSame('1991.01.30.png', $first['name']);
+            $I->assertSame('1991.01.30.1.png', $first['name']);
             $firstId = (int)$first['media_id'];
             $firstFile = $this->storedMediaPath($first['url']);
             $I->assertFileExists($firstFile);
@@ -1428,7 +1430,7 @@ final class PostInplaceCest
 
             $second = $upload();
             $I->seeResponseCodeIs(Response::HTTP_OK);
-            $I->assertSame('1991.01.30.1.png', $second['name']);
+            $I->assertSame('1991.01.30.2.png', $second['name']);
             $secondId = (int)$second['media_id'];
             $secondFile = $this->storedMediaPath($second['url']);
             $I->assertFileExists($secondFile);
@@ -1438,7 +1440,8 @@ final class PostInplaceCest
                 'media_ids'      => (string)$secondId,
             ]);
             $I->seeResponseCodeIs(Response::HTTP_OK);
-            $I->assertFileDoesNotExist($secondFile);
+            $I->assertFileExists($secondFile);
+            $I->assertNotNull($mediaRegistry->find($secondId));
 
             $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [
                 'inplace_action' => 'edit',
@@ -1449,13 +1452,17 @@ final class PostInplaceCest
                 'tags'           => '',
             ]);
             $I->seeResponseCodeIs(Response::HTTP_OK);
-            $I->assertFileDoesNotExist($firstFile);
-            $I->assertSame(0, (int)$dbLayer
+            $I->assertFileExists($firstFile);
+            $I->assertSame(1, (int)$dbLayer
                 ->select('COUNT(*)')
                 ->from(ContentMediaSchema::FILE_TABLE)
                 ->where('id = :id')->setParameter('id', $firstId)
                 ->execute()
                 ->result());
+            $retained = $mediaRegistry->find($firstId);
+            $I->assertNotNull($retained);
+            $I->assertSame(0, (int)$retained['usage_count']);
+            $I->assertContains($firstId, array_column($mediaRegistry->staleUnusedMedia(time() + 1), 'id'));
         } finally {
             foreach ([...$temporaryFiles, ...$storedFiles] as $filename) {
                 if (is_file($filename)) {
@@ -1465,7 +1472,7 @@ final class PostInplaceCest
         }
     }
 
-    public function preservesRecoveryUploadsWhileCleaningPrivateUploadsOnSave(\IntegrationTester $I): void
+    public function preservesRecoveryUploadsAndDefersPrivateUploadCleanupWithinAnEnclosingTransaction(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabService(DbLayer::class);
@@ -1534,8 +1541,9 @@ final class PostInplaceCest
                 $saved = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
                 $I->assertSame($changed ? $revision + 1 : $revision, $saved['revision']);
                 $revision = $saved['revision'];
-                $I->assertFileDoesNotExist($this->storedMediaPath($private['url']));
-                $I->assertNull($mediaRegistry->find($privateId));
+                $I->assertFileExists($this->storedMediaPath($private['url']));
+                $I->assertNotNull($mediaRegistry->find($privateId));
+                $I->assertSame(0, (int)$mediaRegistry->find($privateId)['usage_count']);
                 $I->assertFileExists($sharedFile);
                 $media = $mediaRegistry->find($sharedId);
                 $I->assertNotNull($media);

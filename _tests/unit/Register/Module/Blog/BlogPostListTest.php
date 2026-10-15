@@ -313,6 +313,7 @@ final class BlogPostListTest extends Unit
             ),
             new UrlHistoryService($pdo, $db, $urls, new ContentUrlAliasRepository($db), new TagUrlAliasRepository($db),
                 new ContentChangeDispatcher($db, $events, new LiveUpdateRepository($db))),
+            $pdo,
         );
         $factory = new BlogPostListControllerFactory(
             $urls, $blogUrls, $permissions, $pdo,

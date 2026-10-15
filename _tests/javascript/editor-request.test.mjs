@@ -43,6 +43,39 @@ test('a bounded retry resends the exact operation and reconciles a lost response
     assert.equal(calls, 2);
 });
 
+test('a transport failure while reading JSON retries the exact saved operation', async () => {
+    let calls = 0;
+    const body = new FormData();
+    body.set('request_id', 'stable-operation');
+    const request = helper(async (_url, options) => {
+        assert.equal(options.body, body);
+        if (++calls === 1) {
+            return new Response(new ReadableStream({
+                start(controller) {
+                    controller.enqueue(new TextEncoder().encode('{"success":'));
+                    controller.error(new TypeError('Connection lost while reading the response'));
+                },
+            }));
+        }
+        return new Response(JSON.stringify({id: 12, replayed: true}));
+    });
+    const result = await request('/create', {body}, {timeoutMs: 100, retries: 1});
+    assert.equal(result.data?.id, 12);
+    assert.equal(result.data?.replayed, true);
+    assert.equal(calls, 2);
+});
+
+test('a malformed JSON response is returned without retrying the operation', async () => {
+    let calls = 0;
+    const request = helper(async () => {
+        calls++;
+        return new Response('{"success":');
+    });
+    const result = await request('/create', {}, {timeoutMs: 100, retries: 1});
+    assert.equal(result.data, null);
+    assert.equal(calls, 1);
+});
+
 test('non-idempotent operations do not retry and cancellation keeps its signal', async () => {
     let calls = 0;
     const controller = new AbortController();

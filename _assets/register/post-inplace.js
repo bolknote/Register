@@ -2901,6 +2901,9 @@
             titleField.defaultValue = payload.title;
         }
         if (bodyField instanceof HTMLTextAreaElement) {
+            // A replay can return a newer saved revision than the submitted draft.
+            // Keep its raw source for the next edit; rendered HTML contains widgets.
+            if (typeof payload.body === 'string') bodyField.value = payload.body;
             bodyField.defaultValue = bodyField.value;
         }
         if (tagsField instanceof HTMLInputElement) {

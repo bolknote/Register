@@ -28,7 +28,12 @@
             try {
                 return await withDeadline((async () => {
                     const response = await window.fetch(url, {...init, signal: controller.signal});
-                    const data = response.redirected ? null : await response.json().catch(() => null);
+                    const data = response.redirected ? null : await response.json().catch(error => {
+                        // Invalid JSON is a received response. A broken body stream
+                        // is a lost response and must reach the bounded retry below.
+                        if (error?.name === 'SyntaxError') return null;
+                        throw error;
+                    });
                     return {response, data};
                 })(), options, () => controller.abort());
             } catch (error) {

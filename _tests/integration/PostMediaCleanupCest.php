@@ -19,9 +19,9 @@ final class PostMediaCleanupCest
 {
     private const string PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQAAAAA3bvkkAAAACklEQVR4AWNgAAAAAgABc3UBGAAAAABJRU5ErkJggg==';
 
-    public function failedDraftReleaseCanBeRetriedWithoutLosingTheMediaRegistry(\IntegrationTester $I, \Codeception\Scenario $scenario): void
+    public function draftReleaseDefersCleanupWhileAnEnclosingTransactionCanRollBack(\IntegrationTester $I): void
     {
-        $this->withMediaDirectory($I, $scenario, function (string $directory, string $token) use ($I, $scenario): void {
+        $this->withMediaDirectory($I, function (string $directory, string $token) use ($I): void {
             $upload = $this->upload($I, $token);
             $repository = $I->grabService(PostMediaRepository::class);
             $id = (int)$upload['media_id'];
@@ -29,23 +29,20 @@ final class PostMediaCleanupCest
             $release = static fn() => $I->sendAjaxPostRequest('https://localhost/_inplace/post/new', [
                 'inplace_action' => 'media_release', 'inplace_token' => $token, 'media_ids' => (string)$id,
             ]);
-            $this->preventDeletion($I, $scenario, $directory);
-            $I->expectThrowable(\RuntimeException::class, $release);
-            $I->assertFileExists($file);
-            $I->assertNotNull($repository->find($id));
-
-            $I->assertTrue(chmod($directory, 0700));
-            clearstatcache();
-            $release();
-            $I->seeResponseCodeIs(200);
-            $I->assertNull($repository->find($id));
-            $I->assertFileDoesNotExist($file);
+            for ($attempt = 0; $attempt < 2; ++$attempt) {
+                $release();
+                $I->seeResponseCodeIs(200);
+                $I->assertFileExists($file);
+                $I->assertNotNull($repository->find($id));
+                $I->assertSame(0, (int)$repository->find($id)['usage_count']);
+                $I->assertContains($id, array_column($repository->staleUnusedMedia(time() + 1), 'id'));
+            }
         });
     }
 
-    public function staleMediaCleanupRetriesAfterDirectoryPermissionsRecover(\IntegrationTester $I, \Codeception\Scenario $scenario): void
+    public function staleMediaCleanupWaitsForTheEnclosingTransactionToFinish(\IntegrationTester $I): void
     {
-        $this->withMediaDirectory($I, $scenario, function (string $directory, string $token) use ($I, $scenario): void {
+        $this->withMediaDirectory($I, function (string $directory, string $token) use ($I): void {
             $upload = $this->upload($I, $token);
             $repository = $I->grabService(PostMediaRepository::class);
             $db = $I->grabService(DbLayer::class);
@@ -53,28 +50,20 @@ final class PostMediaCleanupCest
             $file = $directory . '/' . basename($upload['url']);
             $db->update(ContentMediaSchema::FILE_TABLE)->set('created_at', ':old')
                 ->setParameter('old', time() - 8 * 86400)->where('id = :id')->setParameter('id', $id)->execute();
-            $this->preventDeletion($I, $scenario, $directory);
-            // An ordinary upload collects old drafts before trying to store its own file.
-            $this->upload($I, $token, 422);
-            $I->assertFileExists($file);
-            $I->assertNotNull($repository->find($id));
-            $I->assertContains($id, array_map(static fn(array $row): int => (int)$row['id'], $repository->staleUnusedMedia(time())));
-
-            $I->assertTrue(chmod($directory, 0700));
-            clearstatcache();
-            $this->upload($I, $token);
-            $I->assertNull($repository->find($id));
+            // Upload-triggered collection must not unlink a file while an
+            // enclosing unit of work can still restore its stored references.
+            for ($attempt = 0; $attempt < 2; ++$attempt) {
+                $this->upload($I, $token);
+                $I->assertFileExists($file);
+                $I->assertNotNull($repository->find($id));
+                $I->assertContains($id, array_column($repository->staleUnusedMedia(time()), 'id'));
+            }
         });
     }
 
     /** @param \Closure(string, string): void $test */
-    private function withMediaDirectory(\IntegrationTester $I, \Codeception\Scenario $scenario, \Closure $test): void
+    private function withMediaDirectory(\IntegrationTester $I, \Closure $test): void
     {
-        if (DIRECTORY_SEPARATOR === '\\') {
-            $scenario->skip('Requires POSIX directory permissions.');
-            return;
-        }
-
         $root = __DIR__ . '/../_output/images';
         $subdirectory = '/cleanup-' . bin2hex(random_bytes(6));
         $directory = $root . $subdirectory;
@@ -102,15 +91,6 @@ final class PostMediaCleanupCest
             }
 
             rmdir($directory);
-        }
-    }
-
-    private function preventDeletion(\IntegrationTester $I, \Codeception\Scenario $scenario, string $directory): void
-    {
-        $I->assertTrue(chmod($directory, 0500));
-        clearstatcache();
-        if (is_writable($directory)) {
-            $scenario->skip('The test user can override directory permissions.');
         }
     }
 

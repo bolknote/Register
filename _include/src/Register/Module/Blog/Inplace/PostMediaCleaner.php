@@ -18,11 +18,18 @@ final readonly class PostMediaCleaner
         private PostMediaRepository $repository,
         private PostInplaceMediaStorage $storage,
         private UrlHistoryService $urlHistory,
+        private \PDO $pdo,
     ) {
     }
 
     public function deleteUnused(int $mediaId): bool
     {
+        // An outer rollback can restore the file's owner after our savepoint
+        // finishes. Keep both the file and registry row for later collection.
+        if ($this->pdo->inTransaction()) {
+            return false;
+        }
+
         return $this->urlHistory->run(function () use ($mediaId): bool {
             // A queued cleanup candidate may have been renamed or published.
             // Read its current path under the same mutex as editorial writes.

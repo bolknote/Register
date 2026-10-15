@@ -158,8 +158,9 @@ final class SharedEditorMediaCest
                 'media_ids' => (string)$ids[1000],
             ]);
             $I->seeResponseCodeIs(Response::HTTP_OK);
-            $I->assertNull($repository->find($ids[1000]));
-            $I->assertFileDoesNotExist($files[1000]);
+            $I->assertNotNull($repository->find($ids[1000]));
+            $I->assertSame(0, (int)$repository->find($ids[1000])['usage_count']);
+            $I->assertFileExists($files[1000], 'The enclosing test transaction can still roll back.');
             $I->assertFileExists($files[999]);
 
             // Validation must continue past the thousandth distinct id, including
@@ -262,8 +263,10 @@ final class SharedEditorMediaCest
                 $I->assertTrue($this->response($I)['success']);
                 $I->sendAjaxPostRequest('https://localhost/_inplace/post/new', $release);
                 $I->seeResponseCodeIs(Response::HTTP_OK);
-                $I->assertNull($repository->find($mediaId));
-                $I->assertFileDoesNotExist($storedFile);
+                $I->assertNotNull($repository->find($mediaId));
+                $I->assertFileExists($storedFile, 'Cleanup waits for the enclosing transaction to commit.');
+                $I->assertContains($mediaId, array_map(static fn(array $row): int => (int)$row['id'],
+                    $repository->staleUnusedMedia(time())));
             }
         } finally {
             foreach ($files as $file) {

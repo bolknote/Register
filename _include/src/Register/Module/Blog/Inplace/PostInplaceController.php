@@ -792,6 +792,7 @@ final readonly class PostInplaceController implements ControllerInterface
             'time'      => $this->postProvider->displayDate($publishedAt, $dateChanged ? '' : (string)$post['date_label']),
             'scheduled' => $scheduled,
             'schedule_message' => $this->translator->trans('Scheduled post preview'),
+            'body'      => $body,
             'body_html' => $this->fragmentRenderer->render(
                 '<div class="post body" data-post-inplace-body>' . $body . '</div>',
             ),
@@ -987,6 +988,7 @@ final readonly class PostInplaceController implements ControllerInterface
             'time'           => $this->postProvider->displayDate($publishedAt, ''),
             'scheduled'      => $scheduled,
             'schedule_message' => $this->translator->trans('Scheduled post preview'),
+            'body'           => $body,
             'body_html'      => $this->fragmentRenderer->render(
                 '<div class="post body" data-post-inplace-body>' . $body . '</div>',
             ),
@@ -1039,6 +1041,7 @@ final readonly class PostInplaceController implements ControllerInterface
             'datetime' => gmdate(DATE_ATOM, $publishedAt),
             'time' => $this->postProvider->displayDate($publishedAt, (string)$post['date_label']),
             'scheduled' => $scheduled, 'schedule_message' => $this->translator->trans('Scheduled post preview'),
+            'body' => (string)$post['body'],
             'body_html' => $this->fragmentRenderer->render('<div class="post body" data-post-inplace-body>' . $post['body'] . '</div>'),
             'foot_html' => $this->fragmentRenderer->render($this->footerRenderer->render(
                 $postId, $url, $tags, (bool)$post['comments_enabled'], (int)$post['published'] === 0,
