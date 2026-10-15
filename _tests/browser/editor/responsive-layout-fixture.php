@@ -21,6 +21,9 @@ if (PHP_SAPI !== 'cli') {
 
 $root = dirname(__DIR__, 3) . '/';
 require $root . '_vendor/autoload.php';
+$mode = $argv[1] ?? '';
+$initialLayout = str_starts_with($mode, 'initial-layout');
+$role = $mode === 'initial-layout-moderator' ? 'moderator' : ($mode === 'initial-layout-guest' ? 'guest' : 'author');
 $provider = new DynamicConfigProvider();
 (new ReflectionClass($provider))->getProperty('params')->setValue($provider, ['REGISTER_STYLE' => 'register']);
 $viewer = new Viewer(new Translator(['locale' => 'ru', ...require $root . '_include/src/Register/Module/Blog/resources/lang/Russian.php'], 'ru'), new UrlBuilder('', '', ''), $root, $provider->getStringProxy('REGISTER_STYLE'), false);
@@ -68,6 +71,10 @@ $vars = [
     'showComments' => true, 'enabledComments' => true, 'see_also' => null,
     'inplace' => ['action_url' => '/_inplace/post/7', 'token' => 'fixture-token', 'revision' => 1, 'return_to' => '/', 'create' => false],
 ];
+if ($role !== 'author') {
+    $vars['inplace'] = null;
+}
+
 $account = $viewer->render('public_auth_account', [
     'user' => new AuthenticatedPublicUser(1, 'fixture', 'author@example.test', 'Тестовый автор', false, false, true, false, false, 'fixture-session'),
     'unread' => 0, 'live_region' => null, 'login_url' => '/auth', 'unread_url' => '/auth/unread',
@@ -76,7 +83,7 @@ $account = $viewer->render('public_auth_account', [
 $header = $viewer->render('site-header', [
     'site_name' => 'Обычный сайт с заметками', 'tagline' => 'Текст, иллюстрации и обсуждение на общей адаптивной сетке.',
     'home_url' => '/', 'is_home' => true,
-    'site_tools_html' => $viewer->render('site-header-tools', ['can_create_post' => true], Module::class),
+    'site_tools_html' => $role === 'author' ? $viewer->render('site-header-tools', ['can_create_post' => true], Module::class) : '',
     'public_auth_html' => $viewer->render('public_auth_header', ['account_html' => $account, 'dialog_html' => '']),
     'create_post_html' => null, 'editor_resources_html' => '',
 ], Module::class);
@@ -96,17 +103,36 @@ $db = new DbLayerSqlite(new PDO('sqlite::memory:'));
 (new Manifest())->installFresh($db);
 $reactions = (new ReactionRenderer(new ReactionRepository($db), new Translator([], 'en'), ''))->render(ContentId::post(7));
 $post = str_replace('<!-- register_reactions:post:7 -->', $reactions, $viewer->render('post', $vars, Module::class));
+if ($initialLayout) {
+    // An ordinary parser-blocking article script exposes frames before the
+    // document finishes loading, independently of network/cache speed.
+    $post = str_replace('<p id="responsive-after">', '<script src="/initial-layout-gate.js"></script><p id="responsive-after">', $post);
+}
+
+$comment = $viewer->render('comment', [
+    'id' => 1, 'i' => 1, 'depth' => 0, 'visual_depth' => 0, 'nick' => 'Читатель',
+    'good' => false, 'is_author' => false, 'time' => 1_700_000_001,
+    'text' => 'Тестовый комментарий к заметке.', 'show_addressee' => false, 'parent' => null, 'children' => '',
+    'moderation' => $role === 'moderator' ? [
+        'can_hide' => true, 'can_edit' => false, 'action_url' => '/comment-moderation',
+        'target' => 'post', 'token' => 'fixture-token', 'return_to' => '/',
+    ] : null,
+]);
 
 echo '<!doctype html><html lang="ru"><head><meta charset="utf-8">'
     . '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">'
     . '<title>Адаптивная раскладка Register</title>'
+    . ($initialLayout && $role !== 'guest' ? '<meta name="register-tool-rail" content="1">' : '')
     . '<link rel="stylesheet" href="/site.css"><link rel="stylesheet" href="/responsive-blog.css">'
+    . '<link rel="stylesheet" href="/_assets/register/partial-navigation.css">'
     . '<link rel="stylesheet" href="/post-recovery.css"><link rel="stylesheet" href="/reactions.css">'
-    . '<link rel="stylesheet" href="/responsive-auth.css"></head><body class="mainpage">'
+    . '<link rel="stylesheet" href="/responsive-auth.css">'
+    . ($initialLayout ? '<script src="/local-time.js"></script>' : '')
+    . '</head><body class="blog_main"><div id="register-page" data-register-page>'
     . '<header id="header">' . $header . '</header>'
     . '<main id="container"><div id="content"><div class="live-post-feed">'
     . $post
     . '</div><section class="comments-section"><h2 class="comment">Обсуждение</h2>'
-    . '<div class="comment-thread"><div class="comment-item"><div class="comment-body"><p>Тестовый комментарий к заметке.</p></div></div></div>'
+    . '<div class="comment-thread">' . $comment . '</div>'
     . '</section></div></main><form class="register_search_form"><input type="search" aria-label="Поиск" placeholder="Поиск"></form>'
-    . '<footer id="footer">Тестовая страница Register</footer>' . $resources . '</body></html>';
+    . '<footer id="footer">Тестовая страница Register</footer></div>' . $resources . '</body></html>';

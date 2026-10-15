@@ -10,6 +10,12 @@ export function createFixtureServer() {
         response.setHeader('Cache-Control', 'no-store');
         response.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' data: blob:; media-src 'self'; object-src 'none'");
         try {
+            if (/^\/initial-layout(?:-moderator|-guest)?\.html$/.test(request.url)) {
+                response.setHeader('Content-Type', 'text/html; charset=utf-8');
+                response.end(execFileSync(process.env.PHP_BIN || 'php',
+                    [new URL('./responsive-layout-fixture.php', import.meta.url).pathname, request.url.slice(1, -5)], {encoding: 'utf8'}));
+                return;
+            }
             if (request.url === '/responsive-layout.html') {
                 response.setHeader('Content-Type', 'text/html; charset=utf-8');
                 response.end(execFileSync(process.env.PHP_BIN || 'php',
@@ -161,6 +167,7 @@ export function createFixtureServer() {
                 ['/reactions-fixture.js', ['reactions-fixture.js', 'text/javascript']],
                 ['/reactions-fixture.css', ['reactions-fixture.css', 'text/css']],
                 ['/_assets/register/editor/html-preview.css', ['../../../_assets/register/editor/html-preview.css', 'text/css']],
+                ['/_assets/register/partial-navigation.css', ['../../../_assets/register/partial-navigation.css', 'text/css']],
                 ['/comment-editor.css', ['../../../_assets/register/comment-editor.css', 'text/css']],
             ]);
             for (const module of ['form', 'form-recovery', 'ai', 'image-alt', 'tags', 'shortcuts', 'dialogs', 'deps', 'hash', 'preview', 'social-preview', 'activitypub', 'codemirror', 'text/paragraphs', 'text/corrections', 'text/html', 'text/plain', 'utils/escape', 'utils/form-errors']) {

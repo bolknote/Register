@@ -64,6 +64,11 @@
         --header-top: max(3.25rem, clamp(2rem, 4vw, 3.5rem));
     }
 
+    /* The server advertises author/moderator tools in the head, before any
+     * visible content is parsed. Do not wait for controls further down a
+     * streamed document to change the whole page's horizontal origin.
+     * Keep the element fallback for custom templates without the hint. */
+    :root:has(> head > meta[name="register-tool-rail"][content="1"]),
     :root:has(.site-header-tools, .post-inplace-tools, .comment-moderation) {
         --tools-rail-space: var(--tools-gutter);
     }

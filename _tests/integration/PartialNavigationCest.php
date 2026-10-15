@@ -17,6 +17,32 @@ use Symfony\Component\HttpFoundation\Response;
 
 final class PartialNavigationCest
 {
+    public function advertisesToolLayoutBeforeTheBodyForEditorsAndModerators(\IntegrationTester $I): void
+    {
+        $I->amOnPage('https://localhost/');
+        $I->dontSeeElement('meta[name="register-tool-rail"]');
+
+        $guest = $this->requestPartial($I, 'https://localhost/');
+        $I->assertStringNotContainsString('register-tool-rail', $guest['head']);
+
+        foreach (['author', 'moderator', 'power_moderator'] as $role) {
+            $I->login($role, $role);
+            foreach (['https://localhost/', 'https://localhost/all/'] as $url) {
+                $I->amOnPage($url);
+                $I->seeResponseCodeIs(Response::HTTP_OK);
+                $I->seeElement('head > meta[name="register-tool-rail"][content="1"]');
+                $html = $I->grabResponse();
+                $I->assertLessThan(strpos($html, '<body'), strpos($html, 'name="register-tool-rail"'));
+                $payload = $this->requestPartial($I, $url);
+                $I->assertStringContainsString('<meta name="register-tool-rail" content="1">', $payload['head']);
+            }
+
+            $I->logout();
+            $I->amOnPage('https://localhost/');
+            $I->dontSeeElement('meta[name="register-tool-rail"]');
+        }
+    }
+
     public function servesProgressiveNavigationWithoutChangingNormalPages(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */

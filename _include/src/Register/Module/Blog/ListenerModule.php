@@ -85,6 +85,13 @@ final readonly class ListenerModule implements ContainerAwareListenerModuleInter
                 '<!-- register_site_header -->',
                 $container->get(SiteHeaderRenderer::class)->render($request),
             );
+
+            // Reserve the desktop tool rail before the browser parses the body,
+            // including pages whose first controls are in the comments below it.
+            $user = $container->get(AuthProvider::class)->getAuthenticatedPublicUser($request);
+            if ($user !== null && ($user->canCreateArticles || $user->canEditSite || $user->canHideComments || $user->canEditComments)) {
+                $event->htmlTemplate->addMetaTag('<meta name="register-tool-rail" content="1">');
+            }
         });
 
         $eventDispatcher->addListener(TemplateEvent::EVENT_CREATED, static function (TemplateEvent $event): void {
