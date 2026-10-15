@@ -36,6 +36,15 @@ of extension; only Retina images receive `@2x`. Thus `yyyy.mm.dd.webp` is follow
 Matching directories and symbolic links reserve their ordinal too. Uploads and date changes must
 not replace them; a rollback leaves a moved file in place if its original pathname is occupied.
 
+Uploads and date changes acquire the editorial database mutex before the allocation lock. The
+allocation lock remains held until the surrounding transaction finishes, including file rollback,
+so another upload cannot claim an original name while it may still need to be restored. Database
+and savepoint rollback undo file operations in reverse order: renamed files regain their previous
+names, and uploads whose registry insertion was rolled back are removed. Releasing a savepoint
+retains these undo operations until the enclosing transaction commits or rolls back.
+Physical deletion takes the same allocation lock, so collection cannot race with file restoration
+after the database has released its transaction lock.
+
 Unused media are removed under the editorial mutex, using their current registered path. If the
 filesystem refuses a deletion, its registry row remains available for a later cleanup attempt.
 If the caller has an enclosing database transaction, cleanup retains both the file and its

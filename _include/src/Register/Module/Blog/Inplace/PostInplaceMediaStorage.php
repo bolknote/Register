@@ -16,20 +16,25 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /** Stores public-editor media under the historical note-date naming convention. */
-final readonly class PostInplaceMediaStorage
+final class PostInplaceMediaStorage
 {
     private const int MAX_CANONICAL_ORDINAL = 10000;
 
-    private string $mediaDirectory;
+    private readonly string $mediaDirectory;
 
-    private string $contentDirectory;
+    private readonly string $contentDirectory;
 
-    private string $nameLockFile;
+    private readonly string $nameLockFile;
+
+    /** @var resource|null */
+    private mixed $nameLock = null;
+
+    private int $nameLockDepth = 0;
 
     public function __construct(
-        private PictureFileNameHelper  $fileNameHelper,
-        private PictureStorageQuota    $storageQuota,
-        private TranslatorInterface    $translator,
+        private readonly PictureFileNameHelper  $fileNameHelper,
+        private readonly PictureStorageQuota    $storageQuota,
+        private readonly TranslatorInterface    $translator,
         string                         $mediaDirectory,
         string                         $contentDirectory,
         string                         $cacheDirectory,
@@ -148,13 +153,15 @@ final readonly class PostInplaceMediaStorage
     public function delete(string $storedFile): void
     {
         $filename = $this->fullPath($storedFile);
-        if (!is_file($filename)) {
-            return;
-        }
+        $this->withNameLock(static function () use ($filename): void {
+            if (!is_file($filename)) {
+                return;
+            }
 
-        if (!register_call_without_warnings(static fn(): bool => unlink($filename))) {
-            throw new \RuntimeException('Unable to remove the unused media file.', Response::HTTP_SERVICE_UNAVAILABLE);
-        }
+            if (!register_call_without_warnings(static fn(): bool => unlink($filename))) {
+                throw new \RuntimeException('Unable to remove the unused media file.', Response::HTTP_SERVICE_UNAVAILABLE);
+            }
+        });
     }
 
     /** @return array{date: string, extension: string, retina: bool} */
@@ -235,19 +242,49 @@ final readonly class PostInplaceMediaStorage
      */
     private function withNameLock(\Closure $operation): mixed
     {
-        $directory = dirname($this->nameLockFile);
-        $this->ensureDirectoryExists($directory);
-        $lock = $this->openNameLock();
+        $release = $this->lockNames();
         try {
+            return $operation();
+        } finally {
+            $release();
+        }
+    }
+
+    /**
+     * Keeps moved names unavailable until the database commits or finishes undoing
+     * its file operations. Nested storage calls share the lock without blocking.
+     *
+     * @return \Closure(): void Idempotent release operation.
+     */
+    public function lockNames(): \Closure
+    {
+        if ($this->nameLock === null) {
+            $this->ensureDirectoryExists(dirname($this->nameLockFile));
+            $lock = $this->openNameLock();
             if (!flock($lock, LOCK_EX)) {
+                fclose($lock);
                 throw new \RuntimeException('Unable to lock historical media names.', Response::HTTP_SERVICE_UNAVAILABLE);
             }
 
-            return $operation();
-        } finally {
-            register_call_without_warnings(static fn(): bool => flock($lock, LOCK_UN));
-            fclose($lock);
+            $this->nameLock = $lock;
         }
+
+        ++$this->nameLockDepth;
+        $released = false;
+
+        return function () use (&$released): void {
+            if ($released) {
+                return;
+            }
+
+            $released = true;
+            if (--$this->nameLockDepth === 0 && \is_resource($this->nameLock)) {
+                $lock = $this->nameLock;
+                register_call_without_warnings(static fn(): bool => flock($lock, LOCK_UN));
+                fclose($lock);
+                $this->nameLock = null;
+            }
+        };
     }
 
     /** @return resource */

@@ -87,6 +87,41 @@ final class PostInplaceMediaStorageTest extends Unit
         self::assertFileExists($this->directory . '/pictures' . $move['to']);
     }
 
+    public function testNestedOperationsKeepTheNameLockUntilItsLastLeaseIsReleased(): void
+    {
+        $storage = $this->storage();
+        $release = $storage->lockNames();
+        $nestedRelease = $storage->lockNames();
+        $contender = fopen($this->directory . '/cache/post-media-name.lock', 'c+b');
+        self::assertIsResource($contender);
+        try {
+            self::assertFalse(flock($contender, LOCK_EX | LOCK_NB));
+            $original = $storage->storeCanonical($this->upload(), $this->date('2026-01-01'), false);
+            $move = $storage->redateCanonical($original, $this->date('2026-01-02'));
+            $release();
+            $release();
+            self::assertFalse(flock($contender, LOCK_EX | LOCK_NB));
+            $storage->rollbackRedate($move);
+            self::assertFileExists($this->directory . '/pictures' . $original);
+            self::assertFalse(flock($contender, LOCK_EX | LOCK_NB));
+            $storage->delete($original);
+            self::assertFileDoesNotExist($this->directory . '/pictures' . $original);
+            self::assertFalse(flock($contender, LOCK_EX | LOCK_NB));
+            $nestedRelease();
+            self::assertTrue(flock($contender, LOCK_EX | LOCK_NB));
+        } finally {
+            $release();
+            $nestedRelease();
+            flock($contender, LOCK_UN);
+            fclose($contender);
+        }
+
+        // A later request must acquire a fresh descriptor rather than retain a
+        // closed handle from the preceding transaction.
+        $laterRelease = $storage->lockNames();
+        $laterRelease();
+    }
+
     private function storage(): PostInplaceMediaStorage
     {
         $translator = new Translator([], 'en');

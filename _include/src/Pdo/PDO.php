@@ -204,6 +204,21 @@ class PDO extends NativePdo implements StatefulServiceInterface
         $this->afterRollbackCallbacks['once_' . hash('sha256', $key)] ??= $callback;
     }
 
+    /**
+     * Registers an undo operation in reverse execution order. Savepoint rollback
+     * runs only the operations registered after that savepoint was established.
+     *
+     * @param callable(): void $callback
+     */
+    public function afterRollback(callable $callback): void
+    {
+        if ($this->inTransaction()) {
+            $this->afterRollbackCallbacks = [
+                'callback_' . ++$this->afterCommitSequence => $callback,
+            ] + $this->afterRollbackCallbacks;
+        }
+    }
+
     #[\Override]
     public function commit(): bool
     {

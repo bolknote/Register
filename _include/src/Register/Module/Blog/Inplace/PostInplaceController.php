@@ -35,6 +35,7 @@ use Register\Core\Http\SandboxedHtmlResponse;
 use Register\Core\Model\AuthenticatedPublicUser;
 use Register\Core\Model\UrlBuilder;
 use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\PDO;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -72,7 +73,7 @@ final readonly class PostInplaceController implements ControllerInterface
 
     public function __construct(
         private DbLayer                   $dbLayer,
-        private \PDO                      $pdo,
+        private PDO                       $pdo,
         private PostInplaceControls        $controls,
         private PostInplaceTokenManager    $tokenManager,
         private ContentRevisionService     $revisionService,
@@ -264,7 +265,37 @@ final readonly class PostInplaceController implements ControllerInterface
         $mimeType = $this->mediaStorage->detectMimeType($file);
         $retina   = $kind === 'image' && $request->request->getBoolean('media_retina');
         try {
-            $storedFile = $this->mediaStorage->storeCanonical($file, $publishedAt, $retina);
+            return $this->mediaTransaction(function () use ($request, $editor, $file, $publishedAt, $retina, $kind, $mimeType): Response {
+                $storedFile = $this->mediaStorage->storeCanonical($file, $publishedAt, $retina);
+                $this->pdo->afterRollback(fn() => $this->mediaStorage->delete($storedFile));
+
+                $imageInfo = $kind === 'image' ? $this->mediaStorage->getImageInfo($storedFile) : [];
+                if ($kind === 'image' && !$this->optimizedImageMatchesRequest($request, $mimeType, $imageInfo, $retina)) {
+                    $this->mediaStorage->delete($storedFile);
+
+                    return $this->error($request, 'Invalid optimized post image', Response::HTTP_UNPROCESSABLE_ENTITY, false);
+                }
+
+                $storedName = basename($storedFile);
+                $mediaId = $this->mediaRepository->register([
+                    'original_name'   => $storedName,
+                    'normalized_name' => $storedName,
+                    'storage_path'    => $storedFile,
+                    'mime_type'       => $mimeType,
+                    'kind'            => $kind,
+                    'byte_size'       => $this->mediaStorage->fileSize($storedFile),
+                    'width'           => isset($imageInfo[0]) ? (int)$imageInfo[0] : null,
+                    'height'          => isset($imageInfo[1]) ? (int)$imageInfo[1] : null,
+                    'uploaded_by'     => $editor->id,
+                ]);
+
+                $media = $this->mediaRepository->find($mediaId);
+                if ($media === null) {
+                    throw new \LogicException('The uploaded media registry row was not created.');
+                }
+
+                return $this->json($this->mediaPayload($media));
+            });
         } catch (\RuntimeException $runtimeException) {
             return $this->error(
                 $request,
@@ -273,39 +304,6 @@ final readonly class PostInplaceController implements ControllerInterface
                 false,
             );
         }
-
-        $imageInfo = $kind === 'image' ? $this->mediaStorage->getImageInfo($storedFile) : [];
-        if ($kind === 'image' && !$this->optimizedImageMatchesRequest($request, $mimeType, $imageInfo, $retina)) {
-            $this->mediaStorage->delete($storedFile);
-
-            return $this->error($request, 'Invalid optimized post image', Response::HTTP_UNPROCESSABLE_ENTITY, false);
-        }
-
-        $storedName = basename($storedFile);
-
-        try {
-            $mediaId = $this->mediaRepository->register([
-                'original_name'   => $storedName,
-                'normalized_name' => $storedName,
-                'storage_path'    => $storedFile,
-                'mime_type'       => $mimeType,
-                'kind'            => $kind,
-                'byte_size'       => $this->mediaStorage->fileSize($storedFile),
-                'width'           => isset($imageInfo[0]) ? (int)$imageInfo[0] : null,
-                'height'          => isset($imageInfo[1]) ? (int)$imageInfo[1] : null,
-                'uploaded_by'     => $editor->id,
-            ]);
-        } catch (\Throwable $throwable) {
-            $this->mediaStorage->delete($storedFile);
-            throw $throwable;
-        }
-
-        $media = $this->mediaRepository->find($mediaId);
-        if ($media === null) {
-            throw new \LogicException('The uploaded media registry row was not created.');
-        }
-
-        return $this->json($this->mediaPayload($media));
     }
 
     private function redateMedia(
@@ -319,86 +317,57 @@ final readonly class PostInplaceController implements ControllerInterface
             return $this->error($request, 'Invalid post content', Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        // Serialize file renames with post writes under the same editorial mutex.
-        return $this->urlHistory->run(function () use ($request, $editor, $publishedAt): Response {
-            $mediaIds = $this->mediaIds($request->request->getString('media_ids'));
-            $legacyMediaIds = $this->mediaIds($request->request->getString('legacy_media_ids'));
-            $moves = [];
-            $payload = [];
-            try {
-                $updated = $this->transactional(function () use ($mediaIds, $legacyMediaIds, $editor, $publishedAt, &$moves, &$payload): bool {
-                    $uploads = $this->mediaRepository->ownedUploads($mediaIds, $editor->id);
-                    if (\count($uploads) !== \count(array_unique($mediaIds))) {
+        try {
+            return $this->mediaTransaction(function () use ($request, $editor, $publishedAt): Response {
+                $mediaIds = $this->mediaIds($request->request->getString('media_ids'));
+                $legacyMediaIds = $this->mediaIds($request->request->getString('legacy_media_ids'));
+                $uploads = $this->mediaRepository->ownedUploads($mediaIds, $editor->id);
+                if (\count($uploads) !== \count(array_unique($mediaIds))) {
+                    throw new PostMediaConflictException(PostMediaConflictException::UNAVAILABLE);
+                }
+
+                foreach ($uploads as $media) {
+                    if (\in_array((int)$media['id'], $legacyMediaIds, true)
+                        && $this->mediaRepository->hasPersistentIdentity((int)$media['id'])
+                    ) {
                         throw new PostMediaConflictException(PostMediaConflictException::UNAVAILABLE);
                     }
+                }
 
-                    foreach ($uploads as $media) {
-                        if (\in_array((int)$media['id'], $legacyMediaIds, true)
-                            && $this->mediaRepository->hasPersistentIdentity((int)$media['id'])
-                        ) {
-                            throw new PostMediaConflictException(PostMediaConflictException::UNAVAILABLE);
-                        }
+                $payload = [];
+                foreach ($uploads as $media) {
+                    // Another tab may have renamed and published this upload.
+                    // Stored page/HTML references also prevent moving a file,
+                    // including uploads previously marked pending by cleanup.
+                    if (!(bool)$media['pending'] || (int)$media['usage_count'] !== 0
+                        || $this->mediaRepository->hasStoredReferences((string)$media['storage_path'])
+                    ) {
+                        $payload[] = $this->mediaPayload($media);
+                        continue;
                     }
 
-                    foreach ($uploads as $media) {
-                        // Another tab may have renamed and published this upload.
-                        // Stored page/HTML references also prevent moving a file,
-                        // including uploads previously marked pending by cleanup.
-                        if (!(bool)$media['pending'] || (int)$media['usage_count'] !== 0
-                            || $this->mediaRepository->hasStoredReferences((string)$media['storage_path'])
-                        ) {
-                            $payload[] = $this->mediaPayload($media);
-                            continue;
-                        }
-
-                        $move = $this->mediaStorage->redateCanonical((string)$media['storage_path'], $publishedAt);
-                        $moves[] = $move;
-                        if ($move['from'] !== $move['to']) {
-                            $name = basename($move['to']);
-                            $this->mediaRepository->relocate((int)$media['id'], $move['to'], $name);
-                        }
-
-                        $current = $this->mediaRepository->find((int)$media['id']);
-                        if ($current === null) {
-                            throw new \LogicException('The renamed media registry row disappeared.');
-                        }
-
-                        $payload[] = $this->mediaPayload($current);
+                    $move = $this->mediaStorage->redateCanonical((string)$media['storage_path'], $publishedAt);
+                    if ($move['from'] !== $move['to']) {
+                        $this->pdo->afterRollback(fn() => $this->mediaStorage->rollbackRedate($move));
+                        $name = basename($move['to']);
+                        $this->mediaRepository->relocate((int)$media['id'], $move['to'], $name);
                     }
 
-                    return true;
-                });
-            } catch (\Throwable $throwable) {
-                foreach (array_reverse($moves) as $move) {
-                    $this->mediaStorage->rollbackRedate($move);
+                    $current = $this->mediaRepository->find((int)$media['id']);
+                    if ($current === null) {
+                        throw new \LogicException('The renamed media registry row disappeared.');
+                    }
+
+                    $payload[] = $this->mediaPayload($current);
                 }
 
-                if ($throwable instanceof PostMediaConflictException) {
-                    return $this->error($request, $throwable->getMessage(), Response::HTTP_CONFLICT);
-                }
-
-                if ($throwable instanceof \RuntimeException) {
-                    return $this->error(
-                        $request,
-                        $throwable->getMessage(),
-                        $this->uploadErrorStatus($throwable),
-                        false,
-                    );
-                }
-
-                throw $throwable;
-            }
-
-            if (!$updated) {
-                foreach (array_reverse($moves) as $move) {
-                    $this->mediaStorage->rollbackRedate($move);
-                }
-
-                return $this->error($request, 'Post media rename failed', Response::HTTP_CONFLICT);
-            }
-
-            return $this->json(['success' => true, 'action' => 'media_redate', 'media' => $payload]);
-        });
+                return $this->json(['success' => true, 'action' => 'media_redate', 'media' => $payload]);
+            });
+        } catch (PostMediaConflictException $exception) {
+            return $this->error($request, $exception->getMessage(), Response::HTTP_CONFLICT);
+        } catch (\RuntimeException $exception) {
+            return $this->error($request, $exception->getMessage(), $this->uploadErrorStatus($exception), false);
+        }
     }
 
     private function releaseMedia(Request $request, AuthenticatedPublicUser $editor): JsonResponse
@@ -1351,6 +1320,25 @@ final readonly class PostInplaceController implements ControllerInterface
         }
 
         return $this->urlBuilder->rawLink($path);
+    }
+
+    /**
+     * @template T
+     * @param \Closure(): T $operation
+     * @return T
+     */
+    private function mediaTransaction(\Closure $operation): mixed
+    {
+        // All uploads and renames take the database mutex before the name lock.
+        // Retain the name lock through COMMIT or the final filesystem undo: a
+        // concurrent upload must not occupy a name needed by a pending rollback.
+        return $this->urlHistory->run(function () use ($operation): mixed {
+            $releaseNames = $this->mediaStorage->lockNames();
+            $this->pdo->afterCommit($releaseNames);
+            $this->pdo->afterRollback($releaseNames);
+
+            return $operation();
+        });
     }
 
     /** @param \Closure(): bool $operation */

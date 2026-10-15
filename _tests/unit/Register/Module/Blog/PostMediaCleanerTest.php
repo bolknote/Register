@@ -80,6 +80,9 @@ final class PostMediaCleanerTest extends Unit
 
         $this->withMedia(function (\PDO $pdo, PostMediaRepository $repository, PostMediaCleaner $cleaner, int $id, string $file): void {
             $directory = dirname($file);
+            // Real uploads create this lock before cleanup. Keep it available
+            // so the read-only media directory fails at unlink, not lock setup.
+            self::assertNotFalse(file_put_contents($directory . '/post-media-name.lock', ''));
             self::assertTrue(chmod($directory, 0500));
             clearstatcache();
             if (is_writable($directory)) {
@@ -94,6 +97,7 @@ final class PostMediaCleanerTest extends Unit
             }
 
             self::assertInstanceOf(\RuntimeException::class, $failure);
+            self::assertSame('Unable to remove the unused media file.', $failure->getMessage());
             self::assertNotNull($repository->find($id));
             self::assertFileExists($file);
             self::assertFalse($pdo->inTransaction());
