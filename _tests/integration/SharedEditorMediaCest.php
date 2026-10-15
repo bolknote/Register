@@ -224,18 +224,20 @@ final class SharedEditorMediaCest
                 $url = 'https://localhost/_admin/index.php?entity=Article&action=edit&id=' . $pageId;
                 $I->amOnPage($url);
                 $values = $I->grabFormValues('form[name="article-form"]');
-                $body = '<p>A reused upload.</p><img src="' . str_replace(array_keys($encoding), array_values($encoding), (string)$upload['url']) . '" alt="Shared">';
+                $encodedUrl = str_replace(array_keys($encoding), array_values($encoding), (string)$upload['url']);
+                $body = '<p>A reused upload.</p><img src="' . $encodedUrl . '" alt="Shared">';
                 $I->sendAjaxPostRequest($url, [...$values, 'body' => $body]);
                 $I->seeResponseCodeIs(Response::HTTP_OK);
                 $I->assertTrue($this->response($I)['success']);
                 $I->assertSame($body, $db->select('body')->from(ContentSchema::TABLE_NAME)
                     ->where('id = :id')->setParameter('id', $pageId)->execute()->result());
                 $I->amOnPage('https://localhost/encoded-image-' . $index);
-                // Percent escapes remain in the DOM attribute; numeric entities
-                // are decoded by the HTML parser even without their semicolon.
-                if ($index > 0) {
-                    $I->seeElement('img[src="' . $upload['url'] . '"]');
-                }
+                // PHP 8.3's Masterminds parser does not decode semicolonless
+                // numeric references like browsers/native HTML5 do. Check that
+                // the image and its exact authored URL reach the public HTML;
+                // this also catches accidental double-escaping of the entity.
+                $I->seeElement('img[alt="Shared"]');
+                $I->assertStringContainsString('src="' . $encodedUrl . '"', $I->grabResponse());
 
                 $I->sendAjaxPostRequest('https://localhost/_inplace/post/new', [
                     'inplace_action' => 'media_redate', 'inplace_token' => $token, 'media_ids' => (string)$mediaId,
