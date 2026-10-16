@@ -44,7 +44,7 @@
         const fallback = node.textContent;
         try {
             const source = new URL(node.dataset.animation, location.href);
-            if (source.origin !== location.origin || !/\/_pictures\/[A-Za-z0-9_-]+\/comments\/telegram\/[1-9]\d*\/[1-9]\d*\/\d+-[a-f0-9]{20}\.json$/.test(source.pathname)) return;
+            if (source.origin !== location.origin || !/\/_pictures\/(?:telegram\/comments|[A-Za-z0-9_-]+\/comments\/telegram)\/[1-9]\d*\/[1-9]\d*\/\d+-[a-f0-9]{20}\.json$/.test(source.pathname)) return;
             const [lottie, response] = await Promise.all([renderer(), fetch(source, { signal: state.abort.signal })]);
             if (!response.ok) throw new Error('Sticker unavailable');
             const data = await response.json();
