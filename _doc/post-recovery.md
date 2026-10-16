@@ -16,7 +16,9 @@ post address when available, and completed upload IDs. Authorisation tokens are
 never stored. Keys include the installation's tag endpoint and the authenticated
 editor's user ID; another account or a guest does not see these offers. Separate
 editing sessions have independent copy IDs, so tabs cannot overwrite one another.
-Deleting a stale offer cannot remove its newer snapshot.
+Deletion compares the complete saved version, including its snapshot, because successive writes
+can share a millisecond timestamp. Retention selects candidates after writing the new copy and
+rechecks each candidate before removing it; a changed candidate causes the list to be refreshed.
 
 Copies do not expire by age. Each is limited to 512 Ki UTF-16 code units of
 serialized JSON (approximately 1 MiB of browser storage); an account can retain
@@ -48,7 +50,8 @@ and the UI warns when markup was changed. The server version stays available by
 cancelling before saving.
 
 Verification: `node --test _tests/javascript/post-recovery.test.mjs` covers storage
-isolation, expiry, limits, malformed data, storage failures and stale deletion.
+isolation, retention limits, malformed data, storage failures and stale deletion, including
+updates from another tab during writing and retention cleanup.
 `npm test --prefix _tests/browser/editor` runs actual editor/reload scenarios in
 Chromium and Firefox, including offline typing, untitled new posts, conflicting
 server revisions, explicit discard, account changes, HTML sanitisation, storage

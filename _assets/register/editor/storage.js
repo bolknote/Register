@@ -38,6 +38,14 @@
             } catch (_) { /* Storage may be blocked or unavailable. */ }
             return result.sort((left, right) => right.record.savedAt - left.record.savedAt);
         }
+        function removeIfUnchanged(record) {
+            const item = key(record);
+            // Two snapshots can share a millisecond timestamp. Match the whole
+            // saved version before deleting a copy offered by an older view.
+            if (storage.getItem(item) !== JSON.stringify(record)) return false;
+            storage.removeItem(item);
+            return true;
+        }
         return {
             list: target => entries().map(item => item.record).filter(record => target === undefined || record.target === target),
             save(record) {
@@ -45,25 +53,32 @@
                     if (!valid(record)) return false;
                     const raw = JSON.stringify(record);
                     if (raw.length > maximumRecordLength) return false;
-                    const others = entries().filter(item => item.record.id !== record.id);
-                    let size = raw.length + others.reduce((sum, item) => sum + item.length, 0);
                     // Preserve every valid older copy if this write fails. In
                     // particular, pruning first cannot safely recover from quota errors.
                     storage.setItem(key(record), raw);
+                    // A different tab can update a copy during this write.
+                    // Choose eviction candidates from the state after it completes.
+                    let others = entries().filter(item => item.record.id !== record.id);
+                    let size = raw.length + others.reduce((sum, item) => sum + item.length, 0);
+                    let attempts = others.length + maximumRecords;
                     while (others.length >= maximumRecords || size > maximumTotalLength) {
+                        // Keep saving bounded if other tabs keep changing candidates.
+                        if (attempts-- === 0) return false;
                         const oldest = others.pop();
-                        if (!oldest) break;
-                        storage.removeItem(key(oldest.record));
-                        size -= oldest.length;
+                        if (!oldest) return false;
+                        if (removeIfUnchanged(oldest.record)) {
+                            size -= oldest.length;
+                        } else {
+                            others = entries().filter(item => item.record.id !== record.id);
+                            size = raw.length + others.reduce((sum, item) => sum + item.length, 0);
+                        }
                     }
                     return true;
                 } catch (_) { return false; }
             },
             remove(record) {
                 try {
-                    // A stale tab must never erase a newer snapshot from another tab.
-                    const current = JSON.parse(storage.getItem(key(record)) || 'null');
-                    if (current?.savedAt === record.savedAt) storage.removeItem(key(record));
+                    removeIfUnchanged(record);
                 } catch (_) { /* Recovery must not prevent normal editing. */ }
             },
         };

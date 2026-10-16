@@ -61,6 +61,97 @@ test('independent tab records coexist and a stale view cannot delete a newer sna
     assert.equal(first.list('4').length, 1);
 });
 
+test('a stale recovery offer cannot delete changed text with the same millisecond timestamp', () => {
+    const data = storage();
+    const owner = open(data);
+    const observer = open(data);
+    const original = record();
+    assert.equal(owner.save(original), true);
+    const offered = observer.list('new')[0];
+    const updated = {...original, snapshot: {...original.snapshot, body: '<p>More recent text.</p>'}};
+    assert.equal(owner.save(updated), true);
+
+    observer.remove(offered);
+    assert.equal(owner.list('new')[0]?.snapshot.body, updated.snapshot.body);
+
+    // Deleting the version currently shown to the user must still work.
+    observer.remove(observer.list('new')[0]);
+    assert.equal(owner.list('new').length, 0);
+});
+
+test('shared storage also compares complete admin field snapshots before deletion', () => {
+    const data = storage();
+    const adminStore = () => context.window.RegisterEditorStorage.createStore(data,
+        'register:admin-recovery:1:fixture:1:post:', item => Array.isArray(item.snapshot), () => stamp);
+    const owner = adminStore();
+    const observer = adminStore();
+    const original = record('adminDraft', {target: '9', revision: 3,
+        snapshot: [['title', 'Draft title'], ['body', 'Original text']]});
+    assert.equal(owner.save(original), true);
+    const offered = observer.list('9')[0];
+    const updated = {...original, snapshot: [['title', 'Draft title'], ['body', 'Newer text']]};
+    assert.equal(owner.save(updated), true);
+    observer.remove(offered);
+    assert.equal(owner.list('9')[0]?.snapshot.find(([name]) => name === 'body')?.[1], 'Newer text');
+    observer.remove(observer.list('9')[0]);
+    assert.equal(owner.list('9').length, 0);
+});
+
+for (const [limit, phase] of [
+    ['count', 'write'], ['count', 'retention read'],
+    ['size', 'write'], ['size', 'retention read'],
+]) {
+    test(`retention at the ${limit} limit keeps a draft updated during another tab's ${phase}`, () => {
+        const data = storage();
+        const writer = open(data);
+        const owner = open(data);
+        const count = limit === 'count' ? 10 : 4;
+        for (let index = 0; index < count; index++) {
+            const item = record(`draft${index}`, {savedAt: stamp + index});
+            if (limit === 'size') item.snapshot.body = 'x'.repeat(500000);
+            assert.equal(writer.save(item), true);
+        }
+        const updated = owner.list().find(copy => copy.id === 'draft0');
+        updated.savedAt = stamp + 200;
+        updated.snapshot.body = 'Concurrent text ' + (limit === 'size' ? 'x'.repeat(500000) : 'kept');
+        let interleaved = false;
+        const interleave = key => {
+            if (!interleaved && key.endsWith(':newDraft')) {
+                interleaved = true;
+                assert.equal(owner.save(updated), true);
+            }
+        };
+        if (phase === 'write') {
+            const write = data.setItem;
+            data.setItem = (key, value) => {
+                write(key, value);
+                interleave(key);
+            };
+        } else {
+            const read = data.getItem;
+            data.getItem = key => {
+                const raw = read(key);
+                // The list can become stale even after the new copy is stored,
+                // while its last entry is being read for retention cleanup.
+                interleave(key);
+                return raw;
+            };
+        }
+        const next = record('newDraft', {savedAt: stamp + 100});
+        if (limit === 'size') next.snapshot.body = 'New copy ' + 'x'.repeat(500000);
+        assert.equal(writer.save(next), true);
+        assert.equal(interleaved, true);
+
+        const copies = writer.list();
+        assert.equal(copies.find(copy => copy.id === 'draft0')?.snapshot.body === updated.snapshot.body, true,
+            'Retention must not erase the other tab\'s newer copy');
+        assert.equal(copies.find(copy => copy.id === 'newDraft')?.snapshot.body === next.snapshot.body, true);
+        assert.equal(copies.some(copy => copy.id === 'draft1'), false, 'The oldest current copy is pruned instead');
+        assert.equal(copies.length, count);
+        assert.ok([...data.values.values()].reduce((sum, value) => sum + value.length, 0) <= 2 * 1024 * 1024);
+    });
+}
+
 test('old copies remain available and malformed local data is rejected', () => {
     const data = storage();
     open(data).save(record());
