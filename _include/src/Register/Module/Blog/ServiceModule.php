@@ -263,34 +263,41 @@ final class ServiceModule implements ContainerModuleInterface
             $container->get(\PDO::class),
         ));
         $container->set(Inplace\PostCreateOperations::class, static fn(Container $container): Inplace\PostCreateOperations => new Inplace\PostCreateOperations($container->get(DbLayer::class)));
-        $container->set(PostInplaceController::class, static fn(Container $container): PostInplaceController => new PostInplaceController(
-            $container->get(DbLayer::class),
-            $container->get(\PDO::class),
-            $container->get(PostInplaceControls::class),
-            $container->get(PostInplaceTokenManager::class),
-            $container->get(\Register\Content\Admin\ContentRevisionService::class),
-            $container->get(\Register\Content\TagRepository::class),
-            $container->get(\Register\Comment\CommentRepository::class),
-            $container->get(\Register\Content\ContentChangeDispatcher::class),
-            $container->get(\Register\Live\LiveFragmentRenderer::class),
-            $container->get(BlogUrlBuilder::class),
-            $container->get(UrlBuilder::class),
-            $container->get(PostInplaceMediaStorage::class),
-            $container->get(PostMediaRepository::class),
-            $container->get(Inplace\PostMediaCleaner::class),
-            $container->get(ContentSlugService::class),
-            $container->get(ContentUrlGenerator::class),
-            $container->get(PostProvider::class),
-            $container->get(PostFooterRenderer::class),
-            $container->get(\Register\Ai\AiClient::class),
-            $container->get(\Register\Ai\AiSettings::class),
-            $container->get(\Register\Content\PublicationMetadataGenerator::class),
-            $container->get('register_blog_translator'),
-            $container->get(\Register\Url\UrlHistoryService::class),
-            $container->get(Inplace\PostCreateOperations::class),
-            $container->getStringParameter('public_root_dir'),
-            ...$container->getByTag(ContentDeletionGuardInterface::class),
-        ));
+        $container->set(PostInplaceController::class, static function (Container $container): PostInplaceController {
+            $pdo = $container->get(\PDO::class);
+            if (!$pdo instanceof TrackedPDO) {
+                throw new \LogicException("In-place editing requires Register's transaction-aware PDO service.");
+            }
+
+            return new PostInplaceController(
+                $container->get(DbLayer::class),
+                $pdo,
+                $container->get(PostInplaceControls::class),
+                $container->get(PostInplaceTokenManager::class),
+                $container->get(\Register\Content\Admin\ContentRevisionService::class),
+                $container->get(\Register\Content\TagRepository::class),
+                $container->get(\Register\Comment\CommentRepository::class),
+                $container->get(\Register\Content\ContentChangeDispatcher::class),
+                $container->get(\Register\Live\LiveFragmentRenderer::class),
+                $container->get(BlogUrlBuilder::class),
+                $container->get(UrlBuilder::class),
+                $container->get(PostInplaceMediaStorage::class),
+                $container->get(PostMediaRepository::class),
+                $container->get(Inplace\PostMediaCleaner::class),
+                $container->get(ContentSlugService::class),
+                $container->get(ContentUrlGenerator::class),
+                $container->get(PostProvider::class),
+                $container->get(PostFooterRenderer::class),
+                $container->get(\Register\Ai\AiClient::class),
+                $container->get(\Register\Ai\AiSettings::class),
+                $container->get(\Register\Content\PublicationMetadataGenerator::class),
+                $container->get('register_blog_translator'),
+                $container->get(\Register\Url\UrlHistoryService::class),
+                $container->get(Inplace\PostCreateOperations::class),
+                $container->getStringParameter('public_root_dir'),
+                ...$container->getByTag(ContentDeletionGuardInterface::class),
+            );
+        });
         $container->set(PostTagSuggestionsController::class, static fn(Container $container): PostTagSuggestionsController => new PostTagSuggestionsController(
             $container->get(AuthProvider::class),
             $container->get(\Register\Content\TagRepository::class),
