@@ -103,11 +103,11 @@ final class ContentSitemapCache implements StatefulServiceInterface
             $callbackKey = 'content-sitemap-cache';
             if ($this->pdo->afterCommitOnce($callbackKey, $clear)) {
                 $this->pdo->afterRollbackOnce($callbackKey, $clear);
-                // A bulk import can dispatch thousands of content events in one transaction.
-                // The first event invalidates the visible snapshot immediately; one completion
-                // callback closes the concurrent-repopulation race after COMMIT or ROLLBACK.
-                $clear();
             }
+
+            // Coalesce completion work, but clear every intermediate snapshot:
+            // a batch can mutate, render a sitemap, and mutate again before COMMIT.
+            $clear();
 
             return;
         }

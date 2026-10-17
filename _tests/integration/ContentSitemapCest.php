@@ -21,6 +21,40 @@ use Symfony\Component\HttpFoundation\Response;
 
 final class ContentSitemapCest
 {
+    public function repeatedPostCreationRefreshesTheSitemapWithinAnEnclosingTransaction(\IntegrationTester $I): void
+    {
+        $I->login('author', 'author');
+        $I->amOnPage('https://localhost/');
+
+        $token = (string)$I->grabAttributeFrom('.post-create-template input[name="inplace_token"]', 'value');
+        $paths = [];
+        foreach (['Sitemap batch first', 'Sitemap batch second'] as $title) {
+            $I->sendAjaxPostRequest('https://localhost/_inplace/post/new', [
+                'inplace_action' => 'create',
+                'inplace_token' => $token,
+                'request_id' => 'sitemap-batch-' . bin2hex(random_bytes(8)),
+                'title' => $title,
+                'body' => '<p>A published post.</p>',
+                'tags' => '',
+                'published_at' => (string)(time() - 60),
+            ]);
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+            $post = $I->grabJson();
+            $I->assertIsArray($post);
+            $path = parse_url((string)$post['url'], PHP_URL_PATH);
+            $I->assertIsString($path);
+            $paths[] = $path;
+
+            // The test harness retains one outer transaction while ordinary
+            // save and sitemap requests run, as an enclosing batch can do.
+            $I->amOnPage('/sitemap-1.xml');
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+            foreach ($paths as $expected) {
+                $I->assertStringContainsString($expected . '</loc>', $I->grabResponse());
+            }
+        }
+    }
+
     public function containsPublishedPagesAndPostsFromCanonicalSources(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */
