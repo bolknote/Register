@@ -4,11 +4,17 @@ import vm from 'node:vm';
 import {readFile} from 'node:fs/promises';
 
 const source = await readFile(new URL('../../_assets/register/post-recovery.js', import.meta.url), 'utf8');
-const context = vm.createContext({window: {}});
-vm.runInContext(await readFile(new URL('../../_assets/register/editor/storage.js', import.meta.url), 'utf8'), context);
-vm.runInContext(source, context);
-const {createStore} = context.window.RegisterPostRecovery;
+const storageSource = await readFile(new URL('../../_assets/register/editor/storage.js', import.meta.url), 'utf8');
 const stamp = 1800000000000;
+function recoveryAt(now) {
+    const context = vm.createContext({window: {}, Date: class extends Date {
+        static now() { return now; }
+    }});
+    vm.runInContext(storageSource, context);
+    vm.runInContext(source, context);
+    return context.window;
+}
+const {RegisterPostRecovery: {createStore}, RegisterEditorStorage} = recoveryAt(stamp);
 function storage() {
     const values = new Map();
     return {
@@ -27,7 +33,7 @@ function record(id = 'draft1', changes = {}) {
         ...changes,
     };
 }
-const open = (data, account = 1, scope = '/_inplace/tags') => createStore(data, scope, account, () => stamp);
+const open = (data, account = 1, scope = '/_inplace/tags') => createStore(data, scope, account);
 
 test('new and existing unfinished posts survive opening another store without a title requirement', () => {
     const data = storage();
@@ -81,8 +87,8 @@ test('a stale recovery offer cannot delete changed text with the same millisecon
 
 test('shared storage also compares complete admin field snapshots before deletion', () => {
     const data = storage();
-    const adminStore = () => context.window.RegisterEditorStorage.createStore(data,
-        'register:admin-recovery:1:fixture:1:post:', item => Array.isArray(item.snapshot), () => stamp);
+    const adminStore = () => RegisterEditorStorage.createStore(data,
+        'register:admin-recovery:1:fixture:1:post:', item => Array.isArray(item.snapshot));
     const owner = adminStore();
     const observer = adminStore();
     const original = record('adminDraft', {target: '9', revision: 3,
@@ -152,17 +158,53 @@ for (const [limit, phase] of [
     });
 }
 
+for (const editor of ['public', 'admin']) {
+    test(`${editor} drafts survive reopening and saving after the system clock moves backwards`, () => {
+        const data = storage();
+        const openAt = now => {
+            const modules = recoveryAt(now);
+            return editor === 'public'
+                ? modules.RegisterPostRecovery.createStore(data, '/_inplace/tags', 1)
+                : modules.RegisterEditorStorage.createStore(data, 'register:admin-recovery:1:fixture:1:post:',
+                    item => Array.isArray(item.snapshot));
+        };
+        const original = editor === 'public' ? record() : record('draft1', {
+            snapshot: [['title', 'Draft title'], ['body', 'Unfinished text']],
+        });
+        assert.equal(openAt(stamp).save(original), true);
+
+        // A clock correction must not classify a durable copy as corrupt.
+        const correctedTime = stamp - 3600000;
+        const reopened = openAt(correctedTime);
+        assert.equal(reopened.list('new').length, 1);
+        assert.equal(JSON.stringify(reopened.list('new')[0].snapshot), JSON.stringify(original.snapshot));
+
+        const another = {...original, id: 'draft2', savedAt: correctedTime};
+        assert.equal(reopened.save(another), true);
+        assert.equal(reopened.list('new').length, 2);
+        assert.equal(data.values.size, 2);
+
+        const updated = {...original, savedAt: correctedTime};
+        assert.equal(reopened.save(updated), true);
+        assert.equal(openAt(correctedTime).list('new').find(copy => copy.id === original.id)?.savedAt, correctedTime);
+    });
+}
+
 test('old copies remain available and malformed local data is rejected', () => {
     const data = storage();
     open(data).save(record());
     open(data, 2).save(record());
-    const later = createStore(data, '/_inplace/tags', 1, () => stamp + 8 * 86400000);
+    const later = recoveryAt(stamp + 8 * 86400000).RegisterPostRecovery.createStore(data, '/_inplace/tags', 1);
     assert.equal(later.list().length, 1);
     assert.equal(open(data, 2).list().length, 1);
     data.setItem('register:post-recovery:1:%2F_inplace%2Ftags:1:bad', '{bad');
     assert.equal(open(data).list().length, 1);
     assert.equal(open(data).save(record('bad', {target: '1"] script'})), false);
     assert.equal(open(data).save(record('bad', {snapshot: {}})), false);
+    for (const savedAt of [undefined, null, '1800000000000', NaN, Infinity, -Infinity, 1.5,
+        Number.MAX_SAFE_INTEGER, -Number.MAX_SAFE_INTEGER]) {
+        assert.equal(open(data).save(record('bad', {savedAt})), false);
+    }
 });
 
 test('storage exceptions and oversized posts leave the last valid copy available', () => {

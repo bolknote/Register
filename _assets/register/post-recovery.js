@@ -2,7 +2,7 @@
     'use strict';
 
     // The server supplies both the installation scope and the authenticated owner.
-    function createStore(storage, scope, userId, now = () => Date.now()) {
+    function createStore(storage, scope, userId) {
         if (!Number.isSafeInteger(userId) || userId < 1 || typeof scope !== 'string' || !scope) return null;
         return window.RegisterEditorStorage.createStore(storage,
             `register:post-recovery:1:${encodeURIComponent(scope)}:${userId}:`, record => {
@@ -15,7 +15,7 @@
                     && (snapshot.requestId === undefined || /^[a-zA-Z0-9_-]{16,80}$/u.test(snapshot.requestId))
                     && Array.isArray(snapshot.mediaIds) && snapshot.mediaIds.length <= 1000
                     && snapshot.mediaIds.every(id => Number.isSafeInteger(id) && id > 0);
-            }, now);
+            });
     }
 
     function cleanBody(html) {

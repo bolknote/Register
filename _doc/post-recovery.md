@@ -20,7 +20,9 @@ Deletion compares the complete saved version, including its snapshot, because su
 can share a millisecond timestamp. Retention selects candidates after writing the new copy and
 rechecks each candidate before removing it; a changed candidate causes the list to be refreshed.
 
-Copies do not expire by age. Each is limited to 512 Ki UTF-16 code units of
+Copies do not expire by age, and correcting the system clock backwards does not
+invalidate or delete copies whose timestamps now appear to be in the future.
+Each is limited to 512 Ki UTF-16 code units of
 serialized JSON (approximately 1 MiB of browser storage); an account can retain
 up to ten copies and 2 Mi code units in total. Oldest copies are pruned when the
 bounded store is full. The local browser profile is not an encrypted
@@ -50,7 +52,7 @@ and the UI warns when markup was changed. The server version stays available by
 cancelling before saving.
 
 Verification: `node --test _tests/javascript/post-recovery.test.mjs` covers storage
-isolation, retention limits, malformed data, storage failures and stale deletion, including
+isolation, retention limits, malformed data, clock corrections, storage failures and stale deletion, including
 updates from another tab during writing and retention cleanup.
 `npm test --prefix _tests/browser/editor` runs actual editor/reload scenarios in
 Chromium and Firefox, including offline typing, untitled new posts, conflicting

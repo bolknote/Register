@@ -8,13 +8,13 @@
 
     // Only an authenticated editor supplies this namespace. Never store session
     // tokens, and never enumerate another account's local drafts.
-    function createStore(storage, prefix, validate, now = () => Date.now()) {
+    function createStore(storage, prefix, validate) {
         const key = record => prefix + record.id;
         function valid(record) {
                 return record?.version === 1
                 && typeof record.id === 'string' && /^[a-zA-Z0-9_-]{1,80}$/u.test(record.id)
-                && Number.isSafeInteger(record.savedAt)
-                && record.savedAt <= now() + 60000
+                // Clock corrections can put a valid saved copy in the future.
+                && Number.isSafeInteger(record.savedAt) && Number.isFinite(new Date(record.savedAt).getTime())
                 && validate(record);
         }
         function entries() {
