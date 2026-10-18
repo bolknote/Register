@@ -162,7 +162,8 @@ class CommentCest
             ->execute()
             ->result());
         $I->amOnPage($this->callbackUrl($I->grabPublicAuthMails()[0]['message']));
-        $I->seeResponseCodeIs(302);
+        $I->seeResponseCodeIs(200);
+        $I->see('Your comment is confirmed and awaiting moderation.', '[role="status"]');
 
         $comment = $dbLayer
             ->select('parent_id', 'text')
@@ -332,7 +333,8 @@ class CommentCest
             ->execute()
             ->result());
         $I->amOnPage($this->callbackUrl($I->grabPublicAuthMails()[0]['message']));
-        $I->seeResponseCodeIs(302);
+        $I->seeResponseCodeIs(200);
+        $I->see('Your comment is confirmed and awaiting moderation.', '[role="status"]');
 
         $reply = $dbLayer
             ->select('id', 'parent_id', 'text', 'shown')

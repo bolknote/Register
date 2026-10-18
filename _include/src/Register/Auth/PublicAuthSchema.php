@@ -89,6 +89,7 @@ final class PublicAuthSchema
         self::ensureMagicLinkModerationRequirement($dbLayer);
         self::ensurePendingCommentSpamAssessment($dbLayer);
         self::ensurePendingCommentRecovery($dbLayer);
+        self::ensureCommentConfirmationReceipt($dbLayer);
 
         $dbLayer->createTable(self::NOTIFICATION_USERS_TABLE, static function (SchemaBuilderInterface $table): void {
             $table
@@ -204,5 +205,17 @@ final class PublicAuthSchema
             true,
         );
         $dbLayer->addIndex(self::MAGIC_LINKS_TABLE, 'recovery_idx', ['recovery_hash']);
+    }
+
+    /** A claimed token is not proof that its comment was actually saved. */
+    public static function ensureCommentConfirmationReceipt(DbLayer $dbLayer): void
+    {
+        $dbLayer->addField(
+            self::MAGIC_LINKS_TABLE,
+            'confirmed_comment_id',
+            SchemaBuilderInterface::TYPE_UNSIGNED_INTEGER,
+            null,
+            true,
+        );
     }
 }

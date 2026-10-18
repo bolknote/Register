@@ -474,7 +474,8 @@ final class PublicAuthCest
         $I->seeResponseCodeIs(410);
         $I->see('Last paragraph.', '.pending-comment-preview');
         $I->amOnPage($this->localCallbackUrl($I->grabPublicAuthMails()[1]['message']));
-        $I->seeResponseCodeIs(302);
+        $I->seeResponseCodeIs(200);
+        $I->see('Your comment is confirmed and awaiting moderation.', '[role="status"]');
         $I->assertNotNull($I->grabTestCookie('comment_form_sent'));
 
         $comment = $db->select('text', 'email', 'shown')->from(CommentSchema::TABLE_NAME)->where('content_id = :id')->setParameter('id', $articleId)->execute()->fetchAssoc();
@@ -484,7 +485,8 @@ final class PublicAuthCest
         $I->assertSame(0, (int)$comment['shown']);
         $I->assertCount(2, $I->grabModeratorMails());
         $I->amOnPage($waitingUrl);
-        $I->seeResponseCodeIs(404);
+        $I->seeResponseCodeIs(200);
+        $I->see('Your comment has already been confirmed.', '[role="status"]');
         $I->dontSeeElement('.pending-comment-email-form');
         $I->assertSame(1, (int)$db->select('COUNT(*)')->from(CommentSchema::TABLE_NAME)->where('content_id = :id')->setParameter('id', $articleId)->execute()->result());
     }
@@ -518,7 +520,7 @@ final class PublicAuthCest
         ]);
         $I->seeResponseCodeIs(303);
         $I->amOnPage($this->localCallbackUrl($I->grabPublicAuthMails()[1]['message']));
-        $I->seeResponseCodeIs(302);
+        $I->seeResponseCodeIs(200);
         $I->assertSame(CommentHtml::sanitizeForStorage('<p>Keep this draft after expiry.</p>'), $db->select('text')->from(CommentSchema::TABLE_NAME)->where("email = 'patient@example.test'")->execute()->result());
     }
 
@@ -624,6 +626,118 @@ final class PublicAuthCest
         $I->assertSame('private@example.test', $db->select('email')->from(PublicAuthSchema::MAGIC_LINKS_TABLE)->where('content_id IS NOT NULL')->execute()->result());
     }
 
+    public function testConfirmedCommentShowsModerationAndCanBeReopenedWithoutSigningInAgain(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $db */
+        $db = $I->grabService(DbLayer::class);
+        $articleId = $this->insertContent($db, 'comment-confirmation-status');
+        $I->resetTestCookie('register_cookie_904732485_c');
+        $I->sendPost('https://localhost/comment-confirmation-status', [
+            'name' => 'Confirmation reader',
+            'email' => 'confirmation-reader@example.test',
+            'text' => '<p>A private comment awaiting moderation.</p>',
+        ]);
+        $callbackUrl = $this->localCallbackUrl($I->grabPublicAuthMails()[0]['message']);
+        $I->amOnPage($callbackUrl);
+        $I->seeResponseCodeIs(200);
+        $I->see('Your comment is confirmed and awaiting moderation.', '[role="status"]');
+        $I->see('Return to the article', 'a[href="/comment-confirmation-status"]');
+        $I->assertStringContainsString('no-store', (string)$I->grabHttpHeader('Cache-Control'));
+        $I->assertSame('no-referrer', $I->grabHttpHeader('Referrer-Policy'));
+        $I->assertSame('noindex, nofollow', $I->grabHttpHeader('X-Robots-Tag'));
+        $I->assertNotNull($I->grabTestCookie('register_cookie_904732485_c'));
+        $I->assertNotNull($I->grabTestCookie('comment_form_sent'));
+
+        $comment = $db->select('id', 'shown')->from(CommentSchema::TABLE_NAME)->where('content_id = :id')->setParameter('id', $articleId)->execute()->fetchAssoc();
+        $I->assertIsArray($comment);
+        $I->assertSame(0, (int)$comment['shown']);
+
+        $sessions = (int)$db->select('COUNT(*)')->from('users_online')->execute()->result();
+        $moderatorMails = $I->grabModeratorMails();
+        $I->assertNotEmpty($moderatorMails);
+
+        // Opening the same link in its original browser is an acknowledgment, not another login.
+        $sessionCookie = $I->grabTestCookie('register_cookie_904732485_c');
+        $I->amOnPage($callbackUrl);
+        $I->seeResponseCodeIs(200);
+        $I->see('Your comment has already been confirmed.', '[role="status"]');
+        $I->dontSee('This saved comment is not available in this browser.');
+        $I->assertSame($sessionCookie, $I->grabTestCookie('register_cookie_904732485_c'));
+
+        // A used email token can show this status in a different browser even after expiry,
+        // but it must never create a new authenticated session or expose the saved text/email.
+        $I->resetTestCookie(PendingCommentRecovery::COOKIE_NAME);
+        $I->resetTestCookie('register_cookie_904732485_c');
+        $I->resetTestCookie('comment_form_sent');
+        $db->update(PublicAuthSchema::MAGIC_LINKS_TABLE)->set('expires_at', ':expired')->setParameter('expired', time() - 1)->execute();
+        $I->amOnPage($callbackUrl);
+        $I->seeResponseCodeIs(200);
+        $I->see('Your comment has already been confirmed.', '[role="status"]');
+        $I->see('Return to the article', 'a[href="/comment-confirmation-status"]');
+        $I->dontSee('A private comment awaiting moderation.');
+        $I->dontSee('confirmation-reader@example.test');
+        $I->dontSeeElement('.pending-comment-email-form');
+        $I->assertNull($I->grabTestCookie('register_cookie_904732485_c'));
+        $I->assertNull($I->grabTestCookie('comment_form_sent'));
+        $I->assertStringContainsString('no-store', (string)$I->grabHttpHeader('Cache-Control'));
+        $I->assertSame($sessions, (int)$db->select('COUNT(*)')->from('users_online')->execute()->result());
+        $I->assertSame(1, (int)$db->select('COUNT(*)')->from(CommentSchema::TABLE_NAME)->where('content_id = :id')->setParameter('id', $articleId)->execute()->result());
+        $I->assertSame(0, (int)$db->select('shown')->from(CommentSchema::TABLE_NAME)->where('id = :id')->setParameter('id', (int)$comment['id'])->execute()->result());
+        $I->assertSame($moderatorMails, $I->grabModeratorMails());
+        $I->assertCount(1, $I->grabPublicAuthMails());
+        $I->assertCount(0, $I->grabSubscriberMails());
+    }
+
+    public function testClaimedLinkWithoutASavedCommentIsNotReportedAsConfirmed(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $db */
+        $db = $I->grabService(DbLayer::class);
+        /** @var PublicAuthRepository $repository */
+        $repository = $I->grabService(PublicAuthRepository::class);
+        $articleId = $this->insertContent($db, 'interrupted-comment-confirmation');
+        $I->resetTestCookie('register_cookie_904732485_c');
+        $I->sendPost('https://localhost/interrupted-comment-confirmation', [
+            'name' => 'Interrupted reader', 'email' => 'interrupted@example.test', 'text' => '<p>Not saved yet.</p>',
+        ]);
+        $callbackUrl = $this->localCallbackUrl($I->grabPublicAuthMails()[0]['message']);
+
+        // A crash between the atomic claim and saving the comment leaves a used link,
+        // so used_at alone cannot be treated as evidence of a successful confirmation.
+        $I->assertNotNull($repository->consumeMagicLink($this->callbackToken($callbackUrl)));
+        $I->amOnPage($callbackUrl);
+        $I->dontSee('Your comment has already been confirmed.');
+        $I->dontSee('Your comment is confirmed and awaiting moderation.');
+        $I->assertNull($I->grabTestCookie('register_cookie_904732485_c'));
+        $I->assertSame(0, (int)$db->select('COUNT(*)')->from(CommentSchema::TABLE_NAME)->where('content_id = :id')->setParameter('id', $articleId)->execute()->result());
+    }
+
+    public function testPublishedEmailCommentKeepsItsRedirectAndIsAcknowledgedOnReplay(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $db */
+        $db = $I->grabService(DbLayer::class);
+        /** @var PublicAuthRepository $repository */
+        $repository = $I->grabService(PublicAuthRepository::class);
+        $articleId = $this->insertContent($db, 'published-comment-confirmation');
+        $I->resetTestCookie('register_cookie_904732485_c');
+        $userId = $repository->findOrCreateIdentity('email', 'established@example.test', 'established@example.test', 'Established reader');
+        $this->insertComment($db, $articleId, 'Established reader', 'established@example.test', $userId);
+        $I->sendPost('https://localhost/published-comment-confirmation', [
+            'name' => 'Established reader', 'email' => 'established@example.test', 'text' => '<p>A newly published comment.</p>',
+        ]);
+        $callbackUrl = $this->localCallbackUrl($I->grabPublicAuthMails()[0]['message']);
+        $I->amOnPage($callbackUrl);
+        $I->seeResponseCodeIs(302);
+
+        $commentId = (int)$db->select('id')->from(CommentSchema::TABLE_NAME)->where("text LIKE '%A newly published comment.%'")->execute()->result();
+        $I->assertGreaterThan(0, $commentId);
+        $I->seeLocationIs('/published-comment-confirmation#comment-' . $commentId);
+        $I->amOnPage($callbackUrl);
+        $I->seeResponseCodeIs(200);
+        $I->see('Your comment has already been confirmed.', '[role="status"]');
+        $I->dontSee('Your comment is confirmed and awaiting moderation.');
+        $I->assertSame(2, (int)$db->select('COUNT(*)')->from(CommentSchema::TABLE_NAME)->where('content_id = :id')->setParameter('id', $articleId)->execute()->result());
+    }
+
     public function testGuestFirstCommentIsVerifiedButHeldUntilModeration(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */
@@ -662,7 +776,8 @@ final class PublicAuthCest
         $I->assertCount(1, $mails);
         $I->resetTestCookie($identityManager->cookieName());
         $I->amOnPage($this->callbackUrl($mails[0]['message']));
-        $I->seeResponseCodeIs(302);
+        $I->seeResponseCodeIs(200);
+        $I->see('Your comment is confirmed and awaiting moderation.', '[role="status"]');
 
         $comment = $dbLayer
             ->select('id', 'content_id', 'user_id', 'visitor_id', 'shown', 'text')
@@ -683,7 +798,7 @@ final class PublicAuthCest
             ->andWhere('user_id = :user_id')->setParameter('user_id', (int)$comment['user_id'])
             ->execute()
             ->result());
-        $I->seeLocationIs('/email-comment-test');
+        $I->see('Return to the article', 'a[href="/email-comment-test"]');
 
         /** @var SpamFeedbackService $feedback */
         $feedback = $I->grabService(SpamFeedbackService::class);
@@ -772,7 +887,8 @@ final class PublicAuthCest
         $authMails = $I->grabPublicAuthMails();
         $I->assertCount(1, $authMails);
         $I->amOnPage($this->callbackUrl($authMails[0]['message']));
-        $I->seeResponseCodeIs(302);
+        $I->seeResponseCodeIs(200);
+        $I->see('Your comment is confirmed and awaiting moderation.', '[role="status"]');
 
         $comment = $dbLayer
             ->select('id', 'shown', 'sent')

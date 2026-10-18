@@ -292,6 +292,49 @@ final readonly class PublicAuthRepository
         return hash('sha256', $token);
     }
 
+    public function recordConfirmedComment(string $token, int $commentId): void
+    {
+        $this->dbLayer
+            ->update(PublicAuthSchema::MAGIC_LINKS_TABLE)
+            ->set('confirmed_comment_id', ':comment_id')->setParameter('comment_id', $commentId)
+            ->where('token_hash = :token_hash')->setParameter('token_hash', self::tokenHash($token))
+            ->andWhere('used_at IS NOT NULL')
+            ->andWhere('confirmed_comment_id IS NULL')
+            ->execute()
+        ;
+    }
+
+    /** A receipt acknowledges a saved comment without making its token usable for login again. */
+    public function confirmedCommentReturnPath(string $token): ?string
+    {
+        $path = $this->dbLayer
+            ->select('return_path')
+            ->from(PublicAuthSchema::MAGIC_LINKS_TABLE)
+            ->where('token_hash = :token_hash')->setParameter('token_hash', self::tokenHash($token))
+            ->andWhere('used_at IS NOT NULL')
+            ->andWhere('confirmed_comment_id IS NOT NULL')
+            ->execute()
+            ->result()
+        ;
+
+        return \is_string($path) ? PublicReturnPath::normalize($path) : null;
+    }
+
+    public function confirmedPendingCommentReturnPath(string $recoveryHash): ?string
+    {
+        $path = $this->dbLayer
+            ->select('return_path')
+            ->from(PublicAuthSchema::MAGIC_LINKS_TABLE)
+            ->where('recovery_hash = :recovery_hash')->setParameter('recovery_hash', $recoveryHash)
+            ->andWhere('used_at IS NOT NULL')
+            ->andWhere('confirmed_comment_id IS NOT NULL')
+            ->execute()
+            ->result()
+        ;
+
+        return \is_string($path) ? PublicReturnPath::normalize($path) : null;
+    }
+
     /** @return array<string, mixed>|null */
     public function pendingComment(string $recoveryHash): ?array
     {

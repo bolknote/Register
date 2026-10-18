@@ -139,6 +139,11 @@ final readonly class MagicLinkService implements PendingEmailCommentServiceInter
 
         $row = $this->repository->consumeMagicLink($token);
         if ($row === null) {
+            $confirmedReturnPath = $this->repository->confirmedCommentReturnPath($token);
+            if ($confirmedReturnPath !== null) {
+                throw new CommentAlreadyConfirmedException($confirmedReturnPath);
+            }
+
             throw new \RuntimeException('The sign-in link is invalid, expired or has already been used.');
         }
 
@@ -183,6 +188,8 @@ final readonly class MagicLinkService implements PendingEmailCommentServiceInter
                 $userId,
                 $visitorId,
             );
+            $this->repository->recordConfirmedComment($token, $commentId);
+
             $assessmentId = isset($row['spam_assessment_id']) ? (int)$row['spam_assessment_id'] : 0;
             if ($assessmentId > 0) {
                 $this->spamAssessmentRepository->attachComment($assessmentId, $contentType, $commentId);

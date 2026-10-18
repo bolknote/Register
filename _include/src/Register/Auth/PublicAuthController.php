@@ -168,6 +168,11 @@ final readonly class PublicAuthController implements ControllerInterface
         $recovery = PendingCommentRecovery::fromRequest($request);
         $draft = $recovery === null ? null : $this->repository->pendingComment($recovery->hash());
         if ($draft === null || $recovery === null) {
+            $confirmedReturnPath = $recovery === null ? null : $this->repository->confirmedPendingCommentReturnPath($recovery->hash());
+            if ($confirmedReturnPath !== null) {
+                return $this->confirmedCommentPage($confirmedReturnPath, true);
+            }
+
             $missingDraft = $request->isMethod(Request::METHOD_POST) || $request->query->has('draft');
             $message = $missingDraft
                 ? 'This saved comment is not available in this browser.'
@@ -237,9 +242,29 @@ final readonly class PublicAuthController implements ControllerInterface
         return $response;
     }
 
-    private function emailCallback(Request $request): \Symfony\Component\HttpFoundation\RedirectResponse
+    private function confirmedCommentPage(string $returnPath, bool $alreadyConfirmed): Response
     {
-        $result = $this->magicLinkService->consume($request->query->getString('token'));
+        $title = $alreadyConfirmed ? 'Comment already confirmed' : 'Comment confirmed';
+        $message = $alreadyConfirmed
+            ? 'Your comment has already been confirmed.'
+            : 'Your comment is confirmed and awaiting moderation.';
+
+        return $this->privateResponse($this->messagePage(
+            $this->translator->trans($title),
+            '<p role="status">' . register_htmlencode($this->translator->trans($message)) . '</p>'
+                . '<p><a href="' . register_htmlencode(PublicReturnPath::normalize($returnPath)) . '">'
+                . register_htmlencode($this->translator->trans('Return to the article')) . '</a></p>',
+        ));
+    }
+
+    private function emailCallback(Request $request): Response
+    {
+        try {
+            $result = $this->magicLinkService->consume($request->query->getString('token'));
+        } catch (CommentAlreadyConfirmedException $exception) {
+            return $this->confirmedCommentPage($exception->returnPath, true);
+        }
+
         $returnPath = $result['return_path'];
         if ($result['comment_id'] !== null && $result['published']) {
             $returnPath = (preg_replace('/#.*$/D', '', $returnPath) ?? $returnPath)
@@ -254,7 +279,13 @@ final readonly class PublicAuthController implements ControllerInterface
         );
         $this->visitorIdentityManager->recordInteraction($request, $result['user_id']);
 
-        $response = $this->redirectWithCookies($session, $returnPath);
+        if ($result['comment_id'] !== null && !$result['published']) {
+            $response = $this->confirmedCommentPage($returnPath, false);
+            $this->copyCookies($session, $response);
+        } else {
+            $response = $this->redirectWithCookies($session, $returnPath);
+        }
+
         if ($result['comment_id'] !== null) {
             // Use the same marker and path as the normal comment submit; the
             // browser storage handler clears it only after a confirmed save.

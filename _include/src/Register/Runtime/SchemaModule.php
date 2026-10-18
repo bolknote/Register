@@ -15,6 +15,7 @@ use Register\Schema\AnalyticsWebVitalsSchemaMigration;
 use Register\Module\BaseModuleInstaller;
 use Register\Module\BaseModuleRegistry;
 use Register\Schema\CommentPrivacySchemaMigration;
+use Register\Schema\CommentConfirmationReceiptSchemaMigration;
 use Register\Schema\ContentAuthorIndexSchemaMigration;
 use Register\Schema\ContentMediaSchemaMigration;
 use Register\Schema\ContentMediaIdentitySchemaMigration;
@@ -163,6 +164,7 @@ final readonly class SchemaModule implements ContainerModuleInterface
         $container->set(PostCreateOperationSchemaMigration::class, new PostCreateOperationSchemaMigration(), [SchemaMigrationInterface::class]);
         $container->set(ContentMediaIdentitySchemaMigration::class, new ContentMediaIdentitySchemaMigration(), [SchemaMigrationInterface::class]);
         $container->set(PendingCommentRecoverySchemaMigration::class, new PendingCommentRecoverySchemaMigration(), [SchemaMigrationInterface::class]);
+        $container->set(CommentConfirmationReceiptSchemaMigration::class, new CommentConfirmationReceiptSchemaMigration(), [SchemaMigrationInterface::class]);
         $container->set(SchemaMigrator::class, fn(Container $container): SchemaMigrator => new SchemaMigrator(
             $container->get(DbLayer::class),
             $container->getByTag(SchemaMigrationInterface::class),

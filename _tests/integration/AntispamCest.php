@@ -216,7 +216,8 @@ final class AntispamCest
         $authMails = $I->grabPublicAuthMails();
         $I->assertCount(1, $authMails);
         $I->amOnPage($this->callbackUrl($authMails[0]['message']));
-        $I->seeResponseCodeIs(302);
+        $I->seeResponseCodeIs(200);
+        $I->see('Your comment is confirmed and awaiting moderation.', '[role="status"]');
         $I->assertSame($before + 1, $this->commentCount($I));
 
         $I->sendPostWithAntispamVisitor('http://register.localhost/', $data, $visitorToken);

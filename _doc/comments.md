@@ -33,7 +33,13 @@ An authenticated participant comments under the name and email of the account; t
 not ask for a second name or address. A guest supplies a name and email. When email-link sign-in is
 enabled, the guest may prepare the comment while requesting a one-time link. The same validation,
 sanitizer, replay protection, rate limiting, and spam checks run before the message is queued, and
-the pending comment is published only after the link is opened successfully.
+the pending comment is saved only after the link is opened successfully. Comments held for review
+show an explicit confirmation that they are awaiting moderation, with a link back to the article.
+Reopening a successfully used comment link acknowledges the existing confirmation without signing
+in again, resubmitting the comment, or sending another notification. This acknowledgment also works
+without the original browser's draft cookie; access to the saved draft still requires that cookie.
+Only a successfully saved comment gets a confirmation receipt: merely claiming a token is not
+enough. Receipts follow the existing cleanup schedule for used email links.
 
 Email-link sign-in is disabled on new sites. Configure a provider-neutral SMTP or PHP `mail()`
 transport under **Settings → Outgoing mail**, verify an end-to-end control message, and only then
