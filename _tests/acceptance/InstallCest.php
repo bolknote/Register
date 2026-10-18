@@ -198,12 +198,23 @@ class InstallCest
         $I->changeSetting(MailSettings::FROM_NAME_CONFIG_KEY, 'Webmaster Name');
         $I->changeSetting(PublicAuthSettings::EMAIL_ENABLED_CONFIG_KEY, true);
 
+        $I->amOnPage(self::URL_PREFIX . '/auth/check-email');
+        $I->seeResponseCodeIs(200);
+        $this->assertPrivateAuthReferrerPolicy($I);
+
         $I->setCookie($this->getCookieName() . '_c', 'wrong_value');
         $I->amOnPage('/section1/page1');
         $I->seeElement('.public-auth-email-form');
         $I->canWriteComment(premoderation: true);
+        $this->assertPrivateAuthReferrerPolicy($I);
         $this->restoreAdminSession($I);
         $this->approveHiddenComment($I, '/section1/page1', 'This is my first comment! 👪🐶');
+    }
+
+    private function assertPrivateAuthReferrerPolicy(AcceptanceTester $I): void
+    {
+        $headers = array_change_key_case($I->grabHeaders(), CASE_LOWER);
+        $I->assertSame(['no-referrer'], $headers['referrer-policy'] ?? []);
     }
 
     private function restoreAdminSession(AcceptanceTester $I): void

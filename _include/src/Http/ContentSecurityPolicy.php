@@ -171,7 +171,10 @@ final class ContentSecurityPolicy
         }
 
         $response->headers->set('X-Content-Type-Options', 'nosniff');
-        $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
+        if (!$response->headers->has('Referrer-Policy')) {
+            $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
+        }
+
         $response->headers->set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
     }
 

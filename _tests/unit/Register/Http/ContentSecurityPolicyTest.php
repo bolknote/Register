@@ -86,6 +86,21 @@ final class ContentSecurityPolicyTest extends Unit
         self::assertSame('no-store, private', $embeddedResponse->headers->get('Cache-Control'));
     }
 
+    public function testSecurityDefaultsPreserveAnExplicitResponseReferrerPolicy(): void
+    {
+        foreach ([ContentSecurityPolicy::apply(...), ContentSecurityPolicy::applyToAdmin(...), ContentSecurityPolicy::applyToEmbeddedAdmin(...)] as $apply) {
+            foreach (['no-referrer', 'same-origin'] as $policy) {
+                $response = new Response('Private content', headers: ['Referrer-Policy' => $policy]);
+                $apply($response);
+                self::assertSame($policy, $response->headers->get('Referrer-Policy'));
+            }
+
+            $defaultResponse = new Response();
+            $apply($defaultResponse);
+            self::assertSame('strict-origin-when-cross-origin', $defaultResponse->headers->get('Referrer-Policy'));
+        }
+    }
+
     public function testAddsAValidatedNonceToPublicScriptPolicies(): void
     {
         $nonce    = 'AbCdEfGhIjKlMnOpQrStUvWx';
