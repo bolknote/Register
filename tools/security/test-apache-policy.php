@@ -107,6 +107,38 @@ try {
         }
     }
 
+    // Early headers emulate values already emitted by a content handler, in
+    // both of Apache's response tables, before .htaccess runs its late filter.
+    $referrerExpectations = [
+        ['/_pictures/photo.png', 'policy-success.example.test', 200, 'no-referrer'],
+        ['/rss', 'policy-success.example.test', 200, 'no-referrer'],
+        ['/_pictures/photo.png', 'policy-always.example.test', 200, 'no-referrer'],
+        ['/rss', 'policy-always.example.test', 200, 'no-referrer'],
+        ['/config.secrets.php', 'policy-always.example.test', 403, 'no-referrer'],
+        ['/auth/oauth/yandex', 'policy-always.example.test', 405, 'no-referrer'],
+        ['/_pictures', 'policy-always.example.test', 301, 'no-referrer'],
+        ['/_pictures', '127.0.0.1', 301, 'strict-origin-when-cross-origin'],
+        ['/_pictures/photo.png', '127.0.0.1', 200, 'strict-origin-when-cross-origin'],
+    ];
+    foreach ($referrerExpectations as [$path, $host, $expectedStatus, $expectedPolicy]) {
+        $response = requestResponse($port, $path, [
+            'Host' => $host,
+            'Referrer-Policy' => 'unsafe-url',
+        ]);
+        $policies = $response['headers']['referrer-policy'] ?? [];
+        if ($response['status'] !== $expectedStatus || $policies !== [$expectedPolicy]) {
+            throw new RuntimeException(sprintf(
+                'Apache returned HTTP %d with Referrer-Policy %s for %s%s; expected HTTP %d with exactly %s.',
+                $response['status'],
+                $policies === [] ? '(missing)' : implode(', ', $policies),
+                $host,
+                $path,
+                $expectedStatus,
+                $expectedPolicy,
+            ));
+        }
+    }
+
     $identityResponse = requestResponse($port, '/_cache/register_styles.deadbeef.css.asset');
     if (isset($identityResponse['headers']['content-encoding'])) {
         throw new RuntimeException('Apache encoded an asset without Accept-Encoding.');
@@ -177,7 +209,7 @@ try {
     fwrite(STDOUT, sprintf(
         "Apache shared-hosting policy: OK (%d allow/deny checks, %d header checks).\n",
         count($expectations),
-        count($securityHeaders) * 2,
+        count($securityHeaders) * 2 + count($referrerExpectations),
     ));
 } catch (Throwable $exception) {
     fwrite(STDERR, $exception->getMessage() . "\n");
@@ -403,6 +435,18 @@ DirectoryIndex index.html index.htm index.php
     Require all granted
 </Directory>
 
+<VirtualHost 127.0.0.1:%d>
+    ServerName 127.0.0.1
+</VirtualHost>
+<VirtualHost 127.0.0.1:%d>
+    ServerName policy-success.example.test
+    Header onsuccess set Referrer-Policy "no-referrer" early
+</VirtualHost>
+<VirtualHost 127.0.0.1:%d>
+    ServerName policy-always.example.test
+    Header always set Referrer-Policy "no-referrer" early
+</VirtualHost>
+
 APACHE,
         $tempRoot,
         $tempRoot,
@@ -413,6 +457,9 @@ APACHE,
         $tempRoot,
         $webRoot,
         $webRoot,
+        $port,
+        $port,
+        $port,
     );
 
     $configFile = $tempRoot . '/httpd.conf';
@@ -544,14 +591,14 @@ function requestResponse(int $port, string $path, array $requestHeaders = []): a
     }
 
     $rawHeaders = '';
-    foreach ($requestHeaders as $name => $value) {
+    foreach (['Host' => '127.0.0.1', ...$requestHeaders] as $name => $value) {
         if (preg_match('/^[A-Za-z0-9-]+$/D', $name) !== 1 || str_contains($value, "\r") || str_contains($value, "\n")) {
             throw new RuntimeException('Invalid Apache test request header.');
         }
         $rawHeaders .= $name . ': ' . $value . "\r\n";
     }
     fwrite($socket, sprintf(
-        "GET %s HTTP/1.1\r\nHost: 127.0.0.1\r\n%sConnection: close\r\n\r\n",
+        "GET %s HTTP/1.1\r\n%sConnection: close\r\n\r\n",
         $path,
         $rawHeaders,
     ));

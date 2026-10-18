@@ -100,6 +100,9 @@ When Apache provides `mod_headers`, it must include `X-Content-Type-Options: nos
 `Referrer-Policy: strict-origin-when-cross-origin`, and
 `Permissions-Policy: camera=(), microphone=(), geolocation=()`. The application emits the same
 headers for dynamic pages, but only the web-server rule can cover static files and denied requests.
+An explicit application `Referrer-Policy`, such as `no-referrer` on email confirmation pages,
+takes precedence. Apache adds the default only when neither of its response-header tables already
+contains a policy; see the [mod_headers documentation](https://httpd.apache.org/docs/2.4/mod/mod_headers.html#header).
 
 ## Response compression
 
