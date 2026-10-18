@@ -167,17 +167,30 @@ async function runGuestJourney(browser, javaScriptEnabled) {
         } finally { await stranger.close(); }
         assert.equal((await page.goto(firstLink)).status(), 410, 'The old address cannot confirm the comment after correction');
         assert.equal(database('SELECT COUNT(*) AS count FROM comments WHERE email=?', [correctedEmail])[0].count, 0);
-        await page.goto(correctedLink);
+        assert.equal((await page.goto(correctedLink)).status(), 200);
+        assert.equal(await page.locator('p[role="status"]').textContent(), 'Your comment is confirmed and awaiting moderation.');
         const comments = database('SELECT text, shown FROM comments WHERE email=?', [correctedEmail]);
         assert.equal(comments.length, 1);
         assert.equal(comments[0].text, originalHtml, 'Confirmation stores every character of the original sanitized HTML');
         assert.equal(comments[0].shown, 0, 'A new guest is still held for normal moderation');
+        await Promise.all([page.waitForURL(article), page.getByRole('link', {name: 'Return to the article', exact: true}).click()]);
         if (javaScriptEnabled) {
+            await page.waitForFunction(key => localStorage.getItem(key) === null, storageKey);
             assert.equal(await page.evaluate(key => localStorage.getItem(key), storageKey), null,
                 'Only confirmed submission clears the browser draft');
             assert.equal(await page.locator('#comment-form .comment-editor-surface').textContent(), '');
         }
-        await page.goto(correctedLink);
+        assert.equal((await page.goto(correctedLink)).status(), 200);
+        assert.equal(await page.locator('p[role="status"]').textContent(), 'Your comment has already been confirmed.');
+        const returningStranger = await browser.newContext({javaScriptEnabled: false});
+        try {
+            const otherPage = await returningStranger.newPage();
+            assert.equal((await otherPage.goto(correctedLink)).status(), 200);
+            assert.equal(await otherPage.locator('p[role="status"]').textContent(), 'Your comment has already been confirmed.');
+            assert.equal(await otherPage.locator('.public-auth-user-menu').count(), 0, 'A used confirmation token does not sign in another browser');
+            assert.equal((await otherPage.locator('body').textContent()).includes(correctedEmail), false);
+            assert.equal((await otherPage.locator('body').textContent()).includes(text), false);
+        } finally { await returningStranger.close(); }
         assert.equal(database('SELECT COUNT(*) AS count FROM comments WHERE email=?', [correctedEmail])[0].count, 1,
             'Reopening the same email cannot create a duplicate comment');
         assert.deepEqual(errors, []);

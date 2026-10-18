@@ -29,7 +29,11 @@ final class ContentSitemapCacheTest extends TestCase
                 $rows = $statement->fetchAll(\PDO::FETCH_COLUMN);
 
                 return '<urlset>' . implode('', array_map(
-                    static fn(string $slug): string => '<url><loc>https://example.test/' . $slug . '</loc></url>',
+                    static function (mixed $slug): string {
+                        self::assertIsString($slug);
+
+                        return '<url><loc>https://example.test/' . $slug . '</loc></url>';
+                    },
                     $rows,
                 )) . '</urlset>';
             };

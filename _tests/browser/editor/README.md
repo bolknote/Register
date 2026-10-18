@@ -36,7 +36,8 @@ unchanged resources must contribute zero body bytes on the repeat visit.
 real MIME mail locally without delivery. Chromium, Firefox and WebKit exercise long
 guest comments with and without JavaScript: missing email, typo correction, reload,
 rich-editor recovery through partial navigation, expired links, browser-bound draft
-access, exact stored text, normal moderation and duplicate prevention. The same
+access, exact stored text, moderation acknowledgment, repeated-link status without
+another login, draft cleanup on returning to the article and duplicate prevention. The same
 tests are included in `npm run test:e2e` and the Quality workflow.
 The suite also checks replying by button, preserved drafts, addressee selection
 and cancellation with and without JavaScript. Reply selection never creates query
