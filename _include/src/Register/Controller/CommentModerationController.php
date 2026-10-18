@@ -12,6 +12,7 @@ namespace Register\Controller;
 use Psr\Log\LoggerInterface;
 use Register\Comment\CommentRepository;
 use Register\Comment\CommentDeletionState;
+use Register\Comment\CommentUndoView;
 use Register\Comment\ContentCommentNotifier;
 use Register\Content\ContentType;
 use Register\Core\Comment\CommentHtml;
@@ -68,6 +69,7 @@ final readonly class CommentModerationController implements ControllerInterface
             return $this->error($request, $this->translator->trans('Comment moderation token expired'), Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
+        $undoPayload = [];
         $undoToken = null;
         if ($action === 'edit') {
             if (!$moderator->canEdit) {
@@ -104,10 +106,13 @@ final readonly class CommentModerationController implements ControllerInterface
                 }
 
                 $undoToken = $this->tokenManager->issueUndo($token, $comment, $state);
+                $undoPayload = CommentUndoView::payload($comment, $undoToken, $this->translator);
             } elseif ($action === 'restore') {
                 $state = $this->tokenManager->readUndo($request->request->getString('undo_token'), $token, $comment);
                 if (!$state instanceof CommentDeletionState || !$this->commentRepository->restoreDeleted($comment, $state)) {
-                    return $this->error($request, $this->translator->trans('Comment changed before undo'), Response::HTTP_CONFLICT);
+                    $code = $this->tokenManager->undoFailure($request->request->getString('undo_token'), $token, $comment) ?? 'undo_changed';
+
+                    return $this->error($request, CommentUndoView::errorMessage($code, $this->translator), Response::HTTP_CONFLICT, $code);
                 }
             } elseif ($action === 'hide') {
                 if (!$comment->shown || !$this->commentRepository->hide($commentId, $contentType)) {
@@ -144,13 +149,7 @@ final readonly class CommentModerationController implements ControllerInterface
         }
 
         if ($request->isXmlHttpRequest() || str_contains($request->headers->get('Accept') ?? '', 'application/json')) {
-            return new JsonResponse(['success' => true, 'action' => $action] + ($undoToken !== null ? [
-                'undo_token' => $undoToken,
-                'undo_label' => $this->translator->trans('Undo comment deletion'),
-                'dismiss_label' => $this->translator->trans('Close'),
-                'undo_error' => $this->translator->trans('Comment changed before undo'),
-                'message' => $this->translator->trans('Comment deleted with undo period'),
-            ] : []));
+            return new JsonResponse(['success' => true, 'action' => $action] + $undoPayload);
         }
 
         $returnPath = $this->safeReturnPath($request->request->getString('return_to'));
@@ -193,10 +192,10 @@ final readonly class CommentModerationController implements ControllerInterface
         return $path;
     }
 
-    private function error(Request $request, string $message, int $status): Response
+    private function error(Request $request, string $message, int $status, ?string $code = null): Response
     {
         if ($request->isXmlHttpRequest() || str_contains($request->headers->get('Accept') ?? '', 'application/json')) {
-            return new JsonResponse(['success' => false, 'message' => $message], $status);
+            return new JsonResponse(['success' => false, 'message' => $message, 'code' => $code], $status);
         }
 
         return new Response($message, $status, ['Content-Type' => 'text/plain; charset=UTF-8']);

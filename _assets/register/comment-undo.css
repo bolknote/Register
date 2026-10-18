@@ -1,13 +1,53 @@
+.comment-undo-notices,
+.comment-undo-inline,
+.comment-confirm-dialog {
+    --comment-ui-text: var(--admin-text-color, var(--text-color, #202020));
+    --comment-ui-muted: var(--admin-secondary-text-color, var(--minor-color, #666));
+    --comment-ui-background: var(--admin-surface-background, var(--surface-background, #fff));
+    --comment-ui-field: var(--admin-field-background, var(--field-background, #fff));
+    --comment-ui-border: var(--admin-border-color, var(--border-color, #aaa));
+    --comment-ui-accent: var(--admin-accent-color, var(--link-color, #246));
+    --comment-ui-error: var(--admin-error-color, var(--error-color, #a32424));
+    color: var(--comment-ui-text);
+    font: 1rem/1.45 var(--ui-font, system-ui, sans-serif);
+}
+.comment-undo-notices [hidden],
+.comment-undo-inline [hidden],
+.comment-confirm-dialog [hidden] { display: none !important; }
+
 .comment-undo-notices {
     position: fixed;
     z-index: 10000;
     inset: auto 1rem 1rem;
     display: grid;
     justify-content: center;
-    gap: .5rem;
-    max-height: 45vh;
-    overflow: auto;
     pointer-events: none;
+}
+.comment-undo-header,
+.comment-undo-history {
+    width: min(40rem, calc(100vw - 2rem));
+    box-sizing: border-box;
+    border: 1px solid var(--comment-ui-border);
+    background: var(--comment-ui-background);
+    box-shadow: 0 3px 18px #0002;
+    pointer-events: auto;
+}
+.comment-undo-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    padding: .35rem .6rem;
+    border-radius: .5rem;
+}
+.comment-undo-header:has(+ :not([hidden])) { border-radius: .5rem .5rem 0 0; }
+.comment-undo-history {
+    max-height: 42vh;
+    max-height: 42dvh;
+    overflow: auto;
+    overscroll-behavior: contain;
+    border-top: 0;
+    border-radius: 0 0 .5rem .5rem;
 }
 .comment-undo-notice {
     display: flex;
@@ -15,25 +55,109 @@
     flex-wrap: wrap;
     gap: .75rem;
     margin: 0;
-    padding: .75rem 1rem;
-    max-width: 40rem;
-    border: 1px solid var(--border-color, #aaa);
-    border-radius: .5rem;
-    color: var(--text-color, #202020);
-    background: var(--field-background, #fff);
-    box-shadow: 0 3px 18px #0002;
-    font: 1rem/1.4 system-ui, sans-serif;
-    pointer-events: auto;
+    padding: .85rem 1rem;
+    border-bottom: 1px solid var(--comment-ui-border);
+    color: var(--comment-ui-text);
+    background: var(--comment-ui-background);
+    overflow-wrap: anywhere;
 }
-.comment-undo-notice > span { flex: 1 1 10rem; }
-.comment-undo-notice button {
-    color: inherit;
-    background: transparent;
-    border: 1px solid currentColor;
-    border-radius: .25rem;
-    padding: .35rem .6rem;
+.comment-undo-notice:last-child { border-bottom: 0; }
+.comment-undo-content { flex: 1 1 15rem; min-width: 0; }
+.comment-undo-context { display: block; font-size: 1rem; }
+.comment-undo-notice p { margin: .25rem 0; font-size: .9rem; line-height: 1.4; }
+.comment-undo-excerpt,
+.comment-undo-time { color: var(--comment-ui-muted); font-size: .85rem; }
+.comment-undo-notice[data-state="unavailable"] .comment-undo-message,
+.comment-undo-notice .comment-undo-message[role="alert"] { color: var(--comment-ui-error); }
+.comment-undo-actions { display: flex; align-items: center; gap: .6rem; }
+.comment-undo-actions a { color: var(--comment-ui-accent); font-size: .9rem; }
+.comment-undo-notices button,
+.comment-undo-inline button,
+.comment-confirm-dialog button {
+    box-sizing: border-box;
+    min-height: 44px;
+    margin: 0;
+    padding: .5rem .8rem;
+    border: 1px solid var(--comment-ui-border);
+    border-radius: .3rem;
+    color: var(--comment-ui-text);
+    background: var(--comment-ui-field);
     font: inherit;
     cursor: pointer;
 }
-.comment-undo-notice button:focus-visible { outline: 3px solid var(--link-color, #246); outline-offset: 2px; }
-.comment-undo-notice button:disabled { opacity: .6; cursor: wait; }
+.comment-undo-notices button:hover,
+.comment-undo-inline button:hover { border-color: var(--comment-ui-accent); }
+.comment-undo-notices button:focus-visible,
+.comment-undo-inline button:focus-visible,
+.comment-confirm-dialog button:focus-visible {
+    outline: 3px solid var(--comment-ui-accent);
+    outline-offset: 2px;
+}
+.comment-undo-notices button:disabled,
+.comment-undo-inline button:disabled { opacity: .65; cursor: wait; }
+.comment-undo-notices .comment-undo-toggle {
+    text-align: start;
+    flex: 1;
+    background: transparent;
+    border-color: transparent;
+}
+.comment-undo-notices .comment-undo-collapse { min-width: 44px; background: transparent; }
+.comment-undo-restore-all { margin: .75rem 1rem !important; }
+.comment-undo-progress { margin: .75rem 1rem .25rem; color: var(--comment-ui-muted); font-size: .85rem; }
+.comment-undo-inline { border: 1px solid var(--comment-ui-border); border-radius: .5rem; }
+.comment-undo-placeholder > .comment-undo-inline,
+.comment-item > .comment-undo-inline { grid-column: 1 / -1; }
+.comment-tombstone:has(.comment-undo-inline) { display: block; }
+.comment-undo-restored {
+    outline: 3px solid var(--admin-accent-color, var(--link-color, #246));
+    outline-offset: 5px;
+    border-radius: .3rem;
+}
+
+.comment-confirm-dialog {
+    position: fixed;
+    inset: 0;
+    box-sizing: border-box;
+    width: min(32rem, calc(100vw - 2rem));
+    max-height: calc(100vh - 2rem);
+    max-height: calc(100dvh - 2rem);
+    overflow: auto;
+    margin: auto;
+    padding: 1.25rem;
+    border: 1px solid var(--comment-ui-border);
+    border-radius: .65rem;
+    background: var(--comment-ui-background);
+    box-shadow: 0 1.25rem 4rem #0006;
+}
+.comment-confirm-dialog::backdrop { background: #0009; }
+.comment-confirm-dialog form { margin: 0; }
+.comment-confirm-dialog h2 { margin: 0 0 .75rem; font: 650 1.25rem/1.3 var(--ui-font, system-ui, sans-serif); }
+.comment-confirm-dialog p { margin: .75rem 0; color: var(--comment-ui-muted); white-space: pre-line; overflow-wrap: anywhere; }
+.comment-confirm-dialog .comment-confirm-context {
+    padding: .75rem;
+    border: 1px solid var(--comment-ui-border);
+    border-radius: .35rem;
+    color: var(--comment-ui-text);
+    background: var(--comment-ui-field);
+    font-size: .95rem;
+}
+.comment-confirm-dialog .dialog-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: .6rem; margin-top: 1.25rem; }
+.comment-confirm-dialog .dialog-actions button { min-height: 44px; }
+.comment-confirm-dialog button.danger {
+    border-color: var(--comment-ui-error);
+    color: var(--comment-ui-error);
+    background: var(--comment-ui-field);
+}
+.comment-confirm-dialog button.danger:hover { color: var(--comment-ui-field); background: var(--comment-ui-error); }
+.comment-confirm-dialog button.primary {
+    border-color: var(--comment-ui-accent);
+    color: var(--comment-ui-field);
+    background: var(--comment-ui-accent);
+}
+.comment-confirm-dialog[data-action="ham"] {
+    --comment-ui-error: var(--success-color, #277343);
+}
+@media (max-width: 480px) {
+    .comment-undo-notice { padding: .75rem; }
+    .comment-undo-actions { width: 100%; }
+}

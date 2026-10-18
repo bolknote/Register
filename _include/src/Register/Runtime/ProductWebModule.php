@@ -49,6 +49,7 @@ use Register\Core\Framework\ContainerAwareRoutingModuleInterface;
 use Register\Core\Framework\Event\NotFoundEvent;
 use Register\Core\Http\RedirectDetector;
 use Register\Core\Model\AuthProvider;
+use Register\Core\Model\AuthenticatedPublicUser;
 use Register\Core\Model\PermissionChecker;
 use Register\Core\Model\UrlBuilder;
 use Register\Core\Template\TemplateAssetEvent;
@@ -168,6 +169,12 @@ final readonly class ProductWebModule implements ContainerAwareListenerModuleInt
                 $container->getStringParameter('public_root_dir'),
                 $container->getStringParameter('base_path'),
             );
+            $undoUser = $request instanceof Request ? $container->get(AuthProvider::class)->getAuthenticatedPublicUser($request) : null;
+            if ($undoUser instanceof AuthenticatedPublicUser && ($undoUser->canHideComments || $undoUser->canEditComments)) {
+                $event->assetPack->addMeta('<meta name="register-comment-undo-user" content="'
+                    . register_htmlencode($container->getStringParameter('base_path') . ':' . $undoUser->id) . '">');
+            }
+
             $event->assetPack
                 ->addMeta('<meta name="register-sticker-renderer" content="' . register_htmlencode($assetUrl->versioned('/_assets/register/telegram/vendor/lottie/lottie_light_canvas.min.js')) . '">')
                 ->addCss($assetUrl->versioned('/_assets/register/telegram/stickers.css'))

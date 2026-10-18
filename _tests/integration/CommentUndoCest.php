@@ -112,6 +112,7 @@ final class CommentUndoCest
 
         $I->login('admin', 'admin');
         $I->amOnPage('https://localhost/undo-test');
+        $I->seeElement('meta[name="register-comment-undo-user"]');
 
         $token = (string)$I->grabAttributeFrom('[data-comment-id="' . $parent . '"] [data-moderation-action="delete"] input[name="moderation_token"]', 'value');
         $fields = ['moderation_action' => 'delete', 'target_type' => 'page', 'comment_id' => $parent, 'moderation_token' => $token, 'return_to' => '/undo-test'];
@@ -120,16 +121,34 @@ final class CommentUndoCest
 
         $payload = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
         $I->assertIsString($payload['undo_token']);
+        $I->assertSame($parent, $payload['undo_comment_id']);
+        $I->assertStringContainsString('Parent', $payload['undo_context']);
+        $I->assertSame('Parent text', $payload['undo_excerpt']);
+        $I->assertGreaterThan($payload['undo_server_time'], $payload['undo_expires_at']);
+        $I->assertLessThanOrEqual(600000, $payload['undo_expires_at'] - $payload['undo_server_time']);
+        $I->assertArrayHasKey('expired', $payload['undo_labels']);
         $fields['moderation_action'] = 'restore';
         $fields['undo_token'] = $payload['undo_token'];
         $I->sendAjaxPostRequest('https://localhost/comment-moderate', [...$fields, 'undo_token' => 'tampered']);
         $I->seeResponseCodeIs(409);
+        $I->assertSame('undo_changed', json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR)['code']);
+        /** @var CommentModerationTokenManager $tokens */
+        $tokens = $I->grabService(CommentModerationTokenManager::class);
+        $deleted = $comments->find($parent);
+        $I->assertNotNull($deleted);
+        $state = $tokens->readUndo($payload['undo_token'], $token, $deleted);
+        $I->assertNotNull($state);
+        $expired = $tokens->issueUndo($token, $deleted, $state, time() - 601);
+        $I->sendAjaxPostRequest('https://localhost/comment-moderate', [...$fields, 'undo_token' => $expired]);
+        $I->seeResponseCodeIs(409);
+        $I->assertSame('undo_expired', json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR)['code']);
         $I->sendAjaxPostRequest('https://localhost/comment-moderate', $fields);
         $I->seeResponseCodeIs(200);
         $I->assertSame($parent, $comments->find($reply)?->parentId);
         $I->assertTrue($comments->find($parent)?->shown);
         $I->sendAjaxPostRequest('https://localhost/comment-moderate', $fields);
         $I->seeResponseCodeIs(409);
+        $I->assertSame('undo_already_restored', json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR)['code']);
         $I->logout();
         $I->login('guest', 'guest');
         $I->sendAjaxPostRequest('https://localhost/comment-moderate', $fields);
@@ -150,6 +169,10 @@ final class CommentUndoCest
         $I->seeResponseCodeIs(200);
 
         $payload = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
+        $I->assertSame($id, $payload['undo_comment_id']);
+        $I->assertStringContainsString('Admin undo', $payload['undo_context']);
+        $I->assertSame('Admin undo text', $payload['undo_excerpt']);
+        $I->assertGreaterThan($payload['undo_server_time'], $payload['undo_expires_at']);
         $I->assertTrue($comments->find($id)?->deleted);
         $I->sendAjaxPostRequest($url, ['csrf_token' => $csrf, 'undo_token' => $payload['undo_token']]);
         $I->seeResponseCodeIs(200);
@@ -158,10 +181,36 @@ final class CommentUndoCest
         $I->assertFalse($restored->deleted);
         $I->assertFalse($restored->shown);
         $I->assertFalse($restored->sent);
+        $I->sendAjaxPostRequest($url, ['csrf_token' => $csrf, 'undo_token' => $payload['undo_token']]);
+        $I->seeResponseCodeIs(409);
+        $I->assertSame('undo_already_restored', json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR)['code']);
         $I->logout();
         $I->login('guest', 'guest');
         $I->sendAjaxPostRequest($url, ['csrf_token' => $csrf, 'undo_token' => $payload['undo_token']]);
         $I->seeResponseCodeIs(403);
+    }
+
+    public function deletingTheLastCommentKeepsARecoveryHostForModerators(\IntegrationTester $I): void
+    {
+        [$comments, $content] = $this->context($I);
+        $id = $comments->save($content, 'Last author', '', false, 'Last comment text', '', null);
+        $comments->publish($id, $content->type);
+        $I->login('admin', 'admin');
+        $I->amOnPage('https://localhost/undo-test');
+
+        $token = (string)$I->grabAttributeFrom('[data-comment-id="' . $id . '"] [data-moderation-action="delete"] input[name="moderation_token"]', 'value');
+        $I->sendAjaxPostRequest('https://localhost/comment-moderate', [
+            'moderation_action' => 'delete', 'target_type' => 'page', 'comment_id' => $id,
+            'moderation_token' => $token, 'return_to' => '/undo-test',
+        ]);
+        $I->seeResponseCodeIs(200);
+        $I->amOnPage('https://localhost/undo-test');
+        $I->seeElement('.comment-thread');
+        $I->dontSee('Last comment text');
+        $I->logout();
+        $I->amOnPage('https://localhost/undo-test');
+        $I->dontSeeElement('.comment-thread');
+        $I->dontSeeElement('meta[name="register-comment-undo-user"]');
     }
 
     public function bulkDeletionReturnsWorkingUndoForEverySelectedComment(\IntegrationTester $I): void
@@ -194,6 +243,9 @@ final class CommentUndoCest
         }
 
         foreach ($payload['undo_items'] as $item) {
+            $I->assertContains($item['undo_comment_id'], $ids);
+            $I->assertStringContainsString($item['undo_excerpt'], $item['undo_context']);
+            $I->assertGreaterThan($item['undo_server_time'], $item['undo_expires_at']);
             $I->sendAjaxPostRequest('https://localhost/_admin/' . $item['url'], $item['data']);
             $I->seeResponseCodeIs(200);
         }

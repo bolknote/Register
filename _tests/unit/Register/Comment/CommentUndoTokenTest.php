@@ -31,6 +31,19 @@ final class CommentUndoTokenTest extends Unit
         self::assertStringNotContainsString('author@example.test', $token);
     }
 
+    public function testUndoFailuresDistinguishExpiryConflictAndAnAlreadyRestoredComment(): void
+    {
+        $manager = new CommentModerationTokenManager(new SpamIdentityHasher(str_repeat('s', 32)));
+        $token = $manager->issueUndo('session', $this->comment(), new CommentDeletionState(200, true, false, true), 1000);
+
+        self::assertNull($manager->undoFailure($token, 'session', $this->comment(), 1599));
+        self::assertSame('undo_expired', $manager->undoFailure($token, 'session', $this->comment(), 1600));
+        self::assertSame('undo_changed', $manager->undoFailure($token, 'other-session', $this->comment(), 1600));
+        self::assertSame('undo_changed', $manager->undoFailure($token, 'session', $this->comment(revision: 201), 1100));
+        self::assertSame('undo_already_restored', $manager->undoFailure($token, 'session', $this->comment(revision: 201, deleted: false), 1100));
+        self::assertSame('undo_changed', $manager->undoFailure($token, 'session', $this->comment(text: 'Edited'), 1100));
+    }
+
     private function comment(int $id = 10, int $revision = 200, bool $deleted = true, string $text = 'Private text'): Comment
     {
         return new Comment(

@@ -11,6 +11,7 @@ namespace Register\Admin\Controller;
 
 use Register\Comment\CommentRepository;
 use Register\Comment\CommentDeletionState;
+use Register\Comment\CommentUndoView;
 use Register\Model\Comment\CommentModerationTokenManager;
 use Register\Live\LiveUpdateRepository;
 use Register\AdminYard\Config\EntityConfig;
@@ -232,7 +233,12 @@ class CommentController extends EntityController
             // proves this same session passed the row's read/write checks before deleting it.
             $state = $this->moderationTokenManager->readUndo($request->request->getString('undo_token'), $csrfToken, $comment);
             if (!$state instanceof CommentDeletionState || !$this->commentRepository->restoreDeleted($comment, $state)) {
-                return new JsonResponse(['success' => false, 'errors' => [$this->translator->trans('Comment changed before undo')]], Response::HTTP_CONFLICT);
+                $code = $this->moderationTokenManager->undoFailure($request->request->getString('undo_token'), $csrfToken, $comment) ?? 'undo_changed';
+
+                return new JsonResponse([
+                    'success' => false, 'code' => $code,
+                    'message' => CommentUndoView::errorMessage($code, $this->translator),
+                ], Response::HTTP_CONFLICT);
             }
 
             return new JsonResponse(['success' => true]);
@@ -254,14 +260,9 @@ class CommentController extends EntityController
             return new JsonResponse(['success' => false], Response::HTTP_CONFLICT);
         }
 
-        return new JsonResponse([
-            'success' => true,
-            'undo_token' => $this->moderationTokenManager->issueUndo($csrfToken, $comment, $state),
-            'message' => $this->translator->trans('Comment deleted with undo period'),
-            'undo_label' => $this->translator->trans('Undo comment deletion'),
-            'dismiss_label' => $this->translator->trans('Close'),
-            'undo_error' => $this->translator->trans('Comment changed before undo'),
-        ]);
+        return new JsonResponse(['success' => true] + CommentUndoView::payload(
+            $comment, $this->moderationTokenManager->issueUndo($csrfToken, $comment, $state), $this->translator,
+        ));
     }
 
     public function hamAction(Request $request): Response

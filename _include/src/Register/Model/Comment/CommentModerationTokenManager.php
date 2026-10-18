@@ -53,20 +53,36 @@ final readonly class CommentModerationTokenManager
 
     public function readUndo(string $token, string $sessionScope, Comment $comment, ?int $now = null): ?CommentDeletionState
     {
+        if ($this->undoFailure($token, $sessionScope, $comment, $now) !== null) {
+            return null;
+        }
+
+        $parts = explode('.', $token);
+
+        return new CommentDeletionState((int)$parts[1], $parts[2] === '1', $parts[3] === '1', $parts[4] === '1');
+    }
+
+    public function undoFailure(string $token, string $sessionScope, Comment $comment, ?int $now = null): ?string
+    {
         if (preg_match('/^(\d{1,11})\.(\d{1,11})\.([01])\.([01])\.([01])\.([a-f0-9]{64})$/D', $token, $parts) !== 1
-            || (int)$parts[1] < ($now ?? time())
-            || !$comment->deleted
-            || (int)$parts[2] !== $comment->modifyTime
+            || !hash_equals($this->undoSignature($sessionScope, $comment, implode('.', array_slice($parts, 1, 5))), $parts[6])
         ) {
-            return null;
+            return 'undo_changed';
         }
 
-        $payload = implode('.', array_slice($parts, 1, 5));
-        if (!hash_equals($this->undoSignature($sessionScope, $comment, $payload), $parts[6])) {
-            return null;
+        if (!$comment->deleted) {
+            return 'undo_already_restored';
         }
 
-        return new CommentDeletionState((int)$parts[2], $parts[3] === '1', $parts[4] === '1', $parts[5] === '1');
+        if ((int)$parts[2] !== $comment->modifyTime) {
+            return 'undo_changed';
+        }
+
+        if ((int)$parts[1] <= ($now ?? time())) {
+            return 'undo_expired';
+        }
+
+        return null;
     }
 
     private function undoSignature(string $sessionScope, Comment $comment, string $payload): string

@@ -186,6 +186,46 @@ test('revealing a comment releases the focused moderation menu for a live update
     }
 });
 
+test('comment deletion starts on Cancel, keeps the page inert and sends no request when cancelled', async () => {
+    const fixture = document.getElementById('fixture');
+    window.RegisterCommentEditor.destroy(fixture);
+    fixture.innerHTML = `<article class="comment-item" data-comment-id="19">
+        <nav class="comment-moderation"><form class="comment-moderation-action" method="post" action="/comment-moderate"
+            data-moderation-action="delete" data-confirm-title="Delete this comment?"
+            data-confirm="Restoration is available for ten minutes." data-confirm-context="Comment #19 — Author">
+            <input name="moderation_action" type="hidden" value="delete">
+            <button type="submit" aria-label="Delete comment">Delete</button>
+        </form></nav><div class="comment-body">A normal comment.</div>
+        <button class="outside-confirmation" type="button">Outside the dialog</button>
+    </article>`;
+    window.commentFlowTest.initCommentModeration(fixture);
+    const form = fixture.querySelector('form');
+    let requests = 0;
+    window.fetch = async () => { requests++; throw new Error('Cancellation must not send a request'); };
+    try {
+        for (const cancel of ['button', 'escape']) {
+            form.requestSubmit();
+            await tick();
+            const dialog = document.querySelector('dialog[open]');
+            ok(dialog, 'Deletion opens the actual server-rendered dialog');
+            equal(document.activeElement, dialog.querySelector('.comment-action-cancel'), 'Enter must select Cancel initially');
+            fixture.querySelector('.outside-confirmation').focus();
+            equal(document.activeElement, dialog.querySelector('.comment-action-cancel'), 'The page behind a modal is inert');
+            ok(dialog.textContent.includes('Comment #19 — Author'), 'The target is identified before deletion');
+            ok(dialog.textContent.includes('ten minutes'), 'The recovery period is explained before deletion');
+            if (cancel === 'button') document.activeElement.click();
+            else dialog.dispatchEvent(new Event('cancel', {cancelable: true}));
+            await tick();
+            equal(document.querySelector('dialog[open]'), null);
+            equal(requests, 0);
+            ok(form.contains(document.activeElement), 'Focus returns to the action that opened the dialog');
+        }
+    } finally {
+        window.fetch = nativeFetch;
+        document.querySelector('dialog[open]')?.dispatchEvent(new Event('cancel', {cancelable: true}));
+    }
+});
+
 document.getElementById('run').addEventListener('click', async () => {
     const output = document.getElementById('results');
     const results = [];

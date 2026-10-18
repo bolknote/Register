@@ -97,6 +97,7 @@ window.AdminConfirm = {
         const dialog = document.querySelector('[data-admin-confirm-dialog]');
         const title = dialog?.querySelector('[data-admin-confirm-title]');
         const message = dialog?.querySelector('[data-admin-confirm-message]');
+        const context = dialog?.querySelector('[data-admin-confirm-context]');
         const cancelButton = dialog?.querySelector('[data-admin-confirm-cancel]');
         const confirmButton = dialog?.querySelector('[data-admin-confirm-submit]');
 
@@ -117,6 +118,10 @@ window.AdminConfirm = {
         if (message) {
             message.textContent = options.message || '';
             message.hidden = !options.message;
+        }
+        if (context) {
+            context.textContent = options.context || '';
+            context.hidden = !options.context;
         }
         confirmButton.textContent = options.confirmLabel || dialog.dataset.defaultConfirmLabel || '';
         confirmButton.classList.toggle('danger', options.dangerous !== false);
@@ -769,6 +774,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 status.textContent = toolbar.dataset.runningLabel || '';
             }
 
+            const requestedAt = Date.now();
             fetch((toolbar.dataset.ajaxUrl || '') + '?action=register_bulk_list_action', {
                 method: 'POST',
                 body: new URLSearchParams({
@@ -783,7 +789,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         throw new Error(payload.message || 'HTTP ' + response.status);
                     }
                     if (Array.isArray(payload.undo_items) && window.RegisterCommentUndo) {
-                        window.RegisterCommentUndo.remember(payload, payload.undo_items);
+                        window.RegisterCommentUndo.remember(payload, payload.undo_items, requestedAt);
                     }
                     window.location.reload();
                 });
@@ -816,6 +822,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const confirmed = await window.AdminConfirm.ask({
                 title: toolbar.dataset.confirmTitle || '',
+                context: selectedRows().slice(0, 3).map(function (checkbox) {
+                    const card = checkbox.closest('.comment-card');
+                    if (!card) return '';
+                    return (card.querySelector('.comment-author')?.textContent.trim() || '') + ': '
+                        + (card.querySelector('.comment-body')?.textContent.trim().replace(/\s+/g, ' ').slice(0, 160) || '');
+                }).filter(Boolean).join('\n'),
                 message: (toolbar.dataset.confirmMessage || '')
                     .replace('{{ count }}', String(selectedRows().length)),
                 confirmLabel: toolbar.dataset.confirmLabel || '',
@@ -864,6 +876,7 @@ document.addEventListener('DOMContentLoaded', () => {
             event.preventDefault();
             const confirmed = await window.AdminConfirm.ask({
                 title: deleteAction.dataset.confirmTitle || '',
+                context: deleteAction.dataset.confirmContext || '',
                 message: deleteAction.dataset.confirm || '',
                 confirmLabel: deleteAction.dataset.confirmLabel || '',
                 dangerous: true
@@ -879,6 +892,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (deleteAction instanceof HTMLButtonElement) {
                 deleteAction.disabled = true;
             }
+            const requestedAt = Date.now();
             fetch(deleteUrl, {
                 method: 'POST',
                 body: new URLSearchParams({csrf_token: deleteAction.dataset.csrfToken || ''})
@@ -890,8 +904,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (payload.undo_token && window.RegisterCommentUndo) {
                     window.RegisterCommentUndo.remember(payload, [{
                         url: deleteUrl,
-                        data: {csrf_token: deleteAction.dataset.csrfToken || '', undo_token: payload.undo_token}
-                    }]);
+                        data: {csrf_token: deleteAction.dataset.csrfToken || '', undo_token: payload.undo_token},
+                        comment_url: new URL(deleteAction.dataset.successUrl || window.location.href, window.location.href).href.split('#')[0]
+                            + '#admin-comment-' + payload.undo_comment_id
+                    }], requestedAt);
                 }
                 if (deleteAction.dataset.successUrl) {
                     window.location.assign(deleteAction.dataset.successUrl);

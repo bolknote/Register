@@ -19,6 +19,7 @@ if (!isset($this)) {
 /** @var array $flashMessages */
 /** @var array $extraStyles */
 /** @var array $extraScripts */
+/** @var int|null $editorUserId */
 
 ?>
 <!DOCTYPE html>
@@ -28,6 +29,9 @@ if (!isset($this)) {
     <title><?php echo $trans('Admin panel'), $param('REGISTER_SITE_NAME') ? ' - ' . $param('REGISTER_SITE_NAME') : ''; ?></title>
     <meta name="ROBOTS" content="NOINDEX, NOFOLLOW">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <?php if ($editorUserId !== null): ?>
+    <meta name="register-comment-undo-user" content="<?= register_htmlencode($basePath . ':' . $editorUserId) ?>">
+    <?php endif; ?>
     <link rel="icon" type="image/svg+xml" href="<?= $basePath ?>/_styles/register/favicon.svg">
     <link rel="stylesheet" href="<?php echo $basePath; ?>/_assets/register/admin-yard/style.css">
     <link rel="stylesheet" href="<?= $basePath ?>/_admin/css/admin-override.css?v=<?= $adminAssetVersion('_admin/css/admin-override.css') ?>">

@@ -13,6 +13,7 @@ use Psr\Log\LoggerInterface;
 use Register\Content\Admin\ContentBulkPublicationService;
 use Register\Content\ContentChangeDispatcher;
 use Register\Content\ContentType;
+use Register\Comment\CommentUndoView;
 use Register\Url\ContentUrlCollisionException;
 use Register\AdminYard\Translator;
 use Register\Admin\AdminPanelFactory;
@@ -103,15 +104,13 @@ final readonly class BulkListActionController
         return new JsonResponse(['success' => true, 'updated' => $count] + ($undoItems !== [] ? [
             'undo_items' => $undoItems,
             'message' => $this->translator->trans('Comments deleted with undo period'),
-            'undo_label' => $this->translator->trans('Undo comment deletion'),
-            'dismiss_label' => $this->translator->trans('Close'),
-            'undo_error' => $this->translator->trans('Comment changed before undo'),
+            'undo_labels' => CommentUndoView::labels($this->translator),
         ] : []));
     }
 
     /**
      * @param list<array{id: int, csrf_token: string}> $items
-     * @param list<array{url: string, data: array{csrf_token: string, undo_token: string}}> $undoItems
+     * @param list<array<string, mixed>> $undoItems
      */
     private function runEntityActions(string $entityName, string $action, array $items, Request $parentRequest, array &$undoItems): int
     {
@@ -141,12 +140,23 @@ final readonly class BulkListActionController
 
             if ($entityName === 'Comment' && $action === BulkListActionProvider::ACTION_DELETE) {
                 $payload = json_decode((string)$response->getContent(), true, 16, JSON_THROW_ON_ERROR);
-                $undoToken = \is_array($payload) ? ($payload['undo_token'] ?? null) : null;
+                if (!\is_array($payload)) {
+                    throw new \UnexpectedValueException('Invalid comment deletion response.');
+                }
+
+                $undoToken = $payload['undo_token'] ?? null;
                 if (\is_string($undoToken)) {
-                    $undoItems[] = [
+                    $undoItem = [
                         'url' => 'index.php?' . http_build_query(['entity' => 'Comment', 'action' => 'delete', 'id' => $item['id']]),
                         'data' => ['csrf_token' => $item['csrf_token'], 'undo_token' => $undoToken],
                     ];
+                    foreach ($payload as $key => $value) {
+                        if (\is_string($key) && str_starts_with($key, 'undo_') && $key !== 'undo_labels') {
+                            $undoItem[$key] = $value;
+                        }
+                    }
+
+                    $undoItems[] = $undoItem;
                 }
             }
         }

@@ -312,7 +312,7 @@ foreach ($filterControls as $fieldName => $control) {
                  data-selected-label="<?= $html($trans('Bulk selected count')) ?>"
                  data-running-label="<?= $html($trans('Bulk action running')) ?>"
                  data-error-label="<?= $html($trans('Bulk action failed')) ?>"
-                 data-confirm-title="<?= $html($trans('Delete selected items')) ?>"
+                 data-confirm-title="<?= $html($trans($entityName === 'Comment' ? 'Delete selected comments' : 'Delete selected items')) ?>"
                  data-confirm-label="<?= $html($trans($entityName === 'Comment' ? 'delete' : 'Delete permanently')) ?>"
                  data-confirm-message="<?= $html($trans($entityName === 'Comment' ? 'Bulk comment delete with undo confirmation' : 'Bulk delete confirmation')) ?>">
             <strong data-bulk-selection-count><?= $html(str_replace('{{ count }}', '0', $trans('Bulk selected count'))) ?></strong>

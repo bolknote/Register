@@ -70,9 +70,12 @@ $errorMessages = array_merge($errorMessages, $form->getGlobalFormErrors());
                            data-admin-delete
                            data-delete-url="?<?= $html($queryParams) ?>"
                            data-csrf-token="<?= $html($csrfToken) ?>"
-                           data-confirm-title="<?= $html($trans('Delete record')) ?>"
+                           data-confirm-title="<?= $html($trans($entityName === 'Comment' ? 'Confirm comment deletion' : 'Delete record')) ?>"
                            data-confirm="<?= $html($trans($entityName === 'Comment' ? 'Delete comment with undo confirmation' : 'Delete record confirmation')) ?>"
-                           data-confirm-label="<?= $html($trans($entityName === 'Comment' ? 'delete' : 'Delete permanently')) ?>"
+                           <?php if ($entityName === 'Comment'): ?>
+                           data-confirm-context="<?= $html($trans('Deleted comment context', ['%number%' => $primaryKey['id'], '%author%' => (string)($form->getData()['nick'] ?? '')]) . "\n" . \Register\Comment\CommentUndoView::excerpt((string)($form->getData()['text'] ?? ''))) ?>"
+                           <?php endif; ?>
+                           data-confirm-label="<?= $html($trans($entityName === 'Comment' ? 'Delete comment' : 'Delete permanently')) ?>"
                            data-error="<?= $html($trans('Delete record failed')) ?>"
                            data-success-url="?<?= $html(http_build_query(['entity' => $entityName, 'action' => 'list'])) ?>"><span><?= $html($actionLabel) ?></span></button>
                     <?php else: ?>

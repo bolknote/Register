@@ -112,7 +112,10 @@ $moderationMenuId = 'comment-tools-menu-' . $id;
                 </form>
             <?php endif; ?>
             <?php if (!empty($moderationData['can_delete'])): ?>
-                <form class="comment-moderation-action" method="post" action="<?php echo register_htmlencode((string)$moderationData['action_url']); ?>" data-moderation-action="delete" data-confirm="<?php echo $trans('Confirm comment deletion'); ?>">
+                <form class="comment-moderation-action" method="post" action="<?php echo register_htmlencode((string)$moderationData['action_url']); ?>" data-moderation-action="delete"
+                      data-confirm-title="<?php echo $trans('Confirm comment deletion'); ?>"
+                      data-confirm="<?php echo $trans('Delete comment with undo confirmation'); ?>"
+                      data-confirm-context="<?php echo register_htmlencode($trans('Deleted comment context', ['%number%' => $id, '%author%' => $nick]) . "\n" . \Register\Comment\CommentUndoView::excerpt($text)); ?>">
                     <input type="hidden" name="moderation_action" value="delete">
                     <input type="hidden" name="target_type" value="<?php echo register_htmlencode((string)$moderationData['target']); ?>">
                     <input type="hidden" name="comment_id" value="<?php echo $id; ?>">

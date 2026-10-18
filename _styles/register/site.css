@@ -3217,8 +3217,7 @@ h2.comment {
 .has-userpic > .comment-body,
 .has-userpic > .comment-actions,
 .has-userpic > .comment-form-block,
-.has-userpic > .comment-edit-form,
-.has-userpic > .comment-action-confirmation {
+.has-userpic > .comment-edit-form {
     min-width: 0;
     grid-column: 2;
 }
@@ -3246,28 +3245,6 @@ h2.comment {
 .has-userpic > .comment-children {
     grid-column: 1 / -1;
     grid-row: 5;
-}
-
-.has-userpic > .comment-action-confirmation {
-    grid-row: 2;
-    justify-self: start;
-}
-
-.has-userpic.is-confirming > .comment-body {
-    grid-row: 3;
-}
-
-.has-userpic.is-confirming > .comment-actions {
-    grid-row: 4;
-}
-
-.has-userpic.is-confirming > .comment-form-block,
-.has-userpic.is-confirming > .comment-edit-form {
-    grid-row: 5;
-}
-
-.has-userpic.is-confirming > .comment-children {
-    grid-row: 6;
 }
 
 .comment-item:target > .comment-meta,
@@ -3454,89 +3431,6 @@ h2.comment {
 .comment-moderation-action[data-moderation-action="show"] .comment-moderation-button:hover,
 .comment-moderation-action[data-moderation-action="show"] .comment-moderation-button:focus-visible {
     color: var(--success-color);
-}
-
-.comment-item.is-confirming > .comment-moderation {
-    opacity: 1;
-    pointer-events: auto;
-    transform: none;
-    transition: none;
-}
-
-.comment-item.is-confirming > .comment-moderation > .comment-tools-menu-toggle,
-.comment-item.is-confirming > .comment-moderation > .comment-tools-overflow > :not(.is-confirming-source),
-.comment-moderation-action.is-confirming-source > .comment-moderation-button {
-    opacity: 0;
-    pointer-events: none;
-}
-
-.comment-action-confirmation {
-    position: relative;
-    z-index: 4;
-    display: flex;
-    width: max-content;
-    max-width: min(34rem, 100%);
-    min-height: 2.75rem;
-    margin: 0.55rem 0 0;
-    padding: 0.35rem 0.4rem 0.35rem 0.8rem;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 0.35rem 0.8rem;
-    border-radius: 3px;
-    background: var(--surface-background);
-    box-shadow: 0 0.6rem 1.8rem color-mix(in srgb, #000 18%, transparent);
-    color: var(--text-color);
-    font-family: var(--ui-font);
-    font-size: 13px;
-    line-height: 1.35;
-}
-
-.comment-action-question {
-    font-weight: 650;
-}
-
-.comment-action-buttons {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-}
-
-.comment-action-confirmation button {
-    min-height: 2rem;
-    margin: 0;
-    padding: 0.25rem 0.65rem;
-    border-radius: 2px;
-    font-size: 13px;
-}
-
-.comment-action-cancel {
-    background: transparent;
-    color: var(--minor-color);
-}
-
-.comment-action-cancel:hover,
-.comment-action-cancel:focus-visible {
-    background: var(--field-background);
-    color: var(--text-color);
-}
-
-.comment-action-confirm,
-.comment-action-confirm:hover,
-.comment-action-confirm:focus-visible {
-    background: var(--error-color);
-    color: var(--page-background);
-    font-weight: 700;
-}
-
-.comment-action-confirm:hover {
-    filter: brightness(1.12);
-}
-
-.comment-action-confirmation[data-action="ham"] .comment-action-confirm,
-.comment-action-confirmation[data-action="ham"] .comment-action-confirm:hover,
-.comment-action-confirmation[data-action="ham"] .comment-action-confirm:focus-visible {
-    background: var(--success-color);
 }
 
 .comment-moderation-error {

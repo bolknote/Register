@@ -46,7 +46,7 @@ final readonly class CommentThreadRenderer
             $moderation instanceof CommentModerationContext,
         );
         $tree = $this->threadBuilder->build($audienceComments);
-        if ($tree === []) {
+        if ($tree === [] && !$moderation instanceof CommentModerationContext) {
             return '';
         }
 

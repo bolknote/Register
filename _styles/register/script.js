@@ -336,16 +336,17 @@
 
             return new Promise(function (resolve) {
                 var item = form.closest('.comment-item');
-                var commentBody = item && item.querySelector(':scope > .comment-body');
                 var sourceButton = form.querySelector('button[type="submit"]');
                 var confirmationElement = confirmationTemplate.content.firstElementChild.cloneNode(true);
                 var question = confirmationElement.querySelector('.comment-action-question');
+                var message = confirmationElement.querySelector('.comment-confirm-message');
+                var context = confirmationElement.querySelector('.comment-confirm-context');
                 var confirmButton = confirmationElement.querySelector('.comment-action-confirm');
                 var cancelButton = confirmationElement.querySelector('.comment-action-cancel');
                 var finished = false;
 
-                if (!item || !sourceButton || !question || !confirmButton || !cancelButton) {
-                    resolve(true);
+                if (!item || !sourceButton || !question || !confirmButton || !cancelButton || typeof confirmationElement.showModal !== 'function') {
+                    resolve(false);
                     return;
                 }
 
@@ -358,41 +359,42 @@
 
                     finished = true;
                     activeConfirmation = null;
-                    item.classList.remove('is-confirming');
-                    form.classList.remove('is-confirming-source');
+                    if (confirmationElement.open) confirmationElement.close();
                     confirmationElement.remove();
                     commentToolsFocusTarget(item, sourceButton).focus();
                     resolve(confirmed);
                 }
 
                 activeConfirmation = finish;
-                question.textContent = confirmation;
-                confirmationElement.setAttribute('aria-label', confirmation);
+                question.textContent = form.dataset.confirmTitle || confirmation;
+                if (message) {
+                    message.textContent = form.dataset.confirmTitle ? confirmation : '';
+                    message.hidden = !message.textContent;
+                }
+                if (context) {
+                    context.textContent = form.dataset.confirmContext || '';
+                    context.hidden = !context.textContent;
+                }
                 if (moderationAction) {
                     confirmationElement.setAttribute('data-action', moderationAction);
                 }
                 confirmButton.textContent = sourceButton.getAttribute('aria-label') || sourceButton.title;
-                cancelButton.addEventListener('click', function () {
+                cancelButton.addEventListener('click', function (event) {
+                    event.preventDefault();
                     finish(false);
                 }, false);
-                confirmButton.addEventListener('click', function () {
+                confirmButton.addEventListener('click', function (event) {
+                    event.preventDefault();
                     finish(true);
                 }, false);
-                confirmationElement.addEventListener('keydown', function (event) {
-                    if (event.key === 'Escape') {
-                        event.preventDefault();
-                        finish(false);
-                    }
+                confirmationElement.addEventListener('cancel', function (event) {
+                    event.preventDefault();
+                    finish(false);
                 }, false);
-
-                item.classList.add('is-confirming');
-                form.classList.add('is-confirming-source');
-                if (commentBody) {
-                    item.insertBefore(confirmationElement, commentBody);
-                } else {
-                    item.appendChild(confirmationElement);
-                }
-                confirmButton.focus();
+                confirmationElement.addEventListener('submit', function (event) { event.preventDefault(); }, false);
+                document.body.appendChild(confirmationElement);
+                confirmationElement.showModal();
+                cancelButton.focus();
             });
         }
 
@@ -514,6 +516,7 @@
                     item.setAttribute('aria-busy', 'true');
                 }
                 var optimisticEdit = beginOptimisticCommentEdit(form, item);
+                var requestedAt = Date.now();
 
                 window.fetch(form.action, {
                     method: 'POST',
@@ -538,7 +541,13 @@
                         var undoData = Object.fromEntries(new FormData(form));
                         undoData.moderation_action = 'restore';
                         undoData.undo_token = payload.undo_token;
-                        window.RegisterCommentUndo.remember(payload, [{url: form.action, data: undoData}]);
+                        if (item && payload.action === 'delete') {
+                            item.dataset.moderationState = 'deleted';
+                            item.classList.add('is-deleted');
+                            item.classList.remove('has-userpic', 'by-author', 'good', 'is-hidden');
+                            item.querySelectorAll(':scope > :not(.comment-children):not(.comment-stable-anchor)').forEach(function (node) { node.remove(); });
+                        }
+                        window.RegisterCommentUndo.remember(payload, [{url: form.action, data: undoData}], requestedAt);
                     }
                     var isSpamAction = payload.action === 'spam';
                     var activeElement = document.activeElement;
