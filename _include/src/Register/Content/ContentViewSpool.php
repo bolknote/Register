@@ -143,6 +143,54 @@ final readonly class ContentViewSpool
     public function readSegment(string $path): array
     {
         $this->assertSegmentPath($path);
+
+        return $this->readFile($path);
+    }
+
+    /** Reserves pending legacy ids when installing the persistent content allocator. */
+    public function highestContentId(): int
+    {
+        if (!is_dir($this->directory)) {
+            return 0;
+        }
+
+        $locks = [];
+        try {
+            foreach (range(0, $this->shards - 1) as $shard) {
+                $lock = $this->openLock($shard);
+                $locks[] = $lock;
+                if (!flock($lock, LOCK_EX)) {
+                    throw new ContentViewSpoolException('Unable to inspect pending content identifiers.');
+                }
+            }
+
+            $paths = $this->sealedSegments(PHP_INT_MAX);
+            foreach (range(0, $this->shards - 1) as $shard) {
+                $active = $this->activePath($shard);
+                if (is_file($active)) {
+                    $paths[] = $active;
+                }
+            }
+
+            $highestId = 0;
+            foreach ($paths as $path) {
+                foreach ($this->readFile($path)['increments'] as $increment) {
+                    $highestId = max($highestId, $increment->contentId->value);
+                }
+            }
+
+            return $highestId;
+        } finally {
+            foreach ($locks as $lock) {
+                flock($lock, LOCK_UN);
+                fclose($lock);
+            }
+        }
+    }
+
+    /** @return array{increments: list<ContentViewIncrement>, invalid: int} */
+    private function readFile(string $path): array
+    {
         $handle = fopen($path, 'rb');
         if ($handle === false) {
             throw new ContentViewSpoolException('Unable to open a content-view spool segment.');

@@ -24,6 +24,44 @@ use Register\Core\Queue\QueuePublisher;
 
 final class ScheduledPublishingCest
 {
+    public function bulkUnpublishCancelsTheScheduleAndIsIdempotent(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $scheduledAt = time() + 3600;
+        $I->login('admin', 'admin');
+        foreach ([ContentType::POST, ContentType::PAGE] as $type) {
+            $postId = $this->insertScheduledContent($dbLayer, $type, 'cancel-scheduled-' . $type->value, $scheduledAt);
+            $entity = $type === ContentType::POST ? 'BlogPost' : 'Article';
+            $I->amOnPage('https://localhost/_admin/index.php?entity=' . $entity . '&action=list');
+            $token = $I->grabAttributeFrom('[data-bulk-list]', 'data-csrf-token');
+            $I->assertNotNull($token);
+            $payload = [
+                'entity' => $entity,
+                'bulk_action' => 'unpublish',
+                'csrf_token' => $token,
+                'items' => json_encode([['primary_key' => ['id' => $postId], 'csrf_token' => '']], JSON_THROW_ON_ERROR),
+            ];
+            $I->sendPost('https://localhost/_admin/ajax.php?action=register_bulk_list_action', $payload);
+            $I->seeResponseCodeIs(200);
+            $I->assertJsonSubResponseEquals(1, ['updated']);
+            $state = $this->contentState($dbLayer, $postId);
+            $I->assertSame(0, (int)$state['published']);
+            $I->assertSame(0, (int)$state['scheduled_at']);
+            $I->assertSame(2, (int)$state['revision']);
+            $I->assertNull($state['published_at']);
+
+            $I->sendPost('https://localhost/_admin/ajax.php?action=register_bulk_list_action', $payload);
+            $I->seeResponseCodeIs(200);
+            $I->assertJsonSubResponseEquals(0, ['updated']);
+            $I->assertSame(2, (int)$this->contentState($dbLayer, $postId)['revision']);
+        }
+
+        /** @var ContentPublicationScheduler $scheduler */
+        $scheduler = $I->grabService(ContentPublicationScheduler::class);
+        $I->assertSame(0, $scheduler->publishDue($scheduledAt + 1));
+    }
+
     public function publishesOnlyDueDraftsAndQueuesLifecycleUpdates(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */

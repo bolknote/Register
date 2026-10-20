@@ -83,6 +83,7 @@ final class PostMediaCleanerTest extends Unit
             // Real uploads create this lock before cleanup. Keep it available
             // so the read-only media directory fails at unlink, not lock setup.
             self::assertNotFalse(file_put_contents($directory . '/post-media-name.lock', ''));
+            self::assertNotFalse(file_put_contents($directory . '/media-mutations.lock', ''));
             self::assertTrue(chmod($directory, 0500));
             clearstatcache();
             if (is_writable($directory)) {

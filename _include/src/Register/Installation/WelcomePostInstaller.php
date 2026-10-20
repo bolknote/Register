@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace Register\Installation;
 
 use Register\Content\ContentSchema;
+use Register\Content\ContentIdAllocator;
 use Register\Content\ContentType;
 use Register\Core\Pdo\DbLayer;
 
@@ -24,6 +25,7 @@ final readonly class WelcomePostInstaller
         $this->dbLayer
             ->insert(ContentSchema::TABLE_NAME)
             ->values([
+                'id'               => ':id',
                 'content_type'     => ':content_type',
                 'slug_scope'       => "'root'",
                 'slug'             => "'all/welcome-to-register'",
@@ -38,6 +40,7 @@ final readonly class WelcomePostInstaller
                 'author_id'        => ':author_id',
             ])
             ->execute([
+                'id'           => ContentIdAllocator::allocate($this->dbLayer),
                 'content_type' => ContentType::POST->value,
                 'created_at'   => $timestamp,
                 'published_at' => $timestamp,

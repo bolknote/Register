@@ -12,6 +12,7 @@ namespace Register\Model;
 use Register\Comment\CommentRepository;
 use Register\Comment\CommentSchema;
 use Register\Content\ContentId;
+use Register\Content\ContentIdAllocator;
 use Register\Content\ContentChangeDispatcher;
 use Register\Content\ContentDeletionGuardInterface;
 use Register\Content\ContentSchema;
@@ -236,9 +237,11 @@ readonly class ArticleManager
             }
 
             $now = time();
+            $allocatedId = ContentIdAllocator::allocate($this->dbLayer);
 
             $this->dbLayer
                 ->insert(ContentSchema::TABLE_NAME)
+                ->setValue('id', ':id')->setParameter('id', $allocatedId)
                 ->setValue('content_type', ':content_type')->setParameter('content_type', ContentType::PAGE->value)
                 ->setValue('parent_id', ':parent_id')->setParameter('parent_id', $parentId)
                 ->setValue('slug_scope', ':slug_scope')->setParameter('slug_scope', $this->contentSlugService->pageScope($parentId))
@@ -255,7 +258,7 @@ readonly class ArticleManager
                 ->execute()
             ;
 
-            return (int)$this->dbLayer->insertId();
+            return $allocatedId;
         });
         $this->contentChangeDispatcher->dispatch(ContentId::page($insertId));
 

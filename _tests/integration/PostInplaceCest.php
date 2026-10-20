@@ -808,6 +808,40 @@ final class PostInplaceCest
             ->result());
     }
 
+    public function recreatingADeletedPostAllocatesANewIdentity(\IntegrationTester $I): void
+    {
+        $I->login('admin', 'admin');
+        $I->amOnPage('https://localhost/');
+
+        $createToken = (string)$I->grabAttributeFrom(
+            '.site-header-shell .post-create-template input[name="inplace_token"]', 'value',
+        );
+        $create = function () use ($I, $createToken): array {
+            $I->sendAjaxPostRequest('https://localhost/_inplace/post/new', [
+                'inplace_action' => 'create', 'inplace_token' => $createToken, 'revision' => '0',
+                'title' => 'Content identity regression', 'body' => '<p>New content</p>',
+                'tags' => '', 'published_at' => (string)(time() - 60),
+            ]);
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+
+            return json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
+        };
+        $first = $create();
+        $oldId = (int)$first['id'];
+        $I->amOnPage('https://localhost' . $first['url']);
+        $selector = '.post-card[data-post-id="' . $oldId . '"] > .post-delete-confirmation';
+        $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $oldId, [
+            'inplace_action' => 'delete',
+            'inplace_token' => $I->grabAttributeFrom($selector . ' input[name="inplace_token"]', 'value'),
+            'revision' => '1',
+        ]);
+        $I->seeResponseCodeIs(Response::HTTP_OK);
+
+        $second = $create();
+        $newId = (int)$second['id'];
+        $I->assertGreaterThan($oldId, $newId);
+    }
+
     public function schedulesAFuturePostAndLetsItsAuthorPublishItImmediately(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */

@@ -19,6 +19,8 @@ use Register\Schema\CommentConfirmationReceiptSchemaMigration;
 use Register\Schema\ContentAuthorIndexSchemaMigration;
 use Register\Schema\ContentMediaSchemaMigration;
 use Register\Schema\ContentMediaIdentitySchemaMigration;
+use Register\Schema\ContentIdentitySchemaMigration;
+use Register\Content\ContentViewSpool;
 use Register\Schema\ContentViewSpoolSchemaMigration;
 use Register\Schema\PendingCommentSpamSchemaMigration;
 use Register\Schema\PendingCommentRecoverySchemaMigration;
@@ -165,6 +167,11 @@ final readonly class SchemaModule implements ContainerModuleInterface
         $container->set(ContentMediaIdentitySchemaMigration::class, new ContentMediaIdentitySchemaMigration(), [SchemaMigrationInterface::class]);
         $container->set(PendingCommentRecoverySchemaMigration::class, new PendingCommentRecoverySchemaMigration(), [SchemaMigrationInterface::class]);
         $container->set(CommentConfirmationReceiptSchemaMigration::class, new CommentConfirmationReceiptSchemaMigration(), [SchemaMigrationInterface::class]);
+        $container->set(
+            ContentIdentitySchemaMigration::class,
+            static fn(Container $container): ContentIdentitySchemaMigration => new ContentIdentitySchemaMigration($container->get(ContentViewSpool::class)),
+            [SchemaMigrationInterface::class],
+        );
         $container->set(SchemaMigrator::class, fn(Container $container): SchemaMigrator => new SchemaMigrator(
             $container->get(DbLayer::class),
             $container->getByTag(SchemaMigrationInterface::class),

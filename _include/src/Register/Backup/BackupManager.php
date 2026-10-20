@@ -11,6 +11,7 @@ namespace Register\Backup;
 
 use Psr\Log\LoggerInterface;
 use Register\Core\Security\Audit\SecurityAuditLogger;
+use Register\Media\MediaMutationTracker;
 
 final readonly class BackupManager
 {
@@ -34,6 +35,7 @@ final readonly class BackupManager
         private string              $imageDirectory,
         private int                 $retention,
         private string              $registerVersion,
+        private MediaMutationTracker $mediaMutations,
         BackupContributorInterface  ...$contributors,
     ) {
         if ($retention < 1) {
@@ -189,6 +191,7 @@ final readonly class BackupManager
         $writer      = null;
 
         try {
+            $mediaRevision = $includeMedia ? $this->mediaMutations->revision() : null;
             $snapshot = $this->databaseSnapshotter->create($this->backupDirectory . '/.' . $token . '-database');
             $writer   = new PortableZipWriter($archivePath);
 
@@ -205,6 +208,10 @@ final readonly class BackupManager
                     $mediaBytes += $writer->addFile($mediaFile['archive'], $mediaFile['path'], $now);
                     ++$mediaFiles;
                 }
+            }
+
+            if ($mediaRevision !== null) {
+                $this->mediaMutations->assertUnchanged($mediaRevision);
             }
 
             $supplementalEntries = [];

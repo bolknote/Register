@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Admin\Picture;
 
+use Register\Media\MediaMutationTracker;
 use Register\AdminYard\Config\FieldConfig;
 use Register\AdminYard\Form\FormParams;
 use Register\AdminYard\SettingStorage\SettingStorageInterface;
@@ -32,6 +33,7 @@ class PictureManager
         private readonly PictureStorageQuota     $storageQuota,
         private readonly string                  $basePath,
         private string                           $imageDir, // filesystem
+        private readonly MediaMutationTracker    $mediaMutations,
     ) {
         $this->imageDir = rtrim($imageDir, '/');
     }
@@ -149,6 +151,11 @@ class PictureManager
 
     public function createSubfolder(string $path, string $name): string
     {
+        return $this->mediaMutations->run(fn(): string => $this->createSubfolderUnlocked($path, $name));
+    }
+
+    private function createSubfolderUnlocked(string $path, string $name): string
+    {
         if (file_exists($this->imageDir . $path . '/' . $name)) {
             $i = 1;
             while (file_exists($this->imageDir . $path . '/' . $name . $i)) {
@@ -170,6 +177,13 @@ class PictureManager
 
     public function deleteFolder(string $dir, bool $deleteRoot = true): void
     {
+        $this->mediaMutations->run(function () use ($dir, $deleteRoot): void {
+            $this->deleteFolderUnlocked($dir, $deleteRoot);
+        });
+    }
+
+    private function deleteFolderUnlocked(string $dir, bool $deleteRoot): void
+    {
         $fullDir = $this->imageDir . $dir;
         $dirHandle = register_call_without_warnings(static fn() => opendir($fullDir));
         if ($dirHandle === false) {
@@ -187,7 +201,7 @@ class PictureManager
             }
 
             if (is_dir($fullDir . '/' . $item) || !register_call_without_warnings(static fn(): bool => unlink($fullDir . '/' . $item))) {
-                $this->deleteFolder($dir . '/' . $item);
+                $this->deleteFolderUnlocked($dir . '/' . $item, true);
             }
         }
 
@@ -200,12 +214,24 @@ class PictureManager
 
     public function deleteFile(string $path): void
     {
+        $this->mediaMutations->run(function () use ($path): void {
+            $this->deleteFileUnlocked($path);
+        });
+    }
+
+    private function deleteFileUnlocked(string $path): void
+    {
         if (file_exists($this->imageDir . $path)) {
             register_call_without_warnings(fn(): bool => unlink($this->imageDir . $path));
         }
     }
 
     public function renameFolder(string $path, string $newName): string
+    {
+        return $this->mediaMutations->run(fn(): string => $this->renameFolderUnlocked($path, $newName));
+    }
+
+    private function renameFolderUnlocked(string $path, string $newName): string
     {
         $parentPath = $this->register_dirname($path);
 
@@ -228,6 +254,11 @@ class PictureManager
 
     public function renameFile(string $path, string $newName): string
     {
+        return $this->mediaMutations->run(fn(): string => $this->renameFileUnlocked($path, $newName));
+    }
+
+    private function renameFileUnlocked(string $path, string $newName): string
+    {
         $parentPath = $this->register_dirname($path);
 
         $newFullPath = $this->imageDir . $parentPath . '/' . $newName;
@@ -246,6 +277,11 @@ class PictureManager
     }
 
     public function moveFolder(string $sourcePath, string $destPath): string
+    {
+        return $this->mediaMutations->run(fn(): string => $this->moveFolderUnlocked($sourcePath, $destPath));
+    }
+
+    private function moveFolderUnlocked(string $sourcePath, string $destPath): string
     {
         $fullSourcePath = $this->imageDir . $sourcePath;
         $fullDestPath   = $this->imageDir . $destPath . '/' . $this->register_basename($sourcePath);
@@ -266,6 +302,14 @@ class PictureManager
      * @param array<mixed> $fileNames
      */
     public function moveFiles(string $sourcePath, string $destPath, array $fileNames): void
+    {
+        $this->mediaMutations->run(function () use ($sourcePath, $destPath, $fileNames): void {
+            $this->moveFilesUnlocked($sourcePath, $destPath, $fileNames);
+        });
+    }
+
+    /** @param array<mixed> $fileNames */
+    private function moveFilesUnlocked(string $sourcePath, string $destPath, array $fileNames): void
     {
         $skippedFiles = [];
         foreach ($fileNames as $fileName) {
@@ -358,6 +402,11 @@ class PictureManager
 
     public function processUploadedFile(UploadedFile $uploadedFile, string $path, bool $createDir): string
     {
+        return $this->mediaMutations->run(fn(): string => $this->processUploadedFileUnlocked($uploadedFile, $path, $createDir));
+    }
+
+    private function processUploadedFileUnlocked(UploadedFile $uploadedFile, string $path, bool $createDir): string
+    {
         $filename = $uploadedFile->getClientOriginalName();
         if ($uploadedFile->getError() !== UPLOAD_ERR_OK) {
             $errorMessage = $this->translator->trans('Upload error ' . $uploadedFile->getError());
@@ -391,6 +440,11 @@ class PictureManager
     }
 
     public function processUploadedFileWithReservedName(UploadedFile $uploadedFile, string $path, string $filename, bool $createDir): string
+    {
+        return $this->mediaMutations->run(fn(): string => $this->processUploadedFileWithReservedNameUnlocked($uploadedFile, $path, $filename, $createDir));
+    }
+
+    private function processUploadedFileWithReservedNameUnlocked(UploadedFile $uploadedFile, string $path, string $filename, bool $createDir): string
     {
         $originalName = $uploadedFile->getClientOriginalName();
         if ($uploadedFile->getError() !== UPLOAD_ERR_OK) {

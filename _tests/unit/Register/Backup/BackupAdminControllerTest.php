@@ -171,6 +171,7 @@ final class BackupAdminControllerTest extends Unit
             $this->directory . '/media',
             1,
             'test-version',
+            new \Register\Media\MediaMutationTracker($this->directory . '/cache/media-mutations.lock'),
         );
         $token = new BackupToken(new BackupAdminSettingStorage([
             'main_csrf_token' => str_repeat('b', 32),

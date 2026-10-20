@@ -11,6 +11,9 @@ namespace unit\Register\Backup;
 
 use Codeception\Test\Unit;
 use Psr\Log\NullLogger;
+use Register\Admin\Picture\PictureFileNameHelper;
+use Register\Admin\Picture\PictureStorageQuota;
+use Register\AdminYard\Translator;
 use Register\Backup\BackupEncryptionKeyProvider;
 use Register\Backup\BackupContributorInterface;
 use Register\Backup\BackupEntry;
@@ -19,6 +22,9 @@ use Register\Backup\BackupManager;
 use Register\Backup\DatabaseSnapshotter;
 use Register\Core\Comment\Antispam\SpamIdentityHasher;
 use Register\Core\Security\Audit\SecurityAuditLogger;
+use Register\Media\MediaMutationTracker;
+use Register\Module\Blog\Inplace\PostInplaceMediaStorage;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 final class BackupManagerTest extends Unit
 {
@@ -117,6 +123,67 @@ final class BackupManagerTest extends Unit
         $snapshots = glob($directory . '/backups/updates/register-update-backup-*.zip.enc');
         self::assertIsArray($snapshots);
         self::assertCount(1, $snapshots);
+    }
+
+    /** @dataProvider concurrentMediaMutations */
+    public function testMediaMutationAfterDatabaseSnapshotNeverPublishesAnInconsistentBackup(string $mutation): void
+    {
+        $state = new class {
+            public bool $mutate = false;
+
+            public string $storedFile = '';
+        };
+        [$manager, $directory, , $pdo] = $this->manager(
+            retention: 1,
+            afterSnapshot: function (\PDO $source, string $root) use ($state, $mutation): void {
+                if (!$state->mutate) {
+                    return;
+                }
+
+                $storage = $this->mediaStorage($root);
+                if ($mutation === 'redate') {
+                    $storage->redateCanonical($state->storedFile, 1_700_086_400);
+                } else {
+                    $storage->delete($state->storedFile);
+                    if ($mutation === 'replace') {
+                        $replacement = $this->uploadImage($root, 'replacement bytes');
+                        self::assertSame($state->storedFile, $storage->storeCanonical($replacement, 1_700_000_000, false));
+                    }
+                }
+
+                $source->exec("UPDATE notes SET body = '<p>Edited content</p>'");
+            },
+        );
+        $storage = $this->mediaStorage($directory);
+        $state->storedFile = $storage->storeCanonical($this->uploadImage($directory), 1_700_000_000, false);
+        $pdo->exec('ALTER TABLE notes ADD COLUMN body TEXT');
+        $pdo->exec('UPDATE notes SET body = ' . $pdo->quote('<img src="/media' . $state->storedFile . '">'));
+
+        $validBackup = $manager->createNow(1_700_000_000);
+        $state->mutate = true;
+
+        try {
+            $manager->createNow(1_700_000_001);
+            self::fail('A concurrent media mutation must invalidate the full backup.');
+        } catch (\RuntimeException $exception) {
+            self::assertSame('Media files changed during the backup; retry the backup.', $exception->getMessage());
+        }
+
+        self::assertSame($validBackup->path, $manager->latest()?->path);
+        self::assertSame([$validBackup->path], glob($directory . '/backups/register-backup-*.zip.enc'));
+        self::assertSame([], glob($directory . '/backups/.*-database.*'));
+        self::assertSame([], glob($directory . '/backups/.*.zip*'));
+        $state->mutate = false;
+        $retry = $manager->createNow(1_700_000_002);
+        self::assertSame($retry->path, $manager->latest()->path);
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function concurrentMediaMutations(): iterable
+    {
+        yield 'delete after snapshot' => ['delete'];
+        yield 'rename after snapshot' => ['redate'];
+        yield 'replace the same filename after snapshot' => ['replace'];
     }
 
     public function testUpdateSnapshotRetentionIsIndependentFromFullBackupRetention(): void
@@ -292,17 +359,36 @@ final class BackupManagerTest extends Unit
 
     /**
      * @param list<BackupContributorInterface> $contributors
-     * @return array{0:BackupManager,1:string,2:BackupEncryptor}
+     * @param (\Closure(\PDO, string): void)|null $afterSnapshot
+     * @return array{0:BackupManager,1:string,2:BackupEncryptor,3:\PDO}
      */
     private function manager(
         int    $retention,
         string $encryptionSecret = 'backup-test-secret-backup-test-secret-',
         array  $contributors = [],
+        ?\Closure $afterSnapshot = null,
     ): array
     {
         $directory = $this->temporaryDirectory();
         $database  = $directory . '/source.sqlite';
-        $pdo       = new \PDO('sqlite:' . $database);
+        $pdo = new class('sqlite:' . $database, $afterSnapshot, $directory) extends \PDO {
+            /** @param (\Closure(\PDO, string): void)|null $afterSnapshot */
+            public function __construct(string $dsn, private readonly ?\Closure $afterSnapshot, private readonly string $root)
+            {
+                parent::__construct($dsn);
+            }
+
+            #[\Override]
+            public function exec(string $statement): int|false
+            {
+                $result = parent::exec($statement);
+                if (str_starts_with($statement, 'VACUUM INTO ')) {
+                    $this->afterSnapshot?->__invoke($this, $this->root);
+                }
+
+                return $result;
+            }
+        };
         $pdo->exec('CREATE TABLE notes (id INTEGER PRIMARY KEY, title TEXT NOT NULL)');
         $pdo->exec("INSERT INTO notes (title) VALUES ('Saved note')");
 
@@ -327,11 +413,34 @@ final class BackupManagerTest extends Unit
                 $directory . '/media',
                 $retention,
                 'test-version',
+                new MediaMutationTracker($directory . '/cache/media-mutations.lock'),
                 ...$contributors,
             ),
             $directory,
             $encryptor,
+            $pdo,
         ];
+    }
+
+    private function uploadImage(string $directory, string $suffix = ''): UploadedFile
+    {
+        $bytes = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQAAAAA3bvkkAAAACklEQVR4AWNgAAAAAgABc3UBGAAAAABJRU5ErkJggg==', true);
+        self::assertIsString($bytes);
+        $path = $directory . '/upload-' . bin2hex(random_bytes(4)) . '.png';
+        file_put_contents($path, $bytes . $suffix);
+
+        return new UploadedFile($path, 'image.png', 'image/png', null, true);
+    }
+
+    private function mediaStorage(string $directory): PostInplaceMediaStorage
+    {
+        $translator = new Translator([], 'en');
+
+        return new PostInplaceMediaStorage(
+            new PictureFileNameHelper($translator, 'png'),
+            new PictureStorageQuota($translator, $directory . '/media', $directory . '/cache/quota.lock', 1_000_000),
+            $translator, $directory . '/media', '', $directory . '/cache',
+        );
     }
 
     private function temporaryDirectory(): string

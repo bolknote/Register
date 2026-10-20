@@ -9,6 +9,14 @@ standard ZIP archive containing:
 - `manifest.json` with sizes, hashes, the database driver, and the Register version;
 - `RESTORE.txt` with a short recovery checklist.
 
+Full backups check a shared media-mutation revision before the database snapshot and after copying
+the files. Uploads, deletions, replacements, and renames overlapping that interval invalidate the
+attempt: Register discards its work files and keeps the previous completed archive. The automatic
+job retries through the queue; a manual or CLI operation reports that the backup must be retried.
+This check does not hold a lock over the database dump or media copy, so editing remains available.
+Files changed directly by external tools are outside this coordination; stop those writes while
+creating a backup.
+
 The browser self-updater additionally creates a smaller
 `updates/register-update-backup-*.zip.enc` pre-update snapshot in the same private backup
 directory. It contains the database and bounded supplemental recovery material, but deliberately

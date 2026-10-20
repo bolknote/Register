@@ -9,6 +9,8 @@ declare(strict_types = 1);
 
 namespace Register\Import\Telegram;
 
+use Register\Media\MediaMutationTracker;
+
 /** Copies media from a Telegram ZIP into the deliberately narrow comment-media directory. */
 final readonly class TelegramManagedMediaStorage
 {
@@ -18,11 +20,18 @@ final readonly class TelegramManagedMediaStorage
 
     private const string LEGACY_URL_ROOT = '/_pictures/bolknote/comments/telegram';
 
-    public function __construct(private string $publicRootDir, private string $basePath = '')
-    {
+    private MediaMutationTracker $mediaMutations;
+
+    public function __construct(
+        private string $publicRootDir,
+        private string $basePath = '',
+        ?MediaMutationTracker $mediaMutations = null,
+    ) {
         if ($publicRootDir === '') {
             throw new \InvalidArgumentException('The public root directory is not configured.');
         }
+
+        $this->mediaMutations = $mediaMutations ?? new MediaMutationTracker(rtrim($publicRootDir, '/') . '/_cache/media-mutations.lock');
     }
 
     /**
@@ -42,6 +51,21 @@ final readonly class TelegramManagedMediaStorage
         int                   $position,
         bool                  $dryRun,
         bool                  $sticker = false,
+    ): ?array {
+        $operation = fn(): ?array => $this->importUnlocked($package, $relativePath, $chatId, $messageId, $position, $dryRun, $sticker);
+
+        return $dryRun ? $operation() : $this->mediaMutations->run($operation);
+    }
+
+    /** @return array{url: string, kind: 'image'|'video'|'audio'|'file'|'lottie', mime_type: string, sha256: string, created_file: ?string}|null */
+    private function importUnlocked(
+        TelegramExportPackage $package,
+        string $relativePath,
+        int $chatId,
+        int $messageId,
+        int $position,
+        bool $dryRun,
+        bool $sticker,
     ): ?array {
         $expectedSize = $package->mediaSize($relativePath);
         $input = $package->openMediaStream($relativePath);
@@ -316,6 +340,22 @@ final readonly class TelegramManagedMediaStorage
 
             $offset += $written;
         }
+    }
+
+    /** @param list<string> $files */
+    public function removeCreatedFiles(array $files): void
+    {
+        if ($files === []) {
+            return;
+        }
+
+        $this->mediaMutations->run(static function () use ($files): void {
+            foreach (array_unique($files) as $file) {
+                if (is_file($file) && !is_link($file)) {
+                    register_call_without_warnings(static fn(): bool => unlink($file));
+                }
+            }
+        });
     }
 
     private function ensureDirectory(string $directory): void

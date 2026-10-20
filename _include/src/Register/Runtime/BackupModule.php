@@ -22,12 +22,16 @@ use Register\Core\Framework\ContainerModuleInterface;
 use Register\Core\Queue\QueueHandlerInterface;
 use Register\Core\Queue\QueuePublisher;
 use Register\Core\Security\Audit\SecurityAuditLogger;
+use Register\Media\MediaMutationTracker;
 
 final readonly class BackupModule implements ContainerModuleInterface
 {
     #[\Override]
     public function buildContainer(Container $container): void
     {
+        $container->set(MediaMutationTracker::class, static fn(Container $container): MediaMutationTracker => new MediaMutationTracker(
+            $container->getStringParameter('cache_dir') . 'media-mutations.lock',
+        ));
         $container->set(DatabaseSnapshotter::class, static fn(Container $container): DatabaseSnapshotter => new DatabaseSnapshotter(
             $container->get(\PDO::class),
             $container->getStringParameter('db_type'),
@@ -63,6 +67,7 @@ final readonly class BackupModule implements ContainerModuleInterface
             $container->getStringParameter('image_dir'),
             $container->getIntParameter('backup_retention'),
             $container->getStringParameter('version'),
+            $container->get(MediaMutationTracker::class),
             ...$container->getByTag(BackupContributorInterface::class),
         ));
         $container->set(BackupScheduler::class, static fn(Container $container): BackupScheduler => new BackupScheduler(

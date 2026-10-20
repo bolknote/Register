@@ -55,6 +55,7 @@ final readonly class ImportModule implements ContainerModuleInterface
         $container->set(TelegramManagedMediaStorage::class, static fn(Container $container): TelegramManagedMediaStorage => new TelegramManagedMediaStorage(
             $container->getStringParameter('public_root_dir'),
             $container->getStringParameter('base_path'),
+            $container->get(\Register\Media\MediaMutationTracker::class),
         ));
         $container->set(TelegramImportService::class, static fn(Container $container): TelegramImportService => new TelegramImportService(
             $container->get(DbLayer::class),

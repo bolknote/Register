@@ -16,6 +16,7 @@ use Register\Core\AdminYard\UserSettingStorage;
 use Register\Core\Comment\Antispam\AntispamSchema;
 use Register\Comment\CommentSchema;
 use Register\Content\ContentSchema;
+use Register\Content\ContentIdAllocator;
 use Register\Content\ContentMediaSchema;
 use Register\Content\ContentType;
 use Register\Content\PostCreateOperationSchema;
@@ -294,8 +295,10 @@ readonly class Installer
      */
     public function insertMainPage(string $title, int $time, string $pageText = ''): int
     {
+        $allocatedId = ContentIdAllocator::allocate($this->dbLayer);
         $this->dbLayer
             ->insert(ContentSchema::TABLE_NAME)
+            ->setValue('id', ':id')->setParameter('id', $allocatedId)
             ->setValue('content_type', ':content_type')->setParameter('content_type', ContentType::PAGE->value)
             ->setValue('parent_id', 'NULL')
             ->setValue('slug_scope', "'main'")
@@ -311,6 +314,6 @@ readonly class Installer
             ->execute()
         ;
 
-        return (int)$this->dbLayer->insertId();
+        return $allocatedId;
     }
 }

@@ -78,10 +78,13 @@ final class ContentSchema
             ['slug_scope', 'slug'],
             true,
         );
+
+        ContentIdentitySchema::create($dbLayer);
     }
 
     public static function drop(DbLayer $dbLayer): void
     {
         $dbLayer->dropTable(self::TABLE_NAME);
+        $dbLayer->dropTable(ContentIdentitySchema::TABLE_NAME);
     }
 }

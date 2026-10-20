@@ -12,6 +12,8 @@ namespace unit\Register\Content;
 use Codeception\Test\Unit;
 use Psr\Log\NullLogger;
 use Register\Content\ContentId;
+use Register\Content\ContentIdAllocator;
+use Register\Content\ContentSchema;
 use Register\Content\ContentViewIncrement;
 use Register\Content\ContentViewRepository;
 use Register\Content\ContentViewSpool;
@@ -116,6 +118,34 @@ final class ContentViewSpoolTest extends Unit
         self::assertFileDoesNotExist($segment);
     }
 
+    public function testNewContentDoesNotInheritQueuedViewsOfTheDeletedHighestId(): void
+    {
+        [, $db, $repository, $spool, $processor] = $this->services();
+        $oldId = ContentIdAllocator::allocate($db);
+        $db->insert(ContentSchema::TABLE_NAME)->values([
+            'id' => ':id', 'content_type' => "'post'", 'slug_scope' => "'root'", 'slug' => "'old'",
+            'excerpt' => "''", 'body' => "''",
+        ])->execute(['id' => $oldId]);
+        $now = 1_788_100_000;
+        $spool->append(new ContentViewIncrement(ContentId::post($oldId), '2026-08-30', 7), $now);
+        $db->delete(ContentSchema::TABLE_NAME)->where('id = :id')->execute(['id' => $oldId]);
+
+        $newId = ContentIdAllocator::allocate($db);
+        $db->insert(ContentSchema::TABLE_NAME)->values([
+            'id' => ':id', 'content_type' => "'post'", 'slug_scope' => "'root'", 'slug' => "'new'",
+            'excerpt' => "''", 'body' => "''",
+        ])->execute(['id' => $newId]);
+        $spool->append(new ContentViewIncrement(ContentId::post($newId), '2026-08-30', 3), $now);
+        $spool->sealDue($now);
+        foreach ($spool->sealedSegments(16) as $segment) {
+            $processor->process($segment);
+        }
+
+        self::assertGreaterThan($oldId, $newId);
+        self::assertSame(0, $repository->total(ContentId::post($oldId)));
+        self::assertSame(3, $repository->total(ContentId::post($newId)));
+    }
+
     /**
      * @return array{PDO, DbLayerSqlite, ContentViewRepository, ContentViewSpool, ContentViewSpoolProcessor}
      */
@@ -123,12 +153,11 @@ final class ContentViewSpoolTest extends Unit
     {
         $pdo = new PDO('sqlite::memory:');
         $dbLayer = new DbLayerSqlite($pdo);
-        $dbLayer->query('CREATE TABLE content (
-            id INTEGER NOT NULL PRIMARY KEY,
-            content_type TEXT NOT NULL
-        )');
-        $dbLayer->query("INSERT INTO content (id, content_type) VALUES
-            (7, 'post'), (8, 'page'), (9, 'post'), (10, 'post')");
+        $dbLayer->query('CREATE TABLE users (id INTEGER PRIMARY KEY)');
+        ContentSchema::create($dbLayer);
+        $dbLayer->query("INSERT INTO content (id, content_type, slug_scope, slug, excerpt, body) VALUES
+            (7, 'post', 'root', 'seven', '', ''), (8, 'page', 'root', 'eight', '', ''),
+            (9, 'post', 'root', 'nine', '', ''), (10, 'post', 'root', 'ten', '', '')");
         $dbLayer->query('CREATE TABLE content_views_daily (
             content_type TEXT NOT NULL,
             content_id INTEGER NOT NULL,

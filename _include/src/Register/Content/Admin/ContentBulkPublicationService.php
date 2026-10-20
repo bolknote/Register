@@ -46,7 +46,8 @@ final readonly class ContentBulkPublicationService
 
         $changedRows = array_values(array_filter(
             $rows,
-            static fn(array $row): bool => (bool)$row['published'] !== $published,
+            static fn(array $row): bool => (bool)$row['published'] !== $published
+                || (!$published && (int)$row['scheduled_at'] > 0),
         ));
         if ($changedRows === []) {
             return 0;
@@ -114,7 +115,7 @@ final readonly class ContentBulkPublicationService
     private function loadWritableRows(ContentType $contentType, array $contentIds): array
     {
         $query = $this->dbLayer
-            ->select('id, title, slug, published')
+            ->select('id, title, slug, published, scheduled_at')
             ->from(ContentSchema::TABLE_NAME)
             ->where('content_type = :content_type')->setParameter('content_type', $contentType->value)
         ;

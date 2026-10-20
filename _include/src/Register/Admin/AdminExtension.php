@@ -648,6 +648,7 @@ class AdminExtension implements ExtensionInterface
                 $container->get(PictureStorageQuota::class),
                 $container->getStringParameter('base_path'),
                 $container->getStringParameter('image_dir'),
+                $container->get(\Register\Media\MediaMutationTracker::class),
             );
         });
         $container->set(MediaConfigExtender::class, fn(Container $container): MediaConfigExtender => new MediaConfigExtender(

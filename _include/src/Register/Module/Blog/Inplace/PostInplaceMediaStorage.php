@@ -11,6 +11,7 @@ namespace Register\Module\Blog\Inplace;
 
 use Register\Admin\Picture\PictureFileNameHelper;
 use Register\Admin\Picture\PictureStorageQuota;
+use Register\Media\MediaMutationTracker;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -33,6 +34,10 @@ final class PostInplaceMediaStorage
 
     private int $nameLockDepth = 0;
 
+    private ?\Closure $releaseMediaMutation = null;
+
+    private readonly MediaMutationTracker $mediaMutations;
+
     public function __construct(
         private readonly PictureFileNameHelper  $fileNameHelper,
         private readonly PictureStorageQuota    $storageQuota,
@@ -46,6 +51,7 @@ final class PostInplaceMediaStorage
             ? ''
             : '/' . trim($contentDirectory, '/');
         $this->nameLockFile = rtrim($cacheDirectory, '/') . '/post-media-name.lock';
+        $this->mediaMutations = new MediaMutationTracker(rtrim($cacheDirectory, '/') . '/media-mutations.lock');
     }
 
     public function storeCanonical(
@@ -266,14 +272,21 @@ final class PostInplaceMediaStorage
     public function lockNames(): \Closure
     {
         if ($this->nameLock === null) {
-            $this->ensureDirectoryExists(dirname($this->nameLockFile));
-            $lock = $this->openNameLock();
-            if (!flock($lock, LOCK_EX)) {
-                fclose($lock);
-                throw new \RuntimeException('Unable to lock historical media names.', Response::HTTP_SERVICE_UNAVAILABLE);
-            }
+            $releaseMutation = $this->mediaMutations->begin();
+            try {
+                $this->ensureDirectoryExists(dirname($this->nameLockFile));
+                $lock = $this->openNameLock();
+                if (!flock($lock, LOCK_EX)) {
+                    fclose($lock);
+                    throw new \RuntimeException('Unable to lock historical media names.', Response::HTTP_SERVICE_UNAVAILABLE);
+                }
 
-            $this->nameLock = $lock;
+                $this->nameLock = $lock;
+                $this->releaseMediaMutation = $releaseMutation;
+            } catch (\Throwable $throwable) {
+                $releaseMutation();
+                throw $throwable;
+            }
         }
 
         ++$this->nameLockDepth;
@@ -290,6 +303,9 @@ final class PostInplaceMediaStorage
                 register_call_without_warnings(static fn(): bool => flock($lock, LOCK_UN));
                 fclose($lock);
                 $this->nameLock = null;
+                $releaseMutation = $this->releaseMediaMutation;
+                $this->releaseMediaMutation = null;
+                $releaseMutation?->__invoke();
             }
         };
     }

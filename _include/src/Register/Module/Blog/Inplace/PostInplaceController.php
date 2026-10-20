@@ -19,6 +19,7 @@ use Register\Content\Admin\ContentRevisionService;
 use Register\Content\ContentChangeDispatcher;
 use Register\Content\ContentDeletionGuardInterface;
 use Register\Content\ContentId;
+use Register\Content\ContentIdAllocator;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Content\PublicationMetadataGenerator;
@@ -846,6 +847,7 @@ final readonly class PostInplaceController implements ControllerInterface
             $now  = time();
             $slug = $this->contentSlugService->generatePost($title);
             $values = [
+                'id'           => ContentIdAllocator::allocate($this->dbLayer),
                 'content_type' => ContentType::POST->value,
                 'slug'         => $slug,
                 'title'        => $title,
@@ -860,6 +862,7 @@ final readonly class PostInplaceController implements ControllerInterface
             $this->dbLayer
                 ->insert(ContentSchema::TABLE_NAME)
                 ->values([
+                    'id'               => ':id',
                     'content_type'     => ':content_type',
                     'slug_scope'       => "'root'",
                     'slug'             => ':slug',
@@ -878,7 +881,7 @@ final readonly class PostInplaceController implements ControllerInterface
                 ])
                 ->execute($values)
             ;
-            $postId = (int)$this->dbLayer->insertId();
+            $postId = $values['id'];
             if ($postId <= 0) {
                 return false;
             }

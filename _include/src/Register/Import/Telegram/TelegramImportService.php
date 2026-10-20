@@ -1098,11 +1098,7 @@ final readonly class TelegramImportService
     /** @param list<string> $files */
     private function removeMediaFiles(array $files): void
     {
-        foreach (array_unique($files) as $file) {
-            if (is_file($file) && !is_link($file)) {
-                register_call_without_warnings(static fn(): bool => unlink($file));
-            }
-        }
+        $this->mediaStorage->removeCreatedFiles($files);
     }
 
     /**
