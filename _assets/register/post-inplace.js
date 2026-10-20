@@ -89,7 +89,7 @@
 
     const {createEditorFieldSurfaces} = window.RegisterEditorFields.create({});
 
-    const {clearBoundaryCaret, clearSyntheticBoundaryCaret, boundaryNodeIsEmpty, isMediaBoundaryElement, editorBoundaryParagraphIsEmpty, topLevelBodyChild, hoistMediaFromParagraph, normalizeLeadingNestedMedia, leadingMediaIndex, prepareMediaInsertionRange, focusBeforeLeadingMedia, focusBeforeMedia, focusAfterMedia, mediaBesideCaret, revealBoundaryCaret, mediaBoundaryAtRange, inlineCodeBoundaryMarkerAtRange, syncBoundaryCaret, moveInsertionBeforeMediaBoundary, protectSelectedMediaBoundary, protectMediaParagraphDeletion, collapseEmptyParagraphBesideMedia, expandCollapsedBoundaryParagraph, collapseEmptyLeadingParagraphAfterDelete, isMediaOwnedDirectChild, normalizeMediaBodyStructure} = window.RegisterEditorBoundaries.create({
+    const {clearBoundaryCaret, clearSyntheticBoundaryCaret, boundaryNodeIsEmpty, isMediaBoundaryElement, editorBoundaryParagraphIsEmpty, topLevelBodyChild, hoistMediaFromParagraph, normalizeLeadingNestedMedia, leadingMediaIndex, prepareMediaInsertionRange, focusBeforeLeadingMedia, focusBeforeMedia, focusAfterMedia, mediaBesideCaret, revealBoundaryCaret, mediaBoundaryAtRange, inlineCodeBoundaryMarkerAtRange, syncBoundaryCaret, moveInsertionBeforeMediaBoundary, protectSelectedMediaBoundary, selectMediaForDeletion, protectMediaParagraphDeletion, collapseEmptyParagraphBesideMedia, expandCollapsedBoundaryParagraph, collapseEmptyLeadingParagraphAfterDelete, isMediaOwnedDirectChild, normalizeMediaBodyStructure} = window.RegisterEditorBoundaries.create({
         rangeIsInside, editorStates,
     });
 
@@ -1882,7 +1882,8 @@
             if (!selectionIsInside()) {
                 return;
             }
-            if (moveFromInlineMediaCaption(event, state, caption)) {
+            if (selectInlineMediaForDeletion(event, state, caption)
+                || moveFromInlineMediaCaption(event, state, caption)) {
                 return;
             }
             if (
@@ -1908,7 +1909,11 @@
             event.stopPropagation();
             document.execCommand('insertText', false, event.clipboardData?.getData('text/plain') || '');
         };
+        const beforeinput = (event) => {
+            selectInlineMediaForDeletion(event, state, caption);
+        };
         caption.addEventListener('keydown', keydown, {signal: controller.signal});
+        caption.addEventListener('beforeinput', beforeinput, {signal: controller.signal});
         caption.addEventListener('paste', paste, {signal: controller.signal});
         caption.addEventListener('blur', () => {
             window.setTimeout(() => {
@@ -1920,7 +1925,28 @@
         // Retain selection-based routing for browsers that deliver caption keys
         // or clipboard events through the outer body.
         state.body.addEventListener('keydown', keydown, {signal: controller.signal});
+        state.body.addEventListener('beforeinput', beforeinput, {signal: controller.signal});
         state.body.addEventListener('paste', paste, {signal: controller.signal});
+    }
+
+    function selectInlineMediaForDeletion(event, state, caption) {
+        if (event.defaultPrevented || !event.cancelable || event.isComposing
+            || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey
+            || (event.key !== 'Backspace' && event.inputType !== 'deleteContentBackward')) return false;
+        const selection = window.getSelection();
+        const range = selection?.rangeCount === 1 ? selection.getRangeAt(0) : null;
+        if (!range?.collapsed || !caption.contains(range.startContainer)) return false;
+        const prefix = range.cloneRange();
+        prefix.selectNodeContents(caption);
+        prefix.setEnd(range.startContainer, range.startOffset);
+        if (prefix.toString() !== '' || prefix.cloneContents().querySelector('br')) return false;
+        const media = caption.closest('.post-media-picture');
+        if (!(media instanceof HTMLElement) || media.parentElement !== state.body) return false;
+
+        event.preventDefault();
+        event.stopPropagation();
+        finishInlineMediaCaption(state, caption, false);
+        return selectMediaForDeletion(state.body, media);
     }
 
     function selectionStartsAt(element) {

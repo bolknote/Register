@@ -651,6 +651,172 @@ test('Backspace after an image removes only the empty line and preserves its cap
     equal(s.body.querySelector('.post-caption')?.textContent, 'Image caption');
 });
 
+for (const position of ['paragraph-after', 'root-after', 'wrapper-after',
+    'paragraph-before', 'root-before', 'wrapper-before', 'gap-after', 'gap-before']) {
+    test(`deletion at ${position} selects the complete image before removing it`, async () => {
+        const after = position.endsWith('after');
+        const gap = position.startsWith('gap');
+        const s = setup('<p>Before the photograph.</p>'
+            + (gap && !after ? '<p><br></p>' : '')
+            + '<div class="post-picture post-media-picture"><img alt="fixture">'
+            + '<div class="post-caption">Saved caption</div></div>'
+            + (gap && after ? '<p><br></p>' : '') + '<p>After the photograph.</p>');
+        api.prepareEditableMedia(s.body);
+        s.history?.destroy();
+        s.history = api.createBodyHistory?.(s);
+        const media = s.body.querySelector('.post-media-picture');
+        const range = document.createRange();
+        if (position.startsWith('root')) {
+            if (after) range.setStartAfter(media);
+            else range.setStartBefore(media);
+        } else if (position.startsWith('wrapper')) range.setStart(media, after ? 1 : 0);
+        else {
+            const paragraph = after ? media.nextElementSibling : media.previousElementSibling;
+            range.selectNodeContents(paragraph);
+            range.collapse(after);
+        }
+        range.collapse(true);
+        s.body.focus();
+        getSelection().removeAllRanges();
+        getSelection().addRange(range);
+        const inputType = after ? 'deleteContentBackward' : 'deleteContentForward';
+        const requestDeletion = () => {
+            const event = new InputEvent('beforeinput', {inputType, bubbles: true, cancelable: true});
+            s.body.dispatchEvent(event);
+            return event;
+        };
+        if (gap) {
+            ok(requestDeletion().defaultPrevented, 'An empty line collapses before selecting the image');
+            ok(getSelection().isCollapsed, 'Removing the empty line leaves a caret on the same side');
+        }
+        const before = api.editableBodyHtml(s);
+        const history = s.history.length;
+        ok(requestDeletion().defaultPrevented, 'The first deletion selects the whole media block');
+        const selected = getSelection().getRangeAt(0);
+        equal(selected.startContainer, s.body);
+        equal(selected.endContainer, s.body);
+        equal(selected.endOffset - selected.startOffset, 1);
+        equal(s.body.childNodes[selected.startOffset], media);
+        equal(api.editableBodyHtml(s), before, 'Selecting media must not change the saved content');
+        equal(s.history.length, history, 'Selecting media must not add an undo step');
+        equal(requestDeletion().defaultPrevented, false, 'The second deletion is allowed to remove selected media');
+        document.execCommand(after ? 'delete' : 'forwardDelete');
+        const deleted = api.editableBodyHtml(s);
+        equal(s.body.querySelector('img, .post-caption'), null);
+        ok(deleted.includes('Before the photograph.') && deleted.includes('After the photograph.'),
+            'Deleting media keeps the surrounding paragraphs');
+        await undo(s);
+        equal(api.editableBodyHtml(s), before, 'Undo restores the complete media and caption');
+        await undo(s, true);
+        equal(api.editableBodyHtml(s), deleted, 'Redo deletes that same complete block');
+    });
+}
+
+for (const captionText of ['Saved caption', '']) {
+    for (const eventType of ['keydown', 'beforeinput']) {
+        test(`Backspace at a ${captionText ? 'saved' : 'blank'} caption start selects its image (${eventType})`, async () => {
+            const s = setup('<p>Body text</p><div class="post-picture post-media-picture"><img alt="fixture">'
+                + '<div class="post-caption">' + captionText + '</div></div><p>After image</p>');
+            api.prepareEditableMedia(s.body);
+            s.history?.destroy();
+            s.history = api.createBodyHistory?.(s);
+            const before = api.editableBodyHtml(s);
+            const caption = s.body.querySelector('.post-caption');
+            caption.click();
+            const range = document.createRange();
+            range.selectNodeContents(caption);
+            range.collapse(true);
+            getSelection().removeAllRanges();
+            getSelection().addRange(range);
+            const event = eventType === 'keydown'
+                ? new KeyboardEvent('keydown', {key: 'Backspace', bubbles: true, cancelable: true})
+                : new InputEvent('beforeinput', {inputType: 'deleteContentBackward', bubbles: true, cancelable: true});
+            caption.dispatchEvent(event);
+            ok(event.defaultPrevented, 'The caption host must not trap this Backspace');
+            equal(s.mediaCaptionEditors.size, 0);
+            equal(s.body.getAttribute('contenteditable'), 'true');
+            equal(getSelection().isCollapsed, false);
+            equal(getSelection().getRangeAt(0).cloneContents().querySelectorAll('img').length, 1);
+            equal(api.editableBodyHtml(s), before);
+            equal(s.history.length, 1, 'Leaving an unchanged caption adds no undo step');
+            const remove = new InputEvent('beforeinput', {
+                inputType: 'deleteContentBackward', bubbles: true, cancelable: true,
+            });
+            s.body.dispatchEvent(remove);
+            equal(remove.defaultPrevented, false);
+            document.execCommand('delete');
+            equal(s.body.querySelector('img, .post-caption'), null);
+            await undo(s);
+            equal(api.editableBodyHtml(s), before);
+            ok(s.body.querySelector('.post-caption')?.classList.contains('is-inline-caption-entry'),
+                'Undo restores a usable caption entry');
+            equal(s.body.querySelector('[contenteditable="true"]'), null,
+                'Undo must not resurrect the destroyed nested caption editor');
+        });
+    }
+}
+
+test('deleting caption text then its image keeps separate undo steps', async () => {
+    const s = setup('<p>Before image</p><div class="post-picture post-media-picture"><img alt="fixture">'
+        + '<div class="post-caption">Saved caption</div></div><p>After image</p>');
+    api.prepareEditableMedia(s.body);
+    s.history?.destroy();
+    s.history = api.createBodyHistory?.(s);
+    const before = api.editableBodyHtml(s);
+    const caption = s.body.querySelector('.post-caption');
+    caption.click();
+    const range = document.createRange();
+    range.selectNodeContents(caption);
+    getSelection().removeAllRanges();
+    getSelection().addRange(range);
+    document.execCommand('delete');
+    caption.dispatchEvent(new KeyboardEvent('keydown', {key: 'Backspace', bubbles: true, cancelable: true}));
+    equal(s.mediaCaptionEditors.size, 0, 'Backspace leaves the newly emptied caption');
+    equal(getSelection().isCollapsed, false);
+    const emptyCaption = api.editableBodyHtml(s);
+    s.body.dispatchEvent(new InputEvent('beforeinput', {
+        inputType: 'deleteContentBackward', bubbles: true, cancelable: true,
+    }));
+    document.execCommand('delete');
+    const deleted = api.editableBodyHtml(s);
+    equal(s.body.querySelector('img'), null);
+    await undo(s);
+    equal(api.editableBodyHtml(s), emptyCaption, 'First undo restores the image with its emptied caption');
+    await undo(s);
+    equal(api.editableBodyHtml(s), before, 'Second undo restores the caption text');
+    await undo(s, true);
+    equal(api.editableBodyHtml(s), emptyCaption);
+    await undo(s, true);
+    equal(api.editableBodyHtml(s), deleted);
+});
+
+for (const text of ['Caption', '  ']) {
+    test(`Backspace inside caption text deletes a character (${JSON.stringify(text)})`, async () => {
+        const s = setup('<div class="post-picture post-media-picture"><img alt="fixture">'
+            + '<div class="post-caption">' + (text.trim() ? text : '') + '</div></div>');
+        api.prepareEditableMedia(s.body);
+        const caption = s.body.querySelector('.post-caption');
+        caption.click();
+        // Type spaces in a blank active caption to verify that they remain real
+        // characters until the caption is finished and normalized.
+        if (text.trim() === '') document.execCommand('insertText', false, text);
+        const range = document.createRange();
+        range.setStart(caption.firstChild, 1);
+        range.collapse(true);
+        getSelection().removeAllRanges();
+        getSelection().addRange(range);
+        const event = new InputEvent('beforeinput', {
+            inputType: 'deleteContentBackward', bubbles: true, cancelable: true,
+        });
+        caption.dispatchEvent(event);
+        equal(event.defaultPrevented, false, 'An existing caption character must remain deletable');
+        document.execCommand('delete');
+        equal(caption.textContent.length, text.length - 1);
+        equal(s.body.querySelectorAll('img').length, 1);
+        equal(s.mediaCaptionEditors.size, 1);
+    });
+}
+
 test('native history beforeinput is handled without touching title history', async () => {
     const s = setup('<p>Body</p>'); select(s); await action(s, 'inline-code');
     const undoEvent = new InputEvent('beforeinput', {inputType: 'historyUndo', bubbles: true, cancelable: true});
@@ -715,6 +881,17 @@ test('mixed native formatting, code, clear-format, undo/redo and a new branch', 
 // The Playwright runner uses this fixture-only hook for real keyboard events.
 // It is never present in the production asset.
 window.setupEditorWorkflow = setup;
+
+// A generic, interactive image/caption example for checking native keyboard input.
+if (location.hash === '#media-deletion') {
+    const state = setup('<p>Before the photograph.</p>'
+        + '<div class="post-picture post-media-picture">'
+        + '<img src="/responsive-image.svg" width="320" height="180" alt="Test photograph">'
+        + '<div class="post-caption">Saved caption</div></div><p>After the photograph.</p>');
+    api.prepareEditableMedia(state.body);
+    state.history?.destroy();
+    state.history = api.createBodyHistory?.(state);
+}
 
 document.getElementById('run').addEventListener('click', async () => {
     const output = document.getElementById('results');

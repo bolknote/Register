@@ -15,18 +15,25 @@ async function snapshot(page) {
         const picture = state.body.querySelector('.post-media-picture');
         const image = picture?.querySelector('img');
         const caption = picture?.querySelector('.post-caption');
+        const selection = getSelection();
+        const range = selection?.rangeCount === 1 ? selection.getRangeAt(0) : null;
+        const index = picture ? Array.from(state.body.childNodes).indexOf(picture) : -1;
         return {
             html: editorTest.editableBodyHtml(state), history: state.history.length,
             imageCount: state.body.querySelectorAll('img').length,
             caption: caption?.textContent,
             together: Boolean(image && caption && image.closest('.post-media-picture') === caption.parentElement),
+            selectedMedia: Boolean(picture && range && range.startContainer === state.body
+                && range.endContainer === state.body && range.startOffset === index && range.endOffset === index + 1),
             captionGap: image && caption ? caption.getBoundingClientRect().top - image.getBoundingClientRect().bottom : null,
         };
     });
 }
 
 export async function runMediaDeleteBoundaryRegressions(browser, origin) {
-    for (const mode of ['backspace-after', 'backspace-body-after', 'delete-before', 'delete-body-before',
+    for (const mode of ['backspace-after', 'backspace-body-after', 'backspace-wrapper-after',
+        'delete-before', 'delete-body-before', 'delete-wrapper-before',
+        'backspace-caption-start', 'backspace-empty-caption-start',
         'copy-text-and-backspace-after', 'insert-mid-copy-and-backspace-after',
         'delete-character', 'backspace-character', 'delete-whole-picture']) {
         const page = await browser.newPage();
@@ -41,8 +48,9 @@ export async function runMediaDeleteBoundaryRegressions(browser, origin) {
             }));
             await page.route('**/recovery-fixture.js', async route => {
                 const response = await route.fetch();
-                const bodyHtml = mode.startsWith('insert-mid')
+                let bodyHtml = mode.startsWith('insert-mid')
                     ? '<p>Before the photograph.After the photograph.</p>' : initial;
+                if (mode === 'backspace-empty-caption-start') bodyHtml = bodyHtml.replace('Saved caption', '');
                 await route.fulfill({response, body: (await response.text()).replace(
                     /const body = creating \? '' : [^\n]+;/u,
                     'const body = creating ? "" : ' + JSON.stringify(bodyHtml) + ';',
@@ -111,12 +119,16 @@ export async function runMediaDeleteBoundaryRegressions(browser, origin) {
                     'The lower text must actually be copied before the image');
             }
             const before = await snapshot(page);
+            if (mode.endsWith('caption-start')) await body.locator('.post-caption').click();
             await body.evaluate((body, mode) => {
                 const picture = body.querySelector('.post-media-picture');
                 const previous = picture.previousElementSibling;
                 const next = picture.nextElementSibling;
                 const range = document.createRange();
                 if (mode === 'delete-whole-picture') range.selectNode(picture);
+                else if (mode.endsWith('caption-start')) range.setStart(picture.querySelector('.post-caption'), 0);
+                else if (mode === 'delete-wrapper-before') range.setStart(picture, 0);
+                else if (mode === 'backspace-wrapper-after') range.setStart(picture, 1);
                 else if (mode === 'delete-body-before') range.setStart(body, Array.from(body.childNodes).indexOf(picture));
                 else if (mode === 'backspace-body-after') range.setStart(body, Array.from(body.childNodes).indexOf(picture) + 1);
                 else if (mode === 'delete-before') range.setStart(previous, previous.childNodes.length);
@@ -124,11 +136,12 @@ export async function runMediaDeleteBoundaryRegressions(browser, origin) {
                 else if (mode === 'backspace-character') range.setStart(next.firstChild, 3);
                 else range.setStart(next.firstChild, 0);
                 if (mode !== 'delete-whole-picture') range.collapse(true);
-                body.focus();
+                if (mode.endsWith('caption-start')) picture.querySelector('.post-caption').focus();
+                else body.focus();
                 getSelection().removeAllRanges();
                 getSelection().addRange(range);
             }, mode);
-            await body.press(mode.startsWith('delete') ? 'Delete' : 'Backspace');
+            await page.keyboard.press(mode.startsWith('delete') ? 'Delete' : 'Backspace');
             const after = await snapshot(page);
             const context = browser.browserType().name() + ': ' + mode;
             if (mode === 'delete-whole-picture') {
@@ -138,31 +151,27 @@ export async function runMediaDeleteBoundaryRegressions(browser, origin) {
                 assert.match(after.html, /After the photograph\./u);
             } else {
                 assert.equal(after.imageCount, 1, context + ': a paragraph boundary must not delete the unselected image');
-                assert.equal(after.caption, 'Saved caption', context + ': a paragraph boundary must not delete the caption');
+                assert.equal(after.caption, mode === 'backspace-empty-caption-start' ? '' : 'Saved caption',
+                    context + ': a paragraph boundary must not delete the caption');
                 assert.ok(after.together, context + ': image and caption must keep their shared wrapper');
                 assert.ok(Math.abs(after.captionGap - before.captionGap) < 1, context + ': the caption must not detach visually');
                 if (mode.endsWith('character')) {
                     assert.notEqual(after.html, before.html, context + ': ordinary character deletion still works');
                 } else {
-                    assert.equal(after.html, before.html, context + ': the media boundary is not a text character to merge');
-                    assert.equal(after.history, before.history, context + ': a prevented merge creates no history step');
+                    assert.equal(after.html, before.html, context + ': selecting media does not change its content');
+                    assert.equal(after.history, before.history, context + ': selecting media creates no history step');
+                    assert.equal(after.selectedMedia, true, context + ': the whole block is selected for the next deletion');
                 }
             }
 
             if (!mode.endsWith('character') && mode !== 'delete-whole-picture') {
-                // Test typing history in the ordinary paragraph on the same side.
-                // Root/atomic caret insertion has its own navigation regressions.
-                await body.evaluate((body, mode) => {
-                    const picture = body.querySelector('.post-media-picture');
-                    const paragraph = mode.startsWith('delete') ? picture.previousElementSibling : picture.nextElementSibling;
-                    const range = document.createRange();
-                    range.selectNodeContents(paragraph);
-                    range.collapse(!mode.startsWith('delete'));
-                    body.focus();
-                    getSelection().removeAllRanges();
-                    getSelection().addRange(range);
-                }, mode);
-                await page.keyboard.insertText('Added ');
+                await page.keyboard.press(mode.startsWith('delete') ? 'Delete' : 'Backspace');
+                const deleted = await snapshot(page);
+                assert.equal(deleted.imageCount, 0, context + ': repeated deletion removes the selected image');
+                assert.equal(await body.locator('.post-caption').count(), 0, context + ': its caption is removed with it');
+                assert.equal(await body.locator('p').first().textContent(), mode.includes('copy')
+                    ? 'Before the photograph.After the photograph.' : 'Before the photograph.');
+                assert.equal(await body.locator('p').last().textContent(), 'After the photograph.');
             }
             const changed = await snapshot(page);
             await body.press(modifier + '+z');
@@ -191,7 +200,7 @@ export async function runMediaDeleteBoundaryRegressions(browser, origin) {
             assert.deepEqual(errors, []);
         } finally { await page.close(); }
     }
-    console.log('media deletion: paragraph/root boundaries retain image and caption; normal text/explicit media deletion, clipboard moves, history, saving and reopening remain correct');
+    console.log('media deletion: paragraph/root/wrapper boundaries and captions select whole media for repeated deletion; text, clipboard moves, history, saving and reopening remain correct');
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
