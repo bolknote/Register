@@ -14,14 +14,16 @@ use Symfony\Component\HttpFoundation\Request;
 /** Adds an origin boundary to cookie-authenticated state-changing requests. */
 final class SameOriginRequestGuard
 {
-    public function violation(Request $request): ?string
+    public function violation(Request $request, bool $requireBrowserEvidence = false): ?string
     {
         if ($request->isMethodSafe()) {
             return null;
         }
 
         $fetchSite = strtolower($request->headers->get('Sec-Fetch-Site', '') ?? '');
-        if (\in_array($fetchSite, ['cross-site', 'same-site'], true)) {
+        if (\in_array($fetchSite, ['cross-site', 'same-site'], true)
+            || ($requireBrowserEvidence && $fetchSite !== '' && $fetchSite !== 'same-origin')
+        ) {
             return 'A same-origin request is required.';
         }
 
@@ -30,10 +32,12 @@ final class SameOriginRequestGuard
             $source = $request->headers->get('Referer');
         }
 
-        // Some shared-hosting proxies and privacy tools strip both headers. Existing
-        // synchronizer tokens remain authoritative in that compatibility case.
+        // Synchronizer tokens can support older clients without these headers.
+        // Shared public form tokens instead require independent browser evidence.
         if ($source === null || $source === '') {
-            return null;
+            return $requireBrowserEvidence && $fetchSite !== 'same-origin'
+                ? 'A same-origin request is required.'
+                : null;
         }
 
         $sourceOrigin = $this->normalizeOrigin($source);

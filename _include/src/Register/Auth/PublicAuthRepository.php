@@ -178,7 +178,7 @@ final readonly class PublicAuthRepository
     }
 
     /** @return array<string, mixed>|null */
-    public function consumeFlow(string $state): ?array
+    public function consumeFlow(string $state, string $provider, string $codeVerifier): ?array
     {
         $stateHash = self::tokenHash($state);
         $row = $this->dbLayer
@@ -189,13 +189,24 @@ final readonly class PublicAuthRepository
             ->execute()
             ->fetchAssoc()
         ;
-        $this->dbLayer
+        if ($row === false
+            || !hash_equals((string)$row['provider'], $provider)
+            || !hash_equals((string)$row['code_verifier'], $codeVerifier)
+        ) {
+            return null;
+        }
+
+        $deleted = $this->dbLayer
             ->delete(PublicAuthSchema::FLOWS_TABLE)
             ->where('state_hash = :state_hash')->setParameter('state_hash', $stateHash)
+            ->andWhere('provider = :provider')->setParameter('provider', $provider)
+            ->andWhere('code_verifier = :code_verifier')->setParameter('code_verifier', $codeVerifier)
+            ->andWhere('expires_at >= :now')->setParameter('now', time())
             ->execute()
+            ->affectedRows()
         ;
 
-        return $row === false ? null : $row;
+        return $deleted === 1 ? $row : null;
     }
 
     /**

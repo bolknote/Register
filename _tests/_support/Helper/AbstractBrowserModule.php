@@ -178,20 +178,31 @@ abstract class AbstractBrowserModule extends Module
         $this->doRequest($request);
     }
 
-    public function sendPost(string $url, array $data = [], array $files = []): void
+    /** @param array<string, string> $headers */
+    public function sendPost(string $url, array $data = [], array $files = [], array $headers = []): void
     {
         $request = Request::create($url, 'POST', $data, [], $files);
+        foreach ($headers as $name => $value) {
+            $request->headers->set($name, $value);
+        }
+
         $this->doRequest($request);
     }
 
-    public function sendAjaxPostRequest(string $uri, array $params = []): void
+    /** @param array<string, string> $headers */
+    public function sendAjaxPostRequest(string $uri, array $params = [], array $headers = []): void
     {
-        $this->sendAjaxRequest('POST', $uri, $params);
+        $this->sendAjaxRequest('POST', $uri, $params, $headers);
     }
 
-    public function sendAjaxRequest(string $method, string $uri, array $params = []): void
+    /** @param array<string, string> $headers */
+    public function sendAjaxRequest(string $method, string $uri, array $params = [], array $headers = []): void
     {
         $request = Request::create($uri, $method, $params, [], [], ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+        foreach ($headers as $name => $value) {
+            $request->headers->set($name, $value);
+        }
+
         $this->doRequest($request);
     }
 

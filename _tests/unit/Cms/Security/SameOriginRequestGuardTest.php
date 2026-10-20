@@ -91,6 +91,25 @@ final class SameOriginRequestGuardTest extends Unit
         self::assertSame('A same-origin request is required.', $this->guard()->violation($request));
     }
 
+    public function testSharedPublicTokensRequireIndependentBrowserEvidence(): void
+    {
+        foreach ([[], ['HTTP_SEC_FETCH_SITE' => 'none'], ['HTTP_SEC_FETCH_SITE' => 'unrecognized']] as $server) {
+            $request = Request::create('https://example.com/auth/password', Request::METHOD_POST, server: $server);
+
+            self::assertSame('A same-origin request is required.', $this->guard()->violation($request, requireBrowserEvidence: true));
+        }
+
+        foreach ([
+            ['HTTP_ORIGIN' => 'https://example.com'],
+            ['HTTP_REFERER' => 'https://example.com/article'],
+            ['HTTP_SEC_FETCH_SITE' => 'same-origin'],
+        ] as $server) {
+            $request = Request::create('https://example.com/auth/password', Request::METHOD_POST, server: $server);
+
+            self::assertNull($this->guard()->violation($request, requireBrowserEvidence: true));
+        }
+    }
+
     private function guard(): SameOriginRequestGuard
     {
         return new SameOriginRequestGuard();

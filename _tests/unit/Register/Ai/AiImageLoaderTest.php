@@ -66,6 +66,18 @@ final class AiImageLoaderTest extends TestCase
         self::assertSame('image/png', $image->mimeType);
     }
 
+    public function testLoadsVersionedEditorImagesWithoutIncludingTheQueryInTheFilePath(): void
+    {
+        foreach (['/blog/_pictures', 'https://cdn.example/media'] as $prefix) {
+            $loader = new AiImageLoader($this->directory, $prefix);
+            $original = $loader->load($prefix . '/pixel.png');
+            $versioned = $loader->load($prefix . '/pixel.png?media=85');
+
+            self::assertSame($original->mimeType, $versioned->mimeType);
+            self::assertSame($original->data, $versioned->data);
+        }
+    }
+
     /** @dataProvider invalidSourceProvider */
     public function testRejectsSourcesOutsideMediaDirectory(string $source): void
     {
@@ -81,5 +93,11 @@ final class AiImageLoaderTest extends TestCase
         yield 'encoded traversal' => ['/blog/_pictures/%2e%2e/secret.png'];
         yield 'encoded slash traversal' => ['/blog/_pictures/folder%2f..%2fsecret.png'];
         yield 'query string' => ['/blog/_pictures/pixel.png?download=1'];
+        yield 'extra query parameter' => ['/blog/_pictures/pixel.png?media=85&download=1'];
+        yield 'duplicate version' => ['/blog/_pictures/pixel.png?media=85&media=86'];
+        yield 'invalid version' => ['/blog/_pictures/pixel.png?media=0'];
+        yield 'versioned external host' => ['https://example.com/blog/_pictures/pixel.png?media=85'];
+        yield 'versioned traversal' => ['/blog/_pictures/%2e%2e/secret.png?media=85'];
+        yield 'versioned fragment' => ['/blog/_pictures/pixel.png?media=85#fragment'];
     }
 }

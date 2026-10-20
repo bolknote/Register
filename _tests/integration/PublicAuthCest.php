@@ -10,16 +10,19 @@ declare(strict_types = 1);
 namespace integration;
 
 use Register\Auth\CommentNotificationRepository;
+use Register\Auth\PublicAuthController;
 use Register\Auth\MagicLinkService;
 use Register\Auth\MagicLinkRateLimiter;
 use Register\Auth\PublicAuthFormToken;
 use Register\Auth\PublicAuthRepository;
 use Register\Auth\PublicAuthSchema;
 use Register\Auth\PublicAuthSettings;
+use Register\Auth\PublicOAuthClient;
 use Register\Auth\PendingCommentRecovery;
 use Register\Core\Comment\CommentHtml;
 use Register\Core\Comment\Antispam\CommentFormTokenManager;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Cookie;
 use Register\Comment\CommentSchema;
 use Register\Comment\Antispam\SpamFeedbackService;
 use Register\Content\ContentId;
@@ -30,6 +33,10 @@ use Register\Core\Model\AuthenticatedPublicUser;
 use Register\Core\Model\SessionAudience;
 use Register\Core\Comment\SpamDetectorReport;
 use Register\Core\Pdo\DbLayer;
+use Register\Core\HttpClient\HttpClient;
+use Register\Core\HttpClient\HttpClientInterface;
+use Register\Core\HttpClient\HttpResponse;
+use Register\Core\Model\UrlBuilder;
 use Register\Module\VisitorIdentity\Manifest as VisitorIdentityManifest;
 use Register\Module\VisitorIdentity\VisitorIdentityManager;
 
@@ -109,7 +116,7 @@ final class PublicAuthCest
             'remember_me' => '1',
             'auth_token'  => $token,
             'return_path' => '/',
-        ]);
+        ], headers: ['Origin' => 'https://localhost']);
 
         $I->seeResponseCodeIs(200);
         $I->assertJsonSubResponseEquals(true, ['success']);
@@ -168,7 +175,7 @@ final class PublicAuthCest
                 'pass'        => $login,
                 'auth_token'  => $token,
                 'return_path' => '/',
-            ]);
+            ], headers: ['Origin' => 'https://localhost']);
             $I->seeResponseCodeIs(200);
 
             $I->amOnPage('https://localhost/');
@@ -205,11 +212,187 @@ final class PublicAuthCest
             'pass'        => 'admin',
             'auth_token'  => 'invalid',
             'return_path' => '/',
-        ]);
+        ], headers: ['Origin' => 'https://localhost']);
 
         $I->seeResponseCodeIs(422);
         $I->assertJsonSubResponseEquals(false, ['success']);
         $I->assertNull($I->grabTestCookie('register_cookie_904732485_c'));
+    }
+
+    public function testPublicLoginActionsRejectForeignAndUnverifiableSources(\IntegrationTester $I): void
+    {
+        $I->amOnPage('https://localhost/');
+        $token = (string)$I->grabValueFrom('.public-auth-password-form input[name="auth_token"]');
+        $controller = $I->grabService(PublicAuthController::class);
+        $db = $I->grabService(DbLayer::class);
+        $sessionCount = (int)$db->select('COUNT(*)')->from('users_online')->execute()->result();
+
+        foreach (['password', 'email', 'oauth_start'] as $action) {
+            foreach ([
+                ['HTTP_ORIGIN' => 'https://localhost.attacker.test'],
+                ['HTTP_ORIGIN' => 'https://sibling.localhost', 'HTTP_SEC_FETCH_SITE' => 'same-site'],
+                ['HTTP_ORIGIN' => 'null'],
+                ['HTTP_REFERER' => 'https://attacker.test/login'],
+                ['HTTP_SEC_FETCH_SITE' => 'cross-site', 'HTTP_ORIGIN' => 'https://localhost'],
+                ['HTTP_SEC_FETCH_SITE' => 'none'],
+                [],
+            ] as $server) {
+                $request = Request::create('https://localhost/auth/' . $action, 'POST', [
+                    'auth_token' => $token, 'login' => 'author', 'pass' => 'author',
+                    'email' => 'csrf@example.test', 'return_path' => '/',
+                ], server: $server);
+                $request->attributes->add(['auth_action' => $action, 'provider' => 'vk']);
+                $response = $controller->handle($request);
+
+                $I->assertSame(403, $response->getStatusCode(), $action . ': ' . json_encode($server));
+                $I->assertSame([], $response->headers->getCookies());
+            }
+        }
+
+        $I->assertSame($sessionCount, (int)$db->select('COUNT(*)')->from('users_online')->execute()->result());
+        $I->assertSame(0, (int)$db->select('COUNT(*)')->from(PublicAuthSchema::FLOWS_TABLE)->execute()->result());
+        $I->assertSame([], $I->grabPublicAuthMails());
+    }
+
+    public function testPublicLoginAcceptsVerifiedOriginAndBrowserMetadata(\IntegrationTester $I): void
+    {
+        $controller = $I->grabService(PublicAuthController::class);
+        $token = $I->grabService(PublicAuthFormToken::class)->issue();
+        foreach ([
+            ['HTTP_ORIGIN' => 'https://LOCALHOST:443'],
+            ['HTTP_REFERER' => 'https://localhost/article'],
+            ['HTTP_SEC_FETCH_SITE' => 'same-origin'],
+        ] as $server) {
+            $request = Request::create('https://localhost/auth/password', 'POST', [
+                'auth_token' => $token, 'login' => 'author', 'pass' => 'author', 'return_path' => '/',
+            ], server: $server);
+            $request->attributes->set('auth_action', 'password');
+            $response = $controller->handle($request);
+
+            $I->assertSame(302, $response->getStatusCode());
+            $I->assertNotSame([], $response->headers->getCookies());
+        }
+    }
+
+    public function testOAuthCallbackRequiresItsOriginalBrowserWithoutConsumingOtherFlows(\IntegrationTester $I): void
+    {
+        $I->setConfigValue(PublicAuthSettings::VK_CLIENT_ID_CONFIG_KEY, 'vk-test-client');
+        $I->setConfigValue(PublicAuthSettings::YANDEX_CLIENT_ID_CONFIG_KEY, 'yandex-test-client');
+        $I->setConfigValue(PublicAuthSettings::YANDEX_CLIENT_SECRET_CONFIG_KEY, 'yandex-test-secret');
+
+        $http = new class implements HttpClientInterface {
+            public int $requests = 0;
+
+            /** @var array<string, string> */
+            public array $challenges = [];
+
+            public function request(string $method, string $url, array $headers = [], ?string $body = null, array $options = []): HttpResponse
+            {
+                ++$this->requests;
+                $profile = str_contains($url, 'user_info') || str_contains($url, '/info?');
+                if (!$profile) {
+                    parse_str((string)$body, $parameters);
+                    parse_str((string)parse_url($url, PHP_URL_QUERY), $query);
+                    $parameters += $query;
+                    $verifier = $parameters['code_verifier'] ?? null;
+                    $code = $parameters['code'] ?? null;
+                    if (!\is_string($verifier) || !\is_string($code)) {
+                        throw new \RuntimeException('The test provider received invalid token parameters.');
+                    }
+
+                    $challenge = rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=');
+                    if (!hash_equals($this->challenges[$code] ?? '', $challenge)) {
+                        throw new \RuntimeException('The test provider rejected an incorrect PKCE verifier.');
+                    }
+                }
+
+                $result = $profile
+                    ? ['id' => 'test-subject', 'user_id' => 'test-subject', 'default_email' => 'reader@example.test', 'first_name' => 'Reader']
+                    : ['access_token' => 'test-access-token', 'user_id' => 'test-subject'];
+
+                return new HttpResponse(statusCode: 200, content: json_encode($result, JSON_THROW_ON_ERROR));
+            }
+
+            public function resolveRedirectUrl(string $location, string $currentUrl): string
+            {
+                return (new HttpClient())->resolveRedirectUrl($location, $currentUrl);
+            }
+        };
+        $original = $I->grabService(PublicOAuthClient::class);
+        $I->replaceService(PublicOAuthClient::class, new PublicOAuthClient(
+            $http, $I->grabService(PublicAuthSettings::class), $I->grabService(PublicAuthRepository::class), $I->grabService(UrlBuilder::class),
+        ), [PublicAuthController::class]);
+
+        try {
+            $controller = $I->grabService(PublicAuthController::class);
+            $token = $I->grabService(PublicAuthFormToken::class)->issue();
+            $flows = [];
+            $cookies = [];
+            foreach (['yandex', 'vk', 'mail_ru', 'ok_ru'] as $provider) {
+                $request = Request::create('https://localhost/auth/oauth/' . $provider, 'POST', ['auth_token' => $token], server: ['HTTP_ORIGIN' => 'https://localhost']);
+                $request->attributes->add(['auth_action' => 'oauth_start', 'provider' => $provider]);
+                $start = $controller->handle($request);
+                $I->assertSame(302, $start->getStatusCode());
+                parse_str((string)parse_url((string)$start->headers->get('Location'), PHP_URL_QUERY), $query);
+                $code = $provider . '-test-code';
+                $challenge = $query['code_challenge'] ?? null;
+                $I->assertIsString($challenge);
+                $http->challenges[$code] = $challenge;
+                $callback = 'https://localhost/auth/oauth/' . $provider . '/callback?' . http_build_query([
+                    'state' => $query['state'], 'code' => $code, 'device_id' => $query['device_id'] ?? '',
+                ]);
+
+                // Another browser must be rejected before any provider request or account creation.
+                $foreign = Request::create($callback);
+                $foreign->attributes->add(['auth_action' => 'oauth_callback', 'provider' => $provider]);
+                $denied = $controller->handle($foreign);
+                $I->assertSame(403, $denied->getStatusCode());
+                $I->assertSame([], $denied->headers->getCookies());
+                $I->assertSame(0, $http->requests);
+
+                $flowCookies = $start->headers->getCookies();
+                $I->assertCount(1, $flowCookies);
+                $cookie = $flowCookies[0];
+                $I->assertTrue($cookie->isSecure());
+                $I->assertTrue($cookie->isHttpOnly());
+                $I->assertSame('lax', $cookie->getSameSite());
+                $I->assertStringStartsWith('__Host-', $cookie->getName());
+                $I->assertNull($cookie->getDomain());
+                $I->assertSame('/', $cookie->getPath());
+                $I->assertGreaterThan(time(), $cookie->getExpiresTime());
+                $I->assertLessThanOrEqual(time() + 600, $cookie->getExpiresTime());
+                $cookies[$cookie->getName()] = $cookie->getValue();
+                $flows[] = ['provider' => $provider, 'callback' => $callback, 'cookie' => $cookie];
+            }
+
+            // Each tab keeps its own credential, even when all callbacks share a browser.
+            foreach ($flows as $index => $flow) {
+                $wrongCookies = $cookies;
+                $wrongCookies[$flow['cookie']->getName()] = $flows[($index + 1) % \count($flows)]['cookie']->getValue();
+                $wrong = Request::create($flow['callback'], cookies: $wrongCookies);
+                $wrong->attributes->add(['auth_action' => 'oauth_callback', 'provider' => $flow['provider']]);
+                $I->assertSame(403, $controller->handle($wrong)->getStatusCode());
+
+                $wrongProvider = Request::create($flow['callback'], cookies: $cookies);
+                $wrongProvider->attributes->add(['auth_action' => 'oauth_callback', 'provider' => $flow['provider'] === 'yandex' ? 'vk' : 'yandex']);
+                $I->assertSame(403, $controller->handle($wrongProvider)->getStatusCode());
+
+                $callback = Request::create($flow['callback'], cookies: $cookies);
+                $callback->attributes->add(['auth_action' => 'oauth_callback', 'provider' => $flow['provider']]);
+                $response = $controller->handle($callback);
+                $I->assertSame(302, $response->getStatusCode());
+                $I->assertSame('/', $response->headers->get('Location'));
+                $expired = array_values(array_filter($response->headers->getCookies(), static fn(Cookie $cookie): bool => $cookie->getName() === $flow['cookie']->getName()));
+                $I->assertCount(1, $expired);
+                $I->assertTrue($expired[0]->isCleared());
+
+                $I->assertSame(403, $controller->handle($callback)->getStatusCode());
+            }
+
+            $I->assertSame(8, $http->requests);
+        } finally {
+            $I->replaceService(PublicOAuthClient::class, $original, [PublicAuthController::class]);
+        }
     }
 
     public function testEmailLinkCreatesASeparateUnprivilegedIdentity(\IntegrationTester $I): void
@@ -236,7 +419,7 @@ final class PublicAuthCest
             'name'        => 'Email participant',
             'auth_token'  => $token,
             'return_path' => '/',
-        ]);
+        ], headers: ['Origin' => 'https://localhost']);
 
         $I->seeResponseCodeIs(200);
 
@@ -295,7 +478,7 @@ final class PublicAuthCest
                 'name'        => 'Limited reader',
                 'auth_token'  => $token,
                 'return_path' => '/',
-            ]);
+            ], headers: ['Origin' => 'https://localhost']);
             $I->seeResponseCodeIs(200);
         }
 
@@ -304,7 +487,7 @@ final class PublicAuthCest
             'name'        => 'Limited reader',
             'auth_token'  => $token,
             'return_path' => '/',
-        ]);
+        ], headers: ['Origin' => 'https://localhost']);
 
         $I->seeResponseCodeIs(429);
         $I->assertGreaterThan(0, (int)$I->grabHttpHeader('Retry-After'));
@@ -343,7 +526,7 @@ final class PublicAuthCest
 
         $I->sendPost('https://localhost/auth/oauth/vk?return=%2F%2Fforeign.example%2Fpath', [
             'auth_token' => $formToken->issue(),
-        ]);
+        ], headers: ['Origin' => 'https://localhost']);
         $I->seeResponseCodeIs(302);
 
         $location = (string)$I->grabHttpHeader('Location');

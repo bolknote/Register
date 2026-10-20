@@ -12,10 +12,12 @@ namespace Register\Auth;
 use Psr\Log\LoggerInterface;
 use Register\Url\ContentUrlGenerator;
 use Register\Core\Framework\ControllerInterface;
+use Register\Core\Framework\Exception\AccessDeniedException;
 use Register\Core\Helper\StringHelper;
 use Register\Core\Model\AuthProvider;
 use Register\Core\Model\UrlBuilder;
 use Register\Core\Security\Audit\SecurityAuditLogger;
+use Register\Core\Security\Http\SameOriginRequestGuard;
 use Register\Core\Template\HtmlTemplateProvider;
 use Register\Module\VisitorIdentity\VisitorIdentityManager;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -44,6 +46,7 @@ final readonly class PublicAuthController implements ControllerInterface
         private TranslatorInterface           $translator,
         private LoggerInterface               $logger,
         private VisitorIdentityManager         $visitorIdentityManager,
+        private SameOriginRequestGuard         $sameOriginRequestGuard,
     ) {
     }
 
@@ -74,6 +77,12 @@ final readonly class PublicAuthController implements ControllerInterface
             $response->headers->set('Retry-After', (string)$exception->retryAfter);
 
             return $response;
+        } catch (AccessDeniedException) {
+            return $this->error(
+                $request,
+                $this->translator->trans('Unable to sign in. Please try again.'),
+                Response::HTTP_FORBIDDEN,
+            );
         } catch (\InvalidArgumentException $exception) {
             return $this->error($request, $exception->getMessage(), Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (\Throwable $throwable) {
@@ -305,7 +314,7 @@ final readonly class PublicAuthController implements ControllerInterface
         $provider = $request->attributes->getString('provider');
         $returnPath = PublicReturnPath::normalize($request->query->getString('return'));
 
-        return new RedirectResponse($this->oauthClient->authorizationUrl($provider, $returnPath));
+        return $this->oauthClient->authorizationResponse($request, $provider, $returnPath);
     }
 
     private function oauthCallback(Request $request): \Symfony\Component\HttpFoundation\RedirectResponse
@@ -328,7 +337,10 @@ final readonly class PublicAuthController implements ControllerInterface
         $session = $this->sessionManager->loginVerifiedUser($request, $userId, true, $auditMethod);
         $this->visitorIdentityManager->recordInteraction($request, $userId);
 
-        return $this->redirectWithCookies($session, $identity->returnPath);
+        $response = $this->redirectWithCookies($session, $identity->returnPath);
+        $this->oauthClient->clearFlowCookie($request, $response);
+
+        return $response;
     }
 
     private function unread(Request $request): \Symfony\Component\HttpFoundation\RedirectResponse
@@ -359,6 +371,10 @@ final readonly class PublicAuthController implements ControllerInterface
     {
         if (!$request->isMethod(Request::METHOD_POST)) {
             throw new \InvalidArgumentException('This action requires POST.');
+        }
+
+        if ($this->sameOriginRequestGuard->violation($request, requireBrowserEvidence: true) !== null) {
+            throw new AccessDeniedException();
         }
 
         if (!$this->formToken->matches($request->request->getString('auth_token'))) {

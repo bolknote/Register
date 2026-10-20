@@ -10,13 +10,19 @@ declare(strict_types = 1);
 namespace Register\Auth;
 
 use Register\Core\HttpClient\HttpClientInterface;
+use Register\Core\Framework\Exception\AccessDeniedException;
 use Register\Core\Model\UrlBuilder;
+use Symfony\Component\HttpFoundation\Cookie;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 /** OAuth 2.1/PKCE integration for Yandex and VK ID (VK, Mail.ru and OK). */
 final readonly class PublicOAuthClient
 {
     private const array VK_PROVIDERS = ['vk', 'mail_ru', 'ok_ru'];
+
+    private const int FLOW_LIFETIME = 600;
 
     public function __construct(
         private HttpClientInterface   $httpClient,
@@ -26,7 +32,7 @@ final readonly class PublicOAuthClient
     ) {
     }
 
-    public function authorizationUrl(string $provider, string $returnPath): string
+    public function authorizationResponse(Request $request, string $provider, string $returnPath): RedirectResponse
     {
         $provider = $this->normalizeProvider($provider);
         if ($provider === 'yandex' && !$this->settings->yandexEnabled()) {
@@ -42,35 +48,32 @@ final readonly class PublicOAuthClient
         $verifier = $this->randomUrlToken(48);
         $deviceId = $this->uuidV4();
         $challenge = $this->base64Url(hash('sha256', $verifier, true));
-        $this->repository->storeFlow($state, $provider, $verifier, $deviceId, $returnPath);
+        $this->repository->storeFlow($state, $provider, $verifier, $deviceId, $returnPath, self::FLOW_LIFETIME);
 
-        if ($provider === 'yandex') {
-            return 'https://oauth.yandex.ru/authorize?' . http_build_query([
-                'response_type'         => 'code',
-                'client_id'             => $this->settings->yandexClientId(),
-                'redirect_uri'          => $this->callbackUrl('yandex'),
-                'scope'                 => 'login:email login:info',
-                'state'                 => $state,
-                'code_challenge'        => $challenge,
-                'code_challenge_method' => 'S256',
-            ], '', '&', PHP_QUERY_RFC3986);
-        }
-
+        $isYandex = $provider === 'yandex';
         $query = [
             'response_type'         => 'code',
-            'client_id'             => $this->settings->vkClientId(),
+            'client_id'             => $isYandex ? $this->settings->yandexClientId() : $this->settings->vkClientId(),
             'redirect_uri'          => $this->callbackUrl($provider),
-            'scope'                 => 'email',
+            'scope'                 => $isYandex ? 'login:email login:info' : 'email',
             'state'                 => $state,
             'code_challenge'        => $challenge,
-            'code_challenge_method' => 's256',
-            'device_id'             => $deviceId,
+            'code_challenge_method' => $isYandex ? 'S256' : 's256',
         ];
-        if ($provider !== 'vk') {
+        if (!$isYandex) {
+            $query['device_id'] = $deviceId;
+        }
+
+        if (!$isYandex && $provider !== 'vk') {
             $query['provider'] = $provider;
         }
 
-        return 'https://id.vk.ru/authorize?' . http_build_query($query, '', '&', PHP_QUERY_RFC3986);
+        $endpoint = $isYandex ? 'https://oauth.yandex.ru/authorize' : 'https://id.vk.ru/authorize';
+        $response = new RedirectResponse($endpoint . '?' . http_build_query($query, '', '&', PHP_QUERY_RFC3986));
+        $response->headers->set('Cache-Control', 'no-store, private');
+        $response->headers->setCookie($this->flowCookie($request, $state, $verifier));
+
+        return $response;
     }
 
     public function exchange(Request $request, string $provider): ExternalIdentity
@@ -78,18 +81,54 @@ final readonly class PublicOAuthClient
         $provider = $this->normalizeProvider($provider);
         $state = trim($request->query->getString('state'));
         $code = trim($request->query->getString('code'));
-        if ($state === '' || $code === '' || $request->query->has('error')) {
+        if (preg_match('/^[A-Za-z0-9_-]{43}$/D', $state) !== 1 || $code === '' || $request->query->has('error')) {
             throw new \RuntimeException('The authentication provider did not return a usable authorization code.');
         }
 
-        $flow = $this->repository->consumeFlow($state);
-        if (!\is_array($flow) || !hash_equals((string)$flow['provider'], $provider)) {
-            throw new \RuntimeException('The authentication attempt has expired or has already been used.');
+        $verifier = $request->cookies->getString($this->flowCookieName($request, $state));
+        if (preg_match('/^[A-Za-z0-9_-]{64}$/D', $verifier) !== 1) {
+            throw new AccessDeniedException();
+        }
+
+        $flow = $this->repository->consumeFlow($state, $provider, $verifier);
+        if ($flow === null) {
+            throw new AccessDeniedException();
         }
 
         return $provider === 'yandex'
             ? $this->exchangeYandex($code, $flow)
             : $this->exchangeVk($request, $code, $provider, $flow);
+    }
+
+    public function clearFlowCookie(Request $request, Response $response): void
+    {
+        $response->headers->setCookie($this->flowCookie($request, trim($request->query->getString('state')), null));
+    }
+
+    private function flowCookie(Request $request, string $state, ?string $verifier): Cookie
+    {
+        // The per-state cookie keeps concurrent tabs independent. Its HttpOnly
+        // verifier must be presented by the initiating browser before claiming the row.
+        return Cookie::create(
+            $this->flowCookieName($request, $state),
+            $verifier,
+            expire: $verifier === null ? 1 : time() + self::FLOW_LIFETIME,
+            path: '/',
+            secure: $this->secureFlowCookie($request),
+            httpOnly: true,
+            sameSite: Cookie::SAMESITE_LAX,
+        );
+    }
+
+    private function flowCookieName(Request $request, string $state): string
+    {
+        // __Host- prevents sibling domains from planting a flow credential.
+        return ($this->secureFlowCookie($request) ? '__Host-' : '') . 'register_oauth_' . hash('sha256', $state);
+    }
+
+    private function secureFlowCookie(Request $request): bool
+    {
+        return $request->isSecure() || str_starts_with($this->urlBuilder->absLink('/'), 'https://');
     }
 
     /** @param array<string, mixed> $flow */

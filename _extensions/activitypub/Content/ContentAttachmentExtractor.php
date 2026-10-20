@@ -171,7 +171,7 @@ final readonly class ContentAttachmentExtractor
             || $parts['host'] === ''
             || isset($parts['user'])
             || isset($parts['pass'])
-            || isset($parts['query'])
+            || (isset($parts['query']) && preg_match('/^media=[1-9][0-9]*$/D', $parts['query']) !== 1)
             || isset($parts['fragment'])
         ) {
             return null;
@@ -182,11 +182,12 @@ final readonly class ContentAttachmentExtractor
 
     private function localFile(string $url, string $publicPrefix, string $storageRoot): ?string
     {
-        if (!str_starts_with($url, $publicPrefix . '/')) {
+        $fileUrl = explode('?', $url, 2)[0];
+        if (!str_starts_with($fileUrl, $publicPrefix . '/')) {
             return null;
         }
 
-        $relative = substr($url, \strlen($publicPrefix) + 1);
+        $relative = substr($fileUrl, \strlen($publicPrefix) + 1);
         $encodedSegments = explode('/', $relative);
         $segments = [];
         foreach ($encodedSegments as $encodedSegment) {

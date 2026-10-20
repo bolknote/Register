@@ -70,7 +70,10 @@ final readonly class AiImageLoader
 
         $sourceParts = parse_url($source);
         $baseParts = parse_url($this->imageUrl);
-        if (!\is_array($sourceParts) || !\is_array($baseParts) || isset($sourceParts['query']) || isset($sourceParts['fragment'])) {
+        if (!\is_array($sourceParts) || !\is_array($baseParts)
+            || (isset($sourceParts['query']) && preg_match('/^media=[1-9][0-9]*$/D', $sourceParts['query']) !== 1)
+            || isset($sourceParts['fragment'])
+        ) {
             throw new AiException('The image URL is invalid.');
         }
 

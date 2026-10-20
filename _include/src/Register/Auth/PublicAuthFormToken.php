@@ -11,7 +11,7 @@ namespace Register\Auth;
 
 use Register\Core\Config\StringProxy;
 
-/** Stateless CSRF token for unauthenticated sign-in forms. */
+/** Shared sign-in form freshness token; mutations also require same-origin browser evidence. */
 final readonly class PublicAuthFormToken
 {
     private const int LIFETIME = 86400;

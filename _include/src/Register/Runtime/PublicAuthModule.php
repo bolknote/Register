@@ -41,6 +41,7 @@ use Register\Core\Model\UrlBuilder;
 use Register\Core\Pdo\DbLayer;
 use Register\Core\Pdo\PDO as TrackedPDO;
 use Register\Core\Security\Audit\SecurityAuditLogger;
+use Register\Core\Security\Http\SameOriginRequestGuard;
 use Register\Core\Template\HtmlTemplateProvider;
 use Register\Core\Template\Viewer;
 
@@ -149,6 +150,7 @@ final readonly class PublicAuthModule implements ContainerModuleInterface
             $container->get('translator'),
             $container->get(LoggerInterface::class),
             $container->get(VisitorIdentityManager::class),
+            new SameOriginRequestGuard(),
         ));
     }
 }

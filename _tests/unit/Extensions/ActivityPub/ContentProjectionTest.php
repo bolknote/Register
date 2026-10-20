@@ -575,7 +575,7 @@ final class ContentProjectionTest extends Unit
             $postId,
             'Post with media',
             '<p>Hello <a class="mention" href="' . $mentionUrl . '">@bob@social.example</a>.</p>'
-                . '<img src="/register/_pictures/pixel.png" alt="Tiny pixel">'
+                . '<img src="/register/_pictures/pixel.png?media=85" alt="Tiny pixel">'
                 . '<img src="https://tracker.example/pixel.gif" alt="Must stay remote">',
             '/hello',
             1_000,
@@ -592,14 +592,14 @@ final class ContentProjectionTest extends Unit
         self::assertContains($mentionUrl, $document['to']);
         $urls = (new FederationUrlGeneratorFactory($services['stateRepository']))->create();
         self::assertSame([$urls->actorFollowers($actor->publicId)], $document['audience']);
-        self::assertCount(1, $document['attachment']);
+        self::assertCount(1, $document['attachment'] ?? []);
         self::assertSame([
             'height'    => 1,
             'mediaType' => 'image/png',
             'name'      => 'Tiny pixel',
             'size'      => 68,
             'type'      => 'Document',
-            'url'       => 'https://journal.example/register/_pictures/pixel.png',
+            'url'       => 'https://journal.example/register/_pictures/pixel.png?media=85',
             'width'     => 1,
         ], $document['attachment'][0]);
         self::assertSame(1, (int)$services['dbLayer']->select('COUNT(*)')
