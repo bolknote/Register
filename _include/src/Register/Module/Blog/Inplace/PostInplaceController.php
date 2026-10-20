@@ -1276,7 +1276,7 @@ final readonly class PostInplaceController implements ControllerInterface
      */
     private function mediaPayload(array $media): array
     {
-        $url = $this->mediaRepository->url((string)$media['storage_path']);
+        $url = $this->mediaRepository->url((string)$media['storage_path'], (int)$media['id']);
         $pixelWidth  = $media['width'] === null ? null : (int)$media['width'];
         $pixelHeight = $media['height'] === null ? null : (int)$media['height'];
         $retina = (string)$media['kind'] === 'image'
@@ -1289,7 +1289,7 @@ final readonly class PostInplaceController implements ControllerInterface
             'persistent_identity' => $this->mediaRepository->hasPersistentIdentity((int)$media['id']),
             'kind'        => (string)$media['kind'],
             'url'         => $url,
-            'preview_url' => $url . '?editor-media=' . (int)$media['created_at'],
+            'preview_url' => $url,
             'name'        => (string)$media['original_name'],
             'width'       => $retina && $pixelWidth !== null ? max(1, (int)floor($pixelWidth / 2)) : $pixelWidth,
             'height'      => $retina && $pixelHeight !== null ? max(1, (int)floor($pixelHeight / 2)) : $pixelHeight,

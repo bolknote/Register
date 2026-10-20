@@ -14,6 +14,89 @@ use Symfony\Component\HttpFoundation\Response;
 
 final class PostMediaRecoveryCest
 {
+    public function aReusedSameDayFilenameGetsANewCacheIdentity(\IntegrationTester $I): void
+    {
+        $repository = $I->grabService(PostMediaRepository::class);
+        $I->login('author', 'author');
+        $I->amOnPage('https://localhost/');
+
+        $token = (string)$I->grabAttributeFrom('.post-create-template input[name="inplace_token"]', 'value');
+        $date = time() - 60;
+        $files = [];
+        $upload = function (bool $replacement) use ($I, $repository, $token, $date, &$files): array {
+            $width = $replacement ? 2 : 1;
+            $file = tempnam(sys_get_temp_dir(), 'register-cache-identity-');
+            if ($file === false) {
+                throw new \RuntimeException('Unable to create an upload fixture.');
+            }
+
+            $files[] = $file;
+            $image = imagecreatetruecolor($width, 1);
+            if ($image === false) {
+                throw new \RuntimeException('Unable to create an image fixture.');
+            }
+
+            imagefilledrectangle($image, 0, 0, $width - 1, 0, $width === 1 ? 0xff0000 : 0x0000ff);
+            imagepng($image, $file);
+            $I->sendPost('https://localhost/_inplace/post/new', [
+                'inplace_action' => 'media', 'inplace_token' => $token, 'published_at' => (string)$date,
+                'media_width' => (string)$width, 'media_height' => '1',
+                'media_display_width' => (string)$width, 'media_display_height' => '1',
+            ], ['media' => new UploadedFile($file, 'image.png', 'image/png', null, true)]);
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+
+            $payload = $I->grabJson();
+            $I->assertIsArray($payload);
+            $files[] = __DIR__ . '/../_output/images' . $repository->find((int)$payload['media_id'])['storage_path'];
+
+            return $payload;
+        };
+        try {
+            $first = $upload(false);
+            $firstPath = (string)$repository->find((int)$first['media_id'])['storage_path'];
+            // Model a cancelled upload whose cleanup has committed. This suite
+            // keeps HTTP requests inside an outer rollback-only transaction.
+            $I->assertTrue($repository->deleteUnused((int)$first['media_id']));
+            $I->assertTrue(unlink(__DIR__ . '/../_output/images' . $firstPath));
+            $second = $upload(true);
+            $I->assertSame($firstPath, $repository->find((int)$second['media_id'])['storage_path']);
+            $I->assertSame($first['name'], $second['name'], 'The historical date/ordinal filename is retained.');
+            $I->assertNotSame($first['media_id'], $second['media_id']);
+            $I->assertNotSame($first['url'], $second['url'], 'A browser must never reuse cached pixels from a deleted upload.');
+
+            $I->sendAjaxPostRequest('https://localhost/_inplace/post/new', [
+                'inplace_action' => 'media_redate', 'inplace_token' => $token,
+                'published_at' => (string)$date, 'media_ids' => (string)$second['media_id'],
+            ]);
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+            $reconciled = $I->grabJson();
+            $I->assertIsArray($reconciled);
+            $I->assertSame($second['url'], $reconciled['media'][0]['url']);
+
+            $body = '<img src="' . $second['url'] . '" data-post-media-id="' . $second['media_id']
+                . '" data-post-media-identity="1" alt="New image">';
+            $I->sendAjaxPostRequest('https://localhost/_inplace/post/new', [
+                'inplace_action' => 'create', 'inplace_token' => $token,
+                'request_id' => 'cache-identity-' . bin2hex(random_bytes(8)),
+                'title' => 'Another post on the same day', 'body' => $body, 'tags' => '',
+                'published_at' => (string)$date, 'uploaded_media_ids' => (string)$second['media_id'],
+            ]);
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+            $post = $I->grabJson();
+            $I->assertIsArray($post);
+            $I->assertStringContainsString('src="' . $second['url'] . '"', $post['body_html']);
+            $I->assertStringContainsString('width="2" height="1"', $post['body_html']);
+            $I->amOnPage('https://localhost' . $post['url']);
+            $I->seeElement('img[src="' . $second['url'] . '"][width="2"][height="1"]');
+        } finally {
+            foreach (array_unique($files) as $file) {
+                if (is_file($file)) {
+                    unlink($file);
+                }
+            }
+        }
+    }
+
     public function aPreUpgradeUploadCanBeReconciledAndSavedFromALegacyDraft(\IntegrationTester $I): void
     {
         $db = $I->grabService(DbLayer::class);
@@ -53,7 +136,7 @@ final class PostMediaRecoveryCest
             $response = $I->grabJson();
             $I->assertIsArray($response);
             $media = $response['media'][0];
-            $I->assertSame($repository->url($legacy), $media['url']);
+            $I->assertSame($repository->url($legacy, $id), $media['url']);
             $I->assertSame('scan.png', $media['name']);
             $I->assertFalse($media['persistent_identity']);
             $I->assertFileExists($file);
@@ -145,7 +228,7 @@ final class PostMediaRecoveryCest
                 'published_at' => (string)$publishedAt, 'media_ids' => $replacementId . ',' . $originalId,
             ]);
             $I->seeResponseCodeIs(Response::HTTP_CONFLICT);
-            $I->assertSame($replacement['url'], '/_tests/_output/images' . $repository->find($replacementId)['storage_path']);
+            $I->assertSame($replacement['url'], $repository->url((string)$repository->find($replacementId)['storage_path'], $replacementId));
             $I->assertFileExists($this->storedPath($replacement['url']));
 
             // A legacy copy may hold an id that SQLite deleted before the
@@ -194,6 +277,7 @@ final class PostMediaRecoveryCest
 
     private function storedPath(string $url): string
     {
+        $url = (string)parse_url($url, PHP_URL_PATH);
         $prefix = '/_tests/_output/images';
         if (!str_starts_with($url, $prefix . '/')) {
             throw new \RuntimeException('Unexpected inplace media URL.');

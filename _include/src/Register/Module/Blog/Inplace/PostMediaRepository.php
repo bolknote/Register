@@ -135,7 +135,7 @@ final readonly class PostMediaRepository
             }
 
             foreach ($sources as $source) {
-                if ($source !== $this->url((string)$media['storage_path'])) {
+                if (!$this->matchesSource($source, $media)) {
                     // The controller rolls back the post write as well as its
                     // relations. Never commit a link to a file another tab moved.
                     throw new PostMediaConflictException();
@@ -406,9 +406,19 @@ final readonly class PostMediaRepository
         return '%' . str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $storagePath) . '%';
     }
 
-    public function url(string $storagePath): string
+    public function url(string $storagePath, ?int $mediaId = null): string
     {
-        return $this->mediaUrlPrefix . $storagePath;
+        // Canonical date/ordinal filenames can be reused after cleanup. The
+        // permanent allocation id keeps browser caches separate for each file.
+        return $this->mediaUrlPrefix . $storagePath . ($mediaId === null ? '' : '?media=' . $mediaId);
+    }
+
+    /** @param array<string, mixed> $media */
+    private function matchesSource(string $source, array $media): bool
+    {
+        $path = (string)$media['storage_path'];
+        // Existing posts and still-open pre-upgrade editors retain bare URLs.
+        return $source === $this->url($path) || $source === $this->url($path, (int)$media['id']);
     }
 
     /**
@@ -485,7 +495,7 @@ final readonly class PostMediaRepository
                 if (
                     $media === null
                     || (string)$media['kind'] !== 'image'
-                    || $image->getAttribute('src') !== $this->url((string)$media['storage_path'])
+                    || !$this->matchesSource($image->getAttribute('src'), $media)
                 ) {
                     return $tag;
                 }

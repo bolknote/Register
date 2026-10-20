@@ -25,7 +25,7 @@ final class PostMediaCleanupCest
             $upload = $this->upload($I, $token);
             $repository = $I->grabService(PostMediaRepository::class);
             $id = (int)$upload['media_id'];
-            $file = $directory . '/' . basename($upload['url']);
+            $file = $directory . '/' . basename((string)parse_url($upload['url'], PHP_URL_PATH));
             $release = static fn() => $I->sendAjaxPostRequest('https://localhost/_inplace/post/new', [
                 'inplace_action' => 'media_release', 'inplace_token' => $token, 'media_ids' => (string)$id,
             ]);
@@ -47,7 +47,7 @@ final class PostMediaCleanupCest
             $repository = $I->grabService(PostMediaRepository::class);
             $db = $I->grabService(DbLayer::class);
             $id = (int)$upload['media_id'];
-            $file = $directory . '/' . basename($upload['url']);
+            $file = $directory . '/' . basename((string)parse_url($upload['url'], PHP_URL_PATH));
             $db->update(ContentMediaSchema::FILE_TABLE)->set('created_at', ':old')
                 ->setParameter('old', time() - 8 * 86400)->where('id = :id')->setParameter('id', $id)->execute();
             // Upload-triggered collection must not unlink a file while an

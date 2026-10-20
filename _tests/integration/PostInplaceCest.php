@@ -653,7 +653,7 @@ final class PostInplaceCest
             $I->assertSame(1, $imagePayload['width']);
             $I->assertSame(1, $imagePayload['height']);
             $I->assertFalse($imagePayload['retina']);
-            $I->assertSame('/_tests/_output/images/1991.01.30.png', $imagePayload['url']);
+            $I->assertSame('/_tests/_output/images/1991.01.30.png?media=' . $imagePayload['media_id'], $imagePayload['url']);
             $storedFiles[] = $this->storedMediaPath($imagePayload['url']);
             $I->assertFileExists($storedFiles[array_key_last($storedFiles)]);
 
@@ -672,7 +672,7 @@ final class PostInplaceCest
             $I->assertSame('media', $audioPayload['action']);
             $I->assertSame('audio', $audioPayload['kind']);
             $I->assertSame('1991.01.30.1.wav', $audioPayload['name']);
-            $I->assertSame('/_tests/_output/images/1991.01.30.1.wav', $audioPayload['url']);
+            $I->assertSame('/_tests/_output/images/1991.01.30.1.wav?media=' . $audioPayload['media_id'], $audioPayload['url']);
             $storedFiles[] = $this->storedMediaPath($audioPayload['url']);
             $I->assertFileExists($storedFiles[array_key_last($storedFiles)]);
 
@@ -1742,6 +1742,7 @@ final class PostInplaceCest
 
     private function storedMediaPath(string $url): string
     {
+        $url = (string)parse_url($url, PHP_URL_PATH);
         $prefix = '/_tests/_output/images';
         if (!str_starts_with($url, $prefix . '/')) {
             throw new \RuntimeException('Unexpected inplace media URL.');

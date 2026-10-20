@@ -7,10 +7,52 @@ namespace unit\Register\Module\Blog;
 use Codeception\Test\Unit;
 use Register\Content\ContentMediaSchema;
 use Register\Core\Pdo\DbLayerSqlite;
+use Register\Module\Blog\Inplace\PostMediaConflictException;
 use Register\Module\Blog\Inplace\PostMediaRepository;
 
 final class PostMediaDeletionTest extends Unit
 {
+    public function testVersionedMediaUrlsPreserveLegacySourcesAndRejectOtherIdentities(): void
+    {
+        $pdo = new \PDO('sqlite::memory:');
+        $pdo->exec('PRAGMA foreign_keys = ON');
+        $pdo->exec('CREATE TABLE users (id INTEGER PRIMARY KEY)');
+        $pdo->exec("CREATE TABLE content (id INTEGER PRIMARY KEY, body TEXT DEFAULT '', social_image TEXT DEFAULT '')");
+        $pdo->exec('INSERT INTO users VALUES (1)');
+        $pdo->exec('INSERT INTO content (id) VALUES (1)');
+
+        $db = new DbLayerSqlite($pdo);
+        ContentMediaSchema::create($db);
+        $repository = new PostMediaRepository($db, '/media');
+        $path = '/uploaded/real.png';
+        $id = $repository->register($this->media($path));
+        foreach ([$repository->url($path), $repository->url($path, $id)] as $source) {
+            $image = '<img src="' . $source . '" data-post-media-id="' . $id . '" alt="Example">';
+            self::assertSame([], $repository->syncPost(1, $image, [$id], 1));
+            $registered = $repository->find($id);
+            self::assertNotNull($registered);
+            self::assertSame(1, (int)$registered['usage_count']);
+            self::assertSame(substr($image, 0, -1) . ' width="1" height="1">',
+                $repository->completeImageDimensions($image));
+        }
+
+        foreach ([$repository->url($path, $id + 1), '/media/uploaded/other.png?media=' . $id] as $source) {
+            $image = '<img src="' . $source . '" data-post-media-id="' . $id . '">';
+            self::assertSame($image, $repository->completeImageDimensions($image));
+            $failure = null;
+            try {
+                $repository->syncPost(1, $image, [$id], 1);
+            } catch (PostMediaConflictException $exception) {
+                $failure = $exception;
+            }
+
+            self::assertInstanceOf(PostMediaConflictException::class, $failure);
+            $registered = $repository->find($id);
+            self::assertNotNull($registered);
+            self::assertSame(1, (int)$registered['usage_count']);
+        }
+    }
+
     public function testDimensionCompletionPreservesImageMarkupInsideHtmlText(): void
     {
         $pdo = new \PDO('sqlite::memory:');
