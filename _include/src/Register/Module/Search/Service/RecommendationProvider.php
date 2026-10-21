@@ -38,6 +38,7 @@ readonly class RecommendationProvider implements QueueHandlerInterface
         private CacheInterface       $cache,
         private QueuePublisher       $queuePublisher,
         private IntProxy             $recommendationsLimit,
+        private ?\Closure            $onRecommendationsChanged = null,
     ) {
     }
 
@@ -111,6 +112,7 @@ readonly class RecommendationProvider implements QueueHandlerInterface
         $this->cache->delete($cacheKey);
         $budget->checkpoint(0.5);
         $this->cache->get($cacheKey, fn(ItemInterface $_item): array => $this->getValueForCache($externalId));
+        $this->onRecommendationsChanged?->__invoke();
     }
 
     /**

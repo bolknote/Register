@@ -13,6 +13,7 @@ use Register\Content\ContentId;
 use Register\Content\ContentType;
 use Register\Core\Framework\StatefulServiceInterface;
 use Register\Core\Http\Cache\PageCacheHeaders;
+use Register\Core\Http\Cache\EarlyPageCache;
 use Register\Core\Pdo\PDO;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\Cache\CacheInterface;
@@ -76,12 +77,15 @@ final class BlogPageCache implements StatefulServiceInterface
 
     private ?int $currentResponseInvalidationAt = null;
 
+    private ?int $responseDeadline = null;
+
     public function __construct(
         private readonly CacheInterface $cache,
         private readonly bool           $disabled = false,
         ?CacheInterface                  $hotCache = null,
         private readonly ?PDO            $pdo = null,
         ?\Closure                        $clock = null,
+        private readonly ?EarlyPageCache  $earlyPageCache = null,
     ) {
         $this->hotCache = $hotCache ?? $cache;
         $this->clock = $clock ?? time(...);
@@ -473,7 +477,12 @@ final class BlogPageCache implements StatefulServiceInterface
      */
     public function invalidateCurrentResponseAt(int $timestamp): void
     {
-        if (!$this->buildingResponse || $timestamp < 1) {
+        if ($timestamp < 1) {
+            return;
+        }
+
+        $this->responseDeadline = min($this->responseDeadline ?? PHP_INT_MAX, $timestamp);
+        if (!$this->buildingResponse) {
             return;
         }
 
@@ -488,6 +497,12 @@ final class BlogPageCache implements StatefulServiceInterface
         // Transaction-level coalescing is owned by PDO and is reset on commit or rollback.
         $this->buildingResponse = false;
         $this->currentResponseInvalidationAt = null;
+        $this->responseDeadline = null;
+    }
+
+    public function responseDeadline(): ?int
+    {
+        return $this->responseDeadline;
     }
 
     /** @param callable(): Response $factory */
@@ -588,6 +603,10 @@ final class BlogPageCache implements StatefulServiceInterface
         if (!$feed->isFreshAt(($this->clock)())) {
             $this->hotCache->delete($key);
             $feed = $this->hotCache->get($key, $build, 0.0);
+        }
+
+        if ($feed->validUntil !== null) {
+            $this->responseDeadline = min($this->responseDeadline ?? PHP_INT_MAX, $feed->validUntil);
         }
 
         return $feed;
@@ -714,6 +733,15 @@ final class BlogPageCache implements StatefulServiceInterface
     /** @param \Closure(): mixed $operation */
     private function invalidateOnce(string $key, \Closure $operation, bool $deferUntilCommit): void
     {
+        $earlyPageCache = $this->earlyPageCache;
+        if ($earlyPageCache !== null) {
+            $original = $operation;
+            $operation = static function () use ($original, $earlyPageCache): void {
+                $earlyPageCache->invalidate();
+                $original();
+            };
+        }
+
         if ($deferUntilCommit) {
             $this->afterCommitOnlyOnce($key, $operation);
 

@@ -13,6 +13,7 @@ use Register\Content\ContentId;
 use Register\Content\ContentViewRepository;
 use Register\Content\ContentViewRecorderInterface;
 use Register\Core\Framework\ResponseProcessorInterface;
+use Register\Core\Http\Cache\EarlyPageCache;
 use Register\Module\Analytics\BotDetector;
 use Register\Core\Template\PartialPageResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -38,6 +39,7 @@ final readonly class ContentViewResponseProcessor implements ResponseProcessorIn
     public function process(Request $request, Response $response): Response
     {
         try {
+            $request->attributes->set(EarlyPageCache::CONTENT_ATTRIBUTE, $response->headers->get(self::CONTENT_ID_HEADER));
             $this->recordPrimaryContent($request, $response);
 
             $content = $response->getContent();
@@ -58,10 +60,17 @@ final readonly class ContentViewResponseProcessor implements ResponseProcessorIn
             }
 
             $totals = $this->views->totals(DeferredViewCount::contentIds($fragment));
+            $earlyViews = [];
             $hydrated = DeferredViewCount::replace(
                 $fragment,
-                fn(ContentId $contentId): string => $this->render($totals[(string)$contentId] ?? 0),
+                function (ContentId $contentId) use ($totals, &$earlyViews): string {
+                    $count = $totals[(string)$contentId] ?? 0;
+                    $html = self::renderCounter($count, $this->translator, $contentId);
+                    $earlyViews[(string)$contentId] = ['count' => $count, 'html' => $html];
+                    return $html;
+                },
             );
+            $request->attributes->set(EarlyPageCache::VIEW_ATTRIBUTE, $earlyViews);
             if (!\is_string($hydrated)) {
                 throw new \RuntimeException('Unable to hydrate deferred view counters.');
             }
@@ -118,15 +127,15 @@ final readonly class ContentViewResponseProcessor implements ResponseProcessorIn
         return str_contains($purpose, 'prefetch');
     }
 
-    private function render(int $count): string
+    public static function renderCounter(int $count, TranslatorInterface $translator, ContentId $contentId): string
     {
-        $label = $this->translator->trans('N Views', [
+        $label = $translator->trans('N Views', [
             '%count%' => $count,
             '{{ count }}' => $count,
         ]);
         $encodedLabel = register_htmlencode($label);
 
-        return '<span class="post-foot-views" aria-label="' . $encodedLabel
+        return '<span class="post-foot-views" data-view-content="' . (string)$contentId . '" aria-label="' . $encodedLabel
             . '" title="' . $encodedLabel . '"><span class="post-foot-views-count" aria-hidden="true">'
             . $count . '</span></span>';
     }

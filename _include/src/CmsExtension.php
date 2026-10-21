@@ -57,6 +57,7 @@ use Register\Core\Http\RedirectDetector;
 use Register\Core\Http\TrustedProxyConfigurator;
 use Register\Core\Http\Cache\PageCacheGarbageCollector;
 use Register\Core\Http\Cache\PageCachePoolFactory;
+use Register\Core\Http\Cache\EarlyPageCache;
 use Register\Core\Http\Cache\PageCachePools;
 use Register\Core\Http\Cache\VolatileCacheEncryptionKeyProvider;
 use Register\Core\HttpClient\HttpClient;
@@ -222,6 +223,13 @@ class CmsExtension implements ExtensionInterface
                 $container->get(DynamicSecretStore::class),
             ),
         );
+        $container->set(EarlyPageCache::class, static fn(Container $container): EarlyPageCache => new EarlyPageCache(
+            rtrim($container->getStringParameter('cache_dir'), '/\\'),
+            rtrim($container->getStringParameter('root_dir'), '/\\'),
+            $container->getBoolParameter('disable_cache') || $container->getBoolParameter('debug')
+                || $container->getBoolParameter('debug_view') || $container->getBoolParameter('show_queries')
+                || $container->getStringParameter('url_prefix') !== '',
+        ));
         $container->set(PageCachePoolFactory::class, fn(Container $container): PageCachePoolFactory => new PageCachePoolFactory(
             $container->get(LoggerInterface::class),
             keyProvider: $container->get(VolatileCacheEncryptionKeyProvider::class),

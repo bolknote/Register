@@ -27,10 +27,14 @@ final class ContentViewRepository implements StatefulServiceInterface, ContentVi
     /** @var array<string, true> */
     private array $pendingTotalInvalidations = [];
 
+    /** @var array<string, ContentId> */
+    private array $pendingMirrorIds = [];
+
     public function __construct(
         private readonly DbLayer                 $dbLayer,
         private readonly ?CacheItemPoolInterface $totalCache = null,
         private readonly ?PDO                    $pdo = null,
+        private readonly ?\Closure               $publishTotals = null,
     )
     {
     }
@@ -97,6 +101,24 @@ final class ContentViewRepository implements StatefulServiceInterface, ContentVi
 
         foreach ($aggregated as $increment) {
             $this->invalidateTotal($increment->contentId);
+        }
+
+        if ($this->publishTotals !== null) {
+            $ids = array_values(array_map(static fn(ContentViewIncrement $item): ContentId => $item->contentId, $aggregated));
+            if ($this->pdo instanceof PDO && $this->pdo->inTransaction()) {
+                foreach ($ids as $id) {
+                    $this->pendingMirrorIds[(string)$id] = $id;
+                }
+
+                $this->pdo->afterCommitOnce('early-page-view-totals', function (): void {
+                    $ids = array_values($this->pendingMirrorIds);
+                    $this->pendingMirrorIds = [];
+                    $this->databaseTotals($ids);
+                });
+                $this->pdo->afterRollbackOnce('early-page-view-totals', function (): void { $this->pendingMirrorIds = []; });
+            } else {
+                $this->databaseTotals($ids);
+            }
         }
     }
 
@@ -192,6 +214,7 @@ final class ContentViewRepository implements StatefulServiceInterface, ContentVi
     {
         if (!$this->pdo instanceof PDO || !$this->pdo->inTransaction()) {
             $this->pendingTotalInvalidations = [];
+            $this->pendingMirrorIds = [];
         }
     }
 
@@ -229,6 +252,10 @@ final class ContentViewRepository implements StatefulServiceInterface, ContentVi
             foreach ($rows as $row) {
                 $result[$type . ':' . (int)$row['content_id']] = (int)$row['view_count'];
             }
+        }
+
+        if ($this->pdo === null || !$this->pdo->inTransaction()) {
+            $this->publishTotals?->__invoke($result);
         }
 
         return $result;

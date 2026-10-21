@@ -13,6 +13,7 @@ use Register\Author\AuthorProfileRepository;
 use Register\Core\Config\DynamicConfigProvider;
 use Register\Content\ContentChangeDispatcher;
 use Register\Content\ContentDetailsRepository;
+use Register\Content\ContentId;
 use Register\Content\ContentPublicationQueueHandler;
 use Register\Content\ContentPublicationScheduler;
 use Register\Content\ContentRepository;
@@ -63,6 +64,18 @@ final readonly class ContentModule implements ContainerModuleInterface
                 $container->get(DbLayer::class),
                 new FilesystemAdapter('content_view_totals', 0, $container->getStringParameter('cache_dir')),
                 $pdo,
+                $container->getBoolParameter('disable_cache') ? null : static function (array $totals) use ($container): void {
+                    $early = $container->get(\Register\Core\Http\Cache\EarlyPageCache::class);
+                    try {
+                        $translator = $container->get('register_blog_translator');
+                        foreach ($totals as $id => $count) {
+                            $early->publishView((string)$id, $count, \Register\Module\Blog\Model\ContentViewResponseProcessor::renderCounter($count, $translator, ContentId::fromString((string)$id)));
+                        }
+                    } catch (\Throwable $error) {
+                        $early->invalidate();
+                        $container->get(LoggerInterface::class)->warning('Unable to refresh early-cache view counters.', ['exception' => $error]);
+                    }
+                },
             );
         }, [StatefulServiceInterface::class]);
         $container->set(ContentViewSpool::class, static fn(Container $container): ContentViewSpool => new ContentViewSpool(

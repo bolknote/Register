@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace Register\Module\Blog\Model;
 
 use Symfony\Component\HttpFoundation\Response;
+use Register\Core\Http\Cache\EarlyPageCache;
 
 /** Serializable HTTP response snapshot stored before request-level CSP and compression processing. */
 final readonly class CachedBlogResponse
@@ -67,6 +68,11 @@ final readonly class CachedBlogResponse
 
     public function toResponse(): Response
     {
-        return new Response($this->content, $this->status, $this->headers);
+        $response = new Response($this->content, $this->status, $this->headers);
+        if ($this->validUntil !== null) {
+            $response->headers->set(EarlyPageCache::DEADLINE_HEADER, (string)$this->validUntil);
+        }
+
+        return $response;
     }
 }

@@ -14,6 +14,7 @@ use Register\Core\Http\ContentSecurityPolicy;
 use Register\Core\Http\ResponseCompressionCache;
 use Register\Core\Http\ResponseCompressor;
 use Register\Core\Http\TrustedScriptNonceInjector;
+use Register\Core\Http\Cache\EarlyPageCache;
 use Register\Offline\OfflineCachePolicy;
 use Register\Core\Model\AuthProvider;
 use Register\Core\Queue\ShutdownWorkCoordinator;
@@ -36,8 +37,24 @@ if (ObsoleteReplyUrl::matches($_SERVER['REQUEST_METHOD'] ?? 'GET', $_GET)) {
     exit;
 }
 
+$registerEarlyContext = require __DIR__ . '/_include/early-page-cache.php';
+if ($registerEarlyContext !== null && $registerEarlyContext['cache']->serve($_SERVER, $registerEarlyContext['record'])) {
+    exit;
+}
+
+if ($registerEarlyContext !== null) {
+    $registerEarlyContext['lock']->release();
+}
+
 $app = require __DIR__ . '/_include/common.php';
 $shutdownCoordinator = $app->container->get(ShutdownWorkCoordinator::class);
+$registerEarlyPageCache = $registerEarlyContext['cache'] ?? null;
+try {
+    $registerEarlyPageCache ??= $app->container->get(EarlyPageCache::class);
+    $registerEarlyPageCache->publishLocation(EarlyPageCache::sourceStamp(__DIR__));
+} catch (Throwable) {
+    $registerEarlyPageCache = null;
+}
 
 header_remove('X-Powered-By');
 
@@ -92,6 +109,30 @@ if (!$response->headers->hasCacheControlDirective('public')) {
     $response->setExpires(new DateTimeImmutable('-1 day'));
 }
 
+$response->prepare($request);
+OfflineCachePolicy::apply(
+    $request,
+    $response,
+    $app->container->get(AuthProvider::class)->hasAuthenticatedPublicSession($request),
+);
+
+if ($registerEarlyPageCache instanceof EarlyPageCache && $response->getStatusCode() === 200
+    && !$app->container->get(PDO::class)->inTransaction()
+) {
+    $deadline = $response->headers->get(EarlyPageCache::DEADLINE_HEADER);
+    $publicDeadline = $app->container->get(\Register\Module\Blog\Model\BlogPageCache::class)->responseDeadline();
+    $registerEarlyPageCache->store(
+        $_SERVER,
+        $response->headers->all(),
+        (string)$response->getContent(),
+        $request->attributes->get(EarlyPageCache::VIEW_ATTRIBUTE, []),
+        $request->attributes->get(EarlyPageCache::CONTENT_ATTRIBUTE),
+        min(is_string($deadline) && ctype_digit($deadline) ? (int)$deadline : PHP_INT_MAX, $publicDeadline ?? PHP_INT_MAX),
+    );
+    $response->headers->set('X-Register-Early-Cache', $registerEarlyPageCache->decision());
+}
+
+$response->headers->remove(EarlyPageCache::DEADLINE_HEADER);
 $response->isNotModified($request);
 
 $response->prepare($request);
@@ -133,3 +174,8 @@ if ($response->isInformational() || $response->isEmpty() || $response->getConten
 }
 
 $shutdownCoordinator->finishResponse($request, $response);
+try {
+    ($registerEarlyPageCache instanceof EarlyPageCache ? $registerEarlyPageCache : $app->container->get(EarlyPageCache::class))->engineFinished();
+} catch (Throwable) {
+    // Cache storage must not make an otherwise successful response fail.
+}

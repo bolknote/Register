@@ -377,6 +377,21 @@ final class BlogPageCacheTest extends TestCase
         self::assertTrue($cache->multiplePublishedAuthors($factory));
     }
 
+    public function testEarlySnapshotDeadlineIncludesPostProcessedAndWarmSidebarBoundaries(): void
+    {
+        $cache = new BlogPageCache(new ArrayAdapter());
+        $cache->recentDiscussions(static fn(): BlogSidebarFeed => new BlogSidebarFeed([], time() + 100));
+
+        $deadline = $cache->responseDeadline();
+        self::assertNotNull($deadline);
+        $cache->invalidateCurrentResponseAt($deadline - 10);
+        self::assertSame($deadline - 10, $cache->responseDeadline());
+        $cache->clearState();
+        self::assertNull($cache->responseDeadline());
+        $cache->recentDiscussions(static function (): BlogSidebarFeed { self::fail('The warm sidebar must be reused.'); });
+        self::assertSame($deadline, $cache->responseDeadline());
+    }
+
     public function testContentResponsesUsePathMappingsForTargetedAndGlobalInvalidation(): void
     {
         $pool = new ArrayAdapter();

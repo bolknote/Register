@@ -79,6 +79,27 @@ final class ContentViewRepositoryTest extends Unit
         self::assertSame(4, $repository->total(ContentId::page(10)));
     }
 
+    public function testEarlyMirrorsNeverReceiveUncommittedOrRolledBackTotals(): void
+    {
+        [, $cache, $pdo] = $this->repository();
+        $published = new ContentViewMirrorTestLog();
+        $repository = new ContentViewRepository(new DbLayerSqlite($pdo), $cache, $pdo,
+            static function (array $totals) use ($published): void { $published->record($totals); });
+        $id = ContentId::post(12);
+        $pdo->beginTransaction();
+        $repository->record($id);
+        self::assertSame(1, $repository->total($id));
+        self::assertSame([], $published->all());
+        $pdo->rollBack();
+        self::assertSame([], $published->all());
+        $pdo->beginTransaction();
+        $repository->record($id);
+        $repository->record($id);
+
+        $pdo->commit();
+        self::assertSame([['post:12' => 2]], $published->all());
+    }
+
     /** @return array{ContentViewRepository, ArrayAdapter, PDO} */
     private function repository(): array
     {
@@ -100,4 +121,16 @@ final class ContentViewRepositoryTest extends Unit
             $pdo,
         ];
     }
+}
+
+final class ContentViewMirrorTestLog
+{
+    /** @var list<array<string,int>> */
+    private array $entries = [];
+
+    /** @param array<string,int> $totals */
+    public function record(array $totals): void { $this->entries[] = $totals; }
+
+    /** @return list<array<string,int>> */
+    public function all(): array { return $this->entries; }
 }

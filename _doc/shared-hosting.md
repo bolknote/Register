@@ -170,6 +170,39 @@ Request-dependent reply forms and exact view totals are hydrated after the share
 selected. Consequently query parameters that do not affect a route do not create extra cache
 copies, while a cached material still records a real human view and displays the current counter.
 
+### Early PHP responses
+
+On canonical query-free URLs, an eligible warm public HTML response can be sent from
+`index.php` before Composer, the application container, routing or a database connection starts.
+`X-Register-Early-Cache: hit` identifies this path. The normal engine creates these snapshots;
+the early reader never evaluates configuration PHP or serialized application objects.
+
+The first implementation bypasses all cookies, authorization, query strings, partial navigation,
+range requests, proxy-forwarding headers, debug/disabled-cache installations, and nonempty
+`url_prefix` layouts. Responses with a private form cookie, a fresh CSP nonce or an unsupported
+`Vary` header also stay on the normal path. PHP-managed output compression uses the normal
+handler to avoid double compression. Ordinary early responses support gzip, HEAD and conditional
+GET while preserving security and offline-reading headers.
+
+Snapshots live privately in `cache_dir/early-pages-v1`; a small private `_cache/.early-cache-*.json`
+locator records the evaluated cache location. Missing, corrupt, incompatible or expired state
+falls through to the engine. Configuration/release fingerprints, existing content invalidations,
+recommendation refreshes and maintenance mode prevent reuse of stale responses. Early invalidation
+is deliberately global for now; the underlying fragment caches keep their targeted invalidation.
+Snapshots expire no later than a dependent calendar/sidebar boundary, with a 24-hour safety ceiling.
+Stable hashed filenames replace old snapshots instead of creating directories per invalidation.
+
+Human article views append to the existing durable view spool without SQL. Committed totals refresh
+small independent counter files, so serving a snapshot does not freeze its view count. One request
+periodically falls through to the engine (at most one selected maintenance worker at a time, roughly
+every ten seconds) to keep scheduled publication, spool flushing and other shutdown jobs advancing.
+
+To compare both paths safely, run `php tools/benchmark-early-cache.php --requests=500`. It creates
+and removes its own temporary SQLite installation and loopback server, reports server-process
+user+system CPU for warm reader/crawler requests with and without gzip, and checks private-response
+bypasses, view accounting, counter refresh, editing and unpublishing. It does not read or change the
+working site's database. Local CPU savings are not a prediction of a hosting provider's daily quota.
+
 ### Volatile cache tiers
 
 The persistent filesystem remains the authoritative cache tier on every host. When available,

@@ -172,7 +172,7 @@ final readonly class ResponseCompressor
             || preg_match('~^application/(?:[a-z0-9.+-]+\+)?(?:json|xml)$~D', $mediaType) === 1;
     }
 
-    private static function phpManagesCompression(): bool
+    public static function phpManagesCompression(): bool
     {
         foreach (['zlib.output_compression', 'brotli.output_compression', 'zstd.output_compression'] as $setting) {
             if (self::iniFlagEnabled(ini_get($setting))) {

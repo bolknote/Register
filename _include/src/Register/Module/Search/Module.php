@@ -264,6 +264,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get('recommendations_cache'),
                 $container->get(QueuePublisher::class),
                 $provider->getIntProxy('REGISTER_SEARCH_RECOMMENDATIONS_LIMIT'),
+                static fn() => $container->get(\Register\Core\Http\Cache\EarlyPageCache::class)->invalidate(),
             );
         }, [QueueHandlerInterface::class]);
         $container->set(RecommendationResponseProcessor::class, static fn(Container $container): RecommendationResponseProcessor => new RecommendationResponseProcessor(

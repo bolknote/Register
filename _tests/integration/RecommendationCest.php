@@ -14,6 +14,8 @@ use Psr\Cache\CacheItemPoolInterface;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Core\Pdo\DbLayer;
+use Register\Core\Http\Cache\EarlyPageCache;
+use Register\Core\Queue\QueueExecutionBudget;
 use Register\Module\Search\Service\RecommendationProvider;
 use Register\Rose\Entity\ExternalId;
 use Register\Rose\Entity\Indexable;
@@ -81,6 +83,15 @@ final class RecommendationCest
         $I->assertSame('/related', $recommendations[0]['url']);
         $I->assertSame('Alpha beta gamma delta. Useful details.', $recommendations[0]['snippet']);
         $I->assertSame('2024', $recommendations[0]['date']?->format('Y'));
+
+        // Queued recommendation refreshes must invalidate already hydrated public snapshots.
+        $early = new EarlyPageCache('_cache/test', dirname(__DIR__, 2));
+        $request = ['HTTP_HOST' => 'register.localhost', 'REQUEST_METHOD' => 'GET', 'REQUEST_URI' => '/recommendation-invalidation-probe'];
+        $I->assertTrue($early->store($request, ['content-type' => ['text/html'], 'x-register-page-cache' => ['hit']], 'old recommendations'));
+        $I->assertNotNull($early->lookup($request));
+
+        $provider->handle($externalId->toString(), RecommendationProvider::RECOMMENDATIONS_QUEUE, [], new QueueExecutionBudget(30));
+        $I->assertNull($early->lookup($request));
 
         $I->assertTrue($cache->clear());
     }

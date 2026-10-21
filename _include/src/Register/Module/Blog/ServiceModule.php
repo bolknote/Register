@@ -153,6 +153,7 @@ final class ServiceModule implements ContainerModuleInterface
                 $container->getBoolParameter('disable_cache'),
                 $pageCachePools->hot,
                 $pdo,
+                earlyPageCache: $container->get(\Register\Core\Http\Cache\EarlyPageCache::class),
             );
         }, [StatefulServiceInterface::class]);
         $container->set(BlogResponseCachePolicy::class, static fn(Container $container): BlogResponseCachePolicy => new BlogResponseCachePolicy(
