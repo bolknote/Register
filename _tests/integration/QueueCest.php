@@ -12,6 +12,7 @@ namespace integration;
 use IntegrationTester;
 use Psr\Log\NullLogger;
 use Register\Backup\BackupQueueHandler;
+use Register\Content\ContentIdAllocator;
 use Register\Content\ContentPublicationQueueHandler;
 use Register\Content\ContentPublicationScheduler;
 use Register\Content\ContentSchema;
@@ -137,7 +138,7 @@ final class QueueCest
             ContentPublicationQueueHandler::CODE,
         ));
 
-        $this->insertScheduledContent($pdo, $now);
+        $this->insertScheduledContent($pdo, $now, ContentIdAllocator::allocate($I->grabService(DbLayer::class)));
         $maintenance->scheduleRequestWork($now);
 
         $pdo->exec(
@@ -687,18 +688,19 @@ final class QueueCest
         $I->assertStringContainsString('No queue handler', (string)$row['last_error']);
     }
 
-    private function insertScheduledContent(\PDO $pdo, int $scheduledAt): void
+    private function insertScheduledContent(\PDO $pdo, int $scheduledAt, int $contentId): void
     {
         $statement = $pdo->prepare(
             'INSERT INTO ' . ContentSchema::TABLE_NAME . ' '
-            . '(content_type, slug_scope, slug, title, excerpt, body, created_at, published_at, scheduled_at, updated_at, published) '
-            . "VALUES (:content_type, 'root', :slug, :title, '', '<p>Scheduled content</p>', :created_at, NULL, :scheduled_at, :updated_at, 0)"
+            . '(id, content_type, slug_scope, slug, title, excerpt, body, created_at, published_at, scheduled_at, updated_at, published) '
+            . "VALUES (:id, :content_type, 'root', :slug, :title, '', '<p>Scheduled content</p>', :created_at, NULL, :scheduled_at, :updated_at, 0)"
         );
         if ($statement === false) {
             throw new \RuntimeException('Unable to prepare the scheduled-content queue fixture.');
         }
 
         $statement->execute([
+            'id'           => $contentId,
             'content_type' => ContentType::POST->value,
             'slug'         => 'queue-scheduled-content-' . $scheduledAt,
             'title'        => 'Queue scheduled content',
