@@ -48,9 +48,8 @@ if ($registerEarlyContext !== null) {
 
 $app = require __DIR__ . '/_include/common.php';
 $shutdownCoordinator = $app->container->get(ShutdownWorkCoordinator::class);
-$registerEarlyPageCache = $registerEarlyContext['cache'] ?? null;
 try {
-    $registerEarlyPageCache ??= $app->container->get(EarlyPageCache::class);
+    $registerEarlyPageCache = $app->container->get(EarlyPageCache::class);
     $registerEarlyPageCache->publishLocation(EarlyPageCache::sourceStamp(__DIR__));
 } catch (Throwable) {
     $registerEarlyPageCache = null;
