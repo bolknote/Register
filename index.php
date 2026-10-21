@@ -38,7 +38,8 @@ if (ObsoleteReplyUrl::matches($_SERVER['REQUEST_METHOD'] ?? 'GET', $_GET)) {
 }
 
 $registerEarlyContext = require __DIR__ . '/_include/early-page-cache.php';
-if ($registerEarlyContext !== null && $registerEarlyContext['cache']->serve($_SERVER, $registerEarlyContext['record'])) {
+$registerEarlyServer = $_SERVER;
+if ($registerEarlyContext !== null && $registerEarlyContext['cache']->serve($registerEarlyServer, $registerEarlyContext['record'])) {
     exit;
 }
 
@@ -121,7 +122,7 @@ if ($registerEarlyPageCache instanceof EarlyPageCache && $response->getStatusCod
     $deadline = $response->headers->get(EarlyPageCache::DEADLINE_HEADER);
     $publicDeadline = $app->container->get(\Register\Module\Blog\Model\BlogPageCache::class)->responseDeadline();
     $registerEarlyPageCache->store(
-        $_SERVER,
+        $registerEarlyServer,
         $response->headers->all(),
         (string)$response->getContent(),
         $request->attributes->get(EarlyPageCache::VIEW_ATTRIBUTE, []),

@@ -36,6 +36,7 @@ $fixture = sys_get_temp_dir() . '/register-early-benchmark-' . bin2hex(random_by
 mkdir($fixture . '/_include', 0700, true);
 mkdir($fixture . '/_cache', 0700);
 $server = null;
+$failed = false;
 $filesystem = new Filesystem();
 try {
     foreach (['index.php', 'service-worker.js', '_include/common.php', '_include/setup.php', '_include/early-page-cache.php'] as $file) {
@@ -191,9 +192,21 @@ PHP;
 
         throw new RuntimeException('Server CPU measurements did not finish.');
     };
+    // A first request without a locator must not seed the wrong representation.
+    $send('/benchmark-1', ['User-Agent: SyntheticCrawler/1.0']);
+    $initialReader = $send('/benchmark-1', ['User-Agent: Mozilla/5.0 benchmark reader']);
+    $checks = ['cold_crawler_cannot_seed_reader_snapshot' => str_contains($initialReader['body'], 'name="register-analytics"')];
+    $send('/benchmark-2', ['User-Agent: Mozilla/5.0 benchmark reader']);
+    $send('/benchmark-2', ['User-Agent: Mozilla/5.0 benchmark reader']);
+    $queryReply = $send('/benchmark-2?utm_source=probe', ['User-Agent: SyntheticCrawler/1.0']);
+    $checks['query_cannot_publish_clean_url_snapshot'] = !in_array($queryReply['headers']['x-register-early-cache'] ?? '', ['hit', 'stored'], true);
+    $cleanReader = $send('/benchmark-2', ['User-Agent: Mozilla/5.0 benchmark reader']);
+    $checks['query_cannot_poison_reader_variant'] = str_contains($cleanReader['body'], 'name="register-analytics"');
+    $readMetrics(6);
     $scenarios = [];
     foreach (['reader' => 'Mozilla/5.0 benchmark reader', 'crawler' => 'SyntheticCrawler/1.0'] as $kind => $agent) {
         foreach (['identity', 'gzip'] as $encoding) {
+            file_put_contents($fixture . '/metrics.jsonl', '');
             $headers = ['User-Agent: ' . $agent, 'Accept-Encoding: ' . $encoding];
             for ($i = 0; $i < 30; ++$i) {
                 $send('/benchmark-' . (($i % 10) + 1), $headers);
@@ -228,7 +241,6 @@ PHP;
         }
     }
 
-    $checks = [];
     foreach (['/benchmark-11' => 'private_comment_form', '/benchmark-12' => 'fresh_csp_nonce'] as $path => $name) {
         $send($path, ['User-Agent: Mozilla/5.0 benchmark reader']);
         $reply = $send($path, ['User-Agent: Mozilla/5.0 benchmark reader']);
@@ -305,13 +317,16 @@ PHP;
 
     unset($scenario);
     if (in_array(false, $checks, true)) {
-        throw new RuntimeException('A private response unexpectedly entered the early cache.');
+        throw new RuntimeException('Early-cache safety checks failed: ' . implode(', ', array_keys($checks, false, true)));
     }
 
     echo json_encode(['php' => PHP_VERSION, 'cpu_source' => 'server getrusage user+system per request including bootstrap and shutdown',
         'fixture_pages' => 10, 'opcache_cli' => true, 'scenarios' => $scenarios, 'safety_checks' => $checks,
         'accounted_reader_views' => ['expected' => $accountedViews, 'database' => $persisted, 'pending_spool' => $pending],
         'fixture_directory' => isset($options['keep']) ? $fixture : null], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), "\n";
+} catch (Throwable $error) {
+    fwrite(STDERR, $error::class . ': ' . $error->getMessage() . "\n");
+    $failed = true;
 } finally {
     if (is_resource($server)) {
         proc_terminate($server);
@@ -323,4 +338,8 @@ PHP;
     } else {
         fwrite(STDERR, 'Benchmark fixture retained: ' . $fixture . "\n");
     }
+}
+
+if ($failed) {
+    exit(1);
 }

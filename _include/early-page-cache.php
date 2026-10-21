@@ -12,6 +12,10 @@ require_once __DIR__ . '/src/Http/Cache/EarlyPageCache.php';
 $registerEarlyBootstrap = static function (): ?array {
     $root = dirname(__DIR__);
     $sourceStamp = EarlyPageCache::sourceStamp($root);
+    require_once __DIR__ . '/src/Register/Module/Analytics/BotDetector.php';
+    $_SERVER['REGISTER_EARLY_VARIANT'] = (new \Register\Module\Analytics\BotDetector())->isBot((string)($_SERVER['HTTP_USER_AGENT'] ?? ''))
+        ? 'crawler'
+        : (str_contains(strtolower((string)($_SERVER['HTTP_PURPOSE'] ?? '') . ' ' . (string)($_SERVER['HTTP_SEC_PURPOSE'] ?? '')), 'prefetch') ? 'prefetch' : 'reader');
     if (!EarlyPageCache::accepts($_SERVER)) {
         return null;
     }
@@ -33,10 +37,6 @@ $registerEarlyBootstrap = static function (): ?array {
         }
 
         $cacheDirectory = $location['directory'];
-        require_once __DIR__ . '/src/Register/Module/Analytics/BotDetector.php';
-        $_SERVER['REGISTER_EARLY_VARIANT'] = (new \Register\Module\Analytics\BotDetector())->isBot((string)($_SERVER['HTTP_USER_AGENT'] ?? ''))
-            ? 'crawler'
-            : (str_contains(strtolower((string)($_SERVER['HTTP_PURPOSE'] ?? '') . ' ' . (string)($_SERVER['HTTP_SEC_PURPOSE'] ?? '')), 'prefetch') ? 'prefetch' : 'reader');
         /** @param array{content_id:?string} $hit */
         $record = static function (array $hit) use ($root, $cacheDirectory): bool {
             if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET' || $hit['content_id'] === null || $_SERVER['REGISTER_EARLY_VARIANT'] !== 'reader') {
