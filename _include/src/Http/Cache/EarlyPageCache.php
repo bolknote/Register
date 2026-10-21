@@ -58,7 +58,7 @@ final class EarlyPageCache
     }
 
     /**
-     * @return array{directory:string,stamp:string}|null
+     * @return array{directory:string,stamp:string,forwarding_ignored:bool}|null
      * @phpstan-impure The location can change between requests and configuration writes.
      */
     public static function locate(string $root, ?string $sourceStamp = null): ?array
@@ -72,11 +72,12 @@ final class EarlyPageCache
         $location = is_string($json) ? json_decode($json, true, 4) : null;
         if (!is_array($location) || ($location['enabled'] ?? false) !== true
             || !is_string($location['directory'] ?? null) || !is_string($location['stamp'] ?? null)
+            || !is_bool($location['forwarding_ignored'] ?? null)
             || $location['stamp'] !== ($sourceStamp ?? self::sourceStamp($root))) {
             return null;
         }
 
-        return ['directory' => $location['directory'], 'stamp' => $location['stamp']];
+        return ['directory' => $location['directory'], 'stamp' => $location['stamp'], 'forwarding_ignored' => $location['forwarding_ignored']];
     }
 
     /** Publish only normalized configuration after the normal bootstrap has evaluated it. */
@@ -91,7 +92,8 @@ final class EarlyPageCache
             return;
         }
 
-        $location = ['directory' => $directory, 'enabled' => !$this->disabled && !$this->unavailable, 'stamp' => $expectedSourceStamp];
+        $location = ['directory' => $directory, 'enabled' => !$this->disabled && !$this->unavailable,
+            'stamp' => $expectedSourceStamp, 'forwarding_ignored' => $this->ignoreForwardingHeaders];
         $path = self::locationPath($this->applicationRoot);
         if ($this->read($path) !== $location) {
             $this->write($path, $location);
@@ -108,6 +110,7 @@ final class EarlyPageCache
         private readonly string $applicationRoot,
         private readonly bool $disabled = false,
         ?string $sourceStamp = null,
+        private readonly bool $ignoreForwardingHeaders = false,
     ) {
         $this->sourceStamp = $sourceStamp ?? self::sourceStamp($applicationRoot);
         $this->directory = rtrim($cacheDirectory, '/\\') . '/early-pages-v1';
@@ -123,13 +126,13 @@ final class EarlyPageCache
     }
 
     /** @param array<string, mixed> $server */
-    public static function accepts(array $server): bool
+    public static function accepts(array $server, bool $ignoreForwardingHeaders = false): bool
     {
-        return self::requestBypassReason($server) === null;
+        return self::requestBypassReason($server, $ignoreForwardingHeaders) === null;
     }
 
     /** @param array<string,mixed> $server */
-    private static function requestBypassReason(array $server): ?string
+    private static function requestBypassReason(array $server, bool $ignoreForwardingHeaders): ?string
     {
         if (!in_array($server['REQUEST_METHOD'] ?? '', ['GET', 'HEAD'], true)) {
             return 'method';
@@ -139,6 +142,14 @@ final class EarlyPageCache
             'HTTP_X_REGISTER_NAVIGATION', 'HTTP_IF_MATCH', 'HTTP_IF_UNMODIFIED_SINCE', 'PHP_AUTH_USER', 'PHP_AUTH_PW'] as $header) {
             if (isset($server[$header]) && $server[$header] !== '') {
                 return strtolower(str_replace('_', '-', $header));
+            }
+        }
+
+        if (!$ignoreForwardingHeaders) {
+            foreach (self::FORWARDED_HEADERS as $header) {
+                if (isset($server[$header]) && $server[$header] !== '') {
+                    return 'forwarded';
+                }
             }
         }
 
@@ -164,7 +175,7 @@ final class EarlyPageCache
      */
     public function lookup(array $server, ?int $now = null): ?array
     {
-        if ($this->disabled || $this->unavailable || !self::accepts($server) || is_file($this->applicationRoot . '/.register-maintenance.json')) {
+        if ($this->disabled || $this->unavailable || !self::accepts($server, $this->ignoreForwardingHeaders) || is_file($this->applicationRoot . '/.register-maintenance.json')) {
             return null;
         }
 
@@ -339,20 +350,27 @@ final class EarlyPageCache
     public function store(array $server, array $headers, string $body, array $views = [], ?string $contentId = null, ?int $validUntil = null, ?int $now = null): bool
     {
         $headers = $this->normalizeHeaders($headers);
-        $requestBypass = self::requestBypassReason($server);
+        $requestBypass = self::requestBypassReason($server, $this->ignoreForwardingHeaders);
         if ($requestBypass !== null) {
             $this->decision = 'bypass-request-' . $requestBypass;
             return false;
         }
 
-        if ($this->disabled || $this->unavailable || ($server['REQUEST_METHOD'] ?? '') !== 'GET'
-            || strlen($body) > self::MAX_BYTES / 2 || isset($headers['set-cookie'])
-            || !isset($headers['x-register-page-cache'])
-            || !str_starts_with(strtolower($headers['content-type'][0] ?? ''), 'text/html')
-            || str_contains(strtolower(implode(',', $headers['cache-control'] ?? [])), 'no-store')
-            || str_contains(implode(' ', $headers['content-security-policy'] ?? []), "'nonce-")
-            || preg_match('/\bnonce\s*=/i', $body) === 1) {
-            $this->decision = 'bypass-response';
+        $responseBypass = match (true) {
+            $this->disabled => 'disabled',
+            $this->unavailable => 'storage',
+            ($server['REQUEST_METHOD'] ?? '') !== 'GET' => 'method',
+            strlen($body) > self::MAX_BYTES / 2 => 'size',
+            isset($headers['set-cookie']) => 'set-cookie',
+            !isset($headers['x-register-page-cache']) => 'unshared',
+            !str_starts_with(strtolower($headers['content-type'][0] ?? ''), 'text/html') => 'content-type',
+            str_contains(strtolower(implode(',', $headers['cache-control'] ?? [])), 'no-store') => 'private',
+            str_contains(implode(' ', $headers['content-security-policy'] ?? []), "'nonce-")
+                || preg_match('/\bnonce\s*=/i', $body) === 1 => 'nonce',
+            default => null,
+        };
+        if ($responseBypass !== null) {
+            $this->decision = 'bypass-response-' . $responseBypass;
             return false;
         }
 
@@ -460,20 +478,8 @@ final class EarlyPageCache
     /** @param array<string, mixed> $server */
     private function path(array $server): string
     {
-        $parts = [(string)$server['HTTP_HOST'], (string)($server['HTTPS'] ?? ''),
-            (string)($server['HTTP_X_HTTPS'] ?? ''), (string)$server['REQUEST_URI'], (string)($server['REGISTER_EARLY_VARIANT'] ?? 'reader')];
-        $forwarded = [];
-        foreach (self::FORWARDED_HEADERS as $header) {
-            $forwarded[] = (string)($server[$header] ?? '');
-        }
-
-        if (array_filter($forwarded, static fn(string $value): bool => $value !== '') !== []) {
-            // Trust in these headers depends on the sending peer, not just their contents.
-            // Keep trusted and untrusted senders apart without loading the proxy configurator.
-            $parts = [...$parts, ...$forwarded, (string)($server['REMOTE_ADDR'] ?? '')];
-        }
-
-        $key = hash('sha256', implode("\0", $parts));
+        $key = hash('sha256', implode("\0", [(string)$server['HTTP_HOST'], (string)($server['HTTPS'] ?? ''),
+            (string)($server['HTTP_X_HTTPS'] ?? ''), (string)$server['REQUEST_URI'], (string)($server['REGISTER_EARLY_VARIANT'] ?? 'reader')]));
         return $this->directory . '/' . substr($key, 0, 2) . '/' . $key . '.json';
     }
 
@@ -481,7 +487,7 @@ final class EarlyPageCache
     {
         $env = getenv('APP_ENV');
         $config = $this->applicationRoot . '/config' . (is_string($env) && $env !== '' ? '.' . $env : '') . '.php';
-        $hashes = [self::FORMAT, $this->applicationRoot, $this->sourceStamp];
+        $hashes = [self::FORMAT, $this->applicationRoot, $this->sourceStamp, $this->ignoreForwardingHeaders ? 'ignore-forwarded' : 'respect-forwarded'];
         foreach ([$config, $this->applicationRoot . '/register-build.json', $this->cacheDirectory . '/register_config.php'] as $path) {
             $hashes[] = is_file($path) ? self::withoutWarnings(static fn(): string|false => hash_file('sha256', $path)) : '';
         }

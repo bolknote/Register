@@ -16,7 +16,9 @@ $registerEarlyBootstrap = static function (): ?array {
     $_SERVER['REGISTER_EARLY_VARIANT'] = (new \Register\Module\Analytics\BotDetector())->isBot((string)($_SERVER['HTTP_USER_AGENT'] ?? ''))
         ? 'crawler'
         : (str_contains(strtolower((string)($_SERVER['HTTP_PURPOSE'] ?? '') . ' ' . (string)($_SERVER['HTTP_SEC_PURPOSE'] ?? '')), 'prefetch') ? 'prefetch' : 'reader');
-    if (!EarlyPageCache::accepts($_SERVER)) {
+    // The located configuration decides whether forwarding metadata is ignored or
+    // requires the normal request parser. This first check covers public eligibility.
+    if (!EarlyPageCache::accepts($_SERVER, ignoreForwardingHeaders: true)) {
         return null;
     }
 
@@ -59,7 +61,7 @@ $registerEarlyBootstrap = static function (): ?array {
         };
         require_once __DIR__ . '/src/Register/Update/RuntimeLock.php';
         return ['lock' => RuntimeLock::acquireShared($root), 'record' => $record,
-            'cache' => new EarlyPageCache($cacheDirectory, $root, sourceStamp: $sourceStamp)];
+            'cache' => new EarlyPageCache($cacheDirectory, $root, sourceStamp: $sourceStamp, ignoreForwardingHeaders: $location['forwarding_ignored'])];
     } catch (Throwable) {
         return null;
     }

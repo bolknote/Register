@@ -86,6 +86,7 @@ final class EarlyPageCacheTest extends TestCase
         self::assertTrue($this->cache()->store($this->request(), $this->headers() + ['x-optional' => [null, 'present']], 'public'));
         self::assertSame(['present'], $this->hit()['headers']['x-optional']);
         self::assertFalse($this->cache()->store($this->request(), $this->headers() + ['set-cookie' => [null]], 'private'));
+        self::assertSame('bypass-response-set-cookie', $this->cache()->decision());
     }
 
     public function testSeparatesReaderCrawlerHostAndTransportRepresentations(): void
@@ -111,20 +112,26 @@ final class EarlyPageCacheTest extends TestCase
         self::assertNull($this->cache()->lookup($this->request(), 150));
     }
 
-    public function testForwardedRepresentationsAreIsolatedByAllRoutingHeadersAndTheirSender(): void
+    public function testIgnoredForwardingCannotFragmentTheCacheAndTrustedForwardingFallsThrough(): void
     {
-        self::assertTrue($this->cache()->store($this->request(), $this->headers(), 'direct'));
+        $ignored = new EarlyPageCache($this->directory . '/cache', $this->directory, ignoreForwardingHeaders: true);
+        self::assertTrue($ignored->store($this->request(), $this->headers(), 'public'));
         foreach (['HTTP_FORWARDED' => 'host=proxy.test;proto=https', 'HTTP_X_FORWARDED_HOST' => 'proxy.test',
             'HTTP_X_FORWARDED_PROTO' => 'https', 'HTTP_X_FORWARDED_PORT' => '8443',
             'HTTP_X_FORWARDED_PREFIX' => '/proxy', 'HTTP_X_FORWARDED_FOR' => '192.0.2.1'] as $name => $value) {
             $proxy = [$name => $value, 'REMOTE_ADDR' => '198.51.100.1'];
             self::assertNull($this->cache()->lookup($this->request($proxy)));
-            self::assertTrue($this->cache()->store($this->request($proxy), $this->headers(), 'proxied'));
-            self::assertSame('proxied', $this->hit($proxy)['body']);
-            self::assertNull($this->cache()->lookup($this->request(array_replace($proxy, ['REMOTE_ADDR' => '198.51.100.2']))));
-            self::assertNull($this->cache()->lookup($this->request(array_replace($proxy, [$name => $value . '-changed']))));
-            self::assertSame('direct', $this->hit()['body']);
+            self::assertFalse($this->cache()->store($this->request($proxy), $this->headers(), 'trusted forwarding'));
+            self::assertSame('bypass-request-forwarded', $this->cache()->decision());
+            $hit = $ignored->lookup($this->request($proxy));
+            self::assertNotNull($hit);
+            self::assertSame('public', $hit['body']);
+            self::assertTrue($ignored->store($this->request(array_replace($proxy, ['REMOTE_ADDR' => '198.51.100.2'])), $this->headers(), 'public'));
         }
+
+        $files = glob($this->directory . '/cache/early-pages-v1/*/*.json');
+        self::assertNotFalse($files);
+        self::assertCount(1, $files);
     }
 
     public function testInvalidationRejectsAnInFlightStalePublisher(): void

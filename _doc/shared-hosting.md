@@ -183,8 +183,9 @@ range requests, debug/disabled-cache installations, and nonempty
 `Vary` header also stay on the normal path. PHP-managed output compression uses the normal
 handler to avoid double compression. Ordinary early responses support gzip, HEAD and conditional
 GET while preserving security and offline-reading headers.
-Proxy-forwarding headers and their sending peer are isolated in the cache key, so a proxied
-representation cannot replace a direct response or cross a proxy trust boundary.
+When `trusted_proxies` is empty, forwarding headers are ignored exactly as they are by the
+normal engine; arbitrary headers or client IPs do not create additional snapshots. If proxy
+trust is configured, forwarded requests conservatively use the normal request parser instead.
 
 Snapshots live privately in `cache_dir/early-pages-v1`; a small private `_cache/.early-cache-*.json`
 locator records the evaluated cache location. Missing, corrupt, incompatible or expired state

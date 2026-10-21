@@ -229,6 +229,7 @@ class CmsExtension implements ExtensionInterface
             $container->getBoolParameter('disable_cache') || $container->getBoolParameter('debug')
                 || $container->getBoolParameter('debug_view') || $container->getBoolParameter('show_queries')
                 || $container->getStringParameter('url_prefix') !== '',
+            ignoreForwardingHeaders: $container->getParameter('trusted_proxies') === [],
         ));
         $container->set(PageCachePoolFactory::class, fn(Container $container): PageCachePoolFactory => new PageCachePoolFactory(
             $container->get(LoggerInterface::class),
