@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentIdAllocator;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Core\Pdo\DbLayer;
@@ -123,6 +124,7 @@ final class PartialNavigationCest
             ->setValue('series', "''")
             ->setValue('slug', "'partial-navigation-post'")
             ->setValue('author_id', 'NULL')
+            ->setValue('id', (string)ContentIdAllocator::allocate($dbLayer))
             ->execute()
         ;
     }

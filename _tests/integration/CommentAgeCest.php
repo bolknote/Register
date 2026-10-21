@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentIdAllocator;
 use Register\Auth\PublicAuthSettings;
 use Register\Comment\CommentAgePolicy;
 use Register\Comment\CommentRepository;
@@ -141,7 +142,8 @@ final class CommentAgeCest
             'created_at' => '1', 'published_at' => ':published', 'updated_at' => '1',
             'published' => '1', 'comments_enabled' => '1',
             'template' => "'site.php'",
-        ])->execute(['type' => $type->value, 'slug' => $slug, 'published' => $publishedAt]);
+        ])->setValue('id', (string)ContentIdAllocator::allocate($db))
+        ->execute(['type' => $type->value, 'slug' => $slug, 'published' => $publishedAt]);
 
         return (int)$db->insertId();
     }

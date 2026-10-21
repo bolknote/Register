@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentIdAllocator;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Module\Reactions\Manifest;
@@ -502,7 +503,8 @@ final class ReactionsCest
             'published_at' => ':now',
             'updated_at'   => ':now',
             'published'    => '1',
-        ])->execute([
+        ])->setValue('id', (string)ContentIdAllocator::allocate($dbLayer))
+        ->execute([
             'content_type' => ContentType::POST->value,
             'slug'         => $slug,
             'title'        => 'Reaction post',

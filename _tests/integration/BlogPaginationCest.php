@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentIdAllocator;
 use Register\Comment\CommentSchema;
 use Register\Content\ContentId;
 use Register\Content\ContentChangeDispatcher;
@@ -277,6 +278,7 @@ class BlogPaginationCest
             ->setValue('series', "''")
             ->setValue('slug', ':url')->setParameter('url', 'all/post-' . $number)
             ->setValue('author_id', ':author_id')->setParameter('author_id', $authorId)
+            ->setValue('id', (string)ContentIdAllocator::allocate($dbLayer))
             ->execute()
         ;
 
@@ -305,6 +307,7 @@ class BlogPaginationCest
                 'series'           => "''",
                 'author_id'        => ':author_id',
             ])
+            ->setValue('id', (string)ContentIdAllocator::allocate($dbLayer))
             ->execute([
                 'content_type' => ContentType::POST->value,
                 'slug'         => 'all/' . $slug,

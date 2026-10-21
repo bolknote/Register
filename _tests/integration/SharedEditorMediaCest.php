@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentIdAllocator;
 use Register\Content\ContentMediaSchema;
 use Register\Content\ContentSchema;
 use Register\Core\Pdo\DbLayer;
@@ -59,7 +60,8 @@ final class SharedEditorMediaCest
                     'slug' => ':slug', 'title' => "'Shared image page'", 'body' => "'<p>Original page.</p>'",
                     'excerpt' => "''", 'published' => '1', 'published_at' => ':published',
                     'created_at' => ':created', 'updated_at' => ':updated', 'revision' => '1',
-                ])->execute(['parent' => $root, 'scope' => 'page:' . $root, 'slug' => 'shared-image-' . $index,
+                ])->setValue('id', (string)ContentIdAllocator::allocate($db))
+                ->execute(['parent' => $root, 'scope' => 'page:' . $root, 'slug' => 'shared-image-' . $index,
                     'published' => time() - 60, 'created' => time() - 60, 'updated' => time() - 60]);
                 $pageId = (int)$db->insertId();
                 $url = 'https://localhost/_admin/index.php?entity=Article&action=edit&id=' . $pageId;
@@ -218,7 +220,8 @@ final class SharedEditorMediaCest
                     'slug' => ':slug', 'title' => "'Encoded image page'", 'body' => "'<p>Original page.</p>'",
                     'excerpt' => "''", 'published' => '1', 'published_at' => ':published',
                     'created_at' => ':created', 'updated_at' => ':updated', 'revision' => '1',
-                ])->execute(['parent' => $root, 'scope' => 'page:' . $root, 'slug' => 'encoded-image-' . $index,
+                ])->setValue('id', (string)ContentIdAllocator::allocate($db))
+                ->execute(['parent' => $root, 'scope' => 'page:' . $root, 'slug' => 'encoded-image-' . $index,
                     'published' => time() - 60, 'created' => time() - 60, 'updated' => time() - 60]);
                 $pageId = (int)$db->insertId();
                 $url = 'https://localhost/_admin/index.php?entity=Article&action=edit&id=' . $pageId;

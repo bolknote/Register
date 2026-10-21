@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentIdAllocator;
 use Psr\Log\LoggerInterface;
 use Register\Auth\PublicAuthRepository;
 use Register\Auth\PublicAuthSettings;
@@ -75,6 +76,7 @@ final class AntispamCest
             ->setValue('comments_enabled', '1')
             ->setValue('slug', "'form-test'")
             ->setValue('template', "'site.php'")
+            ->setValue('id', (string)ContentIdAllocator::allocate($dbLayer))
             ->execute()
         ;
 
@@ -726,6 +728,7 @@ final class AntispamCest
             ->setValue('series', "''")
             ->setValue('slug', "'feedback-post'")
             ->setValue('author_id', 'NULL')
+            ->setValue('id', (string)ContentIdAllocator::allocate($dbLayer))
             ->execute()
         ;
         $postId = (int)$dbLayer->insertId();

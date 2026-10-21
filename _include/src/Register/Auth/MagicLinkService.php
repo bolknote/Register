@@ -19,6 +19,7 @@ use Register\Controller\Comment\PendingEmailCommentServiceInterface;
 use Register\Core\Helper\StringHelper;
 use Register\Core\Model\UrlBuilder;
 use Register\Core\Model\User\UserProvider;
+use Register\Core\Pdo\DatabaseTransaction;
 use Register\Module\VisitorIdentity\VisitorIdentityManager;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -43,6 +44,7 @@ final readonly class MagicLinkService implements PendingEmailCommentServiceInter
         private UserProvider         $userProvider,
         private CommentPublicationTrustPolicy $publicationTrustPolicy,
         private string $basePath,
+        private DatabaseTransaction $transaction,
         CommentStrategyInterface ...$strategies,
     ) {
         $indexed = [];
@@ -137,6 +139,14 @@ final readonly class MagicLinkService implements PendingEmailCommentServiceInter
             throw new \RuntimeException('The sign-in link is invalid or has expired.');
         }
 
+        // Claiming the link, creating the identity, saving the comment and queuing its
+        // notifications must either all succeed or leave the same link available to retry.
+        return $this->transaction->run(fn(): array => $this->consumeAtomically($token));
+    }
+
+    /** @return array{user_id: int, return_path: string, comment_id: int|null, published: bool} */
+    private function consumeAtomically(string $token): array
+    {
         $row = $this->repository->consumeMagicLink($token);
         if ($row === null) {
             $confirmedReturnPath = $this->repository->confirmedCommentReturnPath($token);

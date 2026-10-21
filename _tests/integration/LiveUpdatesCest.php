@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentIdAllocator;
 use Register\Auth\CommentNotificationRepository;
 use Register\Comment\CommentRepository;
 use Register\Comment\CommentSchema;
@@ -284,6 +285,7 @@ final class LiveUpdatesCest
             ->setValue('series', "''")
             ->setValue('slug', "'all/live-post'")
             ->setValue('author_id', 'NULL')
+            ->setValue('id', (string)ContentIdAllocator::allocate($dbLayer))
             ->execute()
         ;
 

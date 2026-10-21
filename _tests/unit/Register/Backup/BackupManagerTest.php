@@ -175,7 +175,7 @@ final class BackupManagerTest extends Unit
         self::assertSame([], glob($directory . '/backups/.*.zip*'));
         $state->mutate = false;
         $retry = $manager->createNow(1_700_000_002);
-        self::assertSame($retry->path, $manager->latest()->path);
+        self::assertEquals($retry, $manager->latest());
     }
 
     /** @return iterable<string, array{string}> */

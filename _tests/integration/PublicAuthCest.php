@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentIdAllocator;
 use Register\Auth\CommentNotificationRepository;
 use Register\Auth\PublicAuthController;
 use Register\Auth\MagicLinkService;
@@ -33,6 +34,8 @@ use Register\Core\Model\AuthenticatedPublicUser;
 use Register\Core\Model\SessionAudience;
 use Register\Core\Comment\SpamDetectorReport;
 use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\QueryResult;
+use Register\Core\Pdo\QueryBuilder\InsertBuilder;
 use Register\Core\HttpClient\HttpClient;
 use Register\Core\HttpClient\HttpClientInterface;
 use Register\Core\HttpClient\HttpResponse;
@@ -884,14 +887,57 @@ final class PublicAuthCest
         ]);
         $callbackUrl = $this->localCallbackUrl($I->grabPublicAuthMails()[0]['message']);
 
-        // A crash between the atomic claim and saving the comment leaves a used link,
-        // so used_at alone cannot be treated as evidence of a successful confirmation.
+        // A legacy interrupted confirmation may have a claim without a saved comment.
+        // used_at alone cannot be treated as evidence of a successful confirmation.
         $I->assertNotNull($repository->consumeMagicLink($this->callbackToken($callbackUrl)));
         $I->amOnPage($callbackUrl);
         $I->dontSee('Your comment has already been confirmed.');
         $I->dontSee('Your comment is confirmed and awaiting moderation.');
         $I->assertNull($I->grabTestCookie('register_cookie_904732485_c'));
         $I->assertSame(0, (int)$db->select('COUNT(*)')->from(CommentSchema::TABLE_NAME)->where('content_id = :id')->setParameter('id', $articleId)->execute()->result());
+    }
+
+    public function testFailedConfirmationRollsBackTheCommentAndCanRetryTheSameLink(\IntegrationTester $I): void
+    {
+        $db = $I->grabService(DbLayer::class);
+        $repository = $I->grabService(PublicAuthRepository::class);
+        $articleId = $this->insertContent($db, 'retry-comment-confirmation');
+        $I->sendPost('https://localhost/retry-comment-confirmation', [
+            'name' => 'Retry reader', 'email' => 'retry-reader@example.test', 'text' => '<p>Keep this draft after a failed save.</p>',
+        ]);
+        $waitingUrl = (string)$I->grabHttpHeader('Location');
+        $callbackUrl = $this->localCallbackUrl($I->grabPublicAuthMails()[0]['message']);
+        $token = $this->callbackToken($callbackUrl);
+        $dependencies = [MagicLinkService::class, PublicAuthController::class];
+        $probe = new ConfirmationFailureDbLayer($I->grabService(\PDO::class), $db);
+        $I->replaceService(PublicAuthRepository::class, new PublicAuthRepository($probe), $dependencies);
+        try {
+            $service = $I->grabService(MagicLinkService::class);
+            $I->expectThrowable(new \RuntimeException('Temporary confirmation write failure'), fn(): array => $service->consume($token));
+            $I->assertTrue($probe->failedAfterCommentSave);
+            $I->assertTrue($I->grabService(\PDO::class)->inTransaction(), 'Keep the caller transaction open.');
+            $I->assertSame(0, (int)$db->select('COUNT(*)')->from(CommentSchema::TABLE_NAME)
+                ->where('content_id = :id')->setParameter('id', $articleId)->execute()->result());
+            $I->assertSame(0, (int)$db->select('COUNT(*)')->from('users')
+                ->where('email = :email')->setParameter('email', 'retry-reader@example.test')->execute()->result());
+            $row = $db->select('used_at, confirmed_comment_id')->from(PublicAuthSchema::MAGIC_LINKS_TABLE)
+                ->where('token_hash = :hash')->setParameter('hash', PublicAuthRepository::tokenHash($token))->execute()->fetchAssoc();
+            $I->assertIsArray($row);
+            $I->assertNull($row['used_at']);
+            $I->assertNull($row['confirmed_comment_id']);
+            $I->amOnPage('https://localhost' . $waitingUrl);
+            $I->seeResponseCodeIs(200);
+            $I->see('Keep this draft after a failed save.', '.pending-comment-preview');
+            $I->amOnPage($callbackUrl);
+            $I->seeResponseCodeIs(200);
+            $I->see('Your comment is confirmed and awaiting moderation.', '[role="status"]');
+            $I->amOnPage($callbackUrl);
+            $I->see('Your comment has already been confirmed.', '[role="status"]');
+            $I->assertSame(1, (int)$db->select('COUNT(*)')->from(CommentSchema::TABLE_NAME)
+                ->where('content_id = :id')->setParameter('id', $articleId)->execute()->result());
+        } finally {
+            $I->replaceService(PublicAuthRepository::class, $repository, $dependencies);
+        }
     }
 
     public function testPublishedEmailCommentKeepsItsRedirectAndIsAcknowledgedOnReplay(\IntegrationTester $I): void
@@ -1431,6 +1477,7 @@ final class PublicAuthCest
             ->setValue('comments_enabled', '1')
             ->setValue('slug', ':slug')->setParameter('slug', $slug)
             ->setValue('template', "'site.php'")
+            ->setValue('id', (string)ContentIdAllocator::allocate($dbLayer))
             ->execute();
 
         return (int)$dbLayer->insertId();
@@ -1466,5 +1513,40 @@ final class PublicAuthCest
             ->execute();
 
         return (int)$dbLayer->insertId();
+    }
+}
+
+/** Injects a storage failure after saving the comment but before writing its confirmation receipt. */
+final class ConfirmationFailureDbLayer extends DbLayer
+{
+    public bool $failedAfterCommentSave = false;
+
+    public function __construct(\PDO $pdo, private readonly DbLayer $delegate)
+    {
+        parent::__construct($pdo, $delegate->getPrefix());
+    }
+
+    #[\Override]
+    public function insert(string $table): InsertBuilder
+    {
+        return $this->delegate->insert($table);
+    }
+
+    /**
+     * @param array<int|string, mixed> $params
+     * @param array<int|string, int> $types
+     */
+    #[\Override]
+    public function query(string $sql, array $params = [], array $types = []): QueryResult
+    {
+        if (!$this->failedAfterCommentSave && str_starts_with($sql, 'UPDATE ') && isset($params['comment_id'], $params['token_hash'])) {
+            $this->failedAfterCommentSave = (int)parent::query(
+                'SELECT COUNT(*) FROM ' . $this->getPrefix() . CommentSchema::TABLE_NAME . ' WHERE id = :id',
+                ['id' => $params['comment_id']],
+            )->result() === 1;
+            throw new \RuntimeException('Temporary confirmation write failure');
+        }
+
+        return parent::query($sql, $params, $types);
     }
 }

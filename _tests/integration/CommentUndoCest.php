@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentIdAllocator;
 use Register\Comment\CommentMutationSource;
 use Register\Comment\CommentRepository;
 use Register\Comment\CommentSchema;
@@ -347,7 +348,8 @@ final class CommentUndoCest
             'created_at' => ':now', 'published_at' => ':now', 'updated_at' => ':now',
             'revision' => '1', 'sort_order' => '0', 'published' => '1', 'featured' => '0',
             'comments_enabled' => '1', 'slug' => "'undo-test'", 'template' => "'site.php'",
-        ])->execute(['now' => time()]);
+        ])->setValue('id', (string)ContentIdAllocator::allocate($db))
+        ->execute(['now' => time()]);
         $contentId = ContentId::page((int)$db->insertId());
         /** @var CommentRepository $comments */
         $comments = $I->grabService(CommentRepository::class);

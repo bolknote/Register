@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentIdAllocator;
 use Register\Ai\AiSettings;
 use Register\Auth\PublicAuthSchema;
 use Register\Comment\CommentRepository;
@@ -679,7 +680,8 @@ class AdminCest
             'published_at' => ':published_at',
             'updated_at'   => ':published_at',
             'published'    => '1',
-        ])->execute([
+        ])->setValue('id', (string)ContentIdAllocator::allocate($dbLayer))
+        ->execute([
             'content_type' => ContentType::POST->value,
             'published_at' => time(),
         ]);
@@ -913,7 +915,8 @@ class AdminCest
             'published_at' => ':published_at',
             'updated_at'   => ':updated_at',
             'published'    => '1',
-        ])->execute([
+        ])->setValue('id', (string)ContentIdAllocator::allocate($dbLayer))
+        ->execute([
             'content_type' => ContentType::POST->value,
             'created_at'   => $now,
             'published_at' => $now,

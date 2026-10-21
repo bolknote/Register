@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentIdAllocator;
 use Register\Content\ContentId;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
@@ -149,7 +150,8 @@ final class ContentRssCest
             'published_at' => ':timestamp',
             'updated_at'   => ':timestamp',
             'published'    => ':published',
-        ])->execute([
+        ])->setValue('id', (string)ContentIdAllocator::allocate($dbLayer))
+        ->execute([
             'content_type' => $contentType->value,
             'slug'         => $slug,
             'title'        => $title,

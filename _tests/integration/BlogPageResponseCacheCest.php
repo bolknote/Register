@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentIdAllocator;
 use Register\Comment\CommentRepository;
 use Register\Content\ContentId;
 use Register\Content\ContentChangeDispatcher;
@@ -369,6 +370,7 @@ final class BlogPageResponseCacheCest
             ->setValue('series', ':series')->setParameter('series', $series)
             ->setValue('slug', ':slug')->setParameter('slug', $slug)
             ->setValue('author_id', 'NULL')
+            ->setValue('id', (string)ContentIdAllocator::allocate($dbLayer))
             ->execute()
         ;
 
@@ -395,6 +397,7 @@ final class BlogPageResponseCacheCest
             ->setValue('sort_order', '0')
             ->setValue('slug', "'sidebar-cache-page'")
             ->setValue('template', "'mainpage.php'")
+            ->setValue('id', (string)ContentIdAllocator::allocate($dbLayer))
             ->execute()
         ;
 

@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentIdAllocator;
 use Register\Author\AuthorProfileRepository;
 use Register\Content\ContentDetailsRepository;
 use Register\Content\ContentId;
@@ -49,7 +50,8 @@ final class ContentDetailsRepositoryCest
             'published'        => '1',
             'comments_enabled' => '1',
             'author_id'        => ':author_id',
-        ])->execute([
+        ])->setValue('id', (string)ContentIdAllocator::allocate($dbLayer))
+        ->execute([
             'content_type' => ContentType::POST->value,
             'slug'         => 'federated-post',
             'title'        => 'Federated post',

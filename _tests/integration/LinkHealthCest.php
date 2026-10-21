@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentIdAllocator;
 use Psr\Log\NullLogger;
 use Register\Content\ContentId;
 use Register\Content\ContentPublicationScheduler;
@@ -1380,7 +1381,8 @@ final class LinkHealthCest
             'published_at' => ':now',
             'updated_at'   => ':now',
             'published'    => '1',
-        ])->execute([
+        ])->setValue('id', (string)ContentIdAllocator::allocate($dbLayer))
+        ->execute([
             'content_type' => ContentType::POST->value,
             'slug'         => 'all/' . $slug,
             'title'        => $slug,

@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentIdAllocator;
 use Register\Content\ContentId;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
@@ -121,6 +122,7 @@ final class ContentUrlAliasCest
                 'updated_at'   => '1',
                 'published'    => '1',
             ])
+            ->setValue('id', (string)ContentIdAllocator::allocate($dbLayer))
             ->execute([
                 'content_type' => ContentType::POST->value,
                 'slug'         => $slug,

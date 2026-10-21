@@ -13,6 +13,7 @@ use Register\Core\Model\AuthTokenHasher;
 use Register\Core\Model\LoginRateLimiter;
 use Register\Core\Model\PasswordHasher;
 use Register\Core\Model\SessionAudience;
+use Register\Core\Model\SessionToken;
 use Register\Core\Pdo\DbLayer;
 use Register\Core\Security\Audit\SecurityAuditLogger;
 use Register\Core\Security\Http\AdminMutationGuard;
@@ -24,8 +25,6 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 /** Creates and revokes public sessions without loading the admin application. */
 final readonly class PublicSessionManager
 {
-    private const int PERSISTENT_SESSION_LIFETIME = 30 * 86400;
-
     public function __construct(
         private DbLayer             $dbLayer,
         private LoginRateLimiter    $loginRateLimiter,
@@ -187,8 +186,8 @@ final readonly class PublicSessionManager
         SessionAudience $audience,
     ): JsonResponse {
         $time = time();
-        $sessionId = ($temporary ? 't' : 'p') . sprintf('%08x', $time) . bin2hex(random_bytes(32));
-        $commentCookie = bin2hex(random_bytes(32));
+        $sessionId = SessionToken::create($temporary, $time);
+        $commentCookie = SessionToken::create($temporary, $time);
         $this->dbLayer
             ->insert('users_online')
             ->setValue('login', ':login')->setParameter('login', $login)
@@ -203,7 +202,7 @@ final readonly class PublicSessionManager
 
         $response = new JsonResponse(['success' => true]);
         $secure = $this->shouldUseSecureCookies($request);
-        $expiresAt = $temporary ? 0 : $time + self::PERSISTENT_SESSION_LIFETIME;
+        $expiresAt = $temporary ? 0 : $time + SessionToken::PERSISTENT_LIFETIME;
         $response->headers->setCookie($this->adminCookie(
             $audience === SessionAudience::ADMIN ? $sessionId : '',
             $secure,

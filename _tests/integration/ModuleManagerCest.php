@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentIdAllocator;
 use Register\Ai\AiSettings;
 use Register\Auth\PublicAuthSchema;
 use Register\Auth\PublicAuthRepository;
@@ -494,7 +495,8 @@ final class ModuleManagerCest
             'published_at' => '1',
             'updated_at' => '1',
             'published' => '1',
-        ])->execute();
+        ])->setValue('id', (string)ContentIdAllocator::allocate($dbLayer))
+        ->execute();
         $postId = (int)$dbLayer->insertId();
 
         $I->setConfigValue(SchemaManager::CONFIG_KEY, '34');

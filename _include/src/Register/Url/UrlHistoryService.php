@@ -8,6 +8,7 @@ use Register\Content\ContentChangeDispatcher;
 use Register\Content\ContentId;
 use Register\Content\ContentType;
 use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\DatabaseTransaction;
 use Register\Schema\SchemaManager;
 
 /** Serializes editorial URL changes and stores their aliases in the same transaction. */
@@ -34,36 +35,12 @@ final readonly class UrlHistoryService
      */
     public function run(callable $write): mixed
     {
-        $ownsTransaction = !$this->pdo->inTransaction();
-        $savepoint = 'url_history_' . bin2hex(random_bytes(6));
-        if ($ownsTransaction) {
-            $this->pdo->beginTransaction();
-        } else {
-            $this->pdo->exec('SAVEPOINT ' . $savepoint);
-        }
-
-        try {
+        return (new DatabaseTransaction($this->pdo))->run(function () use ($write): mixed {
             // A stable row provides a portable lock across URL namespaces and DB drivers.
             $this->dbLayer->update('config')->set('value', 'value')
                 ->where('name = :name')->setParameter('name', SchemaManager::CONFIG_KEY)->execute();
-            $result = $write();
-            if ($ownsTransaction) {
-                $this->pdo->commit();
-            } else {
-                $this->pdo->exec('RELEASE SAVEPOINT ' . $savepoint);
-            }
-
-            return $result;
-        } catch (\Throwable $exception) {
-            if ($ownsTransaction && $this->transactionActive()) {
-                $this->pdo->rollBack();
-            } elseif ($this->transactionActive()) {
-                $this->pdo->exec('ROLLBACK TO SAVEPOINT ' . $savepoint);
-                $this->pdo->exec('RELEASE SAVEPOINT ' . $savepoint);
-            }
-
-            throw $exception;
-        }
+            return $write();
+        });
     }
 
     /**
@@ -139,10 +116,5 @@ final readonly class UrlHistoryService
             ->where('id = :id')->setParameter('id', $tagId)->execute()->result();
 
         return is_string($slug) ? $slug : null;
-    }
-
-    private function transactionActive(): bool
-    {
-        return $this->pdo->inTransaction();
     }
 }

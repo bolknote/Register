@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentIdAllocator;
 use Register\Comment\CommentSchema;
 use Register\Content\ContentSchema;
 use Register\Content\ContentStatisticsRepository;
@@ -75,7 +76,8 @@ final class ContentStatisticsRepositoryCest
             'scheduled_at' => ':scheduled_at',
             'updated_at'   => ':time',
             'published'    => ':published',
-        ])->execute([
+        ])->setValue('id', (string)ContentIdAllocator::allocate($dbLayer))
+        ->execute([
             'content_type' => ContentType::POST->value,
             'slug'         => $slug,
             'title'        => $slug,

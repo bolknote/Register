@@ -151,9 +151,7 @@ final class PostCreateRetryCest
 
                 $replacement = $I->grabJson();
                 $I->assertIsArray($replacement);
-                if ($I->grabService(\PDO::class)->getAttribute(\PDO::ATTR_DRIVER_NAME) === 'sqlite') {
-                    $I->assertSame($post['id'], $replacement['id']);
-                }
+                $I->assertNotSame($post['id'], $replacement['id']);
             });
         $dependencies = [PostCreateOperations::class, UrlHistoryService::class, PostInplaceController::class];
         $I->replaceService(DbLayer::class, $probe, $dependencies);

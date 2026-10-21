@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentIdAllocator;
 use Psr\Log\NullLogger;
 use Register\Content\ContentId;
 use Register\Content\ContentPublicationQueueHandler;
@@ -149,7 +150,8 @@ final class ScheduledPublishingCest
             'scheduled_at' => ':scheduled_at',
             'updated_at'   => ':updated_at',
             'published'    => '0',
-        ])->execute([
+        ])->setValue('id', (string)ContentIdAllocator::allocate($dbLayer))
+        ->execute([
             'content_type' => $contentType->value,
             'slug'         => $slug,
             'title'        => $slug,

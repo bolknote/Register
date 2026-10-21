@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentIdAllocator;
 use Register\Content\ContentSchema;
 use Register\Content\ContentStatisticsRepository;
 use Register\Content\ContentType;
@@ -59,7 +60,7 @@ class ArticleProviderCest
             ->setValue('body', "''")
         ;
 
-        $qb->execute();
+        $qb->setValue('id', (string)ContentIdAllocator::allocate($this->dbLayer))->execute();
 
         $id2 = $this->getChildId($id1);
 
@@ -70,7 +71,7 @@ class ArticleProviderCest
             ->setParameter('url', 'level2')
             ->setParameter('published', 1)
             ->setParameter('template', '')
-            ->execute()
+            ->setValue('id', (string)ContentIdAllocator::allocate($this->dbLayer))->execute()
         ;
 
         $id3 = $this->getChildId($id2);
@@ -81,7 +82,7 @@ class ArticleProviderCest
             ->setParameter('title', 'level3')
             ->setParameter('url', 'level3')
             ->setParameter('published', 0)
-            ->execute()
+            ->setValue('id', (string)ContentIdAllocator::allocate($this->dbLayer))->execute()
         ;
         $id4 = $this->getChildId($id3);
 
@@ -91,7 +92,7 @@ class ArticleProviderCest
             ->setParameter('title', 'level4')
             ->setParameter('url', 'level4')
             ->setParameter('published', 1)
-            ->execute()
+            ->setValue('id', (string)ContentIdAllocator::allocate($this->dbLayer))->execute()
         ;
         $id5 = $this->getChildId($id4);
 

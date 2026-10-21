@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentIdAllocator;
 use Register\Content\ContentId;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
@@ -92,7 +93,8 @@ final class ContentTagRepositoryCest
             'slug'         => ':url',
             'template'     => "'mainpage.php'",
             'author_id'    => 'NULL',
-        ])->execute([
+        ])->setValue('id', (string)ContentIdAllocator::allocate($dbLayer))
+        ->execute([
             'content_type' => ContentType::PAGE->value,
             'title'        => 'Page ' . $suffix,
             'time'         => $timestamp,
@@ -116,7 +118,8 @@ final class ContentTagRepositoryCest
             'series'           => "''",
             'slug'             => ':url',
             'author_id'        => 'NULL',
-        ])->execute([
+        ])->setValue('id', (string)ContentIdAllocator::allocate($dbLayer))
+        ->execute([
             'content_type' => ContentType::POST->value,
             'title'        => 'Post ' . $suffix,
             'time'         => $timestamp,

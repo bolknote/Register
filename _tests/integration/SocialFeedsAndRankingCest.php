@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentIdAllocator;
 use Register\Content\ContentId;
 use Register\Content\ContentItem;
 use Register\Content\ContentRepository;
@@ -252,7 +253,8 @@ final class SocialFeedsAndRankingCest
             'author_id'        => 'NULL',
             'meta_description' => ':description',
             'social_image'     => ':social_image',
-        ])->execute([
+        ])->setValue('id', (string)ContentIdAllocator::allocate($dbLayer))
+        ->execute([
             'content_type' => ContentType::POST->value,
             'published_at' => $publishedAt,
             'title' => $title,

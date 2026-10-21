@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentIdAllocator;
 use Register\Comment\CommentRepository;
 use Register\Content\ContentId;
 use Register\Content\ContentSchema;
@@ -385,6 +386,7 @@ final class TelegramImportCest
             ->setValue('featured', '0')
             ->setValue('comments_enabled', '1')
             ->setValue('template', "'site.php'")
+            ->setValue('id', (string)ContentIdAllocator::allocate($dbLayer))
             ->execute()
         ;
 

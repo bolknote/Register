@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentIdAllocator;
 use Register\Content\ContentMediaSchema;
 use Register\Content\ContentSchema;
 use Register\Content\ContentTagSchema;
@@ -16,7 +17,7 @@ final class AdminPostMediaDeletionCest
 {
     private const string PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQAAAAA3bvkkAAAACklEQVR4AWNgAAAAAgABc3UBGAAAAABJRU5ErkJggg==';
 
-    public function singleDeletionRemovesCommentsBeforeSqliteReusesThePostId(\IntegrationTester $I): void
+    public function singleDeletionRemovesCommentsAndDoesNotReuseThePostId(\IntegrationTester $I): void
     {
         $I->login('admin', 'admin');
         $I->amOnPage('https://localhost/');
@@ -34,9 +35,7 @@ final class AdminPostMediaDeletionCest
         $I->assertSame(0, (int)$db->select('COUNT(*)')->from(CommentSchema::TABLE_NAME)
             ->where("content_type = 'post' AND content_id = :id")->setParameter('id', $post['id'])->execute()->result());
         $replacement = $this->createPost($I, $token, 'Unrelated replacement post', '<p>A different subject.</p>');
-        if ($I->grabService(\PDO::class)->getAttribute(\PDO::ATTR_DRIVER_NAME) === 'sqlite') {
-            $I->assertSame($post['id'], $replacement['id']);
-        }
+        $I->assertNotSame($post['id'], $replacement['id']);
 
         $I->amOnPage('https://localhost' . $replacement['url']);
         $I->dontSee('Comment belonging to the deleted thread.');
@@ -72,7 +71,8 @@ final class AdminPostMediaDeletionCest
                     'slug' => ':slug', 'title' => "'Page reusing an image'", 'body' => "'<p>Original page.</p>'",
                     'excerpt' => "''", 'published' => '1', 'published_at' => ':time',
                     'created_at' => ':time', 'updated_at' => ':time', 'revision' => '1',
-                ])->execute(['parent' => $root, 'scope' => 'page:' . $root, 'slug' => 'shared-media-' . str_replace('_', '-', $reference), 'time' => time() - 60]);
+                ])->setValue('id', (string)ContentIdAllocator::allocate($db))
+                ->execute(['parent' => $root, 'scope' => 'page:' . $root, 'slug' => 'shared-media-' . str_replace('_', '-', $reference), 'time' => time() - 60]);
                 $pageId = (int)$db->insertId();
                 $url = 'https://localhost/_admin/index.php?entity=Article&action=edit&id=' . $pageId;
                 $I->amOnPage($url);

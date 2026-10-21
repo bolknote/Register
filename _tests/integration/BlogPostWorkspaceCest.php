@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentIdAllocator;
 use Register\Content\ContentSchema;
 use Register\Core\Pdo\DbLayer;
 
@@ -84,7 +85,8 @@ final class BlogPostWorkspaceCest
                 'excerpt' => "''", 'body' => "'<p>Body</p>'", 'author_id' => ':author', 'published' => ':published',
                 'published_at' => ':published_at', 'scheduled_at' => ':scheduled_at', 'created_at' => ':created_at',
                 'updated_at' => ':created_at',
-            ])->execute([
+            ])->setValue('id', (string)ContentIdAllocator::allocate($db))
+            ->execute([
                 'slug' => 'all/workspace-' . $name, 'title' => 'Workspace ' . $name, 'author' => $owner,
                 'published' => $published, 'published_at' => $publishedAt, 'scheduled_at' => $scheduledAt,
                 'created_at' => $now - 3600,

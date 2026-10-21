@@ -154,7 +154,7 @@ readonly class AuthProvider
         }
 
         $result = $this->dbLayer
-            ->select('u.id, u.login, u.email, u.name, u.hide_comments, u.edit_comments, u.create_articles, u.edit_site, u.edit_users')
+            ->select('u.id, u.login, u.email, u.name, u.hide_comments, u.edit_comments, u.create_articles, u.edit_site, u.edit_users, o.time')
             ->from('users AS u')
             ->innerJoin('users_online AS o', 'o.login = u.login')
             ->where('o.comment_cookie = :cookie')
@@ -164,9 +164,22 @@ readonly class AuthProvider
         ;
 
         $row = $result->fetchAssoc();
-        if ($row === false) {
+        // Release the read cursor before refreshing activity on SQLite WAL databases.
+        $result->freeResult();
+        $now = time();
+        if ($row === false || !SessionToken::isActive($cookie, (int)$row['time'], $now)) {
             $request->attributes->set(self::REQUEST_USER_ATTRIBUTE, false);
             return null;
+        }
+
+        if ($now > (int)$row['time'] + 5) {
+            $this->dbLayer
+                ->update('users_online')
+                ->set('time', ':now')->setParameter('now', $now)
+                ->where('comment_cookie = :cookie')->setParameter('cookie', AuthTokenHasher::comment($cookie))
+                ->andWhere('time < :now')
+                ->execute()
+            ;
         }
 
         $user = new AuthenticatedPublicUser(

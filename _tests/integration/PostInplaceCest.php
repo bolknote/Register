@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentIdAllocator;
 use Psr\Cache\CacheItemPoolInterface;
 use Register\Ai\AiClient;
 use Register\Ai\AiSettings;
@@ -1719,6 +1720,7 @@ final class PostInplaceCest
                 'slug'            => ':slug',
                 'author_id'       => ':author_id',
             ])
+            ->setValue('id', (string)ContentIdAllocator::allocate($dbLayer))
             ->execute([
                 'content_type' => ContentType::POST->value,
                 'time'         => $timestamp,

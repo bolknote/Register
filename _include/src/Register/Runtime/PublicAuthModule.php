@@ -39,6 +39,7 @@ use Register\Core\Model\AuthProvider;
 use Register\Core\Model\LoginRateLimiter;
 use Register\Core\Model\UrlBuilder;
 use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\DatabaseTransaction;
 use Register\Core\Pdo\PDO as TrackedPDO;
 use Register\Core\Security\Audit\SecurityAuditLogger;
 use Register\Core\Security\Http\SameOriginRequestGuard;
@@ -129,6 +130,7 @@ final readonly class PublicAuthModule implements ContainerModuleInterface
             $container->get(\Register\Core\Model\User\UserProvider::class),
             $container->get(\Register\Comment\CommentPublicationTrustPolicy::class),
             $container->getStringParameter('base_path'),
+            new DatabaseTransaction($container->get(\PDO::class)),
             ...$container->getByTag(CommentStrategyInterface::class),
         ), [PendingEmailCommentServiceInterface::class]);
         $container->set(

@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentIdAllocator;
 use Register\Comment\CommentRepository;
 use Register\Content\ContentId;
 use Register\Content\ContentSchema;
@@ -867,6 +868,7 @@ final class TelegramLiveImportCest
             ->setValue('created_at', '100')->setValue('published_at', '100')->setValue('updated_at', '100')
             ->setValue('revision', '1')->setValue('sort_order', '0')->setValue('published', '1')
             ->setValue('featured', '0')->setValue('comments_enabled', '1')->setValue('template', "'site.php'")
+            ->setValue('id', (string)ContentIdAllocator::allocate($db))
             ->execute();
 
         return (int)$db->insertId();

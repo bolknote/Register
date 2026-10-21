@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentIdAllocator;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Url\ContentSlugService;
@@ -61,6 +62,16 @@ final class ContentSlugServiceCest
         $I->assertSame(ContentSlugService::STATUS_NOT_UNIQUE, $this->slugService->pageStatusAtParent(0, $firstParent, 'child'));
         $I->assertSame(ContentSlugService::STATUS_OK, $this->slugService->pageStatusAtParent(0, $secondParent, 'child'));
         $I->assertSame(ContentSlugService::STATUS_UNAVAILABLE, $this->slugService->pageStatusAtParent(0, $rootId, 'archive'));
+    }
+
+    public function authenticationRoutesCannotBeClaimedByRootPages(\IntegrationTester $I): void
+    {
+        $rootId = $this->rootPageId();
+        $parent = $this->insertPage($rootId, 'guides');
+        $I->assertSame(ContentSlugService::STATUS_UNAVAILABLE, $this->slugService->pageStatusAtParent(0, $rootId, 'auth'));
+        $I->assertSame('auth-2', $this->slugService->generatePage($rootId, 'Auth'));
+        $I->assertSame(ContentSlugService::STATUS_OK, $this->slugService->pageStatusAtParent(0, $parent, 'auth'));
+        $I->assertSame(ContentSlugService::STATUS_OK, $this->slugService->postStatus(0, 'auth'));
     }
 
     public function generatesTypeSpecificUniqueFallbacks(\IntegrationTester $I): void
@@ -124,6 +135,7 @@ final class ContentSlugServiceCest
                 'updated_at'   => '1',
                 'published'    => '0',
             ])
+            ->setValue('id', (string)ContentIdAllocator::allocate($this->dbLayer))
             ->execute([
                 'content_type' => ContentType::PAGE->value,
                 'parent_id'    => $parentId,
@@ -149,6 +161,7 @@ final class ContentSlugServiceCest
                 'updated_at'   => '1',
                 'published'    => '0',
             ])
+            ->setValue('id', (string)ContentIdAllocator::allocate($this->dbLayer))
             ->execute([
                 'content_type' => ContentType::POST->value,
                 'slug'         => $slug,

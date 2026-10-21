@@ -26,15 +26,7 @@ readonly class AuthManager
 {
     public const string FORCE_AJAX_RESPONSE = '_force_ajax_response';
 
-    public const int PERSISTENT_SESSION_LIFETIME = 30 * 86400;
-
-    private const int PERSISTENT_SESSION_IDLE_TIMEOUT = 7 * 86400;
-
-    private const int TEMPORARY_SESSION_IDLE_TIMEOUT = 30 * 60;
-
-    private const int TEMPORARY_SESSION_LIFETIME = 12 * 3600;
-
-    private const string SESSION_TOKEN_PATTERN = '/^([pt])([0-9a-f]{8})[0-9a-f]{64}$/D';
+    public const int PERSISTENT_SESSION_LIFETIME = SessionToken::PERSISTENT_LIFETIME;
 
     private const string SESSION_STATUS_LOST     = 'Lost';
 
@@ -286,7 +278,7 @@ readonly class AuthManager
             return;
         }
 
-        $issuedAt      = $this->sessionIssuedAt($sessionId);
+        $issuedAt      = SessionToken::issuedAt($sessionId, time());
         $commentCookie = $request->cookies->get($this->cookieName . '_c', '');
         if ($issuedAt === null || $commentCookie === '' || time() >= $issuedAt + self::PERSISTENT_SESSION_LIFETIME) {
             return;
@@ -561,8 +553,8 @@ readonly class AuthManager
     ): JsonResponse
     {
         $time          = time();
-        $sessionId     = $this->createSessionToken($temporary, $time);
-        $commentCookie = bin2hex(random_bytes(32));
+        $sessionId     = SessionToken::create($temporary, $time);
+        $commentCookie = SessionToken::create($temporary, $time);
 
         // Create user session
         // TODO check unique constraint violation
@@ -689,11 +681,7 @@ readonly class AuthManager
 
         $now = time();
 
-        $issuedAt          = $this->sessionIssuedAt($sessionId);
-        $persistent       = str_starts_with($sessionId, 'p');
-        $absoluteLifetime = $persistent ? self::PERSISTENT_SESSION_LIFETIME : self::TEMPORARY_SESSION_LIFETIME;
-        $idleTimeout      = $persistent ? self::PERSISTENT_SESSION_IDLE_TIMEOUT : self::TEMPORARY_SESSION_IDLE_TIMEOUT;
-        if ($issuedAt === null || $now >= $issuedAt + $absoluteLifetime || $now >= $time + $idleTimeout) {
+        if (!SessionToken::isActive($sessionId, $time, $now)) {
             return self::SESSION_STATUS_LOST;
         }
 
@@ -764,22 +752,6 @@ readonly class AuthManager
             httpOnly: true,
             sameSite: Cookie::SAMESITE_LAX,
         );
-    }
-
-    private function createSessionToken(bool $temporary, int $issuedAt): string
-    {
-        return ($temporary ? 't' : 'p') . sprintf('%08x', $issuedAt) . bin2hex(random_bytes(32));
-    }
-
-    private function sessionIssuedAt(string $sessionId): ?int
-    {
-        if (preg_match(self::SESSION_TOKEN_PATTERN, $sessionId, $matches) !== 1) {
-            return null;
-        }
-
-        $issuedAt = (int)hexdec($matches[2]);
-
-        return $issuedAt > time() + 300 ? null : $issuedAt;
     }
 
     private function createActionCsrfToken(string $sessionId, string $purpose): string

@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentIdAllocator;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Core\Pdo\DbLayer;
@@ -90,7 +91,8 @@ final class UrlHistoryCest
             'content_type' => ':type', 'parent_id' => ':parent', 'slug_scope' => ':scope', 'slug' => ':slug',
             'title' => "'URL history'", 'excerpt' => "''", 'body' => "'<p>Original body.</p>'",
             'created_at' => '1', 'published_at' => '1', 'updated_at' => '1', 'published' => '1', 'author_id' => ':author',
-        ])->execute(['type' => $type->value, 'parent' => $parentId, 'scope' => $parentId === null || $parentId === $rootId ? 'root' : 'page:' . $parentId, 'slug' => $storedSlug, 'author' => $adminId]);
+        ])->setValue('id', (string)ContentIdAllocator::allocate($db))
+        ->execute(['type' => $type->value, 'parent' => $parentId, 'scope' => $parentId === null || $parentId === $rootId ? 'root' : 'page:' . $parentId, 'slug' => $storedSlug, 'author' => $adminId]);
 
         return (int)$db->insertId();
     }

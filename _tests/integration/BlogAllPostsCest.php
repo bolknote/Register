@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentIdAllocator;
 use Register\Content\ContentChangeDispatcher;
 use Register\Content\ContentId;
 use Register\Content\ContentSchema;
@@ -177,6 +178,7 @@ final class BlogAllPostsCest
             ->setValue('series', "''")
             ->setValue('slug', ':url')->setParameter('url', 'all/' . $url)
             ->setValue('author_id', 'NULL')
+            ->setValue('id', (string)ContentIdAllocator::allocate($dbLayer))
             ->execute()
         ;
 

@@ -35,6 +35,7 @@ final readonly class ReservedRouteRegistry
         'activitypub',
         'all',
         'archive',
+        'auth',
         'comment-moderate',
         'comment_sent',
         'comment_unsubscribe',

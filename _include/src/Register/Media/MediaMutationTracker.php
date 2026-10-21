@@ -65,9 +65,10 @@ final class MediaMutationTracker
 
             $released = true;
             if (--$this->depth === 0 && \is_resource($this->lock)) {
-                flock($this->lock, LOCK_UN);
-                fclose($this->lock);
+                $lock = $this->lock;
                 $this->lock = null;
+                flock($lock, LOCK_UN);
+                fclose($lock);
             }
         };
     }

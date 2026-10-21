@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentIdAllocator;
 use Register\Content\ContentSchema;
 use Register\Content\ContentId;
 use Register\Content\ContentRepository;
@@ -232,7 +233,8 @@ final class ContentSitemapCest
             'published_at' => ':published_at',
             'updated_at'   => ':updated_at',
             'published'    => ':published',
-        ])->execute([
+        ])->setValue('id', (string)ContentIdAllocator::allocate($dbLayer))
+        ->execute([
             'content_type' => $contentType->value,
             'parent_id'    => $parentId,
             'slug'         => $slug,

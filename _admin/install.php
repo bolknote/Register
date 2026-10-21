@@ -12,6 +12,7 @@ declare(strict_types = 1);
 
 
 use Psr\Log\LogLevel;
+use Register\Content\ContentIdAllocator;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Core\Http\ContentSecurityPolicy;
@@ -1103,7 +1104,9 @@ $app->container->get(SchemaManager::class)->ensureCurrent();
 
 // Insert some other default data
 $rootPageId = $installer->insertMainPage($lang_install['Main Page'], $now);
+$sectionId = ContentIdAllocator::allocate($register_db);
 $register_db->insert(ContentSchema::TABLE_NAME)
+    ->setValue('id', ':id')->setParameter('id', $sectionId)
     ->setValue('content_type', ':content_type')->setParameter('content_type', ContentType::PAGE->value)
     ->setValue('parent_id', ':parent_id')->setParameter('parent_id', $rootPageId)
     ->setValue('slug_scope', "'root'")
@@ -1118,9 +1121,9 @@ $register_db->insert(ContentSchema::TABLE_NAME)
     ->setValue('body', "''")
     ->execute()
 ;
-$sectionId = (int)$register_db->insertId();
 $register_db
     ->insert(ContentSchema::TABLE_NAME)
+    ->setValue('id', ':id')->setParameter('id', ContentIdAllocator::allocate($register_db))
     ->setValue('content_type', ':content_type')->setParameter('content_type', ContentType::PAGE->value)
     ->setValue('parent_id', ':parent_id')->setParameter('parent_id', $sectionId)
     ->setValue('slug_scope', ':slug_scope')->setParameter('slug_scope', 'page:' . $sectionId)

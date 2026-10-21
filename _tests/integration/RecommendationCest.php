@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentIdAllocator;
 use Psr\Cache\CacheItemPoolInterface;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
@@ -110,6 +111,7 @@ final class RecommendationCest
             ->setValue('series', "''")
             ->setValue('slug', "'recommendation-source'")
             ->setValue('author_id', 'NULL')
+            ->setValue('id', (string)ContentIdAllocator::allocate($dbLayer))
             ->execute();
         $postId = (int)$dbLayer->insertId();
 

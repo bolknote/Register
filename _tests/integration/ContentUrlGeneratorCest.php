@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentIdAllocator;
 use Register\Content\ContentId;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
@@ -82,6 +83,7 @@ final class ContentUrlGeneratorCest
                 'updated_at'   => '1',
                 'published'    => ':published',
             ])
+            ->setValue('id', (string)ContentIdAllocator::allocate($this->dbLayer))
             ->execute([
                 'content_type' => ContentType::PAGE->value,
                 'parent_id'    => $parentId,
@@ -109,6 +111,7 @@ final class ContentUrlGeneratorCest
                 'updated_at'   => '1',
                 'published'    => ':published',
             ])
+            ->setValue('id', (string)ContentIdAllocator::allocate($this->dbLayer))
             ->execute([
                 'content_type' => ContentType::POST->value,
                 'slug'         => $slug,

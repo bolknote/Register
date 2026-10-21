@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentIdAllocator;
 use Register\Auth\PublicAuthSettings;
 use Register\Auth\PublicAuthRepository;
 use Register\Comment\Antispam\SpamAssessmentRepository;
@@ -887,6 +888,7 @@ class CommentCest
             ->setValue('comments_enabled', '1')
             ->setValue('slug', "'thread-test'")
             ->setValue('template', "'site.php'")
+            ->setValue('id', (string)ContentIdAllocator::allocate($dbLayer))
             ->execute()
         ;
 

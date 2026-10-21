@@ -273,29 +273,27 @@ final readonly class PublicAuthRepository
     {
         $tokenHash = self::tokenHash($token);
         $now = time();
-        $row = $this->dbLayer
-            ->select('*')
-            ->from(PublicAuthSchema::MAGIC_LINKS_TABLE)
-            ->where('token_hash = :token_hash')->setParameter('token_hash', $tokenHash)
-            ->andWhere('used_at IS NULL')
-            ->andWhere('expires_at >= :now')->setParameter('now', $now)
-            ->execute()
-            ->fetchAssoc()
-        ;
-        if ($row === false) {
-            return null;
-        }
-
+        // Claim before reading: avoid upgrading a SQLite read snapshot, and ensure
+        // competing consumers cannot both proceed with the same pending comment.
         $updated = $this->dbLayer
             ->update(PublicAuthSchema::MAGIC_LINKS_TABLE)
             ->set('used_at', ':used_at')->setParameter('used_at', $now)
             ->where('token_hash = :token_hash')->setParameter('token_hash', $tokenHash)
             ->andWhere('used_at IS NULL')
+            ->andWhere('expires_at >= :now')->setParameter('now', $now)
             ->execute()
             ->affectedRows()
         ;
 
-        return $updated === 1 ? $row : null;
+        if ($updated !== 1) {
+            return null;
+        }
+
+        $row = $this->dbLayer->select('*')->from(PublicAuthSchema::MAGIC_LINKS_TABLE)
+            ->where('token_hash = :token_hash')->setParameter('token_hash', $tokenHash)
+            ->execute()->fetchAssoc();
+
+        return $row === false ? null : $row;
     }
 
     public static function tokenHash(string $token): string

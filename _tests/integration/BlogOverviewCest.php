@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentIdAllocator;
 use Register\Comment\CommentRepository;
 use Register\Comment\CommentSchema;
 use Register\Content\Admin\BlogOverviewRepository;
@@ -302,7 +303,8 @@ final class BlogOverviewCest
             'title' => ':title', 'excerpt' => "''", 'body' => "'<p>Overview fixture</p>'",
             'created_at' => ':created', 'updated_at' => ':updated', 'published' => ':published',
             'published_at' => ':published_at', 'scheduled_at' => ':scheduled_at', 'author_id' => ':author',
-        ])->execute([
+        ])->setValue('id', (string)ContentIdAllocator::allocate($db))
+        ->execute([
             'slug' => $canonical ? 'all/' . $slug : $slug,
             'title' => $title ?? ucfirst(str_replace('-', ' ', $slug)),
             'created' => $updatedAt, 'updated' => $updatedAt, 'published' => (int)$published,

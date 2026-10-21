@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentIdAllocator;
 use IntegrationTester;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
@@ -62,6 +63,7 @@ class RoutingCest
                 'updated_at'   => ':published_at',
                 'published'    => '1',
             ])
+            ->setValue('id', (string)ContentIdAllocator::allocate($I->grabService(DbLayer::class)))
             ->execute([
                 'content_type' => ContentType::POST->value,
                 'published_at' => $publishedAt,

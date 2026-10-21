@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentIdAllocator;
 use Register\Content\ContentId;
 use Register\Content\ContentItem;
 use Register\Content\ContentRepository;
@@ -322,6 +323,7 @@ final class SearchPresentationCest
             ->setValue('comments_enabled', '1')
             ->setValue('series', "''")
             ->setValue('author_id', 'NULL')
+            ->setValue('id', (string)ContentIdAllocator::allocate($dbLayer))
             ->execute();
         $id = new ContentId($type, (int)$dbLayer->insertId());
 
