@@ -23,6 +23,9 @@ final class EarlyPageCache
 
     private const int MAX_AGE = 86_400;
 
+    private const array FORWARDED_HEADERS = ['HTTP_FORWARDED', 'HTTP_X_FORWARDED_HOST', 'HTTP_X_FORWARDED_PROTO',
+        'HTTP_X_FORWARDED_PORT', 'HTTP_X_FORWARDED_PREFIX', 'HTTP_X_FORWARDED_FOR'];
+
     private readonly string $directory;
 
     private ?string $generation;
@@ -122,29 +125,37 @@ final class EarlyPageCache
     /** @param array<string, mixed> $server */
     public static function accepts(array $server): bool
     {
+        return self::requestBypassReason($server) === null;
+    }
+
+    /** @param array<string,mixed> $server */
+    private static function requestBypassReason(array $server): ?string
+    {
         if (!in_array($server['REQUEST_METHOD'] ?? '', ['GET', 'HEAD'], true)) {
-            return false;
+            return 'method';
         }
 
         foreach (['HTTP_COOKIE', 'HTTP_AUTHORIZATION', 'REDIRECT_HTTP_AUTHORIZATION', 'HTTP_RANGE',
-            'HTTP_X_REGISTER_NAVIGATION', 'HTTP_FORWARDED', 'HTTP_X_FORWARDED_HOST',
-            'HTTP_X_FORWARDED_PROTO', 'HTTP_IF_MATCH', 'HTTP_IF_UNMODIFIED_SINCE', 'PHP_AUTH_USER', 'PHP_AUTH_PW'] as $header) {
+            'HTTP_X_REGISTER_NAVIGATION', 'HTTP_IF_MATCH', 'HTTP_IF_UNMODIFIED_SINCE', 'PHP_AUTH_USER', 'PHP_AUTH_PW'] as $header) {
             if (isset($server[$header]) && $server[$header] !== '') {
-                return false;
+                return strtolower(str_replace('_', '-', $header));
             }
         }
 
         if (preg_match('/(?:no-cache|no-store|max-age\s*=\s*0)/i', (string)($server['HTTP_CACHE_CONTROL'] ?? '')) === 1
             || str_contains(strtolower((string)($server['HTTP_PRAGMA'] ?? '')), 'no-cache')) {
-            return false;
+            return 'cache-control';
         }
 
         $uri = $server['REQUEST_URI'] ?? '';
         $host = $server['HTTP_HOST'] ?? '';
-        return is_string($uri) && strlen($uri) <= 2048 && str_starts_with($uri, '/')
-            && !str_starts_with($uri, '//') && !str_contains($uri, '?')
-            && preg_match('/[\x00-\x20\x7f\\\\#]|%(?:00|0a|0d)/i', $uri) !== 1
-            && is_string($host) && preg_match('/^(?:[a-z0-9.-]+|\[[a-f0-9:]+\])(?::[0-9]{1,5})?$/iD', $host) === 1;
+        if (!is_string($uri) || strlen($uri) > 2048 || !str_starts_with($uri, '/')
+            || str_starts_with($uri, '//') || str_contains($uri, '?')
+            || preg_match('/[\x00-\x20\x7f\\\\#]|%(?:00|0a|0d)/i', $uri) === 1) {
+            return 'uri';
+        }
+
+        return is_string($host) && preg_match('/^(?:[a-z0-9.-]+|\[[a-f0-9:]+\])(?::[0-9]{1,5})?$/iD', $host) === 1 ? null : 'host';
     }
 
     /**
@@ -328,7 +339,13 @@ final class EarlyPageCache
     public function store(array $server, array $headers, string $body, array $views = [], ?string $contentId = null, ?int $validUntil = null, ?int $now = null): bool
     {
         $headers = $this->normalizeHeaders($headers);
-        if ($this->disabled || $this->unavailable || !self::accepts($server) || ($server['REQUEST_METHOD'] ?? '') !== 'GET'
+        $requestBypass = self::requestBypassReason($server);
+        if ($requestBypass !== null) {
+            $this->decision = 'bypass-request-' . $requestBypass;
+            return false;
+        }
+
+        if ($this->disabled || $this->unavailable || ($server['REQUEST_METHOD'] ?? '') !== 'GET'
             || strlen($body) > self::MAX_BYTES / 2 || isset($headers['set-cookie'])
             || !isset($headers['x-register-page-cache'])
             || !str_starts_with(strtolower($headers['content-type'][0] ?? ''), 'text/html')
@@ -443,8 +460,20 @@ final class EarlyPageCache
     /** @param array<string, mixed> $server */
     private function path(array $server): string
     {
-        $key = hash('sha256', implode("\0", [(string)$server['HTTP_HOST'], (string)($server['HTTPS'] ?? ''),
-            (string)($server['HTTP_X_HTTPS'] ?? ''), (string)$server['REQUEST_URI'], (string)($server['REGISTER_EARLY_VARIANT'] ?? 'reader')]));
+        $parts = [(string)$server['HTTP_HOST'], (string)($server['HTTPS'] ?? ''),
+            (string)($server['HTTP_X_HTTPS'] ?? ''), (string)$server['REQUEST_URI'], (string)($server['REGISTER_EARLY_VARIANT'] ?? 'reader')];
+        $forwarded = [];
+        foreach (self::FORWARDED_HEADERS as $header) {
+            $forwarded[] = (string)($server[$header] ?? '');
+        }
+
+        if (array_filter($forwarded, static fn(string $value): bool => $value !== '') !== []) {
+            // Trust in these headers depends on the sending peer, not just their contents.
+            // Keep trusted and untrusted senders apart without loading the proxy configurator.
+            $parts = [...$parts, ...$forwarded, (string)($server['REMOTE_ADDR'] ?? '')];
+        }
+
+        $key = hash('sha256', implode("\0", $parts));
         return $this->directory . '/' . substr($key, 0, 2) . '/' . $key . '.json';
     }
 

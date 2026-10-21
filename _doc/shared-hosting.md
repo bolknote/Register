@@ -178,11 +178,13 @@ On canonical query-free URLs, an eligible warm public HTML response can be sent 
 the early reader never evaluates configuration PHP or serialized application objects.
 
 The first implementation bypasses all cookies, authorization, query strings, partial navigation,
-range requests, proxy-forwarding headers, debug/disabled-cache installations, and nonempty
+range requests, debug/disabled-cache installations, and nonempty
 `url_prefix` layouts. Responses with a private form cookie, a fresh CSP nonce or an unsupported
 `Vary` header also stay on the normal path. PHP-managed output compression uses the normal
 handler to avoid double compression. Ordinary early responses support gzip, HEAD and conditional
 GET while preserving security and offline-reading headers.
+Proxy-forwarding headers and their sending peer are isolated in the cache key, so a proxied
+representation cannot replace a direct response or cross a proxy trust boundary.
 
 Snapshots live privately in `cache_dir/early-pages-v1`; a small private `_cache/.early-cache-*.json`
 locator records the evaluated cache location. Missing, corrupt, incompatible or expired state

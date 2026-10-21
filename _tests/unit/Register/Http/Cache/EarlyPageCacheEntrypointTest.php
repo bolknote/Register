@@ -25,7 +25,7 @@ final class EarlyPageCacheEntrypointTest extends TestCase
         self::assertSame(0, proc_close($process), $errors . $output);
         $report = json_decode($output, true, 32, JSON_THROW_ON_ERROR);
         self::assertIsArray($report);
-        self::assertCount(11, $report['safety_checks']);
+        self::assertCount(12, $report['safety_checks']);
         foreach ($report['safety_checks'] as $name => $passed) {
             self::assertTrue($passed, $name);
         }

@@ -202,7 +202,12 @@ PHP;
     $checks['query_cannot_publish_clean_url_snapshot'] = !in_array($queryReply['headers']['x-register-early-cache'] ?? '', ['hit', 'stored'], true);
     $cleanReader = $send('/benchmark-2', ['User-Agent: Mozilla/5.0 benchmark reader']);
     $checks['query_cannot_poison_reader_variant'] = str_contains($cleanReader['body'], 'name="register-analytics"');
-    $readMetrics(6);
+    $forwardedHeaders = ['User-Agent: Mozilla/5.0 benchmark reader', 'X-Forwarded-Proto: https'];
+    $send('/benchmark-3', $forwardedHeaders);
+    $send('/benchmark-3', $forwardedHeaders);
+    $forwardedReply = $send('/benchmark-3', $forwardedHeaders);
+    $checks['forwarded_public_request_can_be_cached'] = ($forwardedReply['headers']['x-register-early-cache'] ?? '') === 'hit';
+    $readMetrics(9);
     $scenarios = [];
     foreach (['reader' => 'Mozilla/5.0 benchmark reader', 'crawler' => 'SyntheticCrawler/1.0'] as $kind => $agent) {
         foreach (['identity', 'gzip'] as $encoding) {

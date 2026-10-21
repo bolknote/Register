@@ -56,8 +56,7 @@ final class EarlyPageCacheTest extends TestCase
             ['PHP_AUTH_USER' => 'private'], ['PHP_AUTH_PW' => 'private'],
             ['REQUEST_URI' => '/example?reply_to=1'], ['REQUEST_URI' => '/example?utm_source=anything'],
             ['REQUEST_METHOD' => 'POST'], ['REQUEST_METHOD' => 'OPTIONS'],
-            ['HTTP_X_REGISTER_NAVIGATION' => 'partial'], ['HTTP_X_FORWARDED_HOST' => 'other.test'],
-            ['HTTP_FORWARDED' => 'host=other.test'], ['HTTP_RANGE' => 'bytes=0-10'],
+            ['HTTP_X_REGISTER_NAVIGATION' => 'partial'], ['HTTP_RANGE' => 'bytes=0-10'],
             ['HTTP_CACHE_CONTROL' => 'no-cache'], ['HTTP_PRAGMA' => 'no-cache']] as $override) {
             self::assertNull($this->cache()->lookup($this->request($override)), implode(',', array_keys($override)));
         }
@@ -110,6 +109,22 @@ final class EarlyPageCacheTest extends TestCase
         unlink($this->directory . '/.register-maintenance.json');
         file_put_contents($this->directory . '/config.php', '<?php return ["changed" => true];');
         self::assertNull($this->cache()->lookup($this->request(), 150));
+    }
+
+    public function testForwardedRepresentationsAreIsolatedByAllRoutingHeadersAndTheirSender(): void
+    {
+        self::assertTrue($this->cache()->store($this->request(), $this->headers(), 'direct'));
+        foreach (['HTTP_FORWARDED' => 'host=proxy.test;proto=https', 'HTTP_X_FORWARDED_HOST' => 'proxy.test',
+            'HTTP_X_FORWARDED_PROTO' => 'https', 'HTTP_X_FORWARDED_PORT' => '8443',
+            'HTTP_X_FORWARDED_PREFIX' => '/proxy', 'HTTP_X_FORWARDED_FOR' => '192.0.2.1'] as $name => $value) {
+            $proxy = [$name => $value, 'REMOTE_ADDR' => '198.51.100.1'];
+            self::assertNull($this->cache()->lookup($this->request($proxy)));
+            self::assertTrue($this->cache()->store($this->request($proxy), $this->headers(), 'proxied'));
+            self::assertSame('proxied', $this->hit($proxy)['body']);
+            self::assertNull($this->cache()->lookup($this->request(array_replace($proxy, ['REMOTE_ADDR' => '198.51.100.2']))));
+            self::assertNull($this->cache()->lookup($this->request(array_replace($proxy, [$name => $value . '-changed']))));
+            self::assertSame('direct', $this->hit()['body']);
+        }
     }
 
     public function testInvalidationRejectsAnInFlightStalePublisher(): void
