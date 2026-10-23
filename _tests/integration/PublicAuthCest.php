@@ -87,9 +87,11 @@ final class PublicAuthCest
         $first = $application->handle($request());
         $I->assertSame(200, $first->getStatusCode());
         $I->assertStringContainsString($firstToken, (string)$first->getContent());
+
         $deadline = (int)$first->headers->get(EarlyPageCache::DEADLINE_HEADER);
         $I->assertGreaterThan($now, $deadline);
         $I->assertLessThanOrEqual($formToken->issueWithExpiry()['expires'], $deadline);
+
         $warm = $application->handle($request());
         $I->assertSame('hit', $warm->headers->get('X-Register-Page-Cache'));
         $I->assertSame((string)$deadline, $warm->headers->get(EarlyPageCache::DEADLINE_HEADER));
@@ -103,6 +105,7 @@ final class PublicAuthCest
         $now = $formToken->issueWithExpiry()['expires'] + 1;
         $I->assertFalse($formToken->matches($firstToken));
         $I->assertNull($early->lookup($server, $now));
+
         $fresh = $application->handle($request());
         $freshToken = $formToken->issue();
         $I->assertSame('miss', $fresh->headers->get('X-Register-Page-Cache'));

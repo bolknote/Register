@@ -429,6 +429,7 @@ final class EarlyPageCache
                 $this->decision = 'bypass-capacity';
                 return false;
             }
+
             $this->decision = 'stored';
             return $epoch === $this->epoch();
         } catch (\Throwable) {
@@ -530,6 +531,7 @@ final class EarlyPageCache
                 $cursorPath = $this->directory . '/cleanup.json';
                 $cursor = $this->read($cursorPath)['bucket'] ?? 0;
                 $cursor = is_int($cursor) && $cursor >= 0 && $cursor < 256 ? $cursor : 0;
+
                 $bucket = $this->directory . '/' . sprintf('%02x', $cursor);
                 $complete = !is_dir($bucket) || $this->withDirectoryLock($bucket, function () use ($bucket, $now, &$removed): bool {
                     return $this->trimBucket($bucket, $now, $removed);
