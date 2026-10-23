@@ -31,11 +31,12 @@ final readonly class PublicAuthRenderer
     ) {
     }
 
-    public function renderHeader(Request $request): string
+    /** @param (\Closure(int): void)|null $expireResponseAt */
+    public function renderHeader(Request $request, ?\Closure $expireResponseAt = null): string
     {
         return $this->viewer->render('public_auth_header', [
             'account_html' => $this->renderAccount($request),
-            'dialog_html'  => $this->renderDialog($request),
+            'dialog_html'  => $this->renderDialog($request, $expireResponseAt),
         ]);
     }
 
@@ -68,9 +69,10 @@ final readonly class PublicAuthRenderer
         ]);
     }
 
-    public function renderDialog(Request $request): string
+    /** @param (\Closure(int): void)|null $expireResponseAt */
+    public function renderDialog(Request $request, ?\Closure $expireResponseAt = null): string
     {
-        return $this->viewer->render('public_auth_dialog', $this->dialogVariables($request));
+        return $this->viewer->render('public_auth_dialog', $this->dialogVariables($request, $expireResponseAt));
     }
 
     public function renderPanel(Request $request): string
@@ -92,12 +94,19 @@ final readonly class PublicAuthRenderer
         ]);
     }
 
-    /** @return array<string, mixed> */
-    private function dialogVariables(Request $request): array
+    /**
+     * @param (\Closure(int): void)|null $expireResponseAt
+     * @return array<string, mixed>
+     */
+    private function dialogVariables(Request $request, ?\Closure $expireResponseAt = null): array
     {
         $returnPath = PublicReturnPath::normalize(
             $request->query->getString('return', $request->getRequestUri()),
         );
+        $credential = $this->formToken->issueWithExpiry();
+        if ($expireResponseAt !== null) {
+            $expireResponseAt($credential['expires']);
+        }
 
         return [
             'email_enabled' => $this->settings->emailEnabled(),
@@ -110,7 +119,7 @@ final readonly class PublicAuthRenderer
             'ok_url'        => $this->oauthUrl('ok_ru', $returnPath),
             'yandex_url'    => $this->oauthUrl('yandex', $returnPath),
             'return_path'   => $returnPath,
-            'form_token'    => $this->formToken->issue(),
+            'form_token'    => $credential['token'],
         ];
     }
 

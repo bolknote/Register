@@ -39,6 +39,10 @@ use Register\Core\Pdo\QueryBuilder\InsertBuilder;
 use Register\Core\HttpClient\HttpClient;
 use Register\Core\HttpClient\HttpClientInterface;
 use Register\Core\HttpClient\HttpResponse;
+use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\Http\Cache\EarlyPageCache;
+use Register\Core\Http\Cache\PageCachePools;
+use Register\Module\Blog\Model\BlogPageCache;
 use Register\Core\Model\UrlBuilder;
 use Register\Module\VisitorIdentity\Manifest as VisitorIdentityManifest;
 use Register\Module\VisitorIdentity\VisitorIdentityManager;
@@ -60,6 +64,57 @@ final class PublicAuthCest
         $I->assertSame($first, $formToken->issue($hour + 3599));
         $I->assertNotSame($first, $formToken->issue($hour + 3600));
         $I->assertTrue($formToken->matches($first, $hour + 3599));
+    }
+
+    public function testCachedSignInFormsRefreshInBothCacheLayersBeforeTheirTokenExpires(\IntegrationTester $I): void
+    {
+        $now = time() - 90_000;
+        $clock = static function () use (&$now): int { return $now; };
+        $application = $I->createApplication();
+        $container = $application->container;
+        $pdo = $I->grabService(\PDO::class);
+        $container->decorate(\PDO::class, static fn(): mixed => $pdo);
+        $container->decorate(PublicAuthFormToken::class, static fn(): PublicAuthFormToken => new PublicAuthFormToken(
+            $container->get(DynamicConfigProvider::class)->getStringProxy('REGISTER_ANTISPAM_SECRET'), $clock,
+        ));
+        $container->decorate(BlogPageCache::class, static function () use ($container, $clock): BlogPageCache {
+            $pools = $container->get(PageCachePools::class);
+            return new BlogPageCache($pools->persistent, hotCache: $pools->hot, clock: $clock);
+        });
+        $request = static fn(): Request => Request::create('https://localhost/', server: ['HTTP_USER_AGENT' => 'Mozilla/5.0 expiry test']);
+        $formToken = $container->get(PublicAuthFormToken::class);
+        $firstToken = $formToken->issue();
+        $first = $application->handle($request());
+        $I->assertSame(200, $first->getStatusCode());
+        $I->assertStringContainsString($firstToken, (string)$first->getContent());
+        $deadline = (int)$first->headers->get(EarlyPageCache::DEADLINE_HEADER);
+        $I->assertGreaterThan($now, $deadline);
+        $I->assertLessThanOrEqual($formToken->issueWithExpiry()['expires'], $deadline);
+        $warm = $application->handle($request());
+        $I->assertSame('hit', $warm->headers->get('X-Register-Page-Cache'));
+        $I->assertSame((string)$deadline, $warm->headers->get(EarlyPageCache::DEADLINE_HEADER));
+
+        $early = $container->get(EarlyPageCache::class);
+        $server = ['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => '/', 'HTTP_HOST' => 'localhost', 'HTTPS' => 'on'];
+        $warm->prepare($request());
+        $I->assertTrue($early->store($server, $warm->headers->all(), (string)$warm->getContent(), validUntil: $deadline, now: $now), $early->decision());
+        $I->assertNotNull($early->lookup($server, $deadline - 1));
+
+        $now = $formToken->issueWithExpiry()['expires'] + 1;
+        $I->assertFalse($formToken->matches($firstToken));
+        $I->assertNull($early->lookup($server, $now));
+        $fresh = $application->handle($request());
+        $freshToken = $formToken->issue();
+        $I->assertSame('miss', $fresh->headers->get('X-Register-Page-Cache'));
+        $I->assertStringNotContainsString($firstToken, (string)$fresh->getContent());
+        $I->assertStringContainsString($freshToken, (string)$fresh->getContent());
+        $I->assertTrue($formToken->matches($freshToken));
+
+        $signedIn = $application->handle(Request::create('https://localhost/auth/password', 'POST', [
+            'login' => 'admin', 'pass' => 'admin', 'auth_token' => $freshToken, 'return_path' => '/',
+        ], server: ['HTTP_ORIGIN' => 'https://localhost', 'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']));
+        $I->assertSame(200, $signedIn->getStatusCode());
+        $I->assertTrue(json_decode((string)$signedIn->getContent(), true, flags: JSON_THROW_ON_ERROR)['success']);
     }
 
     public function testGuestSeesOnlyConfiguredMethods(\IntegrationTester $I): void

@@ -192,8 +192,16 @@ locator records the evaluated cache location. Missing, corrupt, incompatible or 
 falls through to the engine. Configuration/release fingerprints, existing content invalidations,
 recommendation refreshes and maintenance mode prevent reuse of stale responses. Early invalidation
 is deliberately global for now; the underlying fragment caches keep their targeted invalidation.
-Snapshots expire no later than a dependent calendar/sidebar boundary, with a 24-hour safety ceiling.
+Snapshots expire no later than a dependent calendar/sidebar boundary or the embedded sign-in token,
+with a 24-hour safety ceiling. A token deadline also expires the normal HTML cache, so refreshing an
+early snapshot cannot republish an expired form. Updates preserve pending view and analytics spools.
 Stable hashed filenames replace old snapshots instead of creating directories per invalidation.
+The transport key follows the normal request parser and ignores `X-HTTPS`. Each of the 256 snapshot
+buckets holds at most 32 files and 1 MiB of JSON (8192 snapshots and 256 MiB overall, excluding counter
+mirrors and small maintenance files). Publication prunes under a bucket lock; oversized entries and
+contended locks fall through to normal rendering. Each engine pulse also sweeps one bucket for
+expired, invalidated or excess snapshots, inspecting at most 128 files so older unbounded caches
+drain gradually. This cleanup needs traffic, but the publication limits apply immediately.
 
 Human article views append to the existing durable view spool without SQL. Committed totals refresh
 small independent counter files, so serving a snapshot does not freeze its view count. One request

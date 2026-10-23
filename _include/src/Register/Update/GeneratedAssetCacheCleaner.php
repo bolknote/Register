@@ -20,6 +20,9 @@ final readonly class GeneratedAssetCacheCleaner
         'picture_reserve',
         'query-profiler-state.json',
         'register-updates',
+        // These queues contain the only copy of events awaiting a database flush.
+        'content-view-spool',
+        'analytics-spool',
     ];
 
     private string $cacheDirectory;

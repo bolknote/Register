@@ -19,16 +19,27 @@ final readonly class PublicAuthFormToken
     /** Keep guest page bodies and their ETags stable while retaining short-lived form credentials. */
     private const int ISSUE_INTERVAL = 3600;
 
-    public function __construct(private StringProxy $secret)
+    /** @var \Closure(): int */
+    private \Closure $clock;
+
+    /** @param (\Closure(): int)|null $clock */
+    public function __construct(private StringProxy $secret, ?\Closure $clock = null)
     {
+        $this->clock = $clock ?? time(...);
     }
 
     public function issue(?int $now = null): string
     {
-        $timestamp = $now ?? time();
+        return $this->issueWithExpiry($now)['token'];
+    }
+
+    /** @return array{token:string,expires:int} */
+    public function issueWithExpiry(?int $now = null): array
+    {
+        $timestamp = $now ?? ($this->clock)();
         $timestamp = intdiv($timestamp, self::ISSUE_INTERVAL) * self::ISSUE_INTERVAL;
 
-        return $timestamp . '.' . $this->signature($timestamp);
+        return ['token' => $timestamp . '.' . $this->signature($timestamp), 'expires' => $timestamp + self::LIFETIME];
     }
 
     public function matches(string $candidate, ?int $now = null): bool
@@ -38,7 +49,7 @@ final readonly class PublicAuthFormToken
         }
 
         $timestamp = (int)$matches[1];
-        $now ??= time();
+        $now ??= ($this->clock)();
         if ($timestamp > $now + 300 || $timestamp < $now - self::LIFETIME) {
             return false;
         }

@@ -10,6 +10,11 @@ declare(strict_types = 1);
 namespace unit\Register\Update;
 
 use Codeception\Test\Unit;
+use Register\Content\ContentId;
+use Register\Content\ContentViewIncrement;
+use Register\Content\ContentViewSpool;
+use Register\Module\Analytics\AnalyticsEvent;
+use Register\Module\Analytics\AnalyticsSpool;
 use Register\Module\Blog\Model\BlogPageCache;
 use Register\Module\Blog\Model\AllPostsPage;
 use Register\Module\Blog\Model\CachedBlogResponse;
@@ -125,6 +130,41 @@ final class GeneratedAssetCacheCleanerTest extends Unit
             self::assertSame($newHtml, $cache->firstResponse($variant, static fn(): Response => new Response($newHtml))->getContent());
             self::assertSame($newHtml, $cache->allResponse($variant, static fn(): Response => new Response($newHtml))->getContent());
             self::assertSame($newHtml, $cache->contentResponse($variant, '/fixture', static fn(): Response => new Response($newHtml))->getContent());
+        }
+    }
+
+    public function testUpdatesPreserveBothSealedAndActiveEventsUntilTheyCanBeFlushed(): void
+    {
+        $now = 1_700_000_000;
+        $views = new ContentViewSpool($this->temporaryRoot . '/_cache/content-view-spool', minimumSegmentAge: 0, shards: 1);
+        $analytics = new AnalyticsSpool($this->temporaryRoot . '/_cache/analytics-spool', minimumSegmentAge: 0, shards: 1);
+        $event = new AnalyticsEvent(str_repeat('1', 32), 'pageview', $now, $now, str_repeat('a', 64),
+            str_repeat('b', 64), str_repeat('c', 32), str_repeat('d', 64), '/example', 'Example',
+            str_repeat('e', 64), 'direct', '', '', '', '', '', 0, 0, '{}');
+        $increment = new ContentViewIncrement(ContentId::post(1), gmdate('Y-m-d', $now), 7);
+        $views->append($increment, $now);
+        $analytics->append([$event], $now);
+        self::assertSame(1, $views->sealDue($now));
+        self::assertSame(1, $analytics->sealDue($now));
+        $sealedViews = $views->sealedSegments();
+        $sealedAnalytics = $analytics->sealedSegments();
+        $views->append($increment, $now + 1);
+        $analytics->append([$event], $now + 1);
+
+        (new GeneratedAssetCacheCleaner($this->temporaryRoot))->clear();
+
+        self::assertSame($sealedViews, $views->sealedSegments());
+        self::assertSame($sealedAnalytics, $analytics->sealedSegments());
+        self::assertSame(1, $views->sealDue($now + 1));
+        self::assertSame(1, $analytics->sealDue($now + 1));
+        self::assertCount(2, $views->sealedSegments());
+        self::assertCount(2, $analytics->sealedSegments());
+        foreach ($views->sealedSegments() as $path) {
+            self::assertEquals(['increments' => [$increment], 'invalid' => 0], $views->readSegment($path));
+        }
+
+        foreach ($analytics->sealedSegments() as $path) {
+            self::assertEquals(['events' => [$event], 'invalid' => 0], $analytics->readSegment($path));
         }
     }
 }

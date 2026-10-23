@@ -23,6 +23,13 @@ final class EarlyPageCache
 
     private const int MAX_AGE = 86_400;
 
+    // 256 hash buckets cap public snapshots at 256 MiB and 8192 files.
+    private const int MAX_BUCKET_BYTES = 1_048_576;
+
+    private const int MAX_BUCKET_ENTRIES = 32;
+
+    private const int MAX_BUCKET_SCAN = 128;
+
     private const array FORWARDED_HEADERS = ['HTTP_FORWARDED', 'HTTP_X_FORWARDED_HOST', 'HTTP_X_FORWARDED_PROTO',
         'HTTP_X_FORWARDED_PORT', 'HTTP_X_FORWARDED_PREFIX', 'HTTP_X_FORWARDED_FOR'];
 
@@ -331,6 +338,7 @@ final class EarlyPageCache
             $next = $this->read($this->directory . '/engine-pulse.json')['next'] ?? 0;
             if (!is_int($next) || $next <= $now + 5) {
                 $this->write($this->directory . '/engine-pulse.json', ['next' => $now + 10]);
+                $this->collect($now);
             }
         } finally {
             if (is_resource($this->maintenanceLock)) {
@@ -417,7 +425,10 @@ final class EarlyPageCache
                 'expires' => $expires, 'headers' => $headers, 'body' => base64_encode(is_string($packed) ? $packed : $body),
                 'body_compression' => is_string($packed) ? 'gzip' : '',
                 'gzip' => is_string($gzip) ? base64_encode($gzip) : null, 'views' => $viewHashes, 'content_id' => $contentId];
-            $this->write($this->path($server), $entry);
+            if (!$this->storeSnapshot($this->path($server), $entry, $now)) {
+                $this->decision = 'bypass-capacity';
+                return false;
+            }
             $this->decision = 'stored';
             return $epoch === $this->epoch();
         } catch (\Throwable) {
@@ -478,9 +489,136 @@ final class EarlyPageCache
     /** @param array<string, mixed> $server */
     private function path(array $server): string
     {
-        $key = hash('sha256', implode("\0", [(string)$server['HTTP_HOST'], (string)($server['HTTPS'] ?? ''),
-            (string)($server['HTTP_X_HTTPS'] ?? ''), (string)$server['REQUEST_URI'], (string)($server['REGISTER_EARLY_VARIANT'] ?? 'reader')]));
+        // Match the normal request parser: X-HTTPS is not a trusted transport signal.
+        $https = (string)($server['HTTPS'] ?? '');
+        $secure = $https !== '' && $https !== '0' && strtolower($https) !== 'off';
+        $key = hash('sha256', implode("\0", [strtolower((string)$server['HTTP_HOST']), $secure ? 'https' : 'http',
+            (string)$server['REQUEST_URI'], (string)($server['REGISTER_EARLY_VARIANT'] ?? 'reader')]));
         return $this->directory . '/' . substr($key, 0, 2) . '/' . $key . '.json';
+    }
+
+    /** @param array<string, mixed> $entry */
+    private function storeSnapshot(string $path, array $entry, int $now): bool
+    {
+        $bytes = strlen(json_encode($entry, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+        if ($bytes > self::MAX_BUCKET_BYTES) {
+            return false;
+        }
+
+        return $this->withDirectoryLock(dirname($path), function () use ($path, $entry, $bytes, $now): bool {
+            $removed = 0;
+            if (!$this->trimBucket(dirname($path), $now, $removed, $path, $bytes)) {
+                return false;
+            }
+
+            $this->write($path, $entry);
+            return true;
+        });
+    }
+
+    /** Retire one bucket per engine pulse, including snapshots that are never requested again. */
+    public function collect(?int $now = null): int
+    {
+        if ($this->disabled || $this->unavailable) {
+            return 0;
+        }
+
+        $now ??= time();
+        $removed = 0;
+        try {
+            $this->withDirectoryLock($this->directory, function () use ($now, &$removed): bool {
+                $cursorPath = $this->directory . '/cleanup.json';
+                $cursor = $this->read($cursorPath)['bucket'] ?? 0;
+                $cursor = is_int($cursor) && $cursor >= 0 && $cursor < 256 ? $cursor : 0;
+                $bucket = $this->directory . '/' . sprintf('%02x', $cursor);
+                $complete = !is_dir($bucket) || $this->withDirectoryLock($bucket, function () use ($bucket, $now, &$removed): bool {
+                    return $this->trimBucket($bucket, $now, $removed);
+                });
+                $this->write($cursorPath, ['bucket' => $complete ? ($cursor + 1) % 256 : $cursor]);
+                return true;
+            });
+        } catch (\Throwable) {
+            // Disk maintenance is optional; normal rendering must remain available.
+        }
+
+        return $removed;
+    }
+
+    /**
+     * Inspect at most 128 old files per call; legacy unbounded buckets drain over several pulses.
+     * The caller holds the bucket lock through pruning and publication, so concurrent writers
+     * cannot each claim the same free space or race cleanup against a replacement.
+     */
+    private function trimBucket(string $directory, int $now, int &$removed, ?string $replacement = null, int $reservedBytes = 0): bool
+    {
+        $count = $replacement === null ? 0 : 1;
+        $bytes = $reservedBytes;
+        $inspected = 0;
+        $epoch = $this->epoch();
+        $fingerprint = $this->fingerprint();
+        foreach (new \DirectoryIterator($directory) as $file) {
+            if (preg_match('/^[a-f0-9]{64}\.json$/D', $file->getFilename()) !== 1) {
+                continue;
+            }
+
+            if (++$inspected > self::MAX_BUCKET_SCAN) {
+                return false;
+            }
+
+            $path = $file->getPathname();
+            if ($path === $replacement) {
+                continue;
+            }
+
+            $size = $file->isLink() ? 0 : $file->getSize();
+            if ($size === false) {
+                return false;
+            }
+
+            $entry = $count >= self::MAX_BUCKET_ENTRIES || $bytes + $size > self::MAX_BUCKET_BYTES ? null : $this->read($path);
+            if ($entry === null || ($entry['format'] ?? null) !== self::FORMAT
+                || ($entry['generation'] ?? null) !== $epoch || ($entry['fingerprint'] ?? null) !== $fingerprint
+                || !is_int($entry['expires'] ?? null) || $entry['expires'] <= $now) {
+                if (!self::withoutWarnings(static fn(): bool => unlink($path))) {
+                    return false;
+                }
+
+                ++$removed;
+                continue;
+            }
+
+            ++$count;
+            $bytes += $size;
+        }
+
+        return true;
+    }
+
+    /** @param \Closure(): bool $operation */
+    private function withDirectoryLock(string $directory, \Closure $operation): bool
+    {
+        if (is_link($directory)
+            || (!is_dir($directory) && !self::withoutWarnings(static fn(): bool => mkdir($directory, 0700, true)) && !is_dir($directory))) {
+            return false;
+        }
+
+        $path = $directory . '/bucket.lock';
+        if (is_link($path)) {
+            return false;
+        }
+
+        $lock = self::withoutWarnings(static fn() => fopen($path, 'c+b'));
+        if ($lock === false) {
+            return false;
+        }
+
+        try {
+            self::withoutWarnings(static fn(): bool => chmod($path, 0600));
+            return flock($lock, LOCK_EX | LOCK_NB) && $operation();
+        } finally {
+            flock($lock, LOCK_UN);
+            fclose($lock);
+        }
     }
 
     private function fingerprint(): string

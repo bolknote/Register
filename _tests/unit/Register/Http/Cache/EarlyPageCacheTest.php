@@ -146,6 +146,90 @@ final class EarlyPageCacheTest extends TestCase
         self::assertSame('new', $this->hit()['body']);
     }
 
+    public function testArbitraryXHttpsValuesAndEquivalentTransportFlagsShareOneSnapshot(): void
+    {
+        self::assertTrue($this->cache()->store($this->request(), $this->headers(), 'http'));
+        foreach (['on', 'off', 'https', 'arbitrary-1', 'arbitrary-2'] as $value) {
+            $request = $this->request(['HTTP_X_HTTPS' => $value, 'HTTPS' => 'OFF', 'HTTP_HOST' => 'EXAMPLE.TEST']);
+            self::assertSame('http', $this->cache()->lookup($request)['body'] ?? null);
+            self::assertTrue($this->cache()->store($request, $this->headers(), 'http'));
+        }
+
+        self::assertCount(1, $this->snapshots());
+        self::assertTrue($this->cache()->store($this->request(['HTTPS' => 'on']), $this->headers(), 'https'));
+        self::assertSame('https', $this->hit(['HTTPS' => '1', 'HTTP_X_HTTPS' => 'untrusted'])['body']);
+        self::assertSame('http', $this->hit()['body']);
+        self::assertCount(2, $this->snapshots());
+    }
+
+    public function testEnginePulsesRemoveExpiredSnapshotsWithoutRevisitingTheirUrls(): void
+    {
+        self::assertTrue($this->cache()->store($this->request(), $this->headers(), 'expired', validUntil: 101, now: 100));
+        self::assertTrue($this->cache()->store($this->request(['REQUEST_URI' => '/fresh']), $this->headers(), 'fresh', now: 200));
+        $this->cache()->publishView('post:1', 7, '<span>7 views</span>');
+        for ($i = 0; $i < 256; ++$i) {
+            $this->cache()->engineFinished(200 + $i * 10);
+        }
+
+        $snapshots = array_filter($this->snapshots(), static fn(string $path): bool => basename(dirname($path)) !== 'views');
+        self::assertCount(1, $snapshots);
+        self::assertSame('fresh', $this->cache()->lookup($this->request(['REQUEST_URI' => '/fresh']), 3000)['body'] ?? null);
+        self::assertFileExists($this->directory . '/cache/early-pages-v1/views/' . hash('sha256', 'post:1') . '.json');
+    }
+
+    public function testPublicationCapsTheNumberOfSnapshotsInABucket(): void
+    {
+        $this->seedLegacyBucket(80);
+        self::assertTrue($this->cache()->store($this->request(), $this->headers(), 'updated'));
+        self::assertLessThanOrEqual(32, count($this->snapshots()));
+        self::assertSame('updated', $this->hit()['body']);
+    }
+
+    public function testPublicationCapsTheBytesInABucket(): void
+    {
+        $this->seedLegacyBucket(20, 90_000);
+        self::assertTrue($this->cache()->store($this->request(), $this->headers(), 'updated'));
+        $bytes = 0;
+        foreach ($this->snapshots() as $path) {
+            $size = filesize($path);
+            self::assertIsInt($size);
+            $bytes += $size;
+        }
+
+        self::assertLessThanOrEqual(1_048_576, $bytes);
+        self::assertSame('updated', $this->hit()['body']);
+    }
+
+    public function testLargeLegacyBucketsDrainInBoundedPasses(): void
+    {
+        $this->seedLegacyBucket(200);
+        self::assertFalse($this->cache()->store($this->request(), $this->headers(), 'updated'));
+        self::assertSame('bypass-capacity', $this->cache()->decision());
+        self::assertGreaterThanOrEqual(201 - 128, count($this->snapshots()));
+        self::assertTrue($this->cache()->store($this->request(), $this->headers(), 'updated'));
+        self::assertLessThanOrEqual(32, count($this->snapshots()));
+    }
+
+    public function testOversizedEntriesAndContendedWritersKeepTheExistingSnapshot(): void
+    {
+        self::assertTrue($this->cache()->store($this->request(), $this->headers(), 'original'));
+        self::assertFalse($this->cache()->store($this->request(), $this->headers(), base64_encode(random_bytes(700_000))));
+        self::assertSame('bypass-capacity', $this->cache()->decision());
+        $lock = fopen(dirname($this->snapshots()[0]) . '/bucket.lock', 'c+b');
+        self::assertIsResource($lock);
+        try {
+            self::assertTrue(flock($lock, LOCK_EX | LOCK_NB));
+            self::assertFalse($this->cache()->store($this->request(), $this->headers(), 'contending writer'));
+            self::assertSame('original', $this->hit()['body']);
+        } finally {
+            flock($lock, LOCK_UN);
+            fclose($lock);
+        }
+
+        self::assertTrue($this->cache()->store($this->request(), $this->headers(), 'updated'));
+        self::assertSame('updated', $this->hit()['body']);
+    }
+
     public function testGzipNegotiationConditionalRequestsAndHead(): void
     {
         $body = str_repeat('<p>A cached page.</p>', 100);
@@ -251,6 +335,25 @@ final class EarlyPageCacheTest extends TestCase
             $entry['headers'] = $headers;
             file_put_contents($files[0], json_encode($entry, JSON_THROW_ON_ERROR));
             self::assertNull($this->cache()->lookup($this->request()));
+        }
+    }
+
+    /** @return list<string> */
+    private function snapshots(): array
+    {
+        $files = glob($this->directory . '/cache/early-pages-v1/*/*.json');
+        self::assertNotFalse($files);
+        return $files;
+    }
+
+    private function seedLegacyBucket(int $count, int $padding = 0): void
+    {
+        self::assertTrue($this->cache()->store($this->request(), $this->headers(), 'original'));
+        $path = $this->snapshots()[0];
+        $entry = json_decode((string)file_get_contents($path), true, 16, JSON_THROW_ON_ERROR);
+        $entry['legacy_padding'] = str_repeat('x', $padding);
+        for ($i = 0; $i < $count; ++$i) {
+            file_put_contents(dirname($path) . '/' . hash('sha256', 'legacy-snapshot-' . $i) . '.json', json_encode($entry, JSON_THROW_ON_ERROR));
         }
     }
 

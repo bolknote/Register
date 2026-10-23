@@ -42,11 +42,10 @@ final class BlogPageCache implements StatefulServiceInterface
 
     private const string RECENT_DISCUSSIONS_KEY = 'register_blog_recent_discussions_v2';
 
-    // Updated stylesheet URLs need fresh HTML shells,
-    // while expensive content fragments and indexes remain compatible and warm.
-    private const string FIRST_RESPONSE_PREFIX = 'register_blog_first_response_v10_';
+    // Older HTML shells have no public-auth expiry; retain compatible content fragments.
+    private const string FIRST_RESPONSE_PREFIX = 'register_blog_first_response_v11_';
 
-    private const string ALL_RESPONSE_PREFIX = 'register_blog_all_response_v10_';
+    private const string ALL_RESPONSE_PREFIX = 'register_blog_all_response_v11_';
 
     private const string CONTENT_RESPONSE_GENERATION_KEY = 'register_content_response_generation_v1';
 
@@ -54,7 +53,7 @@ final class BlogPageCache implements StatefulServiceInterface
 
     private const string CONTENT_RESPONSE_PATH_PREFIX = 'register_content_response_path_v1_';
 
-    private const string CONTENT_RESPONSE_PREFIX = 'register_content_response_v10_';
+    private const string CONTENT_RESPONSE_PREFIX = 'register_content_response_v11_';
 
     /** Only crawler/prefetch HTML changed; keep ordinary reader responses warm. */
     private const string NON_INTERACTIVE_RESPONSE_SUFFIX = '_noninteractive_v2';

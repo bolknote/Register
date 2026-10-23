@@ -30,6 +30,7 @@ final readonly class SiteHeaderRenderer
         private StringProxy         $siteName,
         private StringProxy         $tagline,
         private PublicAuthRenderer  $publicAuthRenderer,
+        private BlogPageCache       $pageCache,
     ) {
     }
 
@@ -43,7 +44,7 @@ final readonly class SiteHeaderRenderer
             'home_url'         => $this->urlBuilder->link('/'),
             'is_home'          => $request->getPathInfo() === '/',
             'site_tools_html'  => $this->renderTools($request),
-            'public_auth_html' => $this->publicAuthRenderer->renderHeader($request),
+            'public_auth_html' => $this->publicAuthRenderer->renderHeader($request, $this->pageCache->invalidateCurrentResponseAt(...)),
             'create_post_html' => $this->postFeedRenderer->renderCreateTemplate($request),
             'editor_resources_html' => $editorConfig === null ? '' : $this->viewer->render(
                 'post-editor-resources',

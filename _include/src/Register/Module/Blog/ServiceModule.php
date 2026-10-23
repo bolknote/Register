@@ -226,6 +226,7 @@ final class ServiceModule implements ContainerModuleInterface
                 $provider->getStringProxy('REGISTER_SITE_NAME'),
                 $provider->getStringProxy(SiteHeaderRenderer::TAGLINE_CONFIG_KEY),
                 $container->get(\Register\Auth\PublicAuthRenderer::class),
+                $container->get(BlogPageCache::class),
             );
         });
         $container->set(PostInplaceTokenManager::class, static fn(Container $container): PostInplaceTokenManager => new PostInplaceTokenManager(
