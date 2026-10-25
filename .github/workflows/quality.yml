@@ -42,7 +42,7 @@ jobs:
         run: |
           # GTK uses the real HTML clipboard; headless WPE uses a separate pasteboard.
           if [[ "$EDITOR_TEST_BROWSER" == webkit ]]; then
-            EDITOR_TEST_HEADED=1 xvfb-run -a npm test
+            EDITOR_TEST_CLIPBOARD_HEADED=1 xvfb-run -a npm test
           else
             npm test
           fi

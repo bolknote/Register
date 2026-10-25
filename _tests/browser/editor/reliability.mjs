@@ -22,7 +22,7 @@ await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
 try {
     for (const engine of engines.filter(engine => !selectedEngine || engine.name() === selectedEngine)) {
-        const browser = await engine.launch({headless: process.env.EDITOR_TEST_HEADED !== '1'});
+        const browser = await engine.launch();
         try {
             console.log(`${engine.name()} editor reliability regressions`);
             await runInitialLayoutRegressions(browser, origin);

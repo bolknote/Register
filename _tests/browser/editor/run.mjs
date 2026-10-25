@@ -51,6 +51,16 @@ import {runMediaLibraryUploadRegressions, runMediaLibraryFailureRegressions, run
     runMediaLibraryFilteredSelectionRegressions, runMediaLibraryFilteredKeyboardRegressions, runMediaLibraryHiddenFocusRegressions,
     runMediaLibraryFolderRollbackRegressions, runMediaLibraryLiteralNameRegressions} from './media-library-tests.mjs';
 
+async function runNativeClipboardRegressions(browser, origin, run) {
+    const headed = process.env.EDITOR_TEST_CLIPBOARD_HEADED === '1';
+    const clipboardBrowser = headed ? await browser.browserType().launch({headless: false}) : browser;
+    try {
+        await run(clipboardBrowser, origin);
+    } finally {
+        if (headed) await clipboardBrowser.close();
+    }
+}
+
 async function runAuthorWorkflowRegressions(browser, origin) {
     const page = await browser.newPage();
     const errors = [];
@@ -441,7 +451,7 @@ const server = createFixtureServer();
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 try {
     for (const engine of engines.filter(engine => !selectedEngine || engine.name() === selectedEngine)) {
-        const browser = await engine.launch({headless: process.env.EDITOR_TEST_HEADED !== '1'});
+        const browser = await engine.launch();
         try {
             await runDurabilityRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runHtmlBlockRegressions(browser, `http://127.0.0.1:${server.address().port}`);
@@ -467,7 +477,7 @@ try {
             await runAuthorWorkflowRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runMediaSpacingRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runMediaDeleteBoundaryRegressions(browser, `http://127.0.0.1:${server.address().port}`);
-            await runMediaCaptionRecoveryRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runNativeClipboardRegressions(browser, `http://127.0.0.1:${server.address().port}`, runMediaCaptionRecoveryRegressions);
             await runMediaNavigationRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runTableNavigationRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runInlineCodeBoundaryRegressions(browser, `http://127.0.0.1:${server.address().port}`);
@@ -483,7 +493,7 @@ try {
             await runAdminInputRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runAdminHtmlRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runCaptionInputRegressions(browser, `http://127.0.0.1:${server.address().port}`);
-            await runComplexEditingRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runNativeClipboardRegressions(browser, `http://127.0.0.1:${server.address().port}`, runComplexEditingRegressions);
             await runCaptionBoundaryRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runFieldHistoryRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runMediaAiRegressions(browser, `http://127.0.0.1:${server.address().port}`);

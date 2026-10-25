@@ -44,12 +44,15 @@ and cancellation with and without JavaScript. Reply selection never creates quer
 URLs or publishes comments; obsolete reply query URLs return a plain 404.
 To diagnose one engine locally, run `EDITOR_TEST_BROWSER=webkit npm test` (or
 `chromium` / `firefox`); the default runs all three.
-On Linux, the workflow runs WebKit headed under Xvfb so native HTML copy/paste uses
-GTK's system clipboard. Playwright's headless WPE port uses a separate in-process
+On Linux, the workflow runs WebKit's native clipboard scenarios headed under Xvfb
+so HTML copy/paste uses GTK's system clipboard; the other suites remain headless.
+Playwright's headless WPE port uses a separate in-process
 pasteboard with different HTML MIME formats (see its
 [WebKit patches](https://github.com/microsoft/playwright/blob/v1.62.1/browser_patches/webkit/patches/bootstrap.diff)).
 Reproduce that Linux configuration with
-`EDITOR_TEST_BROWSER=webkit EDITOR_TEST_HEADED=1 xvfb-run -a npm test`.
+`EDITOR_TEST_BROWSER=webkit EDITOR_TEST_CLIPBOARD_HEADED=1 xvfb-run -a npm test`.
+The standalone `media-caption-recovery-tests.mjs` and `complex-editing-tests.mjs`
+also accept `EDITOR_TEST_HEADED=1` to run these scenarios directly under Xvfb.
 The reaction-control regressions also run independently with
 `node reactions-tests.mjs`. They use the real PHP renderer and reaction repository
 against a disposable in-memory SQLite database, the production reaction JavaScript
