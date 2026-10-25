@@ -181,6 +181,7 @@ async function listCaret(browser, origin, kind, position, menu, text = 'First it
             assert.equal(await body.locator('p > ol, p > ul').count(), 0, 'Lists must not remain inside paragraphs');
             assert.equal(await body.locator('[data-post-list-bookmark]').count(), 0, 'Selection bookmarks never remain in content');
             assert.equal((await body.textContent()).includes('\u200b'), false, 'Bookmark characters never remain in text');
+            assert.equal((await body.textContent()).includes('\u00a0'), false, 'Temporary bookmark spaces never remain in text');
             await page.keyboard.insertText('ADDED');
             assert.equal(await body.locator('li').textContent(), text.slice(0, position) + 'ADDED' + text.slice(position),
                 'List conversion retains the caret at the original text offset');

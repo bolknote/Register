@@ -3309,8 +3309,9 @@
             const marker = document.createElement('span');
             marker.dataset.postListBookmark = token + edge;
             // Native list commands discard empty spans and recreate text nodes.
-            // A zero-width character keeps each bookmark through that rewrite.
-            marker.textContent = '\u200b';
+            // A temporary nonbreaking space keeps the bookmark through that
+            // rewrite; removing the marker removes the space before recording.
+            marker.textContent = '\u00a0';
             const point = range.cloneRange();
             point.collapse(!end);
             point.insertNode(marker);
