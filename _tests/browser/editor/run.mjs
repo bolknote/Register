@@ -441,7 +441,7 @@ const server = createFixtureServer();
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 try {
     for (const engine of engines.filter(engine => !selectedEngine || engine.name() === selectedEngine)) {
-        const browser = await engine.launch();
+        const browser = await engine.launch({headless: process.env.EDITOR_TEST_HEADED !== '1'});
         try {
             await runDurabilityRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runHtmlBlockRegressions(browser, `http://127.0.0.1:${server.address().port}`);

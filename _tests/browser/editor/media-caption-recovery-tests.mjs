@@ -145,6 +145,12 @@ export async function runMediaCaptionRecoveryRegressions(browser, origin) {
             assert.match(packet.html, /class="post-picture post-media-picture"/u);
             assert.match(packet.html, /An example caption\./u, 'A selected image always retains its complete caption');
             await body.evaluate(body => {
+                document.addEventListener('paste', event => {
+                    window.captionPaste = {
+                        types: Array.from(event.clipboardData.types),
+                        html: event.clipboardData.getData('text/html'),
+                    };
+                }, {once: true});
                 const range = document.createRange();range.selectNodeContents(body.lastElementChild);range.collapse(false);
                 body.focus();getSelection().removeAllRanges();getSelection().addRange(range);
             });
@@ -155,7 +161,8 @@ export async function runMediaCaptionRecoveryRegressions(browser, origin) {
                 await body.locator('.post-media-picture').nth(count - 1).waitFor({state: 'attached'});
             } catch (error) {
                 throw new Error(browser.browserType().name() + ' ' + mode
-                    + ': pasted media did not appear: ' + await body.innerHTML(), {cause: error});
+                    + ': pasted media did not appear: ' + await body.innerHTML()
+                    + '\nClipboard formats: ' + JSON.stringify(await page.evaluate(() => window.captionPaste)), {cause: error});
             }
             assert.equal(await body.locator('.post-media-picture').count(), count);
             assert.equal(await body.locator('.post-media-picture > .post-caption').count(), count);
@@ -180,7 +187,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     try {
         for (const engine of [chromium, firefox, webkit]) {
             if (process.env.EDITOR_TEST_BROWSER && process.env.EDITOR_TEST_BROWSER !== engine.name()) continue;
-            const browser = await engine.launch();
+            const browser = await engine.launch({headless: process.env.EDITOR_TEST_HEADED !== '1'});
             try { await runMediaCaptionRecoveryRegressions(browser, `http://127.0.0.1:${server.address().port}`); }
             finally { await browser.close(); }
         }

@@ -327,7 +327,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     try {
         for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
             if (process.env.EDITOR_TEST_BROWSER && process.env.EDITOR_TEST_BROWSER !== name) continue;
-            const browser = await engine.launch();
+            const browser = await engine.launch({headless: process.env.EDITOR_TEST_HEADED !== '1'});
             try { await runComplexEditingRegressions(browser, 'http://127.0.0.1:' + server.address().port); }
             catch (error) { failures.push(error); }
             finally { await browser.close(); }
