@@ -259,6 +259,7 @@ async function nativeRichClipboard(browser, origin) {
                 getSelection().addRange(range);
             });
             await page.keyboard.press(modifier + '+v');
+            await body.locator('td').filter({hasText: 'Copied cell B'}).waitFor({state: 'attached'});
             assert.equal(await body.locator('blockquote').count(), 1, 'Native HTML paste retains the quote: ' + await body.innerHTML());
             assert.equal(await body.locator('blockquote strong, blockquote b').textContent(), 'rich quote');
             assert.equal(await body.locator('ul ol li').textContent(), 'Nested item');
@@ -269,6 +270,7 @@ async function nativeRichClipboard(browser, origin) {
             const caption = body.locator('.is-editing-inline-caption');
             await caption.press(modifier + '+a');
             await caption.press(modifier + '+v');
+            await page.waitForFunction(() => document.querySelector('.is-editing-inline-caption')?.textContent.includes('Copied cell B'));
             await caption.press('Enter');
             const captionText = await body.locator('.post-caption').textContent();
             for (const text of ['rich quote', 'Outer item', 'Nested item', 'Copied cell A', 'Copied cell B']) {

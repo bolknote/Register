@@ -2639,21 +2639,24 @@
         if (event.defaultPrevented) return;
         const state = bodyDropState(event.target);
         const html = event.clipboardData?.getData('text/html') || '';
-        if (!state || !/data-post-(?:(?:clipboard|history)-upload|html-source)/u.test(html)) return;
+        const clipboard = pendingMediaClipboard;
+        const cachedMedia = state && clipboard?.state === state && clipboard.html === html
+            && Boolean(clipboard.root.querySelector('.post-picture img, .post-media-picture img, figure img'));
+        if (!state || (!cachedMedia && !/data-post-(?:(?:clipboard|history)-upload|html-source)/u.test(html))) return;
         const template = document.createElement('template');
         template.innerHTML = html;
         const hasUploads = Boolean(template.content.querySelector('[data-post-clipboard-upload], [data-post-history-upload]'));
-        if (!hasUploads && !template.content.querySelector('div[data-post-html-source]')) return;
+        if (!hasUploads && !cachedMedia && !template.content.querySelector('div[data-post-html-source]')) return;
         event.preventDefault();
-        const clipboard = pendingMediaClipboard;
         if (hasUploads && (!clipboard || clipboard.state !== state || clipboard.html !== html
             || Array.from(clipboard.uploads.values()).some(pending => pending.settled && !pending.completed))) {
             showEditorStatus(state, editorConfig().mediaClipboardUnavailable
                 || 'Copy the attachment again after it finishes uploading.', true);
             return;
         }
-        // Pending slots require this session's cached DOM and live requests.
-        // Self-contained HTML blocks can also come from another editing session.
+        // Preserve our copied media DOM instead of letting native paste strip
+        // its wrapper/caption. Only an exact copy from this session is trusted.
+        // Pending slots also need their live requests; HTML blocks are portable.
         const completedImages = [];
         state.history.transact(() => {
             protectSelectedMediaBoundary(state.body);
@@ -2666,7 +2669,7 @@
             deleteMediaClipboardRange(state.body, range);
             range = prepareMediaInsertionRange(state.body, range);
             const fragment = document.createDocumentFragment();
-            fragment.append(...(hasUploads ? clipboard.root : template.content).cloneNode(true).childNodes);
+            fragment.append(...(hasUploads || cachedMedia ? clipboard.root : template.content).cloneNode(true).childNodes);
             // HTML source is inert until its isolated preview is rebuilt. Never
             // paste copied iframe names, controls or active author styles here.
             window.RegisterEditorHtmlBlocks.strip(fragment);

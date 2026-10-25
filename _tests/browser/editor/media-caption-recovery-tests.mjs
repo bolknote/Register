@@ -150,6 +150,13 @@ export async function runMediaCaptionRecoveryRegressions(browser, origin) {
             });
             await page.keyboard.press(`${modifier}+v`);
             const count = mode === 'cut' ? 1 : 2;
+            // GTK WebKit can read the system clipboard asynchronously.
+            try {
+                await body.locator('.post-media-picture').nth(count - 1).waitFor({state: 'attached'});
+            } catch (error) {
+                throw new Error(browser.browserType().name() + ' ' + mode
+                    + ': pasted media did not appear: ' + await body.innerHTML(), {cause: error});
+            }
             assert.equal(await body.locator('.post-media-picture').count(), count);
             assert.equal(await body.locator('.post-media-picture > .post-caption').count(), count);
             assert.deepEqual(await body.locator('.post-media-picture > .post-caption').allTextContents(), Array(count).fill(caption));
