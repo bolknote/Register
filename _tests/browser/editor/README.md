@@ -288,6 +288,15 @@ unselected image/caption block. They also cover inserting a photo in the middle 
 prose and copying its lower half above it, normal character and explicit whole-picture
 deletion, visual caption spacing, undo/redo, saving and reopening in all three engines.
 
+Eleven caption-recovery scenarios cover editor-owned block images whose outer wrapper was
+lost during native editing or clipboard operations. Bare, linked, responsive and nested images
+regain an editable caption field; an explicitly marked orphan caption is reattached without
+guessing the meaning of adjacent ordinary prose or changing authored inline images. Real
+copy/cut/paste retains the complete media block even when a selection ends inside its caption;
+copying only caption text remains ordinary text copying. Visual spacing, undo/redo and actual
+save/reopen are checked in all three engines. Run them independently with
+`node media-caption-recovery-tests.mjs`.
+
 Nine field/history scenarios cover independent keyboard and native-menu undo in
 the title, body redo, saving, and fresh editing sessions. AI title suggestions and
 restored draft titles participate in the same bounded title history. Body history

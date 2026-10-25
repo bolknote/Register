@@ -5,6 +5,7 @@
     function create({rangeIsInside, editorStates}) {
         function clearBoundaryCaret(element) {
             element.classList.remove('has-leading-boundary-caret');
+            if (element.getAttribute('class') === '') element.removeAttribute('class');
         }
 
         function clearSyntheticBoundaryCaret(element) {
@@ -949,6 +950,7 @@
             // empty lines, including native Enter clones and reopened content.
             root.querySelectorAll(':scope > p').forEach((paragraph) => {
                 paragraph.classList.toggle('post-editor-empty-paragraph', editorBoundaryParagraphIsEmpty(paragraph));
+                if (paragraph.getAttribute('class') === '') paragraph.removeAttribute('class');
             });
             const selection = window.getSelection();
             const preserveSelection = selection?.rangeCount > 0
@@ -958,6 +960,38 @@
             const anchorOffset = preserveSelection ? selection.anchorOffset : 0;
             const focusNode = preserveSelection ? selection.focusNode : null;
             const focusOffset = preserveSelection ? selection.focusOffset : 0;
+            root.querySelectorAll('img.post-media-image').forEach((image) => {
+                if (image.closest('.post-picture, .post-media-picture, figure')) return;
+                // Native clipboard/editing commands can drop an uploaded image's
+                // outer block. Restore only editor-owned block images; authored
+                // inline images and adjacent ordinary text keep their meaning.
+                let visual = image;
+                while (visual.parentElement !== root && visual.parentElement?.matches(
+                    'a, picture, .post-media-overlay, .post-proportional-wrapper',
+                )) visual = visual.parentElement;
+                let following = visual.nextSibling;
+                while (following && boundaryNodeIsEmpty(following)) following = following.nextSibling;
+                if (!following && visual.parentElement?.tagName === 'P') {
+                    following = visual.parentElement.nextSibling;
+                    while (following && boundaryNodeIsEmpty(following)) following = following.nextSibling;
+                }
+                const caption = following instanceof HTMLElement && following.matches('.post-caption') ? following : null;
+                // Temporarily replace the visual so splitting its paragraph does
+                // not retain an otherwise empty suffix just because of the image.
+                const marker = document.createTextNode('');
+                visual.replaceWith(marker);
+                const range = document.createRange();
+                range.setStartBefore(marker);
+                range.collapse(true);
+                const insertion = prepareMediaInsertionRange(root, range);
+                const picture = document.createElement('div');
+                picture.className = 'post-picture post-media-picture';
+                insertion.insertNode(picture);
+                picture.append(visual);
+                if (caption) picture.append(caption);
+                marker.remove();
+                changed = true;
+            });
             const pictures = Array.from(root.querySelectorAll('.post-media-picture')).reverse();
             pictures.forEach((picture) => {
                 if (!picture.isConnected && !root.contains(picture)) {

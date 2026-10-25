@@ -2580,12 +2580,22 @@
         const state = bodyDropState(event.target);
         const selection = window.getSelection();
         if (!state?.history || selection?.rangeCount !== 1) return;
-        const range = selection.getRangeAt(0);
+        const range = selection.getRangeAt(0).cloneRange();
         if (range.collapsed || !rangeIsInside(state.body, range)) return;
+        state.body.querySelectorAll('img').forEach((image) => {
+            if (!range.intersectsNode(image)) return;
+            const picture = image.closest('.post-picture, .post-media-picture, figure');
+            if (!picture || !state.body.contains(picture)) return;
+            // Selecting the visual and some/all of its caption must copy the
+            // complete owning block, not orphan IMG/FIGCAPTION siblings.
+            if (picture.contains(range.startContainer)) range.setStartBefore(picture);
+            if (picture.contains(range.endContainer)) range.setEndAfter(picture);
+        });
         const container = document.createElement('div');
         container.append(range.cloneContents());
         const uploads = state.history.clipboardUploads(container);
-        if (uploads.size === 0 && !container.querySelector('div[data-post-html-source]')) return;
+        if (uploads.size === 0 && !container.querySelector('div[data-post-html-source]')
+            && !container.querySelector('.post-picture img, .post-media-picture img, figure img')) return;
         window.RegisterEditorHtmlBlocks.strip(container);
         removeTrailingEditorArtifacts(container);
 
@@ -5870,7 +5880,7 @@
         if (state.body.contains(event.target)) {
             state.bodyDirty = true;
             clearAiChangeMarks(state.body);
-            normalizeMediaBodyStructure(state.body);
+            if (normalizeMediaBodyStructure(state.body)) prepareInlineMediaCaptionEntries(state.body);
             state.htmlBlocks?.prepare();
             state.body.querySelectorAll('p.post-editor-collapsed-boundary-paragraph').forEach((paragraph) => {
                 if (!editorBoundaryParagraphIsEmpty(paragraph)) {
