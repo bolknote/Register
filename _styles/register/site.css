@@ -3036,7 +3036,13 @@ span.favorite-star {
 .comments-section {
     width: 100%;
     max-width: var(--comments-width) !important;
-    margin-top: clamp(4.5rem, 9vw, 8rem);
+    margin-top: clamp(3rem, 6vw, 4rem);
+}
+
+/* The post footer already contributes 32–48px to the total 48–64px gap. */
+:is(.post-card, .live-post-feed) + .comments-section,
+:is(.post-card, .live-post-feed) + .live-comments-region > .comments-section {
+    margin-top: 1rem;
 }
 
 h2.comment {

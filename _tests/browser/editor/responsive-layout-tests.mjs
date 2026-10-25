@@ -25,6 +25,7 @@ const measure = page => page.evaluate(async () => {
     return {font: parseFloat(style.fontSize), line: parseFloat(style.lineHeight),
         textWidth: paragraph.width,
         imageWidth: image.width, captionGap: caption.top - image.bottom,
+        commentsGap: box('.comments-section').top - box('.post.foot').bottom,
         body: box('[data-post-inplace-body]'),
         header: box('.site-header-copy'), card: box('.post-card'),
         search: box('.register_search_form'), title: box('.site-title'),
@@ -61,6 +62,8 @@ export async function runResponsiveLayoutRegressions(browser, origin) {
                     `The established reading column is capped at 1000 CSS pixels at ${width}px`);
                 assert.ok(Math.abs(current.header.left - current.card.left) < 1, 'Header and posts share the content origin');
                 assert.ok(current.captionGap >= 7 && current.captionGap <= 12, 'The caption remains attached to its image');
+                assert.ok(current.commentsGap >= 47.9 && current.commentsGap <= 64.1,
+                    `The total gap from post metadata to comments stays within 48–64 CSS pixels at ${width}px: ${current.commentsGap}px`);
                 assert.equal(current.bodyHtml, original, 'Resizing never rewrites author HTML');
                 assert.ok(['block', 'flow-root'].includes(current.bodyDisplay), 'Contenteditable retains normal block flow');
                 assert.ok(Math.abs(current.body.width - current.textWidth) < 1,
@@ -93,6 +96,19 @@ export async function runResponsiveLayoutRegressions(browser, origin) {
             }
             assert.equal(readings[0].codeScroll, true);
             assert.equal(readings[0].tableScroll, true);
+            await page.evaluate(() => {
+                const section = document.querySelector('.comments-section');
+                const region = document.createElement('div');
+                region.className = 'live-comments-region';
+                section.replaceWith(region);
+                region.append(section);
+            });
+            for (const width of [320, 1280]) {
+                await resize(page, width);
+                const current = await measure(page);
+                assert.ok(current.commentsGap >= 47.9 && current.commentsGap <= 64.1,
+                    `Live comment replacement preserves the 48–64px gap at ${width}px: ${current.commentsGap}px`);
+            }
             assert.deepEqual(errors, []);
         } finally { await context.close(); }
     }
