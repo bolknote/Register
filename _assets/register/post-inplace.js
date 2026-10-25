@@ -89,7 +89,7 @@
 
     const {createEditorFieldSurfaces} = window.RegisterEditorFields.create({});
 
-    const {clearBoundaryCaret, clearSyntheticBoundaryCaret, boundaryNodeIsEmpty, isMediaBoundaryElement, editorBoundaryParagraphIsEmpty, topLevelBodyChild, hoistMediaFromParagraph, normalizeLeadingNestedMedia, leadingMediaIndex, prepareMediaInsertionRange, focusBeforeLeadingMedia, focusBeforeMedia, focusAfterMedia, mediaBesideCaret, revealBoundaryCaret, mediaBoundaryAtRange, inlineCodeBoundaryMarkerAtRange, syncBoundaryCaret, moveInsertionBeforeMediaBoundary, protectSelectedMediaBoundary, selectMediaForDeletion, protectMediaParagraphDeletion, collapseEmptyParagraphBesideMedia, expandCollapsedBoundaryParagraph, collapseEmptyLeadingParagraphAfterDelete, isMediaOwnedDirectChild, normalizeMediaBodyStructure} = window.RegisterEditorBoundaries.create({
+    const {clearBoundaryCaret, clearSyntheticBoundaryCaret, boundaryNodeIsEmpty, isMediaBoundaryElement, editorBoundaryParagraphIsEmpty, topLevelBodyChild, hoistMediaFromParagraph, normalizeLeadingNestedMedia, leadingMediaIndex, prepareMediaInsertionRange, focusBeforeLeadingMedia, focusBeforeMedia, focusAfterMedia, mediaBesideCaret, revealBoundaryCaret, mediaBoundaryAtRange, inlineCodeBoundaryMarkerAtRange, syncBoundaryCaret, moveInsertionBeforeMediaBoundary, protectSelectedMediaBoundary, selectMediaForDeletion, selectedMediaBlock, protectMediaParagraphDeletion, collapseEmptyParagraphBesideMedia, expandCollapsedBoundaryParagraph, collapseEmptyLeadingParagraphAfterDelete, isMediaOwnedDirectChild, normalizeMediaBodyStructure} = window.RegisterEditorBoundaries.create({
         rangeIsInside, editorStates,
     });
 
@@ -1907,7 +1907,12 @@
             }
             event.preventDefault();
             event.stopPropagation();
-            document.execCommand('insertText', false, event.clipboardData?.getData('text/plain') || '');
+            // insertText creates P blocks for newlines in a DIV editing host.
+            // innerText then counts their paragraph gaps as extra blank lines.
+            const text = (event.clipboardData?.getData('text/plain') || '').replace(/\r\n?/gu, '\n');
+            const html = text.replace(/&/gu, '&amp;').replace(/</gu, '&lt;').replace(/>/gu, '&gt;')
+                .replace(/\n/gu, '<br>');
+            document.execCommand('insertHTML', false, html);
         };
         const beforeinput = (event) => {
             selectInlineMediaForDeletion(event, state, caption);
@@ -1941,7 +1946,7 @@
         prefix.setEnd(range.startContainer, range.startOffset);
         if (prefix.toString() !== '' || prefix.cloneContents().querySelector('br')) return false;
         const media = caption.closest('.post-media-picture');
-        if (!(media instanceof HTMLElement) || media.parentElement !== state.body) return false;
+        if (!isMediaBoundaryElement(state.body, media)) return false;
 
         event.preventDefault();
         event.stopPropagation();
@@ -2595,7 +2600,8 @@
         container.append(range.cloneContents());
         const uploads = state.history.clipboardUploads(container);
         if (uploads.size === 0 && !container.querySelector('div[data-post-html-source]')
-            && !container.querySelector('.post-picture img, .post-media-picture img, figure img')) return;
+            && !container.querySelector('.post-picture img, .post-media-picture img, figure img')
+            && !(event.type === 'cut' && selectedMediaBlock(state.body, range))) return;
         window.RegisterEditorHtmlBlocks.strip(container);
         removeTrailingEditorArtifacts(container);
 
@@ -3264,7 +3270,9 @@
                     return true;
                 }
             }
-            const changed = document.execCommand(command, false, value);
+            const changed = command === 'insertOrderedList' || command === 'insertUnorderedList'
+                ? formatListWithSelection(state, command)
+                : document.execCommand(command, false, value);
             if (command === 'removeFormat' && selectionIsInside(state.body)) {
                 // Firefox's native removeFormat does not remove our <tt> marks.
                 const range = window.getSelection().getRangeAt(0);
@@ -3276,6 +3284,93 @@
             return changed;
         };
         return state.history ? state.history.transact(execute) : execute();
+    }
+
+    function formatListWithSelection(state, command) {
+        const selection = window.getSelection();
+        const range = selection.getRangeAt(0).cloneRange();
+        const collapsed = range.collapsed;
+        const backwards = selection.anchorNode === range.endContainer && selection.anchorOffset === range.endOffset;
+        const textPoint = (container, offset, end) => {
+            if (!(container instanceof Element)) return [container, offset];
+            const after = (end && offset > 0) || offset === container.childNodes.length;
+            const text = contextBoundaryNode(container, offset, after);
+            return text instanceof Text && !text.parentElement.closest('[contenteditable="false"]')
+                ? [text, after ? text.length : 0] : [container, offset];
+        };
+        // Select All can put endpoints beside the outer paragraphs. Insert
+        // bookmarks in their text so they do not become extra empty list items.
+        const first = textPoint(range.startContainer, range.startOffset, false);
+        const last = collapsed ? first : textPoint(range.endContainer, range.endOffset, true);
+        range.setStart(...first);
+        range.setEnd(...last);
+        const token = window.crypto?.randomUUID?.() || `list-${Date.now()}-${Math.random()}`;
+        const bookmark = (edge, end) => {
+            const marker = document.createElement('span');
+            marker.dataset.postListBookmark = token + edge;
+            // Native list commands discard empty spans and recreate text nodes.
+            // A zero-width character keeps each bookmark through that rewrite.
+            marker.textContent = '\u200b';
+            const point = range.cloneRange();
+            point.collapse(!end);
+            point.insertNode(marker);
+            return marker;
+        };
+        const end = bookmark('end', true);
+        const start = bookmark('start', false);
+        const markers = () => state.body.querySelectorAll(`[data-post-list-bookmark^="${token}"]`);
+        try {
+            const marked = document.createRange();
+            marked.setStartAfter(start);
+            marked.setEndBefore(end);
+            if (collapsed) marked.collapse(true);
+            selectRange(state, marked);
+            const changed = document.execCommand(command, false);
+            // Chromium/WebKit can put a new list inside P. Move the original
+            // nodes into valid sibling blocks before restoring the selection.
+            Array.from(state.body.querySelectorAll('p')).reverse().forEach((paragraph) => {
+                if (!paragraph.querySelector(':scope > ol, :scope > ul')) return;
+                const replacement = document.createDocumentFragment();
+                let prose = null;
+                Array.from(paragraph.childNodes).forEach((node) => {
+                    if (node instanceof Text && node.length === 0) return;
+                    if (node instanceof Element && node.matches('ol, ul')) {
+                        prose = null;
+                        replacement.append(node);
+                    } else {
+                        if (!prose) {
+                            prose = paragraph.cloneNode(false);
+                            if (replacement.childNodes.length) prose.removeAttribute('id');
+                            replacement.append(prose);
+                        }
+                        prose.append(node);
+                    }
+                });
+                paragraph.replaceWith(replacement);
+            });
+            const from = state.body.querySelector(`[data-post-list-bookmark="${token}start"]`);
+            const to = state.body.querySelector(`[data-post-list-bookmark="${token}end"]`);
+            if (from && to) {
+                const selected = document.createRange();
+                selected.setStartAfter(from);
+                selected.setEndBefore(to);
+                if (collapsed) selected.collapse(true);
+                const parents = new Set(Array.from(markers(), marker => marker.parentNode));
+                markers().forEach(marker => marker.remove());
+                // Remove the text-node splits made by the bookmarks. Live
+                // ranges follow normalize(), retaining their character offsets.
+                parents.forEach(parent => parent.normalize());
+                selectRange(state, selected);
+                if (backwards && !selected.collapsed) {
+                    selection.setBaseAndExtent(selected.endContainer, selected.endOffset, selected.startContainer, selected.startOffset);
+                }
+            }
+            return changed;
+        } finally {
+            markers().forEach(marker => marker.remove());
+            start.remove();
+            end.remove();
+        }
     }
 
     function paragraphsFromSelectedLists(state) {

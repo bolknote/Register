@@ -699,8 +699,7 @@ for (const position of ['paragraph-after', 'root-after', 'wrapper-after',
         equal(s.body.childNodes[selected.startOffset], media);
         equal(api.editableBodyHtml(s), before, 'Selecting media must not change the saved content');
         equal(s.history.length, history, 'Selecting media must not add an undo step');
-        equal(requestDeletion().defaultPrevented, false, 'The second deletion is allowed to remove selected media');
-        document.execCommand(after ? 'delete' : 'forwardDelete');
+        ok(requestDeletion().defaultPrevented, 'The second deletion removes selected media without native paragraph merging');
         const deleted = api.editableBodyHtml(s);
         equal(s.body.querySelector('img, .post-caption'), null);
         ok(deleted.includes('Before the photograph.') && deleted.includes('After the photograph.'),
@@ -743,8 +742,7 @@ for (const captionText of ['Saved caption', '']) {
                 inputType: 'deleteContentBackward', bubbles: true, cancelable: true,
             });
             s.body.dispatchEvent(remove);
-            equal(remove.defaultPrevented, false);
-            document.execCommand('delete');
+            ok(remove.defaultPrevented, 'The editor removes the selected image as one edit');
             equal(s.body.querySelector('img, .post-caption'), null);
             await undo(s);
             equal(api.editableBodyHtml(s), before);
@@ -774,10 +772,11 @@ test('deleting caption text then its image keeps separate undo steps', async () 
     equal(s.mediaCaptionEditors.size, 0, 'Backspace leaves the newly emptied caption');
     equal(getSelection().isCollapsed, false);
     const emptyCaption = api.editableBodyHtml(s);
-    s.body.dispatchEvent(new InputEvent('beforeinput', {
+    const remove = new InputEvent('beforeinput', {
         inputType: 'deleteContentBackward', bubbles: true, cancelable: true,
-    }));
-    document.execCommand('delete');
+    });
+    s.body.dispatchEvent(remove);
+    ok(remove.defaultPrevented, 'The editor owns this deletion; do not perform a second native delete');
     const deleted = api.editableBodyHtml(s);
     equal(s.body.querySelector('img'), null);
     await undo(s);

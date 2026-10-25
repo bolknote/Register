@@ -686,16 +686,35 @@
             return true;
         }
 
+        function selectedMediaBlock(body, range) {
+            if (range.collapsed || range.startContainer !== range.endContainer
+                || range.endOffset !== range.startOffset + 1) return null;
+            const media = range.startContainer.childNodes[range.startOffset];
+            return isMediaBoundaryElement(body, media) ? media : null;
+        }
+
         function protectMediaParagraphDeletion(event) {
-            if (event.defaultPrevented || !event.cancelable || !String(event.inputType || '').startsWith('delete')) return false;
+            if (event.defaultPrevented || !event.cancelable || event.isComposing
+                || !String(event.inputType || '').startsWith('delete')) return false;
             const direction = event.inputType.endsWith('Backward') ? -1 : event.inputType.endsWith('Forward') ? 1 : 0;
             const target = event.target instanceof HTMLElement ? event.target : null;
             const body = target?.closest('.post-card.is-editing > .post.body[data-post-inplace-body]');
             const selection = window.getSelection();
-            if (!direction || !body || target.closest('.is-editing-inline-caption, .is-editing-caption')
+            if (!body || target.closest('.is-editing-inline-caption, .is-editing-caption')
                 || selection?.rangeCount !== 1) return false;
             const range = selection.getRangeAt(0);
-            if (!range.collapsed || !rangeIsInside(body, range)) return false;
+            if (!rangeIsInside(body, range)) return false;
+            if (selectedMediaBlock(body, range)) {
+                // Native deletion can unwrap a following paragraph in the same
+                // LI and glue its text to the item's bare leading text.
+                event.preventDefault();
+                range.deleteContents();
+                selection.removeAllRanges();
+                selection.addRange(range);
+                body.dispatchEvent(new InputEvent('input', {bubbles: true, inputType: event.inputType}));
+                return true;
+            }
+            if (!direction || !range.collapsed) return false;
 
             // Browsers can leave a body caret inside the media wrapper,
             // immediately beside its visual rather than beside the block.
@@ -1041,7 +1060,7 @@
             return changed;
         }
 
-        return {clearBoundaryCaret, clearSyntheticBoundaryCaret, boundaryNodeIsEmpty, isMediaBoundaryElement, editorBoundaryParagraphIsEmpty, topLevelBodyChild, hoistMediaFromParagraph, normalizeLeadingNestedMedia, leadingMediaIndex, prepareMediaInsertionRange, focusBeforeLeadingMedia, focusBeforeMedia, focusAfterMedia, mediaBesideCaret, revealBoundaryCaret, mediaBoundaryAtRange, inlineCodeBoundaryMarkerAtRange, syncBoundaryCaret, moveInsertionBeforeMediaBoundary, protectSelectedMediaBoundary, selectMediaForDeletion, protectMediaParagraphDeletion, collapseEmptyParagraphBesideMedia, expandCollapsedBoundaryParagraph, collapseEmptyLeadingParagraphAfterDelete, isMediaOwnedDirectChild, normalizeMediaBodyStructure};
+        return {clearBoundaryCaret, clearSyntheticBoundaryCaret, boundaryNodeIsEmpty, isMediaBoundaryElement, editorBoundaryParagraphIsEmpty, topLevelBodyChild, hoistMediaFromParagraph, normalizeLeadingNestedMedia, leadingMediaIndex, prepareMediaInsertionRange, focusBeforeLeadingMedia, focusBeforeMedia, focusAfterMedia, mediaBesideCaret, revealBoundaryCaret, mediaBoundaryAtRange, inlineCodeBoundaryMarkerAtRange, syncBoundaryCaret, moveInsertionBeforeMediaBoundary, protectSelectedMediaBoundary, selectMediaForDeletion, selectedMediaBlock, protectMediaParagraphDeletion, collapseEmptyParagraphBesideMedia, expandCollapsedBoundaryParagraph, collapseEmptyLeadingParagraphAfterDelete, isMediaOwnedDirectChild, normalizeMediaBodyStructure};
     }
 
     window.RegisterEditorBoundaries = Object.freeze({create});

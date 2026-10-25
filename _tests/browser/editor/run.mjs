@@ -20,6 +20,7 @@ import {runAdminSelectionRegressions} from './admin-selection-tests.mjs';
 import {runAdminInputRegressions} from './admin-input-tests.mjs';
 import {runAdminHtmlRegressions} from './admin-html-tests.mjs';
 import {runCaptionInputRegressions} from './caption-input-tests.mjs';
+import {runComplexEditingRegressions} from './complex-editing-tests.mjs';
 import {runCaptionBoundaryRegressions} from './caption-boundary-tests.mjs';
 import {runFieldHistoryRegressions} from './field-history-tests.mjs';
 import {runMediaAiRegressions, runTagPasteRegressions, runTagLengthRegressions, runManualTitleLengthRegressions, runAiTitleLengthRegressions} from './media-ai-tag-tests.mjs';
@@ -482,6 +483,7 @@ try {
             await runAdminInputRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runAdminHtmlRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runCaptionInputRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runComplexEditingRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runCaptionBoundaryRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runFieldHistoryRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runMediaAiRegressions(browser, `http://127.0.0.1:${server.address().port}`);
