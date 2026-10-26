@@ -112,6 +112,17 @@
                 return range;
             }
 
+            // A caption/preview is an indivisible part of its attachment even
+            // when the attachment lives inside a quote or list item.
+            const caretElement = range.startContainer instanceof Element
+                ? range.startContainer : range.startContainer.parentElement;
+            const owner = caretElement?.closest('.post-picture, .post-media-picture, figure, div[data-post-html-source]');
+            if (owner && body.contains(owner)) {
+                range.setStartAfter(owner);
+                range.collapse(true);
+                return range;
+            }
+
             const boundary = topLevelBodyChild(body, range.startContainer);
             if (isMediaBoundaryElement(body, boundary)) {
                 range.setStartAfter(boundary);
@@ -130,8 +141,6 @@
             // Block media cannot remain inside a paragraph, heading or code block
             // (including their inline formatting). Split that text block, retaining
             // any surrounding quote/list, before inserting the attachment beside it.
-            const caretElement = range.startContainer instanceof Element
-                ? range.startContainer : range.startContainer.parentElement;
             const block = caretElement?.closest('p, h1, h2, h3, h4, h5, h6, pre');
             if (block instanceof HTMLElement && body.contains(block)) {
                 const parent = block.parentNode;

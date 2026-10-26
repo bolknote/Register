@@ -1,0 +1,16 @@
+{
+  "name": "Dragging an image into another caption drops it from save payload",
+  "runner": "fuzz-media-state.mjs",
+  "seed": 700118,
+  "html": "<p>Before.</p><div class=\"post-picture post-media-picture\"><img src=\"/responsive-image.svg\" width=\"160\" height=\"90\" alt=\"A\"><div class=\"post-caption\">Caption A</div></div><blockquote><div class=\"post-picture post-media-picture\"><img src=\"/responsive-image.svg\" width=\"160\" height=\"90\" alt=\"B\"><div class=\"post-caption\">Caption B</div></div></blockquote><p>After.</p>",
+  "operations": [
+    {
+      "kind": "drag",
+      "image": 0,
+      "targetSelector": ".post-caption",
+      "targetIndex": 1,
+      "position": 0.813,
+      "save": true
+    }
+  ]
+}

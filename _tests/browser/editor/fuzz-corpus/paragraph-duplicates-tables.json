@@ -1,0 +1,26 @@
+{
+  "name": "Paragraph formatting across table cells duplicates tables",
+  "seed": 700002,
+  "initial": "<p>Before</p><table><tbody><tr><td><p>Cell A</p></td><td><p>Cell B</p></td></tr></tbody></table><p>Between</p><table><tbody><tr><td><p>Cell C</p></td><td><p>Cell D</p></td></tr></tbody></table><p>After</p>",
+  "operations": [
+    {
+      "kind": "format",
+      "format": "paragraph",
+      "text": "X",
+      "a": 0,
+      "b": 1,
+      "collapsed": false,
+      "backwards": false,
+      "edge": "middle",
+      "block": false,
+      "start": {
+        "selector": "table:first-of-type td:first-child p",
+        "offset": 6
+      },
+      "end": {
+        "selector": "table:last-of-type td:last-child p",
+        "offset": 6
+      }
+    }
+  ]
+}

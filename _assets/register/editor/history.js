@@ -22,6 +22,13 @@
                 if (!node || !state.body.contains(node)) {
                     return null;
                 }
+                const element = node instanceof Element ? node : node.parentElement;
+                const htmlBlock = element?.closest('div[data-post-html-source]');
+                if (htmlBlock && state.body.contains(htmlBlock)) {
+                    // Runtime HTML controls are stripped from snapshots. A path
+                    // into them would restore an inert caret after rebuilding.
+                    return point(htmlBlock.parentNode, Array.from(htmlBlock.parentNode.childNodes).indexOf(htmlBlock) + 1);
+                }
                 const path = [];
                 const position = node.nodeType === Node.TEXT_NODE
                     ? offset

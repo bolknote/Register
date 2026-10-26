@@ -1,0 +1,17 @@
+{
+  "name": "Select All escapes the editor after HTML block undo/redo",
+  "runner": "fuzz-media-state.mjs",
+  "seed": 700117,
+  "html": "<p>Before.</p><p>After.</p>",
+  "operations": [
+    {
+      "kind": "html",
+      "target": 0,
+      "text": "Simple"
+    },
+    {
+      "kind": "delete-all",
+      "focus": false
+    }
+  ]
+}

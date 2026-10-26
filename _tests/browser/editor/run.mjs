@@ -30,6 +30,7 @@ import {runActivityPubPreviewRegressions} from './admin-activitypub-tests.mjs';
 import {runAdminFieldErrorRegressions, runAdminErrorRefreshRegressions, runActivityPubFieldErrorRegressions} from './admin-validation-tests.mjs';
 import {runMediaInsertionAltRegressions, runMediaInsertionCaretRegressions, runMixedMediaCaretRegressions, runRejectedMediaRegressions} from './media-insertion-tests.mjs';
 import {runMediaDragRegressions} from './media-drag-tests.mjs';
+import {runFuzzRegressions} from './fuzz-regressions.mjs';
 import {runMediaSpacingRegressions} from './media-spacing-tests.mjs';
 import {runMediaDeleteBoundaryRegressions} from './media-delete-boundary-tests.mjs';
 import {runMediaCaptionRecoveryRegressions} from './media-caption-recovery-tests.mjs';
@@ -513,6 +514,7 @@ try {
             await runRejectedMediaRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runMixedMediaCaretRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runMediaDragRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runFuzzRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runAdminAiTargetRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runImageInsertionTextRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runSmartParagraphRegressions(browser, `http://127.0.0.1:${server.address().port}`);

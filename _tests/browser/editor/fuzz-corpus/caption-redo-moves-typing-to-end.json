@@ -1,0 +1,14 @@
+{
+  "name": "Redo after editing a caption moves subsequent typing to the article end",
+  "runner": "fuzz-media-state.mjs",
+  "seed": 700115,
+  "html": "<p>Before.</p><div class=\"post-picture post-media-picture\"><img src=\"/responsive-image.svg\" width=\"160\" height=\"90\" alt=\"A\"><div class=\"post-caption\">Caption A</div></div><p>After.</p>",
+  "operations": [
+    {
+      "kind": "caption",
+      "image": 0,
+      "text": "New caption",
+      "historyType": "CARET_PROBE"
+    }
+  ]
+}

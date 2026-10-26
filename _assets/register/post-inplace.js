@@ -1823,14 +1823,13 @@
         }
         // History was suspended even for an unchanged caption. Retain async
         // changes that arrived during the session before the next undo.
-        state.history?.record();
-
         if (restoreFocus) {
             const media = caption.closest('.post-media-picture');
             if (!(media instanceof HTMLElement) || !focusAfterMedia(state.body, media)) {
                 focusEdge(state.body, true);
             }
         }
+        state.history?.record();
     }
 
     function finishInlineMediaCaptions(state) {
@@ -3254,6 +3253,35 @@
         return element.contains(range.commonAncestorContainer);
     }
 
+    function protectListSelectionDeletion(event, state) {
+        const selection = window.getSelection();
+        const range = selection?.rangeCount === 1 ? selection.getRangeAt(0) : null;
+        if (!range || range.collapsed || !rangeIsInside(state.body, range)) return;
+        const first = range.startContainer instanceof Element ? range.startContainer : range.startContainer.parentElement;
+        const last = range.endContainer instanceof Element ? range.endContainer : range.endContainer.parentElement;
+        const item = first.closest('li');
+        const following = last.closest('p, h1, h2, h3, h4, h5, h6, pre');
+        if (!item || !following || item.contains(following)) return;
+        const prefix = document.createRange();
+        prefix.selectNodeContents(following); prefix.setEnd(range.endContainer, range.endOffset);
+        const contents = prefix.cloneContents();
+        if (contents.textContent !== '' || contents.querySelector('img, audio, video, br, hr, [data-post-html-source]')) return;
+        // Firefox can remove this entirely unselected following paragraph while
+        // merging the final LI. Delete exactly the Range without native merging.
+        event.preventDefault();
+        const deletion = range.cloneRange();
+        deletion.setEndBefore(following);
+        deletion.deleteContents();
+        if (item.isConnected && item.textContent === '' && !item.querySelector('img, audio, video, table, hr, [data-post-html-source]')) {
+            const list = item.parentElement;
+            item.remove();
+            if (!list.children.length) list.remove();
+        }
+        const caret = document.createRange(); caret.selectNodeContents(following); caret.collapse(true);
+        selectRange(state, caret);
+        state.body.dispatchEvent(new InputEvent('input', {bubbles: true, inputType: event.inputType}));
+    }
+
     function runFormattingCommand(state, command, value = null) {
         if (state.history && (command === 'undo' || command === 'redo')) {
             return state.history[command]();
@@ -3267,8 +3295,8 @@
             protectSelectedMediaBoundary(state.body);
             const bodyBefore = state.body.innerHTML;
             state.body.focus();
-            if (command === 'formatBlock' && value === 'p') {
-                if (paragraphsFromSelectedLists(state)) {
+            if (command === 'formatBlock') {
+                if ((value === 'p' && paragraphsFromSelectedLists(state)) || formatSeparatedTextBlocks(state, value)) {
                     state.bodyDirty = true;
                     return true;
                 }
@@ -3287,6 +3315,106 @@
             return changed;
         };
         return state.history ? state.history.transact(execute) : execute();
+    }
+
+    function retainFormattingSelection(state, change) {
+        const selection = window.getSelection();
+        const range = selection.getRangeAt(0).cloneRange();
+        const collapsed = range.collapsed;
+        const backwards = selection.anchorNode === range.endContainer && selection.anchorOffset === range.endOffset;
+        const end = document.createElement('span');
+        const start = document.createElement('span');
+        const last = range.cloneRange(); last.collapse(false); last.insertNode(end);
+        const first = range.cloneRange(); first.collapse(true); first.insertNode(start);
+        try {
+            change();
+            const selected = document.createRange();
+            selected.setStartAfter(start); selected.setEndBefore(end);
+            if (collapsed) selected.collapse(true);
+            const parents = new Set([start.parentNode, end.parentNode]);
+            start.remove(); end.remove();
+            parents.forEach(parent => parent.normalize());
+            selectRange(state, selected);
+            if (backwards && !selected.collapsed) {
+                selection.setBaseAndExtent(selected.endContainer, selected.endOffset, selected.startContainer, selected.startOffset);
+            }
+        } finally { start.remove(); end.remove(); }
+    }
+
+    function formatSeparatedTextBlocks(state, tag) {
+        const range = window.getSelection().getRangeAt(0);
+        const selector = tag === 'p' ? 'table' : tag === 'pre' ? '.post-picture, .post-media-picture, figure' : null;
+        if (!selector || !Array.from(state.body.querySelectorAll(selector)).some(node => range.intersectsNode(node))) return false;
+        const blocks = new Set();
+        const include = node => {
+            const element = node instanceof Element ? node : node.parentElement;
+            if (element?.closest('.post-picture, .post-media-picture, figure, [data-post-html-source]')) return;
+            const block = element?.closest('p, h1, h2, h3, h4, h5, h6, pre, td, th, li, blockquote, div');
+            if (block && state.body.contains(block)) blocks.add(block);
+        };
+        if (range.collapsed) include(range.startContainer);
+        else textPortionsInRange(state.body, range).forEach(({node}) => include(node));
+        // Native formatBlock over cells can duplicate whole tables; PRE across
+        // caption hosts can hang. Convert text blocks without crossing either.
+        retainFormattingSelection(state, () => blocks.forEach(block => {
+            if (block.tagName.toLowerCase() === tag) return;
+            if (block.matches('td, th, li, blockquote, div')) {
+                let paragraph = null;
+                Array.from(block.childNodes).forEach(node => {
+                    if (node instanceof Element && node.matches('p, div, table, ul, ol, blockquote, pre, h1, h2, h3, h4, h5, h6')) {
+                        paragraph = null;
+                    } else {
+                        if (!paragraph) { paragraph = document.createElement(tag); node.before(paragraph); }
+                        paragraph.append(node);
+                    }
+                });
+            } else {
+                const paragraph = document.createElement(tag);
+                Array.from(block.attributes).forEach(({name, value}) => paragraph.setAttribute(name, value));
+                paragraph.append(...block.childNodes);
+                block.replaceWith(paragraph);
+            }
+        }));
+        return true;
+    }
+
+    function withAtomicMedia(state, change) {
+        // Native block commands must not inspect or split caption editing hosts.
+        // Text tokens participate in the command in the attachment's position;
+        // restore the original live blocks before history records the change.
+        const token = window.crypto?.randomUUID?.() || `media-${Date.now()}-${Math.random()}`;
+        const selected = window.getSelection().getRangeAt(0).cloneRange();
+        const media = Array.from(state.body.querySelectorAll('.post-picture, .post-media-picture, figure'))
+            .filter(node => node.querySelector('img, audio, video')
+                && !node.parentElement.closest('.post-picture, .post-media-picture, figure')
+                && selected.intersectsNode(node))
+            .map((node, index) => {
+                const slot = document.createElement('p');
+                slot.textContent = 'REGISTER_MEDIA_' + token + '_' + index;
+                node.replaceWith(slot);
+                const fallback = document.createRange();
+                fallback.setStartBefore(slot); fallback.collapse(true);
+                return {node, slot, text: slot.textContent, fallback};
+            });
+        try {
+            if (media.length) selectRange(state, selected);
+            return change();
+        }
+        finally {
+            media.forEach(({node, slot, text, fallback}) => {
+                const walker = document.createTreeWalker(state.body, NodeFilter.SHOW_TEXT);
+                let match;
+                while ((match = walker.nextNode()) && !match.data.includes(text)) {}
+                const insertion = match ? document.createRange() : fallback;
+                if (match) {
+                    const offset = match.data.indexOf(text);
+                    insertion.setStart(match, offset); insertion.setEnd(match, offset + text.length);
+                    insertion.deleteContents();
+                }
+                prepareMediaInsertionRange(state.body, insertion).insertNode(node);
+                slot.remove();
+            });
+        }
     }
 
     function formatListWithSelection(state, command) {
@@ -3329,28 +3457,31 @@
             marked.setEndBefore(end);
             if (collapsed) marked.collapse(true);
             selectRange(state, marked);
-            const changed = document.execCommand(command, false);
-            // Chromium/WebKit can put a new list inside P. Move the original
-            // nodes into valid sibling blocks before restoring the selection.
-            Array.from(state.body.querySelectorAll('p')).reverse().forEach((paragraph) => {
-                if (!paragraph.querySelector(':scope > ol, :scope > ul')) return;
-                const replacement = document.createDocumentFragment();
-                let prose = null;
-                Array.from(paragraph.childNodes).forEach((node) => {
-                    if (node instanceof Text && node.length === 0) return;
-                    if (node instanceof Element && node.matches('ol, ul')) {
-                        prose = null;
-                        replacement.append(node);
-                    } else {
-                        if (!prose) {
-                            prose = paragraph.cloneNode(false);
-                            if (replacement.childNodes.length) prose.removeAttribute('id');
-                            replacement.append(prose);
+            const changed = withAtomicMedia(state, () => {
+                const result = document.execCommand(command, false);
+                // Normalize native P/list nesting before inserting block media;
+                // otherwise splitting that P would split the list around it.
+                Array.from(state.body.querySelectorAll('p')).reverse().forEach((paragraph) => {
+                    if (!paragraph.querySelector(':scope > ol, :scope > ul')) return;
+                    const replacement = document.createDocumentFragment();
+                    let prose = null;
+                    Array.from(paragraph.childNodes).forEach((node) => {
+                        if (node instanceof Text && node.length === 0) return;
+                        if (node instanceof Element && node.matches('ol, ul')) {
+                            prose = null;
+                            replacement.append(node);
+                        } else {
+                            if (!prose) {
+                                prose = paragraph.cloneNode(false);
+                                if (replacement.childNodes.length) prose.removeAttribute('id');
+                                replacement.append(prose);
+                            }
+                            prose.append(node);
                         }
-                        prose.append(node);
-                    }
+                    });
+                    paragraph.replaceWith(replacement);
                 });
-                paragraph.replaceWith(replacement);
+                return result;
             });
             const from = state.body.querySelector(`[data-post-list-bookmark="${token}start"]`);
             const to = state.body.querySelector(`[data-post-list-bookmark="${token}end"]`);
@@ -4358,11 +4489,12 @@
             // an AI image description that completed during this session).
             state.bodyDirty = editor.bodyDirtyBefore || editableBodyHtml(state) !== editor.bodyHtmlBefore;
         }
-        state.history?.record();
         if (restoreFocus) {
-            state.body.focus({preventScroll: true});
-            window.getSelection()?.removeAllRanges();
+            // Focusing an editing host without a Range leaves WebKit's Select
+            // All/Backspace acting on the page instead of the post.
+            focusEdge(state.body, true);
         }
+        state.history?.record();
     }
 
     function beginImageCaptionEditing(state, image, placeholder) {
@@ -5481,6 +5613,12 @@
             return false;
         }
 
+        if (!event.shiftKey && !event.altKey && matchesKey('KeyA', 'a')) {
+            event.preventDefault();
+            selectWholeBody(state);
+            return true;
+        }
+
         let command = null;
         let value = null;
         if (!event.shiftKey && !event.altKey && matchesKey('KeyZ', 'z')) {
@@ -5931,6 +6069,9 @@
         } else {
             if (/^(insert|delete)/u.test(event.inputType)) protectSelectedMediaBoundary(state.body);
             state.history?.before(event.inputType);
+            if (event.cancelable && !event.isComposing && /^delete/u.test(event.inputType)) {
+                protectListSelectionDeletion(event, state);
+            }
         }
     }, false);
 

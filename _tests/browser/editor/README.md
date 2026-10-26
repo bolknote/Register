@@ -15,6 +15,55 @@ npm test
 ```
 
 The Quality workflow runs Chromium, Firefox and WebKit and blocks releases on failure.
+
+`npm run test:fuzz` runs a separate seeded editing fuzzer in headless Chromium,
+Firefox and WebKit. It generates valid articles containing Unicode text, emoji,
+RTL text, combining marks, nested lists, quotes, tables and captioned images,
+then mixes native typing/deletion/Enter, formatting, paste and caption editing.
+Oracles check preservation of text/images/selection, Unicode validity, bookmark
+cleanup, Undo/Redo and saving/reopening. HTML paste uses a controlled ClipboardEvent
+and native insertion; it does not exercise the operating system clipboard.
+The save endpoint echoes the submitted HTML, so server sanitization is covered
+by the separate PHP end-to-end suite rather than this fuzzer.
+
+```sh
+EDITOR_FUZZ_SEED=20262000 EDITOR_FUZZ_CASES=100 EDITOR_FUZZ_STEPS=50 npm run test:fuzz
+EDITOR_TEST_BROWSER=firefox EDITOR_FUZZ_REPLAY=fuzz-corpus/delete-list-item-removes-following-paragraph.json npm run test:fuzz
+EDITOR_TEST_BROWSER=chromium EDITOR_FUZZ_UI=1 EDITOR_FUZZ_REPLAY=fuzz-corpus/list-detaches-image-caption.json npm run test:fuzz
+```
+
+`EDITOR_FUZZ_UI=1` invokes formatting through the real menu; the faster default
+calls that menu's production action handler directly. `EDITOR_FUZZ_MINIMIZE=1`
+delta-debugging reduces a replay to fewer operations. `EDITOR_FUZZ_TRACE=1` logs
+each operation; `EDITOR_FUZZ_SCREENSHOTS=1` captures before/failure screenshots.
+Seeds, operation traces, input/output HTML and reports are saved under
+`_tests/_output/editor-fuzz/`. Files in `fuzz-corpus/` are minimized reproductions
+of eight fixed failures. `node fuzz-regressions.mjs` runs them and five structural
+variants through the actual UI in all three engines (39 checks), and is included
+in `npm test` and the Quality gate.
+Random fuzz campaigns remain separate and exit nonzero on an invariant failure.
+
+`npm run test:fuzz-media` exercises another seeded state machine: native image
+dragging, inline and overlay caption editing/cancellation, HTML insertions/removal,
+Select All/Backspace, cut/copy/paste, Undo/Redo and saving/reopening. Initial images
+appear both in lists and quotes. Checks retain image/caption ownership and prose,
+require complete deletion/restoration, and reject orphan preview forms. Clipboard
+events carry a controlled DataTransfer through the production handlers without
+reading or writing the operating system clipboard. HTML previews and saving use
+fixture responses; the resulting save payload is checked before reopening.
+
+```sh
+EDITOR_FUZZ_SEED=20265000 EDITOR_FUZZ_CASES=30 EDITOR_FUZZ_STEPS=25 npm run test:fuzz-media
+EDITOR_TEST_BROWSER=chromium EDITOR_FUZZ_REPLAY=fuzz-corpus/drag-into-nested-caption-loses-image.json npm run test:fuzz-media
+EDITOR_TEST_BROWSER=webkit EDITOR_FUZZ_REPLAY=fuzz-corpus/caption-cancel-backspace-navigates-away.json npm run test:fuzz-media
+```
+
+The four media corpus files specify `runner: "fuzz-media-state.mjs"`; use
+`test:fuzz-media` for them. Both runners accept `EDITOR_FUZZ_REPLAY`,
+`EDITOR_FUZZ_TRACE` and `EDITOR_FUZZ_SCREENSHOTS`. Media reports, selection/caret
+diagnostics, operation traces and save payloads go to `_tests/_output/editor-fuzz-media/`.
+Use saved replay operations when investigating reports from an older generator.
+
 Responsive layout regressions also run independently with `node responsive-layout-tests.mjs`.
 They check the original 18/20px prose sizes and the established 1000 CSS-pixel reading/editing
 column from 320 to 3840px, shrinking only when the viewport requires it. Font metrics, larger

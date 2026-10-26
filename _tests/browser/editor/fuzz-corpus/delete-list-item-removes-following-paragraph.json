@@ -1,0 +1,28 @@
+{
+  "name": "Deleting a selected final list item removes the unselected following paragraph",
+  "seed": 700008,
+  "initial": "<ul><li>Keep item.</li><li>Remove item.</li></ul><p>KEEP THIS PARAGRAPH.</p>",
+  "operations": [
+    {
+      "kind": "delete",
+      "format": "paragraph",
+      "text": "X",
+      "a": 0,
+      "b": 1,
+      "collapsed": false,
+      "backwards": true,
+      "edge": "middle",
+      "block": false,
+      "start": {
+        "selector": "li:last-child",
+        "offset": 0,
+        "element": false
+      },
+      "end": {
+        "selector": "p",
+        "offset": 0
+      },
+      "nativeSelection": -13
+    }
+  ]
+}
