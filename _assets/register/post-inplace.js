@@ -3476,14 +3476,14 @@
     function formatListWithSelection(state, command) {
         const selection = window.getSelection();
         const range = selection.getRangeAt(0).cloneRange();
-        const style = command === 'insertOrderedList' ? 'ordered-list' : 'unordered-list';
+        const blockStyle = command === 'insertOrderedList' ? 'ordered-list' : 'unordered-list';
         const element = range.startContainer instanceof Element ? range.startContainer : range.startContainer.parentElement;
         const attachments = '.post-picture, .post-media-picture, figure, div[data-post-html-source]';
         const containsAttachment = Array.from(state.body.querySelectorAll(attachments)).some(node => range.intersectsNode(node))
             || element?.closest('li')?.querySelector(attachments);
         // Native toggle-off handles a multi-block LI one paragraph at a time,
         // leaving the attachment and trailing prose inside a residual list.
-        if (containsAttachment && contextBlockStyle(state.body, range) === style) {
+        if (containsAttachment && contextBlockStyle(state.body, range) === blockStyle) {
             return paragraphsFromSelectedLists(state);
         }
         const collapsed = range.collapsed;
