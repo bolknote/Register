@@ -209,6 +209,7 @@ export async function runCopiedInlineCodeBoundaryRegressions(browser, origin) {
                 assert.equal(await span.evaluate(span => span.outerHTML), initial);
             });
     }
+    console.log(`${browser.browserType().name()}: native copied code exits keep a painted caret, spaces, original formatting, undo/redo and repeated saves`);
 }
 
 export async function runTrailingInlineCodeBoundaryRegressions(browser, origin) {
@@ -301,7 +302,6 @@ export async function runTrailingInlineCodeBoundaryRegressions(browser, origin) 
 }
 
 export async function runInlineCodeBoundaryRegressions(browser, origin) {
-    await runCopiedInlineCodeBoundaryRegressions(browser, origin);
     await runTrailingInlineCodeBoundaryRegressions(browser, origin);
     for (const source of [leading, middle]) {
         for (const colorScheme of ['dark', 'light']) {
@@ -464,8 +464,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     try {
         for (const engine of [chromium, firefox, webkit].filter(engine => !process.env.EDITOR_TEST_BROWSER
             || engine.name() === process.env.EDITOR_TEST_BROWSER)) {
-            const browser = await engine.launch();
-            try { await runInlineCodeBoundaryRegressions(browser, `http://127.0.0.1:${server.address().port}`); }
+            const browser = await engine.launch({headless: process.env.EDITOR_TEST_HEADED !== '1'
+                && process.env.EDITOR_TEST_CLIPBOARD_HEADED !== '1'});
+            try {
+                await runInlineCodeBoundaryRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+                await runCopiedInlineCodeBoundaryRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            }
             finally { await browser.close(); }
         }
     } finally { await new Promise(resolve => server.close(resolve)); }

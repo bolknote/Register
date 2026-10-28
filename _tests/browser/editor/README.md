@@ -183,6 +183,8 @@ can replace TT with a monospace SPAN and a background. Clicking or pressing Righ
 leaves that original styled element intact, including after undo/redo and saving.
 The leading typed space is retained; ordinary highlights and transparent or bare
 monospace spans retain native navigation.
+On Linux these native copy cases use the existing headed GTK clipboard runner;
+the remaining inline-code boundary cases also run in the headless browser.
 
 Saving a post containing a script or style element performs a full document load:
 fragment insertion cannot initialize scripts or grant the document's CSP nonce.
