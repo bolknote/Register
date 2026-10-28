@@ -3875,11 +3875,11 @@
         const rects = inlineCode.getClientRects();
         const first = rects[0];
         const last = rects[rects.length - 1];
-        const style = getComputedStyle(inlineCode);
+        const computedStyle = getComputedStyle(inlineCode);
         const before = first && event.clientY >= first.top && event.clientY <= first.bottom
-            && event.clientX >= first.left && event.clientX < first.left + (parseFloat(style.paddingLeft) || 0);
+            && event.clientX >= first.left && event.clientX < first.left + (parseFloat(computedStyle.paddingLeft) || 0);
         const after = last && event.clientY >= last.top && event.clientY <= last.bottom
-            && event.clientX >= last.right - (parseFloat(style.paddingRight) || 0);
+            && event.clientX >= last.right - (parseFloat(computedStyle.paddingRight) || 0);
         // Padding at either outer edge and the empty space after the last
         // fragment belong outside inline code. Glyphs, intermediate wrapped lines,
         // drags and multi-click selections keep their native behaviour.
