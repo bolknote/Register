@@ -73,6 +73,15 @@
     }
 }
 
+@media (min-width: 1120px) {
+    :root {
+        --header-top: max(0.5rem, env(safe-area-inset-top, 0px));
+        /* Reserve the expanded search and account beside the title so opening
+         * search never changes the heading's wrapping or moves the article. */
+        --header-title-width: clamp(0px, calc(50vw + 50% - 33.5rem), 100%);
+    }
+}
+
 @media (min-resolution: 2dppx), (-webkit-min-device-pixel-ratio: 2) {
     :root {
         --link-underline-thickness: 0.5px;
@@ -320,7 +329,7 @@ hr {
 }
 
 #header .site-title {
-    max-width: none;
+    max-width: var(--header-title-width, none);
     margin: 0;
     color: inherit;
     font-family: var(--ui-font);

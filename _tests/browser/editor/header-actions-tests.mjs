@@ -25,22 +25,29 @@ export async function runHeaderActionsRegressions(browser, origin) {
         await page.route('**/search?title=*', route => route.fulfill({contentType: 'text/html',
             body: '<a href="/all/found">Найденная заметка</a>'}));
         try {
-            for (const path of ['/responsive-layout.html', '/header-unread.html', '/header-guest.html']) {
+            for (const path of ['/responsive-layout.html', '/header-unread.html', '/header-guest.html', '/header-long-title.html']) {
                 await page.goto(origin + path);
                 const search = page.locator('[data-header-search]');
                 const toggle = search.locator('summary');
                 const input = search.locator('input[type="search"]');
                 assert.equal(await page.locator('.public-auth-user-menu > summary .public-auth-user-name').count(), 0);
-                for (const width of [320, 390, 760, 761, 1280, 1920, 3840]) {
+                for (const width of [320, 390, 760, 761, 1119, 1120, 1121, 1280, 1920, 3840]) {
                     await page.setViewportSize({width, height: 900});
                     const closed = await bounds(page);
                     assert.equal(await input.isVisible(), false, 'The field starts inside the closed magnifying-glass control');
                     assert.ok(Math.abs(closed.account.right - (closed.viewport - 12)) <= 1,
                         `The account stays in the right corner at ${width}px: ${JSON.stringify(closed)}`);
                     assert.ok(closed.search.right <= closed.account.left, 'Search stands to the left of the account');
-                    assertNoOverlap(closed.actions, closed.title, 'Corner controls do not occupy the title row');
+                    assertNoOverlap(closed.actions, closed.title, 'Corner controls leave the title unobstructed');
                     assertNoOverlap(closed.actions, closed.plus, 'Search and account do not cover the author control');
-                    assert.ok(Math.abs(closed.title.width - closed.body.width) < 1, 'The title can use the whole reading column');
+                    assert.ok(closed.title.width <= closed.body.width + 1, 'The heading stays inside the reading column');
+                    assert.ok(Math.abs(closed.title.left - closed.body.left) < 1, 'The heading keeps the content origin');
+                    if (width >= 1120) {
+                        assert.ok(closed.title.top <= closed.actions.top + 1,
+                            `A wide header has no empty row above its title at ${width}px: ${JSON.stringify(closed)}`);
+                    } else {
+                        assert.ok(closed.title.top >= closed.actions.bottom, 'A narrow header leaves room for corner controls');
+                    }
                     for (const control of await page.locator('.public-auth-login-button, .public-auth-unread, .public-auth-user-menu > summary, [data-header-search] > summary').all()) {
                         const size = await control.boundingBox();
                         assert.ok(size.width >= 43.99 && size.height >= 43.99,
@@ -53,7 +60,7 @@ export async function runHeaderActionsRegressions(browser, origin) {
                     assert.equal(open.viewport, open.scrollWidth, 'Opening search cannot cause horizontal overflow');
                     assert.ok(open.input.width >= 100, `An open field remains usable at ${width}px`);
                     assert.ok(Math.abs(open.account.right - closed.account.right) < 0.5, 'The account does not move when search opens');
-                    assertNoOverlap(open.actions, open.title, 'Expanded search stays above the title');
+                    assertNoOverlap(open.actions, open.title, 'Expanded search leaves the title unobstructed');
                     assertNoOverlap(open.actions, open.plus, 'Expanded search leaves the author control accessible');
                     assert.deepEqual(open.body, closed.body, 'Opening search does not move or resize article content');
                     await input.fill('Сохранённый запрос');

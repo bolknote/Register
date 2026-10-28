@@ -24,7 +24,7 @@ export function createFixtureServer() {
                     [new URL('./responsive-layout-fixture.php', import.meta.url).pathname, request.url.slice(1, -5)], {encoding: 'utf8'}));
                 return;
             }
-            if (['/responsive-layout.html', '/scheduled-layout.html', '/draft-layout.html', '/header-guest.html', '/header-unread.html', '/header-oldschool.html', '/header-pixel-forest.html', '/header-system-1.html'].includes(request.url)) {
+            if (['/responsive-layout.html', '/scheduled-layout.html', '/draft-layout.html', '/header-guest.html', '/header-unread.html', '/header-long-title.html', '/header-oldschool.html', '/header-pixel-forest.html', '/header-system-1.html'].includes(request.url)) {
                 response.setHeader('Content-Type', 'text/html; charset=utf-8');
                 response.end(execFileSync(process.env.PHP_BIN || 'php',
                     [new URL('./responsive-layout-fixture.php', import.meta.url).pathname, request.url.slice(1, -5)], {encoding: 'utf8'}));

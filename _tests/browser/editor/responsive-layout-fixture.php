@@ -88,11 +88,14 @@ if ($role !== 'author') {
 
 $account = $viewer->render('public_auth_account', [
     'user' => $role === 'guest' ? null : new AuthenticatedPublicUser(1, 'fixture', 'author@example.test', 'Тестовый автор', false, false, true, false, false, 'fixture-session'),
-    'unread' => $mode === 'header-unread' ? 12 : 0, 'live_region' => null, 'login_url' => '/auth', 'unread_url' => '/auth/unread',
+    'unread' => in_array($mode, ['header-unread', 'header-long-title'], true) ? 12 : 0, 'live_region' => null, 'login_url' => '/auth', 'unread_url' => '/auth/unread',
     'logout_url' => '/auth/logout', 'logout_token' => 'fixture-token', 'admin_url' => '/_admin/', 'return_path' => '/',
 ]);
 $header = $viewer->render('site-header', [
-    'site_name' => 'Обычный сайт с заметками', 'tagline' => 'Текст, иллюстрации и обсуждение на общей адаптивной сетке.',
+    'site_name' => $mode === 'header-long-title'
+        ? 'Обычный сайт с очень подробным названием, заметками, иллюстрациями и обсуждениями'
+        : 'Обычный сайт с заметками',
+    'tagline' => 'Текст, иллюстрации и обсуждение на общей адаптивной сетке.',
     'home_url' => '/', 'is_home' => true,
     'site_tools_html' => $role === 'author' ? $viewer->render('site-header-tools', ['can_create_post' => true], Module::class) : '',
     'public_auth_html' => '',

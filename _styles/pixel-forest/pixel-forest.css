@@ -54,6 +54,7 @@
     --form-width: 720px;
     --page-margin: clamp(14px, 3vw, 32px);
     --header-top: clamp(14px, 2vw, 24px);
+    --header-title-width: none;
     --site-title-size: clamp(2.25rem, 4.5vw, 3.5rem);
     --ui-font: ui-monospace, "SFMono-Regular", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, "Liberation Mono", monospace;
     --text-font: ui-monospace, "SFMono-Regular", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, "Liberation Mono", monospace;

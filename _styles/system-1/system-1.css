@@ -40,6 +40,7 @@
     --desktop-rail: 96px;
     --window-padding: clamp(22px, 3vw, 36px);
     --header-top: 0;
+    --header-title-width: none;
     --site-title-size: 14px;
     --ui-font: Geneva, Chicago, "Helvetica Neue", Arial, sans-serif;
     --text-font: "New York", NewYork, Georgia, "Times New Roman", serif;
