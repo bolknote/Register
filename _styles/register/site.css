@@ -50,7 +50,7 @@
     --tools-gutter: 4rem;
     --tools-rail-space: 0px;
     --tool-button-size: 2.15rem;
-    --header-top: clamp(2rem, 4vw, 3.5rem);
+    --header-top: max(4.25rem, calc(env(safe-area-inset-top, 0px) + 3.75rem));
     --site-title-size: clamp(2.4rem, 4.2vw, 3.28125rem);
     --ui-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
     --text-font: Georgia, "Times New Roman", serif;
@@ -61,7 +61,6 @@
         /* The tool column is reserved next to the common content origin,
          * independently of how much empty space a wide viewport provides. */
         --page-margin: max(var(--page-inset), calc(var(--safe-side) + var(--tools-rail-space)));
-        --header-top: max(3.25rem, clamp(2rem, 4vw, 3.5rem));
     }
 
     /* The server advertises author/moderator tools in the head, before any
@@ -785,6 +784,23 @@ h2.preview,
     min-width: 0;
     font-family: var(--text-font);
     font-size: var(--reading-font-size);
+}
+
+.site-header-actions {
+    position: absolute;
+    z-index: 12;
+    top: max(0.5rem, env(safe-area-inset-top, 0px));
+    right: max(0.75rem, env(safe-area-inset-right, 0px));
+    display: flex;
+    max-width: calc(100% - max(0.75rem, env(safe-area-inset-left, 0px)) - max(0.75rem, env(safe-area-inset-right, 0px)));
+    align-items: center;
+    gap: 0.5rem;
+    font: 400 1rem/1.4 var(--ui-font);
+}
+
+.site-header-actions .public-auth-header {
+    position: static;
+    flex: 0 0 auto;
 }
 
 .site-header-copy {
@@ -2553,8 +2569,17 @@ h2.preview,
 }
 
 @media (max-width: 760px) {
+    :root:has(> head > meta[name="register-tool-rail"][content="1"]),
+    :root:has(.site-header-tools) {
+        --header-actions-leading-space: 3.25rem;
+    }
+
+    .site-header-actions {
+        max-width: calc(100% - max(0.75rem, env(safe-area-inset-left, 0px)) - max(0.75rem, env(safe-area-inset-right, 0px)) - var(--header-actions-leading-space, 0px));
+    }
+
     .site-header-tools {
-        top: calc(-2.4rem + 0.2rem);
+        top: calc(-1 * var(--header-top) + max(0.5rem, env(safe-area-inset-top, 0px)));
         left: -0.4rem;
         width: 2.1rem;
     }
@@ -2993,25 +3018,6 @@ span.favorite-star {
 
 .register_search_form input {
     width: min(100%, 24rem);
-}
-
-@media (min-width: 721px) {
-    #header .site-title {
-        max-width: calc(100% - min(22rem, 32vw) - 2rem);
-    }
-
-    .register_search_form {
-        position: absolute;
-        z-index: 2;
-        top: var(--header-top);
-        right: max(var(--page-margin), calc((100% - var(--page-width)) / 2));
-        display: flex;
-        width: min(22rem, 32vw);
-        height: var(--site-title-size);
-        margin: 0;
-        padding: 0 0 0.4375rem;
-        align-items: flex-end;
-    }
 }
 
 #content table {
@@ -4086,7 +4092,7 @@ ul.back_forward .empty {
     }
 
     #header {
-        padding-top: 2.4rem;
+        padding-top: var(--header-top);
     }
 
     #container {
@@ -4144,21 +4150,8 @@ ul.back_forward .empty {
 }
 
 @media (pointer: coarse) and (max-width: 760px) {
-    :root {
-        --header-top: 3.75rem;
-    }
-
-    #header {
-        padding-top: var(--header-top);
-    }
-
     .site-header-tools {
-        top: calc(-1 * var(--header-top) + 0.35rem);
         width: var(--tool-button-size);
-    }
-
-    body .public-auth-header {
-        top: calc(-1 * var(--header-top) + 0.35rem);
     }
 
     #content .post-card.is-editing > .post.time {

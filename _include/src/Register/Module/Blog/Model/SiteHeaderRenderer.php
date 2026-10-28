@@ -34,7 +34,7 @@ final readonly class SiteHeaderRenderer
     ) {
     }
 
-    public function render(Request $request): string
+    public function render(Request $request, bool $includeAccount = true): string
     {
         $editorConfig = $this->inplaceControls->forPage($request);
 
@@ -44,7 +44,9 @@ final readonly class SiteHeaderRenderer
             'home_url'         => $this->urlBuilder->link('/'),
             'is_home'          => $request->getPathInfo() === '/',
             'site_tools_html'  => $this->renderTools($request),
-            'public_auth_html' => $this->publicAuthRenderer->renderHeader($request, $this->pageCache->invalidateCurrentResponseAt(...)),
+            'public_auth_html' => $includeAccount
+                ? $this->publicAuthRenderer->renderHeader($request, $this->pageCache->invalidateCurrentResponseAt(...))
+                : '',
             'create_post_html' => $this->postFeedRenderer->renderCreateTemplate($request),
             'editor_resources_html' => $editorConfig === null ? '' : $this->viewer->render(
                 'post-editor-resources',

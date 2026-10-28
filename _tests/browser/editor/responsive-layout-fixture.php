@@ -24,8 +24,18 @@ require $root . '_vendor/autoload.php';
 $mode = $argv[1] ?? '';
 $initialLayout = str_starts_with($mode, 'initial-layout');
 $role = $mode === 'initial-layout-moderator' ? 'moderator' : ($mode === 'initial-layout-guest' ? 'guest' : 'author');
+if ($mode === 'header-guest') {
+    $role = 'guest';
+}
+
 $provider = new DynamicConfigProvider();
 (new ReflectionClass($provider))->getProperty('params')->setValue($provider, ['REGISTER_STYLE' => 'register']);
+$theme = match ($mode) {
+    'header-oldschool' => 'oldschool',
+    'header-pixel-forest' => 'pixel-forest',
+    'header-system-1' => 'system-1',
+    default => null,
+};
 $viewer = new Viewer(new Translator(['locale' => 'ru', ...require $root . '_include/src/Register/Module/Blog/resources/lang/Russian.php'], 'ru'), new UrlBuilder('', '', ''), $root, $provider->getStringProxy('REGISTER_STYLE'), false);
 $paragraph = 'Это обычная тестовая заметка. У неё есть текст, фотография с подписью, таблица и пример кода. '
     . 'При изменении ширины окна длина строки остаётся удобной для чтения, а элементы управления находятся рядом с содержимым. ';
@@ -77,17 +87,21 @@ if ($role !== 'author') {
 }
 
 $account = $viewer->render('public_auth_account', [
-    'user' => new AuthenticatedPublicUser(1, 'fixture', 'author@example.test', 'Тестовый автор', false, false, true, false, false, 'fixture-session'),
-    'unread' => 0, 'live_region' => null, 'login_url' => '/auth', 'unread_url' => '/auth/unread',
+    'user' => $role === 'guest' ? null : new AuthenticatedPublicUser(1, 'fixture', 'author@example.test', 'Тестовый автор', false, false, true, false, false, 'fixture-session'),
+    'unread' => $mode === 'header-unread' ? 12 : 0, 'live_region' => null, 'login_url' => '/auth', 'unread_url' => '/auth/unread',
     'logout_url' => '/auth/logout', 'logout_token' => 'fixture-token', 'admin_url' => '/_admin/', 'return_path' => '/',
 ]);
 $header = $viewer->render('site-header', [
     'site_name' => 'Обычный сайт с заметками', 'tagline' => 'Текст, иллюстрации и обсуждение на общей адаптивной сетке.',
     'home_url' => '/', 'is_home' => true,
     'site_tools_html' => $role === 'author' ? $viewer->render('site-header-tools', ['can_create_post' => true], Module::class) : '',
-    'public_auth_html' => $viewer->render('public_auth_header', ['account_html' => $account, 'dialog_html' => '']),
+    'public_auth_html' => '',
     'create_post_html' => null, 'editor_resources_html' => '',
 ], Module::class);
+$actions = $viewer->render('header-search', [
+    'search_label' => 'Поиск', 'search_url' => '/search', 'quick_search_url' => '/search?title=', 'prefixed' => false,
+], \Register\Module\Search\Module::class)
+    . $viewer->render('public_auth_header', ['account_html' => $account, 'dialog_html' => '']);
 $recovery = file_get_contents(__DIR__ . '/recovery.html');
 if ($recovery === false) {
     throw new RuntimeException('Unable to read the shared editor fixture.');
@@ -123,17 +137,22 @@ $comment = $viewer->render('comment', [
 echo '<!doctype html><html lang="ru"><head><meta charset="utf-8">'
     . '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">'
     . '<title>Адаптивная раскладка Register</title>'
-    . ($initialLayout && $role !== 'guest' ? '<meta name="register-tool-rail" content="1">' : '')
+    . ($role !== 'guest' ? '<meta name="register-tool-rail" content="1">' : '')
     . '<link rel="stylesheet" href="/site.css"><link rel="stylesheet" href="/responsive-blog.css">'
+    . ($theme !== null ? '<link rel="stylesheet" href="/_styles/' . $theme . '/' . $theme . '.css">' : '')
     . '<link rel="stylesheet" href="/_assets/register/partial-navigation.css">'
     . '<link rel="stylesheet" href="/post-recovery.css"><link rel="stylesheet" href="/reactions.css">'
     . '<link rel="stylesheet" href="/responsive-auth.css">'
+    . '<link rel="stylesheet" href="/_assets/register/search/search.css">'
+    . '<script src="/_assets/register/search/header-search.js" defer></script>'
+    . '<script src="/_assets/register/search/autocomplete.js" defer></script>'
+    . '<script src="/_assets/register/public-auth.js" defer></script>'
     . ($initialLayout ? '<script src="/local-time.js"></script>' : '')
     . '</head><body class="blog_main"><div id="register-page" data-register-page>'
-    . '<header id="header">' . $header . '</header>'
+    . '<header id="header"><div class="site-header-actions">' . $actions . '</div>' . $header . '</header>'
     . '<main id="container"><div id="content"><div class="live-post-feed">'
     . $post
     . '</div><section class="comments-section"><h2 class="comment">Обсуждение</h2>'
     . '<div class="comment-thread">' . $comment . '</div>'
-    . '</section></div></main><form class="register_search_form"><input type="search" aria-label="Поиск" placeholder="Поиск"></form>'
+    . '</section></div></main>'
     . '<footer id="footer">Тестовая страница Register</footer></div>' . $resources . '</body></html>';

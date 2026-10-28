@@ -72,6 +72,9 @@ PHP unit/integration regressions also cover native absolute media URLs, exact
 file identity, configured origin validation, and rejected foreign sources.
 
 Responsive layout regressions also run independently with `node responsive-layout-tests.mjs`.
+`node header-actions-tests.mjs` exercises the real account/search views at 320–3840px:
+the corner account and full-width heading, search expansion without moving content,
+autocomplete, Escape/focus, outside clicks, native GET submission and the no-JavaScript disclosure.
 They check the original 18/20px prose sizes and the established 1000 CSS-pixel reading/editing
 column from 320 to 3840px, shrinking only when the viewport requires it. Font metrics, larger
 user fonts and Retina DPR must not silently narrow or widen this column. The tests also cover

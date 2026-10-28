@@ -468,7 +468,10 @@ try {
                 page.on('pageerror', error => errors.push(String(error)));
                 await page.goto(`http://127.0.0.1:${server.address().port}${fixture}`);
                 await page.getByRole('button', {name: 'Run regressions', exact: true}).click();
-                await page.locator('#results[data-finished="true"]').waitFor({timeout: 30000});
+                await page.locator('#results[data-finished="true"]').waitFor({timeout: 30000}).catch(async error => {
+                    console.error(`${engine.name()} ${fixture}: incomplete regression run\n${await page.locator('#results').textContent()}\n${errors.join('\n')}`);
+                    throw error;
+                });
                 const results = await page.locator('#results').textContent();
                 console.log(`${engine.name()} ${fixture}\n${results}`);
                 if (await page.locator('#results').getAttribute('data-failed') !== '0' || errors.length > 0) {

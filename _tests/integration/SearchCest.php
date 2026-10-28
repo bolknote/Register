@@ -33,6 +33,11 @@ class SearchCest
          */
         $I->amOnPage('https://localhost/');
 
+        $I->seeElement('.site-header-actions > .register-header-search > summary[aria-label="Search"]');
+        $I->assertCount(1, $I->grabMultiple('.site-header-actions .public-auth-user-menu'));
+        $I->dontSeeElement('.site-header-shell .public-auth-header');
+        $I->dontSeeElement('.public-auth-user-name');
+
         $formSelector = '.site-header-shell .post-create-template .post-inplace-edit-form';
         $token = (string)$I->grabAttributeFrom($formSelector . ' input[name="inplace_token"]', 'value');
         $publishedAt = strtotime('2023-08-12T11:32');

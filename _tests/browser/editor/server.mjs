@@ -24,7 +24,7 @@ export function createFixtureServer() {
                     [new URL('./responsive-layout-fixture.php', import.meta.url).pathname, request.url.slice(1, -5)], {encoding: 'utf8'}));
                 return;
             }
-            if (['/responsive-layout.html', '/scheduled-layout.html', '/draft-layout.html'].includes(request.url)) {
+            if (['/responsive-layout.html', '/scheduled-layout.html', '/draft-layout.html', '/header-guest.html', '/header-unread.html', '/header-oldschool.html', '/header-pixel-forest.html', '/header-system-1.html'].includes(request.url)) {
                 response.setHeader('Content-Type', 'text/html; charset=utf-8');
                 response.end(execFileSync(process.env.PHP_BIN || 'php',
                     [new URL('./responsive-layout-fixture.php', import.meta.url).pathname, request.url.slice(1, -5)], {encoding: 'utf8'}));
@@ -146,6 +146,10 @@ export function createFixtureServer() {
                 ['/responsive-retina-image.svg', ['responsive-retina-image.svg', 'image/svg+xml']],
                 ['/responsive-blog.css', ['../../../_assets/register/blog/site.css', 'text/css']],
                 ['/responsive-auth.css', ['../../../_assets/register/public-auth.css', 'text/css']],
+                ['/_assets/register/public-auth.js', ['../../../_assets/register/public-auth.js', 'text/javascript']],
+                ['/_assets/register/search/search.css', ['../../../_assets/register/search/search.css', 'text/css']],
+                ['/_assets/register/search/header-search.js', ['../../../_assets/register/search/header-search.js', 'text/javascript']],
+                ['/_assets/register/search/autocomplete.js', ['../../../_assets/register/search/autocomplete.js', 'text/javascript']],
                 ['/telegram-stickers.html', ['telegram-stickers.html', 'text/html; charset=utf-8']],
                 ['/stickers.js', ['../../../_assets/register/telegram/stickers.js', 'text/javascript']],
                 ['/stickers.css', ['../../../_assets/register/telegram/stickers.css', 'text/css']],
@@ -181,6 +185,9 @@ export function createFixtureServer() {
             ]);
             for (const module of ['form', 'form-recovery', 'ai', 'image-alt', 'tags', 'shortcuts', 'dialogs', 'deps', 'hash', 'preview', 'social-preview', 'activitypub', 'codemirror', 'text/paragraphs', 'text/corrections', 'text/html', 'text/plain', 'utils/escape', 'utils/form-errors']) {
                 files.set(`/admin/editor/${module}.js`, [`../../../_admin/js/editor/${module}.js`, 'text/javascript']);
+            }
+            for (const theme of ['oldschool', 'pixel-forest', 'system-1']) {
+                files.set(`/_styles/${theme}/${theme}.css`, [`../../../_styles/${theme}/${theme}.css`, 'text/css']);
             }
             for (const module of ['storage', 'request', 'fields', 'boundaries', 'html-blocks', 'html-preview', 'history', 'tags', 'recovery']) {
                 files.set(`/_assets/register/editor/${module}.js`, [`../../../_assets/register/editor/${module}.js`, 'text/javascript']);

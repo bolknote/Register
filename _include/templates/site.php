@@ -18,9 +18,11 @@ if (!isset($this)) die; ?>
 <!-- register-page-start -->
 <div id="register-page" data-register-page>
     <a class="skip-link" href="#content"><!-- register_skip_link_label --></a>
-	<header id="header"><!-- register_site_header --></header>
+	<header id="header">
+        <div class="site-header-actions"><!-- register_search_field --><!-- register_public_auth_header --></div>
+        <!-- register_site_header -->
+    </header>
 	<nav id="crumbs" aria-label="<!-- register_breadcrumbs_label -->"><!-- register_crumbs --></nav>
-<!-- register_search_field -->
 
     <main id="container">
         <article id="content" tabindex="-1">

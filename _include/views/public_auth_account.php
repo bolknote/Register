@@ -34,7 +34,6 @@ $initials = $user instanceof \Register\Core\Model\AuthenticatedPublicUser
     <details class="public-auth-user-menu">
         <summary aria-label="<?php echo register_htmlencode($trans('Account menu')); ?>">
             <span class="public-auth-avatar" aria-hidden="true"><?php echo register_htmlencode($initials); ?></span>
-            <span class="public-auth-user-name"><?php echo register_htmlencode($displayName); ?></span>
             <svg class="public-auth-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4"></path></svg>
         </summary>
         <div class="public-auth-menu-popover">

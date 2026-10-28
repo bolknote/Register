@@ -31,7 +31,7 @@
     --comments-width: 760px;
     --form-width: 700px;
     --page-margin: clamp(14px, 4vw, 40px);
-    --header-top: clamp(18px, 3vw, 34px);
+    --header-top: 4.25rem;
     --site-title-size: clamp(2rem, 4.2vw, 3rem);
     --ui-font: Arial, Helvetica, sans-serif;
     --text-font: Arial, Helvetica, sans-serif;
@@ -44,8 +44,10 @@ body {
 }
 
 #header {
+    position: relative;
     box-sizing: border-box;
     padding: clamp(1.15rem, 3vw, 1.65rem) clamp(1rem, 3vw, 1.8rem) clamp(1rem, 2.5vw, 1.4rem);
+    padding-top: var(--header-top);
     border-top: 6px solid var(--oldschool-teal-deep);
     border-bottom: 1px solid color-mix(in srgb, var(--oldschool-teal-deep) 78%, var(--oldschool-white));
     background: linear-gradient(135deg, var(--oldschool-teal), var(--oldschool-teal-deep));
@@ -523,6 +525,7 @@ input.comment-submit:focus-visible,
 
     #header {
         padding: 1rem 0.9rem;
+        padding-top: var(--header-top);
         border-top-width: 4px;
     }
 

@@ -212,6 +212,19 @@ hr {
     display: contents;
 }
 
+#header > .site-header-actions {
+    position: static;
+    max-width: none;
+    grid-column: 4;
+    grid-row: 1;
+    gap: 4px;
+    justify-self: end;
+}
+
+#header .register-header-search[open] {
+    width: min(24rem, 40vw);
+}
+
 #header .site-header-tools {
     position: static;
     grid-column: 2;

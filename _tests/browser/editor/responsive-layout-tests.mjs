@@ -32,7 +32,7 @@ const measure = page => page.evaluate(async () => {
         commentsGap: box('.comments-section').top - box('.post.foot').bottom,
         body: box('[data-post-inplace-body]'),
         header: box('.site-header-copy'), card: box('.post-card'),
-        search: box('.register_search_form'), title: box('.site-title'),
+        search: box('.register-header-search > summary'), title: box('.site-title'),
         account: box('.public-auth-user-menu > summary'),
         overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
         codeScroll: document.querySelector('#responsive-code').scrollWidth > document.querySelector('#responsive-code').clientWidth,
@@ -88,7 +88,8 @@ export async function runResponsiveLayoutRegressions(browser, origin) {
                     const overlap = current.title.left < current.search.right && current.title.right > current.search.left
                         && current.title.top < current.search.bottom && current.title.bottom > current.search.top;
                     assert.equal(overlap, false, `Search must not cover the title at ${width}px`);
-                    assert.ok(current.account.bottom <= current.search.top + 1, 'Account controls stay above the search field');
+                    assert.ok(current.search.right <= current.account.left + 1, 'Search stays to the left of the account menu');
+                    assert.ok(Math.abs(current.account.top - current.search.top) < 1, 'Search and account controls share the corner row');
                 }
                 if (process.env.RESPONSIVE_SCREENSHOT_DIR && [390, 800, 1920].includes(width)
                     && colorScheme === 'dark' && browser.browserType().name() === 'chromium') {

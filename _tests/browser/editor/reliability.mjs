@@ -8,6 +8,7 @@ import {runPublicRecoveryWarningRegressions, runHtmlReloadLifecycleRegressions} 
 import {runNavigationRecoveryRegressions} from './navigation-recovery-tests.mjs';
 import {runDateLayoutRegressions} from './date-layout-tests.mjs';
 import {runInitialLayoutRegressions} from './initial-layout-tests.mjs';
+import {runHeaderActionsRegressions} from './header-actions-tests.mjs';
 import {runResponsiveLayoutRegressions, runPrivatePostNoticeLayoutRegressions, runResponsiveImageDimensionsRegressions, runResponsiveEditorRegressions} from './responsive-layout-tests.mjs';
 import {runImageOptimizerLoadRegressions} from './image-optimizer-load-tests.mjs';
 import {runImageOptimizerCacheRegressions} from './image-optimizer-cache-tests.mjs';
@@ -26,6 +27,7 @@ try {
         try {
             console.log(`${engine.name()} editor reliability regressions`);
             await runInitialLayoutRegressions(browser, origin);
+            await runHeaderActionsRegressions(browser, origin);
             await runResponsiveLayoutRegressions(browser, origin);
             await runPrivatePostNoticeLayoutRegressions(browser, origin);
             await runResponsiveImageDimensionsRegressions(browser, origin);

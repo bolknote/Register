@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog;
 
+use Register\Auth\PublicAuthRenderer;
 use Register\Comment\CommentChangedEvent;
 use Register\Comment\CommentMutationSource;
 use Register\Content\ContentChangedEvent;
@@ -81,9 +82,20 @@ final readonly class ListenerModule implements ContainerAwareListenerModuleInter
                 return;
             }
 
+            $separateAccount = $event->htmlTemplate->hasPlaceholder('<!-- register_public_auth_header -->');
+            if ($separateAccount) {
+                $event->htmlTemplate->registerPlaceholder(
+                    '<!-- register_public_auth_header -->',
+                    $container->get(PublicAuthRenderer::class)->renderHeader(
+                        $request,
+                        $container->get(BlogPageCache::class)->invalidateCurrentResponseAt(...),
+                    ),
+                );
+            }
+
             $event->htmlTemplate->registerPlaceholder(
                 '<!-- register_site_header -->',
-                $container->get(SiteHeaderRenderer::class)->render($request),
+                $container->get(SiteHeaderRenderer::class)->render($request, includeAccount: !$separateAccount),
             );
 
             // Reserve the desktop tool rail before the browser parses the body,

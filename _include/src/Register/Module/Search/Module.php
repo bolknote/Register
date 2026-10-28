@@ -296,18 +296,19 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             );
             $event->htmlTemplate->registerPlaceholder(
                 '<!-- register_search_field -->',
-                '<form class="register_search_form" role="search" aria-label="' . register_htmlencode($translator->trans('Search'))
-                . '" method="get" action="' . $urlBuilder->link('/search') . '">'
-                . ($urlBuilder->hasPrefix() ? '<input type="hidden" name="search" value="1" />' : '')
-                . '<label class="visually-hidden" for="register_search_input">' . register_htmlencode($translator->trans('Search')) . '</label>'
-                . '<span class="register-search-autocomplete"><input type="search" name="q" id="register_search_input" data-register-search-url="'
-                . register_htmlencode($quickSearchUrl) . '" placeholder="' . register_htmlencode($translator->trans('Search'))
-                . '" autocomplete="off" enterkeyhint="search" /></span></form>'
+                $container->get(Viewer::class)->render('header-search', [
+                    'search_label' => $translator->trans('Search'),
+                    'search_url' => $urlBuilder->rawLink('/search'),
+                    'quick_search_url' => $quickSearchUrl,
+                    'prefixed' => $urlBuilder->hasPrefix(),
+                ], self::class),
             );
         });
 
         $eventDispatcher->addListener(TemplateAssetEvent::class, static function (TemplateAssetEvent $event) use ($container): void {
             $event->assetPack->addCss('../../_assets/register/search/search.css', [AssetPack::OPTION_MERGE]);
+            $event->assetPack->addJs('../../_assets/register/search/header-search.js', [AssetPack::OPTION_MERGE]);
+
             $provider = $container->get(DynamicConfigProvider::class);
             if ($provider->getBoolProxy('REGISTER_SEARCH_QUICK')->get()) {
                 $event->assetPack
