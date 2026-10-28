@@ -174,6 +174,15 @@ All three engines check rendered caret pixels, leading/middle text, both themes
 and mobile layouts, nested and adjacent code, spaces, native word editing and
 double-click selection. Undo/redo, local recovery and repeated saves retain exact
 text and formatting; runtime separators never contain or serialize author text.
+Right-edge cases also cover a final TT with nested spans, clicks in its padding
+and in the blank space after it, the last line of wrapped code, adjacent chips
+and surrounding emphasis. They check the painted outside caret and plain suffix
+through typing, undo/redo, local recovery and repeated saves in all three engines.
+Actual native Copy/Paste also runs with the public inline-style policy: browsers
+can replace TT with a monospace SPAN and a background. Clicking or pressing Right
+leaves that original styled element intact, including after undo/redo and saving.
+The leading typed space is retained; ordinary highlights and transparent or bare
+monospace spans retain native navigation.
 
 Saving a post containing a script or style element performs a full document load:
 fragment insertion cannot initialize scripts or grant the document's CSP nonce.

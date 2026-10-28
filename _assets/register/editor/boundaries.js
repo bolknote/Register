@@ -440,14 +440,26 @@
             return null;
         }
 
+        function isInlineCodeElement(element) {
+            if (!(element instanceof HTMLElement)) return false;
+            if (element.tagName === 'TT') return true;
+            // Native rich-text paste can replace TT with a styled SPAN. Its
+            // explicit monospace font and code background still form the same
+            // editing boundary; keep the author's tag and attributes intact.
+            if (element.tagName !== 'SPAN' || !element.style.backgroundColor
+                || !/(?:^|,)\s*(?:ui-)?monospace\s*(?:,|$)/iu.test(element.style.fontFamily)) return false;
+            const background = getComputedStyle(element).backgroundColor;
+            return background !== 'transparent'
+                && !/^rgba\(.*[,]\s*0(?:\.0*)?\)$/u.test(background)
+                && !/\/\s*0(?:\.0*)?%?\s*\)$/u.test(background);
+        }
+
         function inlineCodeBoundaryMarkerAtRange(body, range) {
             if (!range.collapsed || !body.contains(range.startContainer)) return null;
             const text = range.startContainer;
             if (text.nodeType === Node.TEXT_NODE) {
-                const after = range.startOffset === 0 && text.previousSibling instanceof HTMLElement
-                    && text.previousSibling.tagName === 'TT';
-                const before = range.startOffset === text.data.length && text.nextSibling instanceof HTMLElement
-                    && text.nextSibling.tagName === 'TT';
+                const after = range.startOffset === 0 && isInlineCodeElement(text.previousSibling);
+                const before = range.startOffset === text.data.length && isInlineCodeElement(text.nextSibling);
                 const code = after ? text.previousSibling : before ? text.nextSibling : null;
                 if (code && !code.closest('pre, [contenteditable="false"]')) {
                     const marker = document.createElement('span');
@@ -458,19 +470,19 @@
                 }
                 const leading = range.startOffset === text.data.length ? text.nextSibling : null;
                 if (leading instanceof HTMLElement && leading.hasAttribute('data-post-inline-code-exit')
-                    && leading.nextSibling instanceof HTMLElement && leading.nextSibling.tagName === 'TT') return leading;
+                    && isInlineCodeElement(leading.nextSibling)) return leading;
                 const trailing = range.startOffset === 0 ? text.previousSibling : null;
                 return trailing instanceof HTMLElement && trailing.hasAttribute('data-post-inline-code-exit')
-                    && trailing.previousSibling instanceof HTMLElement && trailing.previousSibling.tagName === 'TT'
+                    && isInlineCodeElement(trailing.previousSibling)
                     ? trailing : null;
             }
             if (!(range.startContainer instanceof HTMLElement)) return null;
             const next = range.startContainer.childNodes[range.startOffset];
             const previous = range.startContainer.childNodes[range.startOffset - 1];
             if (next instanceof HTMLElement && next.hasAttribute('data-post-inline-code-exit')
-                && next.nextSibling instanceof HTMLElement && next.nextSibling.tagName === 'TT') return next;
+                && isInlineCodeElement(next.nextSibling)) return next;
             return previous instanceof HTMLElement && previous.hasAttribute('data-post-inline-code-exit')
-                && previous.previousSibling instanceof HTMLElement && previous.previousSibling.tagName === 'TT'
+                && isInlineCodeElement(previous.previousSibling)
                 ? previous : null;
         }
 
@@ -1069,7 +1081,7 @@
             return changed;
         }
 
-        return {clearBoundaryCaret, clearSyntheticBoundaryCaret, boundaryNodeIsEmpty, isMediaBoundaryElement, editorBoundaryParagraphIsEmpty, topLevelBodyChild, hoistMediaFromParagraph, normalizeLeadingNestedMedia, leadingMediaIndex, prepareMediaInsertionRange, focusBeforeLeadingMedia, focusBeforeMedia, focusAfterMedia, mediaBesideCaret, revealBoundaryCaret, mediaBoundaryAtRange, inlineCodeBoundaryMarkerAtRange, syncBoundaryCaret, moveInsertionBeforeMediaBoundary, protectSelectedMediaBoundary, selectMediaForDeletion, selectedMediaBlock, protectMediaParagraphDeletion, collapseEmptyParagraphBesideMedia, expandCollapsedBoundaryParagraph, collapseEmptyLeadingParagraphAfterDelete, isMediaOwnedDirectChild, normalizeMediaBodyStructure};
+        return {clearBoundaryCaret, clearSyntheticBoundaryCaret, boundaryNodeIsEmpty, isMediaBoundaryElement, editorBoundaryParagraphIsEmpty, topLevelBodyChild, hoistMediaFromParagraph, normalizeLeadingNestedMedia, leadingMediaIndex, prepareMediaInsertionRange, focusBeforeLeadingMedia, focusBeforeMedia, focusAfterMedia, mediaBesideCaret, revealBoundaryCaret, mediaBoundaryAtRange, isInlineCodeElement, inlineCodeBoundaryMarkerAtRange, syncBoundaryCaret, moveInsertionBeforeMediaBoundary, protectSelectedMediaBoundary, selectMediaForDeletion, selectedMediaBlock, protectMediaParagraphDeletion, collapseEmptyParagraphBesideMedia, expandCollapsedBoundaryParagraph, collapseEmptyLeadingParagraphAfterDelete, isMediaOwnedDirectChild, normalizeMediaBodyStructure};
     }
 
     window.RegisterEditorBoundaries = Object.freeze({create});

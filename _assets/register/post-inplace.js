@@ -89,7 +89,7 @@
 
     const {createEditorFieldSurfaces} = window.RegisterEditorFields.create({});
 
-    const {clearBoundaryCaret, clearSyntheticBoundaryCaret, boundaryNodeIsEmpty, isMediaBoundaryElement, editorBoundaryParagraphIsEmpty, topLevelBodyChild, hoistMediaFromParagraph, normalizeLeadingNestedMedia, leadingMediaIndex, prepareMediaInsertionRange, focusBeforeLeadingMedia, focusBeforeMedia, focusAfterMedia, mediaBesideCaret, revealBoundaryCaret, mediaBoundaryAtRange, inlineCodeBoundaryMarkerAtRange, syncBoundaryCaret, moveInsertionBeforeMediaBoundary, protectSelectedMediaBoundary, selectMediaForDeletion, selectedMediaBlock, protectMediaParagraphDeletion, collapseEmptyParagraphBesideMedia, expandCollapsedBoundaryParagraph, collapseEmptyLeadingParagraphAfterDelete, isMediaOwnedDirectChild, normalizeMediaBodyStructure} = window.RegisterEditorBoundaries.create({
+    const {clearBoundaryCaret, clearSyntheticBoundaryCaret, boundaryNodeIsEmpty, isMediaBoundaryElement, editorBoundaryParagraphIsEmpty, topLevelBodyChild, hoistMediaFromParagraph, normalizeLeadingNestedMedia, leadingMediaIndex, prepareMediaInsertionRange, focusBeforeLeadingMedia, focusBeforeMedia, focusAfterMedia, mediaBesideCaret, revealBoundaryCaret, mediaBoundaryAtRange, isInlineCodeElement, inlineCodeBoundaryMarkerAtRange, syncBoundaryCaret, moveInsertionBeforeMediaBoundary, protectSelectedMediaBoundary, selectMediaForDeletion, selectedMediaBlock, protectMediaParagraphDeletion, collapseEmptyParagraphBesideMedia, expandCollapsedBoundaryParagraph, collapseEmptyLeadingParagraphAfterDelete, isMediaOwnedDirectChild, normalizeMediaBodyStructure} = window.RegisterEditorBoundaries.create({
         rangeIsInside, editorStates,
     });
 
@@ -3788,6 +3788,16 @@
         return block?.tagName === 'BLOCKQUOTE' ? block : null;
     }
 
+    function navigationInlineCodeAtNode(root, node) {
+        let code = null;
+        let element = node instanceof Element ? node : node?.parentElement;
+        while (element && element !== root) {
+            if (isInlineCodeElement(element)) code = element;
+            element = element.parentElement;
+        }
+        return code;
+    }
+
     function inlineCodeAtCaretBoundary(root, selection, atEnd) {
         if (!selection || selection.rangeCount !== 1) {
             return null;
@@ -3797,15 +3807,10 @@
             return null;
         }
 
-        const ancestors = inlineCodeAncestors(root, range.startContainer);
         const candidate = range.startContainer instanceof HTMLElement
             ? range.startContainer.childNodes[range.startOffset] : null;
-        const inlineCode = ancestors.at(-1) || (
-            range.startContainer instanceof HTMLElement
-            && range.startContainer.tagName === 'TT'
-                ? range.startContainer
-                : null
-        ) || (!atEnd && candidate instanceof HTMLElement && candidate.tagName === 'TT' ? candidate : null);
+        const inlineCode = navigationInlineCodeAtNode(root, range.startContainer)
+            || (!atEnd && isInlineCodeElement(candidate) ? candidate : null);
         if (!(inlineCode instanceof HTMLElement)) {
             return null;
         }
@@ -3830,13 +3835,13 @@
             parent.insertBefore(marker, after ? inlineCode.nextSibling : inlineCode);
         }
         const neighbour = after ? marker.nextSibling : marker.previousSibling;
-        if (neighbour instanceof HTMLElement && neighbour.tagName === 'TT') {
+        if (isInlineCodeElement(neighbour)) {
             const shield = marker.cloneNode(false);
             shield.removeAttribute('class');
             parent.insertBefore(shield, after ? neighbour : marker);
         }
         // Keep a noneditable separator on the code side of the insertion
-        // point. Bare DOM/text edges can inherit the neighbouring TT style.
+        // point. Bare DOM/text edges can inherit the neighbouring code style.
         if (after) range.setStartAfter(marker);
         else range.setStartBefore(marker);
         range.collapse(true);
@@ -3853,21 +3858,34 @@
         return focusAtInlineCodeBoundary(state, inlineCode, false);
     }
 
-    function moveBeforeInlineCodeClick(event, state) {
+    function moveToInlineCodeBoundaryClick(event, state) {
         if (event.button !== 0 || event.detail > 1 || event.shiftKey || event.altKey
             || event.ctrlKey || event.metaKey || state.imageCaptionEditor || state.mediaCaptionEditors.size > 0) return false;
-        const inlineCode = event.target instanceof Element ? event.target.closest('tt') : null;
+        if (!(event.target instanceof Element) || !state.body.contains(event.target)) return false;
         const selection = window.getSelection();
+        const range = selection?.rangeCount === 1 ? selection.getRangeAt(0) : null;
+        const previous = range?.startContainer.nodeType === Node.TEXT_NODE
+            ? (range.startOffset === 0 ? range.startContainer.previousSibling : null)
+            : range?.startContainer.childNodes[range.startOffset - 1];
+        const inlineCode = navigationInlineCodeAtNode(state.body, event.target)
+            || inlineCodeAtCaretBoundary(state.body, selection, true)
+            || (isInlineCodeElement(previous) ? previous : null);
         if (!inlineCode || !state.body.contains(inlineCode) || inlineCode.closest('pre, [contenteditable="false"]')
             || !selection?.isCollapsed) return false;
-        const rect = inlineCode.getClientRects()[0];
-        const padding = parseFloat(getComputedStyle(inlineCode).paddingLeft) || 0;
-        // Only the leading padding is an outside-code click. Text, later
-        // wrapped fragments, drags and multi-click selections stay native.
-        if (!rect || event.clientY < rect.top || event.clientY > rect.bottom
-            || event.clientX < rect.left || event.clientX >= rect.left + padding) return false;
+        const rects = inlineCode.getClientRects();
+        const first = rects[0];
+        const last = rects[rects.length - 1];
+        const style = getComputedStyle(inlineCode);
+        const before = first && event.clientY >= first.top && event.clientY <= first.bottom
+            && event.clientX >= first.left && event.clientX < first.left + (parseFloat(style.paddingLeft) || 0);
+        const after = last && event.clientY >= last.top && event.clientY <= last.bottom
+            && event.clientX >= last.right - (parseFloat(style.paddingRight) || 0);
+        // Padding at either outer edge and the empty space after the last
+        // fragment belong outside inline code. Glyphs, intermediate wrapped lines,
+        // drags and multi-click selections keep their native behaviour.
+        if (!before && !after) return false;
         event.preventDefault();
-        return focusAtInlineCodeBoundary(state, inlineCode, false);
+        return focusAtInlineCodeBoundary(state, inlineCode, Boolean(after));
     }
 
     function restoreInlineCodeBoundary(state) {
@@ -3877,8 +3895,7 @@
         if (!range?.collapsed || !(parent instanceof HTMLElement) || !state.body.contains(parent)) return;
         const next = parent.childNodes[range.startOffset];
         const previous = parent.childNodes[range.startOffset - 1];
-        const code = next instanceof HTMLElement && next.tagName === 'TT' ? next
-            : previous instanceof HTMLElement && previous.tagName === 'TT' ? previous : null;
+        const code = isInlineCodeElement(next) ? next : isInlineCodeElement(previous) ? previous : null;
         if (code && !code.closest('pre, [contenteditable="false"]')) {
             focusAtInlineCodeBoundary(state, code, code === previous);
         }
@@ -3900,7 +3917,7 @@
         const marker = event.key === 'ArrowRight' ? next : previous;
         if (!(marker instanceof HTMLElement) || !marker.hasAttribute('data-post-inline-code-exit')) return false;
         const code = event.key === 'ArrowRight' ? marker.nextSibling : marker.previousSibling;
-        if (!(code instanceof HTMLElement) || code.tagName !== 'TT') return false;
+        if (!isInlineCodeElement(code)) return false;
         event.preventDefault();
         event.stopPropagation();
         const inside = document.createRange();
@@ -5956,7 +5973,7 @@
         });
         if (card?.classList.contains('is-editing')) {
             const state = editorStates.get(card);
-            if (state && moveBeforeInlineCodeClick(event, state)) return;
+            if (state && moveToInlineCodeBoundaryClick(event, state)) return;
             const editableLink = target?.closest('a');
             if (editableLink && (
                 card.querySelector('[data-post-inplace-title]')?.contains(editableLink)
@@ -6169,11 +6186,14 @@
         event.preventDefault();
         const offset = range.startOffset;
         const existing = range.startContainer.nodeType === Node.TEXT_NODE;
-        const text = existing ? range.startContainer : document.createTextNode(event.data);
-        if (existing) text.insertData(offset, event.data);
+        // Like native typing at a trailing edge, keep the first space visible.
+        // A plain collapsible space can be discarded by the next native key.
+        const data = event.data === ' ' && isInlineCodeElement(marker.previousSibling) ? '\u00a0' : event.data;
+        const text = existing ? range.startContainer : document.createTextNode(data);
+        if (existing) text.insertData(offset, data);
         else range.insertNode(text);
         const caret = document.createRange();
-        caret.setStart(text, existing ? offset + event.data.length : text.data.length);
+        caret.setStart(text, existing ? offset + data.length : text.data.length);
         caret.collapse(true);
         selectRange(state, caret);
         state.body.dispatchEvent(new InputEvent('input', {bubbles: true,
