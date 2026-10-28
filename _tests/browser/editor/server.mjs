@@ -24,10 +24,10 @@ export function createFixtureServer() {
                     [new URL('./responsive-layout-fixture.php', import.meta.url).pathname, request.url.slice(1, -5)], {encoding: 'utf8'}));
                 return;
             }
-            if (request.url === '/responsive-layout.html') {
+            if (['/responsive-layout.html', '/scheduled-layout.html', '/draft-layout.html'].includes(request.url)) {
                 response.setHeader('Content-Type', 'text/html; charset=utf-8');
                 response.end(execFileSync(process.env.PHP_BIN || 'php',
-                    [new URL('./responsive-layout-fixture.php', import.meta.url).pathname], {encoding: 'utf8'}));
+                    [new URL('./responsive-layout-fixture.php', import.meta.url).pathname, request.url.slice(1, -5)], {encoding: 'utf8'}));
                 return;
             }
             if (request.url === '/image-dimensions.html') {

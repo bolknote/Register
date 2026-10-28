@@ -2976,7 +2976,7 @@
 
         clearError(form);
         const status = card.querySelector(':scope > .post-inplace-status');
-        if (status && typeof payload.message === 'string') {
+        if (status && !payload.scheduled && typeof payload.message === 'string') {
             status.textContent = payload.message;
             status.hidden = false;
         }

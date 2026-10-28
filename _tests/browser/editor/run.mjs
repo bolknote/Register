@@ -10,7 +10,7 @@ import {runReactionRegressions} from './reactions-tests.mjs';
 import {runTagDisplayRegressions} from './tag-display-tests.mjs';
 import {runCommentQuoteRegressions} from './comment-quote-tests.mjs';
 import {runTelegramStickerRegressions} from './telegram-stickers-tests.mjs';
-import {runSaveRegressions, runAdminDirtyFieldRegressions} from './save-tests.mjs';
+import {runSaveRegressions, runScheduledStatusRegressions, runAdminDirtyFieldRegressions} from './save-tests.mjs';
 import {runReviewRegressions} from './review-tests.mjs';
 import {runRecoveryPreviewRegressions} from './recovery-preview-tests.mjs';
 import {runAsyncPreviewRegressions} from './async-preview-tests.mjs';
@@ -486,6 +486,7 @@ try {
             await runRecoveryRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runToolLayoutRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runSaveRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runScheduledStatusRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runReviewRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runRecoveryPreviewRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runAsyncPreviewRegressions(browser, `http://127.0.0.1:${server.address().port}`);

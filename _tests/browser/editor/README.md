@@ -75,6 +75,8 @@ Responsive layout regressions also run independently with `node responsive-layou
 They check the original 18/20px prose sizes and the established 1000 CSS-pixel reading/editing
 column from 320 to 3840px, shrinking only when the viewport requires it. Font metrics, larger
 user fonts and Retina DPR must not silently narrow or widen this column. The tests also cover
+centering the reading/editor column itself, one-em prose paragraph gaps and stable geometry
+when the vertical scrollbar appears or disappears, as well as
 image dimensions and captions, touch targets and zoom. Real character-by-character typing in an
 empty field must preserve every character and wrap on exactly the same lines after saving and
 reopening; the editor background cannot expand beyond the reading column.
@@ -229,6 +231,11 @@ editing is locked until a save settles, failed image/audio uploads stop a waitin
 save, and re-uploading allows a complete retry. Admin tests verify that text typed
 during an update stays unsaved and recoverable, including after a CSRF retry,
 and that creation is locked until its redirect or unlocked after failure.
+Scheduled-post creation and repeated edits show only the schedule banner, without
+a second save confirmation; publishing the post removes the banner and restores
+the normal confirmation.
+Scheduled and draft banners also match the reading/editor column at 320–3840px
+in both color schemes, instead of stretching across the wider page container.
 
 Fourteen additional review scenarios check switching editors when a fresh recovery
 copy cannot be written (oversized text or unavailable storage), while retaining

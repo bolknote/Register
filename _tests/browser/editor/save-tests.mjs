@@ -47,6 +47,61 @@ function savedPost(body, creating = false) {
 
 const savedAdmin = {revision: 2, urlStatus: 'ok', urlTitle: '', url: '/post'};
 
+export async function runScheduledStatusRegressions(browser, origin) {
+    for (const creating of [false, true]) {
+        const page = await browser.newPage({timezoneId: 'UTC'});
+        const errors = [];
+        page.on('pageerror', error => errors.push(String(error)));
+        try {
+            await page.route('**/_inplace/tags', route => route.fulfill({json: {tags: []}}));
+            const requests = holdRequests(page, '**/_inplace/post/*');
+            await requests.installed;
+            await page.goto(origin + '/recovery.html');
+            const postId = creating ? 10 : 9;
+            const publishedAt = Math.floor(Date.now() / 1000) + 3600;
+            const scheduleMessage = 'Scheduled — visible only to you for now';
+            for (const [step, scheduled] of [true, true, false].entries()) {
+                if (creating && step === 0) {
+                    await page.getByRole('button', {name: 'New post', exact: true}).click();
+                } else {
+                    await page.locator(`.post-card[data-post-id="${postId}"]`)
+                        .getByRole('button', {name: 'Edit', exact: true}).click();
+                }
+                const editing = page.locator('.post-card.is-editing');
+                await editing.locator('[data-post-inplace-title]').fill('Saved title');
+                await editing.locator('[data-post-inplace-body]').fill(`Saved body ${step}`);
+                const date = new Date((scheduled ? publishedAt : publishedAt - 7200) * 1000).toISOString();
+                await editing.locator('.post-inplace-datetime').fill(date.slice(0, 19));
+                await editing.getByRole('button', {name: 'Save', exact: true}).click();
+                const request = await requests.next();
+                const payload = {
+                    ...savedPost(`<p>Saved body ${step}</p>`, creating && step === 0),
+                    revision: step + 2, scheduled, schedule_message: scheduleMessage,
+                    published_at: Math.floor(Date.parse(date) / 1000), datetime: date,
+                    message: creating && step === 0 ? 'Post scheduled' : 'Post changes saved',
+                };
+                assert.equal((await formData(request)).get('published_at'), String(payload.published_at));
+                await request.fulfill({json: payload});
+                await page.waitForFunction(() => !document.querySelector('.post-card.is-editing'));
+                const card = page.locator(`.post-card[data-post-id="${postId}"]`);
+                const status = card.locator(':scope > .post-inplace-status');
+                const banner = card.locator(':scope > .post-scheduled-notice');
+                assert.equal(await banner.count(), scheduled ? 1 : 0);
+                assert.equal(await status.isVisible(), !scheduled,
+                    'The schedule banner replaces the generic save confirmation');
+                assert.equal(await status.textContent(), scheduled ? '' : payload.message);
+                if (scheduled) {
+                    assert.equal(await banner.isVisible(), true);
+                    assert.equal(await banner.textContent(), scheduleMessage);
+                    assert.equal(await banner.getAttribute('role'), 'status');
+                }
+            }
+            assert.deepEqual(errors, []);
+        } finally { await page.close(); }
+    }
+    console.log('save: creating and editing scheduled posts shows only the schedule banner; publishing restores the save confirmation');
+}
+
 export async function runAdminDirtyFieldRegressions(browser, origin) {
     const escape = value => value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;');
     for (const codeMirror of [false, true]) {

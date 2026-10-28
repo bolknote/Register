@@ -69,6 +69,7 @@ $vars = [
     'text' => $body, 'tags' => [['title' => 'тестовая заметка', 'link' => '/tags/example/']],
     'commented' => true, 'comment_num' => 0, 'favorite' => false, 'view_count' => 0,
     'showComments' => true, 'enabledComments' => true, 'see_also' => null,
+    'scheduled_preview' => $mode === 'scheduled-layout', 'draft_preview' => $mode === 'draft-layout',
     'inplace' => ['action_url' => '/_inplace/post/7', 'token' => 'fixture-token', 'revision' => 1, 'return_to' => '/', 'create' => false],
 ];
 if ($role !== 'author') {

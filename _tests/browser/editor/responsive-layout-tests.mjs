@@ -23,6 +23,10 @@ const measure = page => page.evaluate(async () => {
     const image = box('.post-media-image');
     const caption = box('.post-caption');
     return {font: parseFloat(style.fontSize), line: parseFloat(style.lineHeight),
+        paragraphGap: parseFloat(style.marginBottom),
+        layoutWidth: document.documentElement.getBoundingClientRect().width,
+        verticalOverflow: document.documentElement.scrollHeight > document.documentElement.clientHeight,
+        scrollbarGutter: getComputedStyle(document.documentElement).scrollbarGutter,
         textWidth: paragraph.width,
         imageWidth: image.width, captionGap: caption.top - image.bottom,
         commentsGap: box('.comments-section').top - box('.post.foot').bottom,
@@ -58,9 +62,15 @@ export async function runResponsiveLayoutRegressions(browser, origin) {
                 assert.ok(Math.abs(current.font - expectedProseSize(width)) < 0.02,
                     `Prose keeps its original mobile/desktop size at ${width}px, without growing on wide screens: ${current.font}px`);
                 assert.ok(Math.abs(current.line - current.font * 1.6) < 0.02, 'The original line-height is preserved');
+                assert.ok(Math.abs(current.paragraphGap - current.font) < 0.02,
+                    'Prose paragraphs use a compact one-em gap in the reading column');
                 assert.ok(current.textWidth <= 1000.5,
                     `The established reading column is capped at 1000 CSS pixels at ${width}px`);
                 assert.ok(Math.abs(current.header.left - current.card.left) < 1, 'Header and posts share the content origin');
+                assert.ok(Math.abs((current.body.left + current.body.right) / 2 - current.layoutWidth / 2) < 1,
+                    `The reading column itself is centered at ${width}px, not left-aligned inside a wider frame: ${JSON.stringify(current.body)}`);
+                assert.ok(Math.abs(current.card.width - current.body.width) < 1,
+                    'The post frame, its controls and the reading column use the same bounds');
                 assert.ok(current.captionGap >= 7 && current.captionGap <= 12, 'The caption remains attached to its image');
                 assert.ok(current.commentsGap >= 47.9 && current.commentsGap <= 64.1,
                     `The total gap from post metadata to comments stays within 48–64 CSS pixels at ${width}px: ${current.commentsGap}px`);
@@ -96,6 +106,17 @@ export async function runResponsiveLayoutRegressions(browser, origin) {
             }
             assert.equal(readings[0].codeScroll, true);
             assert.equal(readings[0].tableScroll, true);
+            await resize(page, 1280);
+            const scrollable = await measure(page);
+            assert.equal(scrollable.verticalOverflow, true);
+            assert.equal(scrollable.scrollbarGutter, 'stable');
+            await page.setViewportSize({width: 1280, height: 5000});
+            const withoutScrollbar = await measure(page);
+            assert.equal(withoutScrollbar.verticalOverflow, false);
+            for (const key of ['left', 'width']) {
+                assert.ok(Math.abs(scrollable.body[key] - withoutScrollbar.body[key]) < 1,
+                    `Showing or hiding the vertical scrollbar must not change the reading column's ${key}`);
+            }
             await page.evaluate(() => {
                 const section = document.querySelector('.comments-section');
                 const region = document.createElement('div');
@@ -113,6 +134,44 @@ export async function runResponsiveLayoutRegressions(browser, origin) {
         } finally { await context.close(); }
     }
     console.log(`${browser.browserType().name()}: established 1000px column, original 18/20px prose, responsive media, local overflow and preserved HTML passed`);
+}
+
+export async function runPrivatePostNoticeLayoutRegressions(browser, origin) {
+    for (const colorScheme of ['light', 'dark']) {
+        for (const kind of ['scheduled', 'draft']) {
+            const context = await browser.newContext({viewport: {width: 1280, height: 900}, colorScheme});
+            const page = await context.newPage();
+            const errors = [];
+            page.on('pageerror', error => errors.push(String(error)));
+            try {
+                await page.goto(`${origin}/${kind}-layout.html`);
+                await page.waitForFunction(() => window.editorTest);
+                for (const editing of [false, true]) {
+                    if (editing) {
+                        await resize(page, 1280);
+                        await page.locator('.post.body').hover();
+                        await page.locator('.post-edit-start').click();
+                    }
+                    for (const width of [320, 390, 800, 1280, 1920, 2560, 3840]) {
+                        await resize(page, width);
+                        const layout = await page.evaluate(kind => {
+                            const body = document.querySelector('.post.body').getBoundingClientRect();
+                            const banner = document.querySelector(`.post-${kind}-notice`).getBoundingClientRect();
+                            return {body: body.toJSON(), banner: banner.toJSON(),
+                                overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth};
+                        }, kind);
+                        assert.ok(Math.abs(layout.banner.left - layout.body.left) < 1,
+                            `${kind} banner and post share the left edge at ${width}px`);
+                        assert.ok(Math.abs(layout.banner.width - layout.body.width) < 1,
+                            `${kind} banner follows the post width, not its outer container (${width}px, editing=${editing}): ${JSON.stringify(layout)}`);
+                        assert.equal(layout.overflow, false);
+                    }
+                }
+                assert.deepEqual(errors, []);
+            } finally { await context.close(); }
+        }
+    }
+    console.log(`${browser.browserType().name()}: scheduled and draft banners match the post column in reading and editing, from mobile to wide screens`);
 }
 
 export async function runResponsiveImageDimensionsRegressions(browser, origin) {
@@ -240,6 +299,7 @@ export async function runResponsiveEditorRegressions(browser, origin) {
             assert.ok(Math.abs(editing.body.width - 1000) < 1,
                 'Opening the visual editor retains the established 1000 CSS pixel column');
             assert.ok(Math.abs(editing.font - original.font) < 0.02, 'Opening the editor keeps the prose size');
+            assert.ok(Math.abs(editing.body.left - original.body.left) < 1, 'Opening the editor keeps the column origin');
             assert.ok(Math.abs(original.textWidth - editing.textWidth) < 1, 'Opening the editor keeps the reading measure');
             assert.ok(Math.abs(original.imageWidth - editing.imageWidth) < 1, 'Opening the editor keeps media geometry');
             if (process.env.RESPONSIVE_SCREENSHOT_DIR && !hasTouch && browser.browserType().name() === 'chromium') {
@@ -254,6 +314,10 @@ export async function runResponsiveEditorRegressions(browser, origin) {
                     `The active editor retains the established 1000 CSS pixel column at ${width}px`);
                 assert.ok(Math.abs(current.font - expectedProseSize(width)) < 0.02,
                     `The active editor keeps the original prose size at ${width}px: ${current.font}px`);
+                assert.ok(Math.abs(current.paragraphGap - current.font) < 0.02,
+                    'Editable paragraphs retain the same compact gap as published prose');
+                assert.ok(Math.abs((current.body.left + current.body.right) / 2 - current.layoutWidth / 2) < 1,
+                    `The editor stays centered at ${width}px`);
                 assert.equal(current.overflow, false, `The active editor stays within the viewport at ${width}px`);
                 assert.equal(await body.textContent(), originalText, 'Resizing cannot change the edited text');
                 assert.ok(Math.abs(current.captionGap - original.captionGap) < 1, 'Editor resize retains the caption gap');

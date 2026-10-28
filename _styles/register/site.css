@@ -37,9 +37,9 @@
     --reading-font-size: 1.25rem;
     --comment-font-size: clamp(1.0625rem, calc(1rem + 0.2vw), 1.25rem);
     --post-title-size: clamp(1.625rem, calc(1.1rem + 1.1vw), 2.25rem);
-    --page-width: 90rem;
-    --article-width: var(--page-width);
     --text-width: 1000px;
+    --page-width: var(--text-width);
+    --article-width: var(--page-width);
     --comments-width: min(var(--text-width), 56rem);
     --form-width: min(var(--text-width), 47.5rem);
     --remark-width: clamp(180px, 15vw, 220px);
@@ -112,6 +112,7 @@ html {
     min-height: 100%;
     background: var(--page-background);
     text-size-adjust: 100%;
+    scrollbar-gutter: stable;
 }
 
 body {
@@ -610,6 +611,11 @@ hr {
     margin-bottom: 1.35em;
 }
 
+/* Share the prose rhythm between published and editable paragraphs. */
+#content :where(.post.body, .article-text) > p {
+    margin-bottom: 1em;
+}
+
 #content ol,
 #content ul {
     padding-left: 1.35em;
@@ -727,6 +733,7 @@ h2.preview,
 .post-draft-notice {
     display: block;
     width: 100%;
+    max-width: var(--text-width);
     margin: 0 0 1.35rem;
     padding: 0.55rem 0.75rem;
     border-radius: 0.2rem;
