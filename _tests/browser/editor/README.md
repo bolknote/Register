@@ -64,6 +64,13 @@ The four media corpus files specify `runner: "fuzz-media-state.mjs"`; use
 diagnostics, operation traces and save payloads go to `_tests/_output/editor-fuzz-media/`.
 Use saved replay operations when investigating reports from an older generator.
 
+`node review-october-tests.mjs` checks HTML insertion order and live previews
+through formatting, Undo/Redo and saving; list toggle-off with attachments,
+partial-item numbering, PRE line breaks, and the typing position after partial
+list deletion. Its 16 scenarios run in each engine and are included in `npm test`.
+PHP unit/integration regressions also cover native absolute media URLs, exact
+file identity, configured origin validation, and rejected foreign sources.
+
 Responsive layout regressions also run independently with `node responsive-layout-tests.mjs`.
 They check the original 18/20px prose sizes and the established 1000 CSS-pixel reading/editing
 column from 320 to 3840px, shrinking only when the viewport requires it. Font metrics, larger

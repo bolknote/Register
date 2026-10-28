@@ -3277,7 +3277,11 @@
             item.remove();
             if (!list.children.length) list.remove();
         }
-        const caret = document.createRange(); caret.selectNodeContents(following); caret.collapse(true);
+        const caret = document.createRange();
+        // A partial deletion leaves the item's prefix in place. Continue there,
+        // rather than moving subsequent typing into the untouched paragraph.
+        caret.selectNodeContents(item.isConnected ? item : following);
+        caret.collapse(!item.isConnected);
         selectRange(state, caret);
         state.body.dispatchEvent(new InputEvent('input', {bubbles: true, inputType: event.inputType}));
     }
@@ -3327,7 +3331,7 @@
         const last = range.cloneRange(); last.collapse(false); last.insertNode(end);
         const first = range.cloneRange(); first.collapse(true); first.insertNode(start);
         try {
-            change();
+            change({start, end});
             const selected = document.createRange();
             selected.setStartAfter(start); selected.setEndBefore(end);
             if (collapsed) selected.collapse(true);
@@ -3343,21 +3347,48 @@
 
     function formatSeparatedTextBlocks(state, tag) {
         const range = window.getSelection().getRangeAt(0);
-        const selector = tag === 'p' ? 'table' : tag === 'pre' ? '.post-picture, .post-media-picture, figure' : null;
+        const htmlBlocks = 'div[data-post-html-source]';
+        const selector = tag === 'p' ? 'table, ' + htmlBlocks
+            : tag === 'pre' ? '.post-picture, .post-media-picture, figure, ' + htmlBlocks
+                : htmlBlocks;
         if (!selector || !Array.from(state.body.querySelectorAll(selector)).some(node => range.intersectsNode(node))) return false;
         const blocks = new Set();
         const include = node => {
             const element = node instanceof Element ? node : node.parentElement;
             if (element?.closest('.post-picture, .post-media-picture, figure, [data-post-html-source]')) return;
             const block = element?.closest('p, h1, h2, h3, h4, h5, h6, pre, td, th, li, blockquote, div');
+            const quote = tag === 'p' ? element?.closest('blockquote') : null;
+            if (quote && state.body.contains(quote)) blocks.add(quote);
             if (block && state.body.contains(block)) blocks.add(block);
         };
         if (range.collapsed) include(range.startContainer);
         else textPortionsInRange(state.body, range).forEach(({node}) => include(node));
         // Native formatBlock over cells can duplicate whole tables; PRE across
         // caption hosts can hang. Convert text blocks without crossing either.
-        retainFormattingSelection(state, () => blocks.forEach(block => {
+        retainFormattingSelection(state, markers => blocks.forEach(block => {
+            if (!state.body.contains(block)) return;
             if (block.tagName.toLowerCase() === tag) return;
+            if (tag === 'p' && block.tagName === 'BLOCKQUOTE') {
+                block.querySelectorAll('div[data-post-html-source]').forEach(node => state.htmlBlocks?.forget(node));
+                const fragment = document.createDocumentFragment();
+                let paragraph = null;
+                Array.from(block.childNodes).forEach(node => {
+                    if (node instanceof Text && node.length === 0) return;
+                    if ((node === markers.start || node === markers.end) && !paragraph) {
+                        fragment.append(node);
+                        return;
+                    }
+                    if (node instanceof Element && node.matches('p, div, table, ul, ol, blockquote, pre, h1, h2, h3, h4, h5, h6, figure, hr')) {
+                        paragraph = null;
+                        fragment.append(node);
+                    } else {
+                        if (!paragraph) { paragraph = document.createElement('p'); fragment.append(paragraph); }
+                        paragraph.append(node);
+                    }
+                });
+                block.replaceWith(fragment);
+                return;
+            }
             if (block.matches('td, th, li, blockquote, div')) {
                 let paragraph = null;
                 Array.from(block.childNodes).forEach(node => {
@@ -3371,11 +3402,30 @@
             } else {
                 const paragraph = document.createElement(tag);
                 Array.from(block.attributes).forEach(({name, value}) => paragraph.setAttribute(name, value));
+                if (block.tagName === 'PRE' && tag !== 'pre') preservePreLineBreaks(block);
                 paragraph.append(...block.childNodes);
                 block.replaceWith(paragraph);
             }
         }));
+        state.htmlBlocks?.prepare();
         return true;
+    }
+
+    function preservePreLineBreaks(block) {
+        // Literal PRE line feeds stop being visible under prose white-space.
+        const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
+        const text = [];
+        while (walker.nextNode()) text.push(walker.currentNode);
+        text.forEach(node => {
+            const lines = node.data.split(/\r\n?|\n/u);
+            if (lines.length < 2) return;
+            const fragment = document.createDocumentFragment();
+            lines.forEach((line, index) => {
+                if (index) fragment.append(document.createElement('br'));
+                fragment.append(document.createTextNode(line));
+            });
+            node.replaceWith(fragment);
+        });
     }
 
     function withAtomicMedia(state, change) {
@@ -3384,9 +3434,10 @@
         // restore the original live blocks before history records the change.
         const token = window.crypto?.randomUUID?.() || `media-${Date.now()}-${Math.random()}`;
         const selected = window.getSelection().getRangeAt(0).cloneRange();
-        const media = Array.from(state.body.querySelectorAll('.post-picture, .post-media-picture, figure'))
-            .filter(node => node.querySelector('img, audio, video')
-                && !node.parentElement.closest('.post-picture, .post-media-picture, figure')
+        const selector = '.post-picture, .post-media-picture, figure, div[data-post-html-source]';
+        const media = Array.from(state.body.querySelectorAll(selector))
+            .filter(node => (node.hasAttribute('data-post-html-source') || node.querySelector('img, audio, video'))
+                && !node.parentElement.closest(selector)
                 && selected.intersectsNode(node))
             .map((node, index) => {
                 const slot = document.createElement('p');
@@ -3396,6 +3447,10 @@
                 fallback.setStartBefore(slot); fallback.collapse(true);
                 return {node, slot, text: slot.textContent, fallback};
             });
+        // Dispose previews while their blocks are detached, so their forms and
+        // listeners cannot survive a native rewrite or point at a blank iframe.
+        const htmlBlocks = media.some(({node}) => node.hasAttribute('data-post-html-source'));
+        if (htmlBlocks) state.htmlBlocks?.prepare();
         try {
             if (media.length) selectRange(state, selected);
             return change();
@@ -3414,12 +3469,23 @@
                 prepareMediaInsertionRange(state.body, insertion).insertNode(node);
                 slot.remove();
             });
+            if (htmlBlocks) state.htmlBlocks?.prepare();
         }
     }
 
     function formatListWithSelection(state, command) {
         const selection = window.getSelection();
         const range = selection.getRangeAt(0).cloneRange();
+        const style = command === 'insertOrderedList' ? 'ordered-list' : 'unordered-list';
+        const element = range.startContainer instanceof Element ? range.startContainer : range.startContainer.parentElement;
+        const attachments = '.post-picture, .post-media-picture, figure, div[data-post-html-source]';
+        const containsAttachment = Array.from(state.body.querySelectorAll(attachments)).some(node => range.intersectsNode(node))
+            || element?.closest('li')?.querySelector(attachments);
+        // Native toggle-off handles a multi-block LI one paragraph at a time,
+        // leaving the attachment and trailing prose inside a residual list.
+        if (containsAttachment && contextBlockStyle(state.body, range) === style) {
+            return paragraphsFromSelectedLists(state);
+        }
         const collapsed = range.collapsed;
         const backwards = selection.anchorNode === range.endContainer && selection.anchorOffset === range.endOffset;
         const textPoint = (container, offset, end) => {
@@ -3520,11 +3586,13 @@
             include(range.startContainer);
         } else {
             textPortionsInRange(state.body, range).forEach(({node}) => include(node));
-            state.body.querySelectorAll('li:empty, li img, li audio, li video, li br').forEach((node) => {
+            state.body.querySelectorAll('li:empty, li img, li audio, li video, li br, li div[data-post-html-source]').forEach((node) => {
                 if (range.intersectsNode(node)) include(node);
             });
         }
         if (items.size === 0) return false;
+        items.forEach(item => item.querySelectorAll('div[data-post-html-source]')
+            .forEach(node => state.htmlBlocks?.forget(node)));
 
         // Mark both endpoints before moving nodes. This also preserves a caret in
         // a partially selected item and backward selections through list splitting.
@@ -3543,6 +3611,13 @@
         function splitParagraphs(source, target) {
             let paragraph = null;
             Array.from(source.childNodes).forEach((node) => {
+                if (node instanceof Text && node.length === 0) return;
+                // An endpoint beside an authored block is a position, not a
+                // new empty paragraph. Keep it beside that block until restore.
+                if ((node === start || node === end) && !paragraph) {
+                    target.append(node);
+                    return;
+                }
                 if (isBlock(node)) {
                     paragraph = null;
                     target.append(node);
@@ -3591,6 +3666,8 @@
                 if (!markedRange.intersectsNode(block)) return;
                 const paragraph = document.createElement('p');
                 Array.from(block.attributes).forEach(({name, value}) => paragraph.setAttribute(name, value));
+                block.querySelectorAll('div[data-post-html-source]').forEach(node => state.htmlBlocks?.forget(node));
+                if (block.tagName === 'PRE') preservePreLineBreaks(block);
                 paragraph.append(...block.childNodes);
                 block.replaceWith(paragraph);
             });
@@ -3614,6 +3691,7 @@
         } finally {
             start.remove();
             end.remove();
+            state.htmlBlocks?.prepare();
         }
         return true;
     }

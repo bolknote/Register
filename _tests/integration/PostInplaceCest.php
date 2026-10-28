@@ -25,6 +25,7 @@ use Register\Content\TagRepository;
 use Register\Core\HttpClient\HttpClient;
 use Register\Core\HttpClient\HttpResponse;
 use Register\Core\Http\SandboxedHtmlResponse;
+use Register\Core\Model\UrlBuilder;
 use Register\Core\Pdo\DbLayer;
 use Register\Core\Template\PartialPageResponse;
 use Register\Live\LiveUpdateRepository;
@@ -127,6 +128,72 @@ final class PostInplaceCest
         $text = "Use <widget> &lt;example&gt; 👩🏽‍💻 می\u{200C}روم. 20\u{2060}°C.";
         $this->assertCreatedPostMetadata($I, 'Literal text in publication metadata',
             '<p>' . htmlspecialchars($text, ENT_NOQUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</p>', $text);
+    }
+
+    public function absoluteSameOriginImageCopiedFromPublishedPostCanBeSaved(\IntegrationTester $I): void
+    {
+        $origin = 'https://localhost';
+        $I->login('author', 'author');
+        $I->amOnPage($origin . '/');
+
+        $token = (string)$I->grabAttributeFrom('.post-create-template input[name="inplace_token"]', 'value');
+        $temporary = $this->temporaryFile((string)base64_decode(self::ONE_PIXEL_PNG, true));
+        $storedFile = null;
+        try {
+            $I->sendPost($origin . '/_inplace/post/new', [
+                'inplace_action' => 'media', 'inplace_token' => $token,
+                'media_width' => '1', 'media_height' => '1', 'media_display_width' => '1', 'media_display_height' => '1',
+            ], ['media' => new UploadedFile($temporary, 'copied-image.png', 'image/png', null, true)]);
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+            $upload = $I->grabJson();
+            $I->assertIsArray($upload);
+            $storedFile = $this->storedMediaPath((string)$upload['url']);
+            $mediaId = (int)$upload['media_id'];
+            $image = '<img src="' . $upload['url'] . '" data-post-media-id="' . $mediaId
+                . '" data-post-media-identity="1" alt="Published image">';
+            $I->sendAjaxPostRequest($origin . '/_inplace/post/new', [
+                'inplace_action' => 'create', 'inplace_token' => $token,
+                'request_id' => 'published-relative-media-regression', 'title' => 'Original image post',
+                'body' => $image, 'uploaded_media_ids' => (string)$mediaId,
+            ]);
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+
+            // Use the real container's canonical site origin, including its
+            // configured base_url, rather than injecting a custom repository.
+            $absoluteSource = $I->grabService(UrlBuilder::class)->rawAbsLink((string)$upload['url']);
+            $copied = str_replace((string)$upload['url'], $absoluteSource, $image);
+            $I->sendAjaxPostRequest($origin . '/_inplace/post/new', [
+                'inplace_action' => 'create', 'inplace_token' => $token,
+                'request_id' => 'copied-absolute-media-regression', 'title' => 'Copied image post',
+                'body' => $copied,
+            ]);
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+            $post = $I->grabJson();
+            $I->assertIsArray($post);
+            $expected = substr($copied, 0, -1) . ' width="1" height="1">';
+            $db = $I->grabService(DbLayer::class);
+            $I->assertSame($expected, $db->select('body')->from(ContentSchema::TABLE_NAME)
+                ->where('id = :id')->setParameter('id', $post['id'])->execute()->result());
+            $registry = $I->grabService(PostMediaRepository::class);
+            $I->assertSame(2, (int)$registry->find($mediaId)['usage_count']);
+            $I->assertFileExists($storedFile);
+
+            $I->sendAjaxPostRequest($origin . '/_inplace/post/' . $post['id'], [
+                'inplace_action' => 'edit', 'inplace_token' => $post['token'], 'revision' => '1',
+                'title' => 'Copied image post',
+                'body' => str_replace($absoluteSource, 'https://foreign.test' . $upload['url'], $expected),
+            ]);
+            $I->seeResponseCodeIs(Response::HTTP_CONFLICT);
+            $I->assertSame($expected, $db->select('body')->from(ContentSchema::TABLE_NAME)
+                ->where('id = :id')->setParameter('id', $post['id'])->execute()->result());
+            $I->assertSame(2, (int)$registry->find($mediaId)['usage_count']);
+        } finally {
+            foreach ([$temporary, $storedFile] as $file) {
+                if ($file !== null && is_file($file)) {
+                    unlink($file);
+                }
+            }
+        }
     }
 
     public function generatedMetadataRespectsHtmlStructure(\IntegrationTester $I): void

@@ -257,6 +257,7 @@ final class ServiceModule implements ContainerModuleInterface
         $container->set(PostMediaRepository::class, static fn(Container $container): PostMediaRepository => new PostMediaRepository(
             $container->get(DbLayer::class),
             $container->getStringParameter('image_path'),
+            $container->getStringParameter('base_url'),
         ));
         $container->set(Inplace\PostMediaCleaner::class, static fn(Container $container): Inplace\PostMediaCleaner => new Inplace\PostMediaCleaner(
             $container->get(PostMediaRepository::class),

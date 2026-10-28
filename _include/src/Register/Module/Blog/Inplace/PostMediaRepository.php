@@ -28,6 +28,7 @@ final readonly class PostMediaRepository
     public function __construct(
         private DbLayer $dbLayer,
         string          $mediaUrlPrefix,
+        private string  $baseUrl = '',
     ) {
         $this->mediaUrlPrefix = rtrim($mediaUrlPrefix, '/');
     }
@@ -417,8 +418,50 @@ final readonly class PostMediaRepository
     private function matchesSource(string $source, array $media): bool
     {
         $path = (string)$media['storage_path'];
+        $legacy = $this->url($path);
+        $versioned = $this->url($path, (int)$media['id']);
         // Existing posts and still-open pre-upgrade editors retain bare URLs.
-        return $source === $this->url($path) || $source === $this->url($path, (int)$media['id']);
+        if ($source === $legacy || $source === $versioned) {
+            return true;
+        }
+
+        if (!str_starts_with($legacy, '/') || str_starts_with($legacy, '//')) {
+            return false;
+        }
+
+        $relative = $this->sameOriginSource($source);
+
+        return $relative !== null && ($relative === $legacy || $relative === $versioned);
+    }
+
+    private function sameOriginSource(string $source): ?string
+    {
+        // Native copy/drop resolves relative image URLs to absolute URLs. Trust
+        // the configured origin, never an arbitrary source's path or Host header.
+        if (preg_match('/[\x00-\x20\\\\\x7f]/', $source) === 1) {
+            return null;
+        }
+
+        $base = parse_url($this->baseUrl);
+        if ($base === false || !isset($base['scheme'], $base['host'])
+            || !in_array(strtolower($base['scheme']), ['http', 'https'], true)
+        ) {
+            return null;
+        }
+
+        $url = parse_url(str_starts_with($source, '//') ? $base['scheme'] . ':' . $source : $source);
+        if ($url === false || !isset($url['scheme'], $url['host']) || isset($url['user']) || isset($url['pass'])
+            || strtolower($url['scheme']) !== strtolower($base['scheme'])
+            || strtolower($url['host']) !== strtolower($base['host'])
+            || ($url['port'] ?? (strtolower($url['scheme']) === 'https' ? 443 : 80))
+                !== ($base['port'] ?? (strtolower($base['scheme']) === 'https' ? 443 : 80))
+        ) {
+            return null;
+        }
+
+        return ($url['path'] ?? '/')
+            . (isset($url['query']) ? '?' . $url['query'] : '')
+            . (isset($url['fragment']) ? '#' . $url['fragment'] : '');
     }
 
     /**

@@ -226,6 +226,10 @@
         }
         return {
             prepare,
+            forget(node) {
+                const session = sessions.get(node);
+                if (session) dispose(node, session);
+            },
             edit(node) { prepare(); sessions.get(node)?.edit.click(); },
             destroy() { sessions.forEach((session, node) => dispose(node, session)); },
         };
