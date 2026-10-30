@@ -1,5 +1,5 @@
 /**
- * Automatic single-output optimization for images inserted into public posts.
+ * Automatic optimization for post images, retaining GIF files without flattening them.
  *
  * @copyright 2026 Register contributors
  * @license   https://opensource.org/license/mit MIT
@@ -11,6 +11,7 @@ import {
     computeCandidateSsimScore,
     decodeImageToSrgb,
     findJpegCandidateForSsim,
+    fileToImage,
     imageDataToBlob,
 } from './image-utils.js';
 import {resizeImageDataLinear} from './resize.js';
@@ -217,12 +218,32 @@ export async function optimizeImage(file, {signal = null, onProgress = null} = {
     if (!(file instanceof Blob) || file.size <= 0) {
         throw new Error('No image file was provided.');
     }
-    if (String(file.type || '').toLowerCase() === 'image/gif') {
-        throw new Error('Animated GIF is not supported by the image optimizer.');
-    }
-
     throwIfAborted(signal);
     report(onProgress, 'decoding');
+    const signature = String.fromCharCode(...new Uint8Array(await file.slice(0, 6).arrayBuffer()));
+    const isGif = signature === 'GIF87a' || signature === 'GIF89a';
+    if (isGif || String(file.type || '').toLowerCase() === 'image/gif') {
+        if (!isGif) throw new Error('The GIF file is invalid.');
+        // Canvas encoders only retain one GIF frame. Validate through the native
+        // decoder, then upload the complete source, including timing and looping.
+        // Keep natural dimensions: an unchanged file is neither resized nor @2x.
+        const blob = new Blob([file], {type: 'image/gif'});
+        const image = await fileToImage(blob);
+        const width = image.naturalWidth;
+        const height = image.naturalHeight;
+        planImageDimensions(width, height);
+        if (width * height > imagePolicy.maxOutputPixels) {
+            throw new Error('The image dimensions are too large to process safely in the browser.');
+        }
+        throwIfAborted(signal);
+        report(onProgress, 'ready');
+        return {
+            blob, extension: 'gif', mimeType: 'image/gif', width, height,
+            displayWidth: width, displayHeight: height,
+            retina: false, resized: false, selectedType: 'original',
+        };
+    }
+    throwIfAborted(signal);
     const sourceCandidate = await createSanitizedSourceCandidate(file);
     if (sourceCandidate?.preserveHdr) {
         const plan = planHdrImageDimensions(sourceCandidate.width, sourceCandidate.height,

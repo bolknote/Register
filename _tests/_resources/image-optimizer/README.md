@@ -1,6 +1,12 @@
-# HDR regression fixtures
+# Image optimizer regression fixtures
 
 These are synthetic images; they contain no article or personal photograph.
+
+- `animated.gif`: a 96×48 two-frame red/blue GIF, with 120/180 ms delays,
+  disposal method 2 and infinite looping; generated with Pillow.
+- `animated-wide.gif`: the same animation at 2400×48, to ensure the unchanged
+  animation is accepted without claiming that its pixels were resized.
+- `static.gif`: the first 96×48 frame, stored as GIF87a.
 
 - `hdr-base.jpg`: 32×18 RGB gradient, encoded by Pillow with a generated sRGB ICC profile.
 - `hdr-gain-map.jpg`: 8×4 grayscale RGB gradient, used as a generic gain map.

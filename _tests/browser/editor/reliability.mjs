@@ -12,6 +12,7 @@ import {runHeaderActionsRegressions} from './header-actions-tests.mjs';
 import {runResponsiveLayoutRegressions, runPrivatePostNoticeLayoutRegressions, runResponsiveImageDimensionsRegressions, runResponsiveEditorRegressions} from './responsive-layout-tests.mjs';
 import {runImageOptimizerLoadRegressions} from './image-optimizer-load-tests.mjs';
 import {runImageOptimizerCacheRegressions} from './image-optimizer-cache-tests.mjs';
+import {runGifUploadRegressions} from './gif-upload-tests.mjs';
 
 const engines = [chromium, firefox, webkit];
 const selectedEngine = process.env.EDITOR_TEST_BROWSER;
@@ -33,6 +34,7 @@ try {
             await runResponsiveImageDimensionsRegressions(browser, origin);
             await runResponsiveEditorRegressions(browser, origin);
             await runImageOptimizerLoadRegressions(browser, origin);
+            await runGifUploadRegressions(browser, origin);
             await runImageOptimizerCacheRegressions(browser);
             await runAdminRecoveryPresenceRegressions(browser, origin);
             await runAdminAsyncDeadlineRegressions(browser, origin);

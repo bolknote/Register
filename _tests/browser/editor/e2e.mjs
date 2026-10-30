@@ -7,6 +7,7 @@ import {resolve, dirname, relative} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createServer} from 'node:net';
 import {assertToolsStayAttached} from './tool-layout-tests.mjs';
+import {runGifPostWorkflow} from './gif-upload-tests.mjs';
 
 const directory = dirname(fileURLToPath(import.meta.url));
 const sourceRoot = resolve(directory, '../../..');
@@ -308,7 +309,8 @@ try {
             const name = decodeURIComponent(new URL(route.request().url()).pathname).slice('/_e2e_media/'.length);
             const file = resolve(scratch, 'media', name);
             assert.ok(file.startsWith(resolve(scratch, 'media') + '/'), 'Only disposable uploaded files may be served');
-            const contentType = file.endsWith('.webp') ? 'image/webp' : /\.jpe?g$/.test(file) ? 'image/jpeg' : 'image/png';
+            const contentType = file.endsWith('.gif') ? 'image/gif'
+                : file.endsWith('.webp') ? 'image/webp' : /\.jpe?g$/.test(file) ? 'image/jpeg' : 'image/png';
             await route.fulfill({status: 200, contentType, body: await readFile(file)});
         });
         // Playwright's serviceWorkers:'block' init script reads this property
@@ -524,6 +526,11 @@ try {
 
             await runPublishedHtmlBlockRegression(page, postId);
             await runMediaBoundarySaveRegression(page, engine.name());
+            const gifId = await runGifPostWorkflow(page, origin);
+            const gifBody = database(`SELECT body FROM content WHERE id=${gifId}`)[0].body;
+            for (const text of ['Text before the animated image.', 'Animated caption.', 'Text after the animated image.']) {
+                assert.ok(gifBody.includes(text), 'The stored GIF post preserves ' + text);
+            }
 
             const editUrl = `${origin}/_admin/index.php?entity=Article&action=edit&id=${pageId}`;
             await page.goto(editUrl);

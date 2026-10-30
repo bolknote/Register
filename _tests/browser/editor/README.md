@@ -146,6 +146,13 @@ and the existing CSP. Cancellation followed by late completion cannot upload an 
 production-assets PHP/SQLite scenario also interrupts the real minified optimizer and then uses
 its actual workers and Wasm codecs to upload, save and reopen the complete post.
 
+GIF regressions run independently with `node gif-upload-tests.mjs` and in the reliability
+suite. A synthetic two-frame GIF is inserted through the normal file chooser. Actual
+rendered frame colors and the complete uploaded bytes must survive two saves and a reload,
+along with the caption and both surrounding paragraphs. The PHP/SQLite end-to-end suite
+runs the same workflow against the real upload and save endpoints, including release assets.
+`GIF_TEST_REVISION=<git ref>` loads an older optimizer to reproduce the GIF rejection.
+
 Image-arrow regressions also run independently with `node media-navigation-tests.mjs`.
 They create a new post through the public UI, insert a file through the normal paste
 handler or the menu's file chooser, then send real Up/Down keys and type character by character. Each engine
