@@ -58,7 +58,9 @@ export async function runScheduledStatusRegressions(browser, origin) {
             await requests.installed;
             await page.goto(origin + '/recovery.html');
             const postId = creating ? 10 : 9;
-            const publishedAt = Math.floor(Date.now() / 1000) + 3600;
+            // Exercise both canonical minute precision and nonzero seconds.
+            // datetime-local normalizes :00 away, which Playwright rejects on fill.
+            const publishedAt = Math.floor(Date.now() / 60000) * 60 + 3600 + (creating ? 37 : 0);
             const scheduleMessage = 'Scheduled — visible only to you for now';
             for (const [step, scheduled] of [true, true, false].entries()) {
                 if (creating && step === 0) {
@@ -71,7 +73,7 @@ export async function runScheduledStatusRegressions(browser, origin) {
                 await editing.locator('[data-post-inplace-title]').fill('Saved title');
                 await editing.locator('[data-post-inplace-body]').fill(`Saved body ${step}`);
                 const date = new Date((scheduled ? publishedAt : publishedAt - 7200) * 1000).toISOString();
-                await editing.locator('.post-inplace-datetime').fill(date.slice(0, 19));
+                await editing.locator('.post-inplace-datetime').fill(date.slice(0, 19).replace(/:00$/u, ''));
                 await editing.getByRole('button', {name: 'Save', exact: true}).click();
                 const request = await requests.next();
                 const payload = {
