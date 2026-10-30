@@ -138,6 +138,15 @@ width. Mouse contexts use a real right click and Shift+F10 instead. All three en
 check selection preservation, responsive menu bounds, scrolling only in short
 viewports, and visibility before editing and after resizing. The PHP end-to-end
 suite also checks keyboard and touch access using the actual server-rendered controls.
+The real header's title and close control must remain vertically centered and
+separated at 320–1360px, including when the menu scrolls; the close target stays 44×44px.
+Hidden AI sections must not add a second separator below the header.
+Insertion commands use compact icon-and-label rows, with single-line labels,
+no permanent tile backgrounds and touch targets at least 44px high. Two columns
+collapse into one on the narrowest screens.
+History and selection controls use icons with platform-specific shortcut hints.
+The suite checks Mac, Windows and Linux labels, accessible names/tooltips, compact
+layout and touch target sizes both at the caret and with selected text.
 
 Optimizer loading regressions run with `node image-optimizer-load-tests.mjs` and are included in
 the reliability suite. They interrupt the entry or a static dependency, exercise bounded automatic

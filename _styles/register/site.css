@@ -1584,17 +1584,26 @@ h2.preview,
     z-index: 1;
     top: -0.38rem;
     display: flex;
-    min-height: 2.7rem;
+    min-height: 3.25rem;
     margin: -0.38rem -0.38rem 0;
-    padding: 0.65rem 0.8rem 0.55rem;
-    align-items: baseline;
+    padding: 0.2rem 0.4rem 0.2rem 1.2rem;
+    align-items: center;
     gap: 0.5rem;
     border-bottom: 1px solid var(--border-color);
     border-radius: 0.85rem 0.85rem 0 0;
     background: color-mix(in srgb, var(--field-background) 97%, var(--page-background));
 }
 
+.post-editor-context-heading {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    align-items: baseline;
+    gap: 0.5rem;
+}
+
 .post-editor-context-header strong {
+    min-width: 0;
     overflow: hidden;
     font-size: 0.83rem;
     font-weight: 700;
@@ -1603,6 +1612,7 @@ h2.preview,
 }
 
 .post-editor-context-kicker {
+    flex: none;
     color: var(--accent-color);
     font-size: 0.66rem;
     font-weight: 780;
@@ -1611,21 +1621,22 @@ h2.preview,
 }
 
 .post-editor-context-menu .post-editor-context-close {
-    width: 2.15rem;
-    flex: 0 0 2.15rem;
+    width: 2.75rem;
+    height: 2.75rem;
+    min-height: 2.75rem;
+    flex: 0 0 2.75rem;
     margin-left: auto;
-    padding: 0.25rem;
+    padding: 0.625rem;
     justify-content: center;
-    align-self: center;
     color: var(--minor-color);
-    font-size: 1.35rem;
 }
 
 .post-editor-context-section {
     padding: 0.45rem 0.25rem;
 }
 
-.post-editor-context-section + .post-editor-context-section {
+/* Hidden context sections must not add a second line below the header. */
+.post-editor-context-section:not([hidden]) ~ .post-editor-context-section:not([hidden]) {
     border-top: 1px solid var(--border-color);
 }
 
@@ -1732,9 +1743,11 @@ h2.preview,
     text-align: center;
 }
 
+.post-editor-context-close svg,
 .post-editor-format-row svg,
 .post-editor-block-row svg,
-.post-editor-entity-grid svg {
+.post-editor-entity-grid svg,
+.post-editor-context-utility svg {
     width: 1.25rem;
     height: 1.25rem;
     fill: none;
@@ -1754,22 +1767,19 @@ h2.preview,
 
 .post-editor-entity-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.3rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.1rem 0.2rem;
 }
 
 .post-editor-entity-grid button {
     min-width: 0;
-    min-height: 4.15rem;
-    padding: 0.5rem 0.3rem;
-    flex-direction: column;
-    justify-content: center;
-    gap: 0.35rem;
-    background: color-mix(in srgb, var(--surface-background) 62%, transparent);
-    color: var(--minor-color);
-    font-size: 0.73rem;
-    font-weight: 650;
-    text-align: center;
+    justify-content: flex-start;
+    gap: 0.5rem;
+}
+
+.post-editor-entity-grid svg,
+.post-editor-context-utility svg {
+    flex: 0 0 1.25rem;
 }
 
 .post-editor-entity-grid button:hover,
@@ -1778,13 +1788,16 @@ h2.preview,
 }
 
 .post-editor-context-utility {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.1rem 0.25rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.1rem 0.5rem;
 }
 
 .post-editor-context-utility button {
+    width: auto;
     min-width: 0;
+    justify-content: flex-start;
+    gap: 0.45rem;
 }
 
 .post-editor-context-menu kbd {
@@ -1991,10 +2004,6 @@ h2.preview,
     .post-editor-block-row {
         grid-template-columns: repeat(4, minmax(0, 1fr));
     }
-
-    .post-editor-entity-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
 }
 
 @media (max-width: 720px) {
@@ -2009,6 +2018,12 @@ h2.preview,
         max-height: calc(100dvh - 1.5rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
     }
 
+}
+
+@media (max-width: 360px) {
+    .post-editor-entity-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 .post-media-upload {
@@ -4137,6 +4152,8 @@ ul.back_forward .empty {
     .post-inplace-button,
     .site-header-tools .post-create-start,
     .comment-moderation-action,
+    .post-editor-entity-grid button,
+    .post-editor-context-utility button,
     .register-reactions .register-reaction-chip,
     .register-reactions .register-reaction-choice,
     body .public-auth-user-menu > summary {

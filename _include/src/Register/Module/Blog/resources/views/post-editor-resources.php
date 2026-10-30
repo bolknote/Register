@@ -66,11 +66,13 @@ $config = [
 <template class="post-editor-context-menu-template">
     <div class="post-editor-context-menu" role="menu" aria-label="<?php echo register_htmlencode($trans('Editor context menu')); ?>" tabindex="-1">
         <header class="post-editor-context-header">
-            <span class="post-editor-context-kicker"><?php echo $trans('Editor'); ?></span>
-            <strong data-context-selection-only><?php echo $trans('Selected text'); ?></strong>
-            <strong data-context-caret-only><?php echo $trans('Cursor position'); ?></strong>
-            <strong data-context-image-only hidden><?php echo $trans('Image'); ?></strong>
-            <button class="post-editor-context-close" type="button" data-context-action="close-menu" aria-label="<?php echo register_htmlencode($trans('Close editor menu')); ?>" title="<?php echo register_htmlencode($trans('Close editor menu')); ?>"><span aria-hidden="true">×</span></button>
+            <div class="post-editor-context-heading">
+                <span class="post-editor-context-kicker"><?php echo $trans('Editor'); ?></span>
+                <strong data-context-selection-only><?php echo $trans('Selected text'); ?></strong>
+                <strong data-context-caret-only><?php echo $trans('Cursor position'); ?></strong>
+                <strong data-context-image-only hidden><?php echo $trans('Image'); ?></strong>
+            </div>
+            <button class="post-editor-context-close" type="button" data-context-action="close-menu" aria-label="<?php echo register_htmlencode($trans('Close editor menu')); ?>" title="<?php echo register_htmlencode($trans('Close editor menu')); ?>"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button>
         </header>
 
         <div class="post-editor-context-main">
@@ -142,7 +144,8 @@ $config = [
                 <h3><?php echo $trans('Insert entity'); ?></h3>
                 <div class="post-editor-entity-grid">
                     <button type="button" role="menuitem" data-context-action="html">
-                        <span aria-hidden="true">&lt;/&gt;</span><span><?php echo $trans('HTML block'); ?></span>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 7-5 5 5 5m8-10 5 5-5 5M14 4l-4 16" /></svg>
+                        <span><?php echo $trans('HTML block'); ?></span>
                     </button>
                     <button type="button" role="menuitem" data-context-action="media">
                         <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="13" height="12" rx="2" /><path d="m5.5 13 3-3 4.8 4.8M12.5 7.5h.01M19 8v9.5a2.5 2.5 0 1 1-2-2.45V10l4-1" /></svg>
@@ -160,11 +163,21 @@ $config = [
             </section>
 
             <section class="post-editor-context-section post-editor-context-utility">
-                <button type="button" role="menuitem" data-context-action="undo"><span><?php echo $trans('Undo'); ?></span><kbd>⌘Z</kbd></button>
-                <button type="button" role="menuitem" data-context-action="redo"><span><?php echo $trans('Redo'); ?></span><kbd>⇧⌘Z</kbd></button>
-                <button type="button" role="menuitem" data-context-action="copy" data-context-selection-only><span><?php echo $trans('Copy'); ?></span><kbd>⌘C</kbd></button>
-                <button type="button" role="menuitem" data-context-action="cut" data-context-selection-only><span><?php echo $trans('Cut'); ?></span><kbd>⌘X</kbd></button>
-                <button type="button" role="menuitem" data-context-action="select-all" data-context-caret-only><span><?php echo $trans('Select all'); ?></span><kbd>⌘A</kbd></button>
+                <button type="button" role="menuitem" data-context-action="undo" aria-label="<?php echo register_htmlencode($trans('Undo')); ?>" title="<?php echo register_htmlencode($trans('Undo')); ?>">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10h11a7 7 0 0 1 7 7M3 10l5-5M3 10l5 5" /></svg><kbd>⌘Z</kbd>
+                </button>
+                <button type="button" role="menuitem" data-context-action="redo" aria-label="<?php echo register_htmlencode($trans('Redo')); ?>" title="<?php echo register_htmlencode($trans('Redo')); ?>">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 10H10a7 7 0 0 0-7 7M21 10l-5-5M21 10l-5 5" /></svg><kbd>⇧⌘Z</kbd>
+                </button>
+                <button type="button" role="menuitem" data-context-action="copy" data-context-selection-only aria-label="<?php echo register_htmlencode($trans('Copy')); ?>" title="<?php echo register_htmlencode($trans('Copy')); ?>">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2" /><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3" /></svg><kbd>⌘C</kbd>
+                </button>
+                <button type="button" role="menuitem" data-context-action="cut" data-context-selection-only aria-label="<?php echo register_htmlencode($trans('Cut')); ?>" title="<?php echo register_htmlencode($trans('Cut')); ?>">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><path d="m8.1 8.1 12.9 12.9M8.1 15.9 21 3" /></svg><kbd>⌘X</kbd>
+                </button>
+                <button type="button" role="menuitem" data-context-action="select-all" data-context-caret-only aria-label="<?php echo register_htmlencode($trans('Select all')); ?>" title="<?php echo register_htmlencode($trans('Select all')); ?>">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2" stroke-dasharray="3 3" /></svg><kbd>⌘A</kbd>
+                </button>
             </section>
         </div>
 
