@@ -75,6 +75,9 @@ Responsive layout regressions also run independently with `node responsive-layou
 `node header-actions-tests.mjs` exercises the real account/search views at 320–3840px:
 the corner account and full-width heading, search expansion without moving content,
 autocomplete, Escape/focus, outside clicks, native GET submission and the no-JavaScript disclosure.
+The same header is exercised with 24/32px root fonts and mouse/touch input: headings
+must retain readable width, controls must remain on screen with 44px hit areas,
+and opening search must preserve both the larger input font and the article position.
 They check the original 18/20px prose sizes and the established 1000 CSS-pixel reading/editing
 column from 320 to 3840px, shrinking only when the viewport requires it. Font metrics, larger
 user fonts and Retina DPR must not silently narrow or widen this column. The tests also cover
@@ -157,9 +160,12 @@ its actual workers and Wasm codecs to upload, save and reopen the complete post.
 
 GIF regressions run independently with `node gif-upload-tests.mjs` and in the reliability
 suite. A synthetic two-frame GIF is inserted through the normal file chooser. Actual
-rendered frame colors and the complete uploaded bytes must survive two saves and a reload,
+rendered frame colors and all rendering bytes must survive two saves and a reload,
 along with the caption and both surrounding paragraphs. The PHP/SQLite end-to-end suite
 runs the same workflow against the real upload and save endpoints, including release assets.
+Sources include synthetic private comments, real GIF-style XMP packets, unknown
+application extensions and trailing data; none may reach the uploaded file. ICC
+profiles, palettes, compressed frames, delays, disposal and looping remain intact.
 `GIF_TEST_REVISION=<git ref>` loads an older optimizer to reproduce the GIF rejection.
 
 Image-arrow regressions also run independently with `node media-navigation-tests.mjs`.

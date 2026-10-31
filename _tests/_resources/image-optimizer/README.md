@@ -8,6 +8,11 @@ These are synthetic images; they contain no article or personal photograph.
   animation is accepted without claiming that its pixels were resized.
 - `static.gif`: the first 96×48 frame, stored as GIF87a.
 
+`_tests/_support/gif-fixture.mjs` adds fake private comments, XMP application data,
+unknown application blocks and trailing data at runtime. It also reuses the real
+sRGB profile from `hdr-base.jpg` to check GIF ICC preservation. Metadata cleanup
+must retain the animation's exact palettes, compressed frames and controls.
+
 - `hdr-base.jpg`: 32×18 RGB gradient, encoded by Pillow with a generated sRGB ICC profile.
 - `hdr-gain-map.jpg`: 8×4 grayscale RGB gradient, used as a generic gain map.
 - `hdr-base-p3.jpg`: a second synthetic 32×18 RGB gradient with the standard Display P3

@@ -6,6 +6,7 @@ import {chromium, firefox, webkit} from 'playwright';
 import {createFixtureServer} from './server.mjs';
 import {formData} from './save-tests.mjs';
 import {pixels} from './media-navigation-tests.mjs';
+import {gifColorProfile, gifWithPrivateMetadata} from '../../_support/gif-fixture.mjs';
 
 const fixture = new URL('../../_resources/image-optimizer/animated.gif', import.meta.url);
 
@@ -43,7 +44,7 @@ export async function runGifPostWorkflow(page, origin) {
     ]);
     const uploaded = page.waitForResponse(response => response.request().method() === 'POST'
         && response.url().endsWith('/_inplace/post/new') && response.request().postDataBuffer()?.includes(Buffer.from('name="media";')));
-    await chooser.setFiles({name: 'animated.gif', mimeType: 'image/gif', buffer: bytes});
+    await chooser.setFiles({name: 'animated.gif', mimeType: 'image/gif', buffer: Buffer.from(gifWithPrivateMetadata(bytes).input)});
     const media = creating.locator('.post-media-picture:not(.is-processing)');
     const [response] = await Promise.all([uploaded, media.waitFor().catch(async error => {
         throw new Error(await creating.locator('.post-inplace-edit-error').textContent(), {cause: error});
@@ -54,7 +55,7 @@ export async function runGifPostWorkflow(page, origin) {
     const stored = await page.evaluate(async url => Array.from(new Uint8Array(await (await fetch(url)).arrayBuffer())),
         new URL(upload.url, origin).href);
     assert.deepEqual(Buffer.from(stored), bytes,
-        'Uploaded bytes retain every frame, frame delay, disposal method and loop count');
+        'Uploaded bytes remove private extensions and retain every frame, frame delay, disposal method and loop count');
     await assertAnimation(media.locator('img'));
     await media.locator('.post-caption').click();
     await page.keyboard.type('Animated caption.');
@@ -124,6 +125,9 @@ export async function runGifUploadRegressions(browser, origin) {
                 const media = data.get('media');
                 assert.equal(media.type, 'image/gif');
                 assert.match(media.name, /\.gif$/u);
+                if (browser.browserType().name() !== 'webkit') {
+                    assert.deepEqual(Buffer.from(await media.arrayBuffer()), bytes, 'The actual upload contains no private metadata');
+                }
                 // WebKit's interception omits file bodies from multipart data.
                 // The real PHP workflow verifies the actual stored file bytes.
                 assert.equal(data.get('media_width'), '96');
@@ -151,18 +155,23 @@ export async function runGifUploadRegressions(browser, origin) {
             )});
         });
         await runGifPostWorkflow(page, origin);
-        for (const [name, width, mimeType] of [
+        for (const [name, width, mimeType, metadata] of [
             ['animated.gif', 96, 'image/gif'], ['static.gif', 96, 'image/gif'],
             ['animated-wide.gif', 2400, 'image/gif'], ['animated.gif', 96, ''],
+            ['animated.gif', 96, 'image/gif', true], ['animated.gif', 96, '', true],
+            ['animated.gif', 96, 'image/gif', 'icc'],
         ]) {
             const source = await readFile(new URL('../../_resources/image-optimizer/' + name, import.meta.url));
+            const fixture = metadata ? gifWithPrivateMetadata(source, metadata === 'icc' ? gifColorProfile : null) : null;
+            const input = fixture?.input ?? source;
             const result = await page.evaluate(async ({bytes, name, mimeType}) => {
                 const {optimizeImage} = await import('/image-optimizer/js/optimizer.js');
                 const result = await optimizeImage(new File([new Uint8Array(bytes)], name, {type: mimeType}));
                 return {...result, blob: undefined, blobType: result.blob.type,
                     bytes: Array.from(new Uint8Array(await result.blob.arrayBuffer()))};
-            }, {bytes: [...source], name, mimeType});
-            assert.deepEqual(Buffer.from(result.bytes), source, name + ': all source bytes survive processing');
+            }, {bytes: [...input], name, mimeType});
+            assert.deepEqual(Buffer.from(result.bytes), Buffer.from(fixture?.expected ?? source),
+                name + ': private metadata is removed and all rendering bytes, including ICC, survive processing');
             assert.equal(result.blobType, 'image/gif');
             assert.equal(result.extension, 'gif');
             assert.equal(result.width, width);

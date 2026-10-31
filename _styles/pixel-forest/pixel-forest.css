@@ -55,6 +55,7 @@
     --page-margin: clamp(14px, 3vw, 32px);
     --header-top: clamp(14px, 2vw, 24px);
     --header-title-width: none;
+    --header-title-reserve-display: none;
     --site-title-size: clamp(2.25rem, 4.5vw, 3.5rem);
     --ui-font: ui-monospace, "SFMono-Regular", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, "Liberation Mono", monospace;
     --text-font: ui-monospace, "SFMono-Regular", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, "Liberation Mono", monospace;
@@ -179,6 +180,7 @@ hr {
     min-height: clamp(184px, 19vw, 216px);
     margin-top: var(--header-top);
     padding: clamp(72px, 8vw, 92px) clamp(20px, 4vw, 40px) clamp(22px, 3vw, 30px);
+    padding-top: max(clamp(72px, 8vw, 92px), 4.25rem);
     border: 3px solid var(--pixel-ink);
     align-items: flex-end;
     background-color: var(--pixel-sky);
@@ -1031,7 +1033,7 @@ ul.back_forward li {
     #header {
         min-height: 184px;
         margin-top: 14px;
-        padding: 66px 18px 18px;
+        padding: max(66px, 4rem) 18px 18px;
         background-position: 58% center;
         box-shadow: 5px 5px 0 var(--pixel-shadow), 0 0 0 3px var(--pixel-frame);
         font-size: clamp(1.8rem, 8vw, 2.45rem);

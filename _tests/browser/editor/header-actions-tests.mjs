@@ -15,6 +15,65 @@ const assertNoOverlap = (a, b, message) => assert.ok(!a || !b
     || a.right <= b.left + 0.5 || b.right <= a.left + 0.5
     || a.bottom <= b.top + 0.5 || b.bottom <= a.top + 0.5, message);
 
+async function runLargeFontHeaderRegressions(browser, origin) {
+    for (const hasTouch of [false, true]) {
+        for (const font of [24, 32]) {
+            const context = await browser.newContext({hasTouch, viewport: {width: 1280, height: 900}});
+            const page = await context.newPage();
+            page.setDefaultTimeout(10000);
+            await page.route('**/site.css', async route => {
+                const response = await route.fetch();
+                await route.fulfill({response, body: (await response.text()) + `\nhtml { font-size: ${font}px; }`});
+            });
+            try {
+                const paths = ['/header-unread.html', '/header-guest.html'];
+                if (font === 32 && !hasTouch) paths.push('/header-oldschool.html', '/header-pixel-forest.html', '/header-system-1.html');
+                for (const path of paths) {
+                    await page.goto(origin + path);
+                    const themed = !['/header-unread.html', '/header-guest.html'].includes(path);
+                    for (const width of themed ? [320, 390, 1280] : [320, 390, 760, 761, 1120, 1280, 1920, 2300, 2560]) {
+                        await page.setViewportSize({width, height: 900});
+                        const closed = await bounds(page);
+                        const label = `${browser.browserType().name()} ${font}px font, ${width}px viewport, ${hasTouch ? 'touch' : 'mouse'}, ${path}`;
+                        assert.ok(themed ? closed.title.width > 0 : closed.title.width >= Math.min(18 * font, closed.body.width) - 1,
+                            `${label}: the title keeps readable space or moves below the corner row: ${JSON.stringify(closed)}`);
+                        assertNoOverlap(closed.actions, closed.title, label + ': closed controls do not cover the heading');
+                        assertNoOverlap(closed.actions, closed.plus, label + ': the new-post control stays accessible');
+                        const toggle = page.locator('[data-header-search] > summary');
+                        if (hasTouch) await toggle.tap(); else await toggle.click();
+                        await page.waitForFunction(() => document.activeElement?.id === 'register_search_input');
+                        const opened = await bounds(page);
+                        assert.ok(opened.scrollWidth <= (themed ? Math.max(width, closed.scrollWidth) : width),
+                            label + ': opening search does not introduce horizontal overflow');
+                        assertNoOverlap(opened.actions, opened.title, label + ': expanded search does not cover the heading');
+                        assertNoOverlap(opened.actions, opened.plus, label + ': expanded search does not cover author tools');
+                        assert.ok(opened.input.width >= 100, label + ': search retains room for text');
+                        assert.ok(opened.account.left >= 0 && opened.account.right <= width,
+                            label + ': the account stays entirely on screen');
+                        assert.deepEqual(opened.body, closed.body, label + ': opening search never moves the article');
+                        const input = page.locator('#register_search_input');
+                        if (!themed) assert.equal(await input.evaluate(element => parseFloat(getComputedStyle(element).fontSize)), font,
+                            label + ': search text preserves the larger font');
+                        for (const control of await page.locator('.public-auth-login-button, .public-auth-unread, .public-auth-user-menu > summary, [data-header-search] > summary').all()) {
+                            const box = await control.boundingBox();
+                            assert.ok((themed || box.width >= 43.99 && box.height >= 43.99) && box.x >= 0 && box.x + box.width <= width,
+                                `${label}: every corner control remains visible with a 44px hit area: ${JSON.stringify(box)}`);
+                        }
+                        await input.press('Escape');
+                        if (path === '/header-unread.html') {
+                            const account = page.locator('.public-auth-user-menu > summary');
+                            if (hasTouch) await account.tap(); else await account.click();
+                            assert.equal(await page.locator('.public-auth-menu-identity strong').innerText(), 'Тестовый автор');
+                            if (hasTouch) await account.tap(); else await account.click();
+                        }
+                    }
+                }
+            } finally { await context.close(); }
+        }
+    }
+    console.log(`${browser.browserType().name()}: large fonts retain a readable title, reachable account, stable search layout and touch targets`);
+}
+
 export async function runHeaderActionsRegressions(browser, origin) {
     for (const colorScheme of ['light', 'dark']) {
         const context = await browser.newContext({viewport: {width: 1280, height: 900}, colorScheme});
@@ -127,6 +186,7 @@ export async function runHeaderActionsRegressions(browser, origin) {
         await page.locator('[data-header-search] > summary').click();
         assert.equal(await page.locator('#register_search_input').isVisible(), true, 'Native disclosure remains usable without JavaScript');
     } finally { await noScript.close(); }
+    await runLargeFontHeaderRegressions(browser, origin);
     console.log(`${browser.browserType().name()}: corner account, expanding search, suggestions, keyboard, no-JS and 320–3840px layout passed`);
 }
 

@@ -26,6 +26,78 @@ function ascii(bytes, offset, length) {
     return textDecoder.decode(bytes.subarray(offset, offset + length));
 }
 
+function sanitizeGif(bytes) {
+    if (bytes.length < 13 || !['GIF87a', 'GIF89a'].includes(ascii(bytes, 0, 6))) {
+        throw new Error('The GIF file is invalid.');
+    }
+
+    const colorTableSize = packed => packed & 0x80 ? 3 * (1 << ((packed & 7) + 1)) : 0;
+    const subBlocksEnd = start => {
+        let cursor = start;
+        while (cursor < bytes.length) {
+            const size = bytes[cursor++];
+            if (size === 0) return cursor;
+            cursor += size;
+        }
+        throw new Error('The GIF data sub-blocks are truncated.');
+    };
+
+    let offset = 13 + colorTableSize(bytes[10]);
+    if (offset > bytes.length) throw new Error('The GIF color table is truncated.');
+    const parts = [bytes.subarray(0, offset)];
+    let foundImage = false;
+    // Keep the original palettes, compressed frames and rendering controls.
+    // GIF89a §23–26: https://www.w3.org/Graphics/GIF/spec-gif89a.txt
+    // ICC.1 B.6 identifies the profile application block as ICCRGBG1/012.
+    const renderingApplications = new Set(['NETSCAPE2.0', 'ANIMEXTS1.0', 'ICCRGBG1012']);
+    while (offset < bytes.length) {
+        const start = offset;
+        const marker = bytes[offset++];
+        if (marker === 0x3b) {
+            if (!foundImage) throw new Error('The GIF file has no image.');
+            // Do not publish arbitrary data following the GIF trailer either.
+            parts.push(bytes.subarray(start, offset));
+            return new Blob(parts, {type: 'image/gif'});
+        }
+        if (marker === 0x2c) {
+            if (offset + 9 > bytes.length) throw new Error('The GIF image descriptor is truncated.');
+            offset += 9 + colorTableSize(bytes[offset + 8]);
+            if (offset >= bytes.length) throw new Error('The GIF image data is truncated.');
+            offset = subBlocksEnd(offset + 1); // Skip the LZW minimum code size.
+            foundImage = true;
+            parts.push(bytes.subarray(start, offset));
+            continue;
+        }
+        if (marker !== 0x21 || offset >= bytes.length) throw new Error('The GIF block stream is invalid.');
+        const label = bytes[offset++];
+        if (label === 0xf9) {
+            if (offset + 6 > bytes.length || bytes[offset] !== 4 || bytes[offset + 5] !== 0) {
+                throw new Error('The GIF graphic control extension is invalid.');
+            }
+            offset += 6;
+            parts.push(bytes.subarray(start, offset));
+            continue;
+        }
+        let keep = false;
+        if (label === 0xff) {
+            if (offset + 12 > bytes.length || bytes[offset] !== 11) {
+                throw new Error('The GIF application extension is invalid.');
+            }
+            keep = renderingApplications.has(ascii(bytes, offset + 1, 11));
+        } else if (label === 0x01) {
+            if (offset + 13 > bytes.length || bytes[offset] !== 12) {
+                throw new Error('The GIF plain text extension is invalid.');
+            }
+            keep = true; // Plain text is a rendering block, not a comment.
+        }
+        // Includes the fixed application/plain-text header when present. This
+        // also skips Adobe XMP's raw UTF-8 packet and its GIF-compatible trailer.
+        offset = subBlocksEnd(offset);
+        if (keep) parts.push(bytes.subarray(start, offset));
+    }
+    throw new Error('The GIF file has no trailer.');
+}
+
 function tiffOrientation(bytes, tiffOffset, endOffset) {
     if (tiffOffset + 8 > endOffset) {
         return null;
@@ -308,4 +380,4 @@ async function createSanitizedSourceCandidate(file) {
     } : null;
 }
 
-export {createSanitizedSourceCandidate, sanitizeJpeg, sanitizePng, sanitizeWebp};
+export {createSanitizedSourceCandidate, sanitizeGif, sanitizeJpeg, sanitizePng, sanitizeWebp};

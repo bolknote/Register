@@ -17,7 +17,7 @@ import {
 import {resizeImageDataLinear} from './resize.js';
 import {createImageQualityScorer} from './image-quality.js';
 import {createWebpEncoder} from './webp-encode.js';
-import {createSanitizedSourceCandidate} from './source-candidate.js';
+import {createSanitizedSourceCandidate, sanitizeGif} from './source-candidate.js';
 import {optimizeHdrImage} from './hdr-optimize.js';
 import {
     chooseBestCandidate,
@@ -224,10 +224,10 @@ export async function optimizeImage(file, {signal = null, onProgress = null} = {
     const isGif = signature === 'GIF87a' || signature === 'GIF89a';
     if (isGif || String(file.type || '').toLowerCase() === 'image/gif') {
         if (!isGif) throw new Error('The GIF file is invalid.');
-        // Canvas encoders only retain one GIF frame. Validate through the native
-        // decoder, then upload the complete source, including timing and looping.
+        // Canvas encoders only retain one GIF frame. Remove private metadata at
+        // the container level, preserving compressed frames, timing and color.
         // Keep natural dimensions: an unchanged file is neither resized nor @2x.
-        const blob = new Blob([file], {type: 'image/gif'});
+        const blob = sanitizeGif(new Uint8Array(await file.arrayBuffer()));
         const image = await fileToImage(blob);
         const width = image.naturalWidth;
         const height = image.naturalHeight;

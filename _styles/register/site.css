@@ -70,15 +70,14 @@
     :root:has(> head > meta[name="register-tool-rail"][content="1"]),
     :root:has(.site-header-tools, .post-inplace-tools, .comment-moderation) {
         --tools-rail-space: var(--tools-gutter);
+        --header-actions-leading-space: var(--tools-gutter);
     }
 }
 
 @media (min-width: 1120px) {
     :root {
         --header-top: max(0.5rem, env(safe-area-inset-top, 0px));
-        /* Reserve the expanded search and account beside the title so opening
-         * search never changes the heading's wrapping or moves the article. */
-        --header-title-width: clamp(0px, calc(50vw + 50% - 33.5rem), 100%);
+        --header-title-reserve-display: block;
     }
 }
 
@@ -329,6 +328,8 @@ hr {
 }
 
 #header .site-title {
+    display: flow-root;
+    min-width: min(100%, 18rem);
     max-width: var(--header-title-width, none);
     margin: 0;
     color: inherit;
@@ -796,14 +797,15 @@ h2.preview,
 }
 
 .site-header-actions {
+    --header-icon-size: 2.75rem;
     position: absolute;
     z-index: 12;
     top: max(0.5rem, env(safe-area-inset-top, 0px));
     right: max(0.75rem, env(safe-area-inset-right, 0px));
     display: flex;
-    max-width: calc(100% - max(0.75rem, env(safe-area-inset-left, 0px)) - max(0.75rem, env(safe-area-inset-right, 0px)));
-    align-items: center;
-    gap: 0.5rem;
+    max-width: calc(100% - max(0.75rem, env(safe-area-inset-left, 0px)) - max(0.75rem, env(safe-area-inset-right, 0px)) - var(--header-actions-leading-space, 0px));
+    align-items: flex-start;
+    gap: min(0.5rem, 8px);
     font: 400 1rem/1.4 var(--ui-font);
 }
 
@@ -815,6 +817,21 @@ h2.preview,
 .site-header-copy {
     width: 100%;
     min-width: 0;
+}
+
+/* Reserve the open controls without compressing the title to a few glyphs.
+ * A heading with insufficient room naturally starts below this float instead.
+ * Its position is the same with the search open or closed, including large fonts. */
+#header .site-header-copy::before {
+    display: var(--header-title-reserve-display, none);
+    float: right;
+    width: clamp(0px, calc(33.5rem - 50vw + 50%), 100%);
+    height: 3.75rem;
+    content: "";
+}
+
+.site-tagline {
+    clear: right;
 }
 
 .site-header-shell .site-title > :where(a, span) {
@@ -2595,22 +2612,25 @@ h2.preview,
 @media (max-width: 760px) {
     :root:has(> head > meta[name="register-tool-rail"][content="1"]),
     :root:has(.site-header-tools) {
-        --header-actions-leading-space: 3.25rem;
+        --header-actions-leading-space: 52px;
     }
 
     .site-header-actions {
-        max-width: calc(100% - max(0.75rem, env(safe-area-inset-left, 0px)) - max(0.75rem, env(safe-area-inset-right, 0px)) - var(--header-actions-leading-space, 0px));
+        /* Icon hit areas stay at least 44 CSS pixels; the search text keeps
+         * the reader's larger font without scaling every icon out of the row. */
+        --header-icon-size: 44px;
     }
 
     .site-header-tools {
+        --header-icon-size: 44px;
         top: calc(-1 * var(--header-top) + max(0.5rem, env(safe-area-inset-top, 0px)));
         left: -0.4rem;
-        width: 2.1rem;
+        width: min(2.1rem, 44px);
     }
 
     .site-header-tools .post-create-start {
-        width: 2.1rem;
-        min-height: 2.1rem;
+        width: min(2.1rem, 44px);
+        min-height: min(2.1rem, 44px);
     }
 
     .site-header-shell:has(> .site-header-tools) .site-title {
@@ -4157,8 +4177,8 @@ ul.back_forward .empty {
     .register-reactions .register-reaction-chip,
     .register-reactions .register-reaction-choice,
     body .public-auth-user-menu > summary {
-        min-width: 2.75rem;
-        min-height: 2.75rem;
+        min-width: var(--header-icon-size, 2.75rem);
+        min-height: var(--header-icon-size, 2.75rem);
     }
 
     .post.foot > .register-reactions + .post-foot-comments > a {
@@ -4177,7 +4197,7 @@ ul.back_forward .empty {
 
 @media (pointer: coarse) and (max-width: 760px) {
     .site-header-tools {
-        width: var(--tool-button-size);
+        width: var(--header-icon-size, var(--tool-button-size));
     }
 
     #content .post-card.is-editing > .post.time {

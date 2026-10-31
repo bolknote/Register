@@ -33,6 +33,7 @@
     --page-margin: clamp(14px, 4vw, 40px);
     --header-top: 4.25rem;
     --header-title-width: none;
+    --header-title-reserve-display: none;
     --site-title-size: clamp(2rem, 4.2vw, 3rem);
     --ui-font: Arial, Helvetica, sans-serif;
     --text-font: Arial, Helvetica, sans-serif;

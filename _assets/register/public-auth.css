@@ -19,16 +19,16 @@
 
 .public-auth-account {
     display: flex;
-    min-height: 2.75rem;
+    min-height: var(--header-icon-size, 2.75rem);
     align-items: center;
     justify-content: flex-end;
-    gap: 0.45rem;
+    gap: min(0.45rem, 8px);
 }
 
 .public-auth-login-button,
 .public-auth-login-button:visited {
     display: inline-flex;
-    min-height: 2.75rem;
+    min-height: var(--header-icon-size, 2.75rem);
     align-items: center;
     gap: 0.55rem;
     padding: 0.35rem 0.8rem;
@@ -52,8 +52,8 @@
 }
 
 .public-auth-login-button svg {
-    width: 1.35rem;
-    height: 1.35rem;
+    width: min(1.35rem, calc(var(--header-icon-size, 2.75rem) * 0.6));
+    height: min(1.35rem, calc(var(--header-icon-size, 2.75rem) * 0.6));
     fill: none;
     stroke: currentColor;
     stroke-linecap: round;
@@ -65,8 +65,8 @@
 .public-auth-unread:visited {
     position: relative;
     display: grid;
-    width: 2.75rem;
-    height: 2.75rem;
+    width: var(--header-icon-size, 2.75rem);
+    height: var(--header-icon-size, 2.75rem);
     place-items: center;
     border-radius: 50%;
     background: color-mix(in srgb, var(--accent-color) 14%, var(--page-background));
@@ -75,7 +75,7 @@
 }
 
 .public-auth-unread svg {
-    width: 1.45rem;
+    width: min(1.45rem, calc(var(--header-icon-size, 2.75rem) * 0.55));
     fill: none;
     stroke: currentColor;
     stroke-linecap: round;
@@ -107,11 +107,11 @@
 
 .public-auth-user-menu > summary {
     display: flex;
-    min-width: 2.75rem;
-    min-height: 2.75rem;
+    min-width: var(--header-icon-size, 2.75rem);
+    min-height: var(--header-icon-size, 2.75rem);
     align-items: center;
     gap: 0.2rem;
-    padding: 0.25rem;
+    padding: min(0.25rem, 4px);
     border: 1px solid transparent;
     border-radius: 999px;
     color: var(--minor-color);
@@ -133,8 +133,8 @@
 
 .public-auth-avatar {
     display: grid;
-    width: 2.05rem;
-    height: 2.05rem;
+    width: min(2.05rem, calc(var(--header-icon-size, 2.75rem) - 10px));
+    height: min(2.05rem, calc(var(--header-icon-size, 2.75rem) - 10px));
     flex: 0 0 auto;
     place-items: center;
     border-radius: 50%;
@@ -716,17 +716,17 @@
     .public-auth-account,
     .public-auth-login-button,
     .public-auth-user-menu > summary {
-        min-height: 2.75rem;
+        min-height: var(--header-icon-size, 2.75rem);
     }
 
     .public-auth-avatar {
-        width: 1.8rem;
-        height: 1.8rem;
+        width: min(1.8rem, calc(var(--header-icon-size, 2.75rem) - 10px));
+        height: min(1.8rem, calc(var(--header-icon-size, 2.75rem) - 10px));
     }
 
     .public-auth-unread {
-        width: 2.75rem;
-        height: 2.75rem;
+        width: var(--header-icon-size, 2.75rem);
+        height: var(--header-icon-size, 2.75rem);
     }
 
     .public-auth-login-button span,
@@ -735,13 +735,13 @@
     }
 
     .public-auth-login-button {
-        width: 2.75rem;
+        width: var(--header-icon-size, 2.75rem);
         justify-content: center;
         padding: 0;
     }
 
     .public-auth-user-menu > summary {
-        width: 2.75rem;
+        width: var(--header-icon-size, 2.75rem);
         justify-content: center;
         padding: 0;
     }
