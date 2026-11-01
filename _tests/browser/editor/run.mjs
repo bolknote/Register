@@ -486,7 +486,7 @@ try {
             await runNativeClipboardRegressions(browser, `http://127.0.0.1:${server.address().port}`, runMediaCaptionRecoveryRegressions);
             await runMediaNavigationRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runTableNavigationRegressions(browser, `http://127.0.0.1:${server.address().port}`);
-            await runCodeBlockNavigationRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runNativeClipboardRegressions(browser, `http://127.0.0.1:${server.address().port}`, runCodeBlockNavigationRegressions);
             await runNativeClipboardRegressions(browser, `http://127.0.0.1:${server.address().port}`, runCopiedInlineCodeBoundaryRegressions);
             await runInlineCodeBoundaryRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runRecoveryRegressions(browser, `http://127.0.0.1:${server.address().port}`);
