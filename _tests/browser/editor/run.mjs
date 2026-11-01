@@ -37,6 +37,7 @@ import {runMediaDeleteBoundaryRegressions} from './media-delete-boundary-tests.m
 import {runMediaCaptionRecoveryRegressions} from './media-caption-recovery-tests.mjs';
 import {runMediaNavigationRegressions} from './media-navigation-tests.mjs';
 import {runTableNavigationRegressions} from './table-navigation-tests.mjs';
+import {runCodeBlockNavigationRegressions} from './code-block-navigation-tests.mjs';
 import {runInlineCodeBoundaryRegressions, runCopiedInlineCodeBoundaryRegressions} from './inline-code-boundary-tests.mjs';
 import {runAdminAiTargetRegressions} from './admin-ai-target-tests.mjs';
 import {runImageInsertionTextRegressions, runSmartParagraphRegressions, runSocialPreviewTextRegressions} from './admin-text-tests.mjs';
@@ -485,6 +486,7 @@ try {
             await runNativeClipboardRegressions(browser, `http://127.0.0.1:${server.address().port}`, runMediaCaptionRecoveryRegressions);
             await runMediaNavigationRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runTableNavigationRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runCodeBlockNavigationRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runNativeClipboardRegressions(browser, `http://127.0.0.1:${server.address().port}`, runCopiedInlineCodeBoundaryRegressions);
             await runInlineCodeBoundaryRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runRecoveryRegressions(browser, `http://127.0.0.1:${server.address().port}`);

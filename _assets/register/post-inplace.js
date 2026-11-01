@@ -3965,6 +3965,16 @@
         event.preventDefault();
         const empty = (block.tagName === 'PRE' ? block.textContent === '' : block.textContent.trim() === '')
             && !block.querySelector('img, audio, video, figure, hr');
+        const following = block.tagName === 'PRE' ? block.nextElementSibling : null;
+        if (!empty && following?.classList.contains('post-editor-body-paragraph')
+            && editorBoundaryParagraphIsEmpty(following)) {
+            // Reuse the editor's trailing caret line instead of inserting a
+            // second blank paragraph. This changes only the selection.
+            const range = document.createRange();
+            range.selectNodeContents(following);
+            range.collapse(true);
+            return selectRange(state, range);
+        }
         if (empty) {
             runFormattingCommand(state, 'formatBlock', 'p');
         } else {

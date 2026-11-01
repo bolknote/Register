@@ -966,17 +966,17 @@
             return node.matches('a') && Boolean(node.querySelector('img, picture, video, audio'));
         }
 
-        function ensureTrailingTableParagraph(root) {
+        function ensureTrailingBlockParagraph(root) {
             let last = root.lastChild;
             while (last && (boundaryNodeIsEmpty(last) || last.nodeType === Node.COMMENT_NODE)) {
                 last = last.previousSibling;
             }
-            if (!(last instanceof HTMLTableElement)) {
+            if (!(last instanceof HTMLElement) || !last.matches('table, pre')) {
                 return;
             }
-            // A root/table boundary has no paintable native caret. Give the
-            // editor an ordinary empty line, stripped by serialization until
-            // the author actually types in it. Never modify the table's cells.
+            // Tables and code blocks need an ordinary line after them so a click
+            // or Down can leave the block. Serialization strips the unused line;
+            // the original cells, code text and syntax spans remain untouched.
             const paragraph = document.createElement('p');
             paragraph.className = 'post-editor-body-paragraph post-editor-empty-paragraph';
             paragraph.append(document.createElement('br'));
@@ -1074,7 +1074,7 @@
                 picture.parentNode?.insertBefore(fragment, picture.nextSibling);
                 changed = true;
             });
-            ensureTrailingTableParagraph(root);
+            ensureTrailingBlockParagraph(root);
             if (changed && preserveSelection && root.contains(anchorNode) && root.contains(focusNode)) {
                 selection.setBaseAndExtent(anchorNode, anchorOffset, focusNode, focusOffset);
             }

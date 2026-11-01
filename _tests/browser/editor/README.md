@@ -188,6 +188,12 @@ Undo/redo, cell editing, existing following paragraphs, authored comments and
 repeated saves retain the complete content. The editor-only empty line after a
 last table is never included in saved HTML until the author types there.
 
+Code-block navigation runs independently with `node code-block-navigation-tests.mjs`.
+Clicks, taps, Down and Enter must reach ordinary prose after a final PRE, including
+indented code, trailing line feeds, highlighting spans and authored comments.
+Native copy/paste, the block-format command, undo/redo and two saves retain the code
+unchanged. An unused following caret line is never included in saved HTML.
+
 Inline-code boundary regressions also run independently with
 `node inline-code-boundary-tests.mjs`. They reproduce a leading code chip after
 block code through the public editor and its actual formatting tool. Real padding
