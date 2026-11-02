@@ -51,6 +51,12 @@ final class EarlyPageCache
         return $this->decision;
     }
 
+    /** Share the deployed build/configuration identity with caches that supply HTML snapshots. */
+    public function representationVersion(): string
+    {
+        return $this->sourceStamp;
+    }
+
     /** @phpstan-impure Reads the currently deployed configuration and code. */
     public static function sourceStamp(string $root): string
     {

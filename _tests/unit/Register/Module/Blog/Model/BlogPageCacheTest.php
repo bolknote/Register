@@ -11,6 +11,7 @@ namespace unit\Register\Module\Blog\Model;
 
 use PHPUnit\Framework\TestCase;
 use Register\Content\ContentId;
+use Register\Core\Http\Cache\EarlyPageCache;
 use Register\Core\Pdo\PDO;
 use Register\Module\Blog\Model\AllPostsPage;
 use Register\Module\Blog\Model\BlogPageCache;
@@ -20,12 +21,58 @@ use Register\Module\Blog\Model\ContentViewResponseProcessor;
 use Register\Module\Blog\Model\PostFeed;
 use Register\Module\Blog\Model\PostPageContext;
 use Register\Module\Blog\Model\PostPageContextIndex;
+use Register\Update\BuildInfo;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\Cache\Adapter\ChainAdapter;
 use Symfony\Component\HttpFoundation\Response;
 
 final class BlogPageCacheTest extends TestCase
 {
+    public function testInstallingAReleaseRefreshesHtmlAssetUrlsButKeepsContentWarm(): void
+    {
+        $root = sys_get_temp_dir() . '/register-response-build-' . bin2hex(random_bytes(8));
+        mkdir($root);
+        $pool = new ArrayAdapter();
+        $variants = ['full_new_visitor', 'full_known_visitor', 'partial_new_visitor', 'partial_known_visitor', 'full_bot', 'partial_bot'];
+        $cache = new BlogPageCache($pool);
+        $cache->firstPage(static fn(): PostFeed => new PostFeed('warm feed', null, null));
+        $cache->allPosts(static fn(): AllPostsPage => new AllPostsPage('All', 'warm index'));
+        try {
+            foreach (['legacy', 'first', 'second', 'second'] as $release) {
+                if ($release !== 'legacy') {
+                    file_put_contents($root . '/' . BuildInfo::FILENAME, BuildInfo::toJson(
+                        $release, $release, '2026-01-01T00:00:00+00:00', hash('sha1', $release),
+                    ));
+                    $cache = new BlogPageCache($pool, earlyPageCache: new EarlyPageCache($root, $root, true));
+                }
+
+                $html = '<script src="/account.js?v=' . $release . '"></script>';
+                foreach ($variants as $variant) {
+                    self::assertSame($html, $cache->firstResponse($variant, static fn(): Response => new Response($html))->getContent());
+                    self::assertSame($html, $cache->allResponse($variant, static fn(): Response => new Response($html))->getContent());
+                    self::assertSame($html, $cache->contentResponse($variant, '/sample', static fn(): Response => new Response($html))->getContent());
+                }
+
+                self::assertSame('hit', $cache->firstResponse('full_new_visitor', static function (): Response {
+                    self::fail('The same installed build must reuse its HTML.');
+                })->headers->get('X-Register-Page-Cache'));
+                self::assertSame('warm feed', $cache->firstPage(static function (): PostFeed {
+                    self::fail('A release must retain compatible feed fragments.');
+                })->html);
+                self::assertSame('warm index', $cache->allPosts(static function (): AllPostsPage {
+                    self::fail('A release must retain compatible index fragments.');
+                })->html);
+                self::assertCount(6, $this->contentResponseKeys($pool));
+            }
+        } finally {
+            if (is_file($root . '/' . BuildInfo::FILENAME)) {
+                unlink($root . '/' . BuildInfo::FILENAME);
+            }
+
+            rmdir($root);
+        }
+    }
+
     public function testHeaderLayoutRefreshesHtmlAndStylesheetUrlsWithoutCoolingContentFragments(): void
     {
         $pool = new ArrayAdapter();

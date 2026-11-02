@@ -536,9 +536,9 @@ final class BlogPageCache implements StatefulServiceInterface
             }
 
             $dependencyScope = $contentScoped ? $this->contentResponseScope($response) : null;
-            $resolvedDependencyVersion = $contentScoped
+            $resolvedDependencyVersion = $this->responseDependencyVersion($contentScoped
                 ? $this->contentResponseGeneration($dependencyScope)
-                : $dependencyVersion;
+                : $dependencyVersion);
             $cached = CachedBlogResponse::fromResponse(
                 $response,
                 $resolvedDependencyVersion,
@@ -554,9 +554,9 @@ final class BlogPageCache implements StatefulServiceInterface
             return $cached;
         };
         $value = $cache->get($key, $factory, 0.0);
-        $resolvedDependencyVersion = $contentScoped && $value instanceof CachedBlogResponse
+        $resolvedDependencyVersion = $this->responseDependencyVersion($contentScoped && $value instanceof CachedBlogResponse
             ? $this->contentResponseGeneration($this->contentTypeFromScope($value->dependencyScope()))
-            : $dependencyVersion;
+            : $dependencyVersion);
         if ($value instanceof CachedBlogResponse && (
             !$value->matchesDependencyVersion($resolvedDependencyVersion)
             || !$value->isFreshAt(($this->clock)())
@@ -572,6 +572,13 @@ final class BlogPageCache implements StatefulServiceInterface
         $response->headers->set(PageCacheHeaders::IDENTITY, hash('sha256', $key));
 
         return $response;
+    }
+
+    private function responseDependencyVersion(?string $version): ?string
+    {
+        $representation = $this->earlyPageCache?->representationVersion();
+
+        return $representation === null ? $version : hash('sha256', $representation . ':' . $version);
     }
 
     private function validatedVariant(string $variant): string
