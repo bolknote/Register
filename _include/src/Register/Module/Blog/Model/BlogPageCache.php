@@ -578,7 +578,7 @@ final class BlogPageCache implements StatefulServiceInterface
     {
         $representation = $this->earlyPageCache?->representationVersion();
 
-        return $representation === null ? $version : hash('sha256', $representation . ':' . $version);
+        return $representation === null ? $version : hash('sha256', $representation . ':' . ($version ?? ''));
     }
 
     private function validatedVariant(string $variant): string
