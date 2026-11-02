@@ -149,7 +149,7 @@
         }
     };
 
-    for (const type of ['input', 'focusout', 'invalid']) {
+    for (const type of ['input', 'invalid']) {
         document.addEventListener(type, (event) => {
             const input = event.target;
             if (!(input instanceof HTMLInputElement) || input.type !== 'email'

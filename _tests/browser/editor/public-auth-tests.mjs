@@ -82,6 +82,15 @@ export async function runPublicAuthRegressions(browser, origin) {
                     await dialog.getByRole('link', {name: 'Ссылка на почту', exact: true}).click();
                     const email = emailForm.getByRole('textbox', {name: 'Электронная почта', exact: true});
                     await page.waitForFunction(() => document.activeElement?.name === 'email');
+                    for (const address of ['', 'invalid-address']) {
+                        await email.fill(address);
+                        await dialog.getByRole('link', {name: 'Войти с паролем', exact: true}).click();
+                        assert.equal(await passwordForm.isVisible(), true,
+                            'One click switches methods even when the focused email is empty or invalid');
+                        await dialog.getByRole('link', {name: 'Получить ссылку вместо пароля', exact: true}).click();
+                        assert.equal(await email.inputValue(), address);
+                    }
+                    await email.fill('');
                     assert.equal(await emailForm.getByRole('button', {name: 'Получить ссылку', exact: true}).isEnabled(), true,
                         'The main action remains legible and allows validation of an empty address');
                     await emailForm.getByRole('button', {name: 'Получить ссылку', exact: true}).click();
