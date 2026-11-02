@@ -40,8 +40,9 @@ final class BlogPageCacheTest extends TestCase
         $variants = ['full_new_visitor', 'full_known_visitor', 'partial_new_visitor', 'partial_known_visitor', 'full_bot', 'partial_bot'];
         foreach ($variants as $variant) {
             $suffix = str_ends_with($variant, '_bot') ? $variant . '_noninteractive_v2' : $variant;
-            foreach ([9, 10, 11, 12] as $version) {
+            foreach ([9, 10, 11, 12, 13] as $version) {
                 // v10 responses also lack the sign-in form's expiry deadline.
+                // v13 still embeds the old email-first account dialog and assets.
                 $pool->get('register_blog_first_response_v' . $version . '_' . $suffix, static fn(): CachedBlogResponse => $oldResponse);
                 $pool->get('register_blog_all_response_v' . $version . '_' . $suffix, static fn(): CachedBlogResponse => $oldResponse);
                 $pool->get('register_content_response_v' . $version . '_' . hash('sha256', '/sample') . '_' . $suffix, static fn(): CachedBlogResponse => $oldContent);
@@ -73,8 +74,8 @@ final class BlogPageCacheTest extends TestCase
         $oldReader = CachedBlogResponse::fromResponse(new Response('warm reader HTML'));
         self::assertNotNull($oldCrawler);
         self::assertNotNull($oldReader);
-        $pool->get('register_blog_first_response_v13_full_bot', static fn(): CachedBlogResponse => $oldCrawler);
-        $pool->get('register_blog_first_response_v13_full_new_visitor', static fn(): CachedBlogResponse => $oldReader);
+        $pool->get('register_blog_first_response_v14_full_bot', static fn(): CachedBlogResponse => $oldCrawler);
+        $pool->get('register_blog_first_response_v14_full_new_visitor', static fn(): CachedBlogResponse => $oldReader);
 
         $cache = new BlogPageCache($pool);
         self::assertSame('new crawler HTML', $cache->firstResponse('full_bot', static fn(): Response => new Response('new crawler HTML'))->getContent());
@@ -576,7 +577,7 @@ final class BlogPageCacheTest extends TestCase
         self::assertContains('register_content_response_generation_v1', $memoryKeys);
         self::assertSame([], array_values(array_filter(
             $memoryKeys,
-            static fn(string $key): bool => str_starts_with($key, 'register_content_response_v13_'),
+            static fn(string $key): bool => str_starts_with($key, 'register_content_response_v14_'),
         )));
 
         $cache->invalidateFirstPage();
@@ -660,7 +661,7 @@ final class BlogPageCacheTest extends TestCase
     {
         $result = [];
         foreach (array_keys($pool->getValues()) as $key) {
-            if (\is_string($key) && str_starts_with($key, 'register_content_response_v13_')) {
+            if (\is_string($key) && str_starts_with($key, 'register_content_response_v14_')) {
                 $result[] = $key;
             }
         }
