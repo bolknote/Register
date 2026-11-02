@@ -587,14 +587,16 @@
     overflow-wrap: anywhere;
 }
 
-.public-auth-panel.pending-comment-panel {
+.public-auth-panel.pending-comment-panel,
+#content > .public-auth-panel.pending-comment-panel {
     max-width: 52rem;
     font-size: 1rem;
 }
 
 .pending-comment-panel .public-auth-body { padding-top: 1.2rem; }
 
-.public-auth-panel {
+.public-auth-panel,
+#content > .public-auth-panel {
     width: 100%;
     max-width: 27rem;
     box-sizing: border-box;

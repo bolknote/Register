@@ -198,6 +198,8 @@ export async function runPublicAuthRegressions(browser, origin) {
         const page = await native.newPage();
         await page.goto(`${origin}/auth?providers=all`);
         const panel = page.locator('.public-auth-panel');
+        assert.ok((await panel.boundingBox()).width <= 433,
+            'The standalone sign-in panel stays compact inside the normal content container');
         await panel.getByRole('link', {name: 'Логин и пароль', exact: true}).click();
         await page.waitForURL(url => url.searchParams.get('mode') === 'password');
         assert.equal(await panel.locator('.public-auth-password-form').isVisible(), true);
