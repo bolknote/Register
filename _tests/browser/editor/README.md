@@ -16,6 +16,11 @@ npm test
 
 The Quality workflow runs Chromium, Firefox and WebKit and blocks releases on failure.
 
+Caption-boundary regressions use the native clipboard runner as well: they cut
+paragraphs through keyboard and menu actions and exercise native selection/undo.
+Linux WebKit runs these cases in the headed GTK browser under Xvfb, matching the
+other clipboard suites rather than mixing native actions with WPE's pasteboard.
+
 `node public-auth-tests.mjs` covers the real PHP account templates and production
 account assets: the vertical method list, email and password screens, back/Enter/Escape,
 retained input and comment drafts, request failures, password visibility, session choice,

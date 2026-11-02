@@ -505,7 +505,9 @@ try {
             await runAdminHtmlRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runCaptionInputRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runNativeClipboardRegressions(browser, `http://127.0.0.1:${server.address().port}`, runComplexEditingRegressions);
-            await runCaptionBoundaryRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            // This suite uses keyboard/menu Cut and the browser's native undo
+            // state, just like the surrounding clipboard regression suites.
+            await runNativeClipboardRegressions(browser, `http://127.0.0.1:${server.address().port}`, runCaptionBoundaryRegressions);
             await runFieldHistoryRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runMediaAiRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runTagPasteRegressions(browser, `http://127.0.0.1:${server.address().port}`);
