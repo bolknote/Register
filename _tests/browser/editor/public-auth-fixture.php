@@ -41,6 +41,8 @@ $variables = [
         'password' => '/auth?' . http_build_query(['mode' => 'password', ...$query]),
     ],
 ];
+$panelVariables = $variables;
+$panelVariables['initial_mode'] = $mode;
 
 echo '<!doctype html><html lang="' . $locale . '"><head><meta charset="utf-8">'
     . '<meta name="viewport" content="width=device-width, initial-scale=1">'
@@ -49,5 +51,5 @@ echo '<!doctype html><html lang="' . $locale . '"><head><meta charset="utf-8">'
     . '<script src="/_assets/register/public-auth.js" defer></script></head><body>'
     . '<main><a id="auth-open" href="/auth?' . register_htmlencode(http_build_query($query)) . '" data-public-auth-open>Sign in</a>'
     . '<label>Draft<textarea id="auth-draft">A comment drafted before signing in.</textarea></label>'
-    . ($panel ? $viewer->render('public_auth_panel', [...$variables, 'initial_mode' => $mode]) : '')
+    . ($panel ? $viewer->render('public_auth_panel', $panelVariables) : '')
     . '</main>' . $viewer->render('public_auth_dialog', $variables) . '</body></html>';
