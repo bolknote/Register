@@ -16,6 +16,14 @@ npm test
 
 The Quality workflow runs Chromium, Firefox and WebKit and blocks releases on failure.
 
+`node public-auth-tests.mjs` covers the real PHP account templates and production
+account assets: the vertical method list, email and password screens, back/Enter/Escape,
+retained input and comment drafts, request failures, password visibility, session choice,
+CSRF and return-path preservation, direct provider POSTs, and native links without
+JavaScript. It exercises configured and disabled methods at mobile and desktop widths
+in light/dark modes and is included in the main browser suite. No mail or external
+authorization is performed; backend sessions and mail are covered by `PublicAuthCest`.
+
 `npm run test:fuzz` runs a separate seeded editing fuzzer in headless Chromium,
 Firefox and WebKit. It generates valid articles containing Unicode text, emoji,
 RTL text, combining marks, nested lists, quotes, tables and captioned images,

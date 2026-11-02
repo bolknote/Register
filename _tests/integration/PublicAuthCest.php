@@ -127,6 +127,8 @@ final class PublicAuthCest
         $I->seeElement('.public-auth-login-button[rel="nofollow"][data-public-auth-open][data-register-native-navigation]');
         $I->seeElement('#public-auth-dialog .public-auth-email-form');
         $I->seeElement('#public-auth-dialog .public-auth-password-form');
+        $I->seeElement('#public-auth-dialog [data-public-auth-mode-panel="methods"]:not([hidden])');
+        $I->seeElement('#public-auth-dialog [data-public-auth-mode-panel="email"][hidden]');
         $I->seeElement('#public-auth-dialog [data-public-auth-mode-panel="password"][hidden]');
         $I->seeElement('#public-auth-dialog [data-public-auth-mode-open="password"]');
         $I->dontSeeElement('#public-auth-dialog .public-auth-name-section');
@@ -134,7 +136,7 @@ final class PublicAuthCest
         $I->dontSeeElement('#public-auth-dialog .public-auth-provider-yandex');
     }
 
-    public function testConfiguredProvidersUseOneCompactGrid(\IntegrationTester $I): void
+    public function testConfiguredMethodsUseOneVerticalList(\IntegrationTester $I): void
     {
         $I->setConfigValue(PublicAuthSettings::VK_CLIENT_ID_CONFIG_KEY, 'vk-test-client');
         $I->setConfigValue(PublicAuthSettings::YANDEX_CLIENT_ID_CONFIG_KEY, 'yandex-test-client');
@@ -142,9 +144,10 @@ final class PublicAuthCest
 
         $I->amOnPage('https://localhost/');
 
-        $I->seeElement('.public-auth-email-form + .public-auth-mode-switch');
-        $I->seeElement('.public-auth-mode-switch + .public-auth-divider + .public-auth-providers');
-        $I->assertCount(4, $I->grabMultiple('#public-auth-dialog .public-auth-providers .public-auth-provider'));
+        $I->assertCount(6, $I->grabMultiple('#public-auth-dialog .public-auth-methods .public-auth-method'));
+        $I->seeElement('#public-auth-dialog .public-auth-method[data-public-auth-mode-open="email"]');
+        $I->seeElement('#public-auth-dialog .public-auth-method[data-public-auth-mode-open="password"]');
+        $I->assertCount(4, $I->grabMultiple('#public-auth-dialog .public-auth-methods .public-auth-provider'));
         $I->seeElement('#public-auth-dialog .public-auth-provider-vk');
         $I->seeElement('#public-auth-dialog .public-auth-provider-yandex');
         $I->seeElement('#public-auth-dialog .public-auth-provider-mail');
@@ -152,6 +155,26 @@ final class PublicAuthCest
         $I->assertCount(4, $I->grabMultiple('#public-auth-dialog form.public-auth-provider-form[method="post"]'));
         $I->seeElement('#public-auth-dialog .public-auth-provider-yandex[type="submit"]');
         $I->dontSeeElement('#public-auth-dialog .public-auth-more-providers');
+    }
+
+    public function testAuthPageLinksSelectFormsWithoutJavascript(\IntegrationTester $I): void
+    {
+        $return = '/all/example?view=full#comments';
+        foreach (['email', 'password'] as $mode) {
+            $I->amOnPage('https://localhost/auth?mode=' . $mode . '&return=' . rawurlencode($return));
+            $I->seeElement('.public-auth-panel [data-public-auth-mode-panel="' . $mode . '"]:not([hidden])');
+            $I->seeElement('.public-auth-panel [data-public-auth-mode-panel="methods"][hidden]');
+            $I->assertSame($return, $I->grabValueFrom('.public-auth-panel .public-auth-' . $mode . '-form [name="return_path"]'));
+            $I->seeElement('.public-auth-panel .public-auth-mode-back[href*="return="]');
+        }
+
+        $I->amOnPage('https://localhost/auth?mode=unknown');
+        $I->seeElement('.public-auth-panel [data-public-auth-mode-panel="methods"]:not([hidden])');
+        $I->setConfigValue(PublicAuthSettings::EMAIL_ENABLED_CONFIG_KEY, '0');
+        $I->amOnPage('https://localhost/auth?mode=email');
+        $I->dontSeeElement('.public-auth-panel .public-auth-email-form');
+        $I->dontSeeElement('.public-auth-panel .public-auth-methods');
+        $I->seeElement('.public-auth-panel [data-public-auth-mode-panel="password"]:not([hidden])');
     }
 
     public function testPasswordSignInAndPublicLogoutUseTheSharedSession(\IntegrationTester $I): void

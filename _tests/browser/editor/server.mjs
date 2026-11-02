@@ -10,6 +10,19 @@ export function createFixtureServer() {
         response.setHeader('Cache-Control', 'no-store');
         response.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' data: blob:; media-src 'self'; object-src 'none'");
         try {
+            const authUrl = new URL(request.url, 'http://127.0.0.1');
+            if (request.method === 'GET' && ['/public-auth.html', '/auth'].includes(authUrl.pathname)) {
+                response.setHeader('Content-Type', 'text/html; charset=utf-8');
+                response.end(execFileSync(process.env.PHP_BIN || 'php', [
+                    new URL('./public-auth-fixture.php', import.meta.url).pathname,
+                    authUrl.searchParams.get('providers') || 'yandex',
+                    authUrl.searchParams.get('email') || '1',
+                    authUrl.searchParams.get('mode') || 'methods',
+                    authUrl.pathname === '/auth' ? 'panel' : 'dialog',
+                    authUrl.searchParams.get('lang') || 'ru',
+                ], {encoding: 'utf8'}));
+                return;
+            }
             if (request.url === '/comment.html') {
                 const html = await readFile(new URL('./comment.html', import.meta.url), 'utf8');
                 const confirmation = execFileSync(process.env.PHP_BIN || 'php',

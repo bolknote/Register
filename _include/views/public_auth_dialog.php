@@ -14,15 +14,13 @@ declare(strict_types = 1);
 /** @var string $yandex_url */
 /** @var string $return_path */
 /** @var string $form_token */
+/** @var string $initial_mode */
+/** @var array<string, string> $method_urls */
+$auth_is_dialog = true;
+$auth_title_id = 'public-auth-title';
 ?>
 <dialog class="public-auth-dialog" id="public-auth-dialog" aria-labelledby="public-auth-title">
     <div class="public-auth-dialog-card">
-        <header class="public-auth-dialog-header">
-            <h2 id="public-auth-title"><?php echo $trans('Sign in'); ?></h2>
-            <button class="public-auth-close" type="button" data-public-auth-close aria-label="<?php echo register_htmlencode($trans('Close')); ?>">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"></path></svg>
-            </button>
-        </header>
         <?php require __DIR__ . '/public_auth_methods.php'; ?>
     </div>
 </dialog>

@@ -1,0 +1,53 @@
+<?php
+
+declare(strict_types = 1);
+
+use Register\AdminYard\Translator;
+use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\Model\UrlBuilder;
+use Register\Core\Template\Viewer;
+
+// Ordinary account templates and assets, without configured credentials or mail.
+if (PHP_SAPI !== 'cli') {
+    throw new RuntimeException('This account fixture is CLI-only.');
+}
+
+$root = dirname(__DIR__, 3) . '/';
+require $root . '_vendor/autoload.php';
+$providers = $argv[1] ?? 'yandex';
+$email = ($argv[2] ?? '1') === '1';
+$mode = $argv[3] ?? 'methods';
+$panel = ($argv[4] ?? '') === 'panel';
+$locale = ($argv[5] ?? 'ru') === 'en' ? 'en' : 'ru';
+$return = '/all/auth-example?view=full#comment-draft';
+$query = ['providers' => $providers, 'email' => $email ? '1' : '0', 'lang' => $locale, 'return' => $return];
+$config = new DynamicConfigProvider();
+(new ReflectionClass($config))->getProperty('params')->setValue($config, ['REGISTER_STYLE' => 'register']);
+$messages = require $root . '_lang/' . ($locale === 'ru' ? 'Russian' : 'English') . '/common.php';
+$viewer = new Viewer(new Translator($messages, $locale), new UrlBuilder('', '', ''), $root, $config->getStringProxy('REGISTER_STYLE'), false);
+$variables = [
+    'email_enabled' => $email,
+    'vk_enabled' => $providers === 'all',
+    'yandex_enabled' => in_array($providers, ['yandex', 'all'], true),
+    'password_url' => '/auth/password', 'email_url' => '/auth/email',
+    'vk_url' => '/auth/oauth/vk?' . http_build_query(['return' => $return]),
+    'mail_url' => '/auth/oauth/mail_ru?' . http_build_query(['return' => $return]),
+    'ok_url' => '/auth/oauth/ok_ru?' . http_build_query(['return' => $return]),
+    'yandex_url' => '/auth/oauth/yandex?' . http_build_query(['return' => $return]),
+    'return_path' => $return, 'form_token' => 'auth-fixture-token', 'initial_mode' => 'methods',
+    'method_urls' => [
+        'methods' => '/auth?' . http_build_query($query),
+        'email' => '/auth?' . http_build_query(['mode' => 'email', ...$query]),
+        'password' => '/auth?' . http_build_query(['mode' => 'password', ...$query]),
+    ],
+];
+
+echo '<!doctype html><html lang="' . $locale . '"><head><meta charset="utf-8">'
+    . '<meta name="viewport" content="width=device-width, initial-scale=1">'
+    . '<title>Register account fixture</title><link rel="stylesheet" href="/site.css">'
+    . '<link rel="stylesheet" href="/responsive-auth.css">'
+    . '<script src="/_assets/register/public-auth.js" defer></script></head><body>'
+    . '<main><a id="auth-open" href="/auth?' . register_htmlencode(http_build_query($query)) . '" data-public-auth-open>Sign in</a>'
+    . '<label>Draft<textarea id="auth-draft">A comment drafted before signing in.</textarea></label>'
+    . ($panel ? $viewer->render('public_auth_panel', [...$variables, 'initial_mode' => $mode]) : '')
+    . '</main>' . $viewer->render('public_auth_dialog', $variables) . '</body></html>';

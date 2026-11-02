@@ -77,7 +77,10 @@ final readonly class PublicAuthRenderer
 
     public function renderPanel(Request $request): string
     {
-        return $this->viewer->render('public_auth_panel', $this->dialogVariables($request));
+        return $this->viewer->render('public_auth_panel', [
+            ...$this->dialogVariables($request),
+            'initial_mode' => $request->query->getString('mode', 'methods'),
+        ]);
     }
 
     /** @param array<string, mixed> $draft */
@@ -120,6 +123,12 @@ final readonly class PublicAuthRenderer
             'yandex_url'    => $this->oauthUrl('yandex', $returnPath),
             'return_path'   => $returnPath,
             'form_token'    => $credential['token'],
+            'initial_mode'  => 'methods',
+            'method_urls'   => [
+                'methods' => $this->urlBuilder->rawLink('/auth', ['return=' . rawurlencode($returnPath)]),
+                'email' => $this->urlBuilder->rawLink('/auth', ['mode=email', 'return=' . rawurlencode($returnPath)]),
+                'password' => $this->urlBuilder->rawLink('/auth', ['mode=password', 'return=' . rawurlencode($returnPath)]),
+            ],
         ];
     }
 
