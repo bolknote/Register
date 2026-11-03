@@ -41,6 +41,7 @@ import {runTableNavigationRegressions} from './table-navigation-tests.mjs';
 import {runCodeBlockNavigationRegressions} from './code-block-navigation-tests.mjs';
 import {runInlineCodeBoundaryRegressions, runCopiedInlineCodeBoundaryRegressions} from './inline-code-boundary-tests.mjs';
 import {runAdminAiTargetRegressions} from './admin-ai-target-tests.mjs';
+import {runAiNetworkRegressions} from './ai-network-tests.mjs';
 import {runImageInsertionTextRegressions, runSmartParagraphRegressions, runSocialPreviewTextRegressions} from './admin-text-tests.mjs';
 import {runAltLayoutRegressions, runTemplateFieldRegressions, runPreviewDocumentRegressions, runPreviewLineRegressions} from './admin-layout-preview-tests.mjs';
 import {runAdminShortcutTargetRegressions, runAltCursorRegressions} from './admin-interaction-tests.mjs';
@@ -529,6 +530,7 @@ try {
             await runFuzzRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runReviewOctoberRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runAdminAiTargetRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runAiNetworkRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runImageInsertionTextRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runSmartParagraphRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runSocialPreviewTextRegressions(browser, `http://127.0.0.1:${server.address().port}`);

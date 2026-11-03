@@ -162,6 +162,8 @@ return [
     'Suggest tags' => 'Suggest tags',
     'AI working' => 'AI is processing the text…',
     'AI request failed' => 'Unable to get a response from AI.',
+    'AI network error' => 'Unable to get a response from the site. Your text is unchanged; retry the AI request.',
+    'AI timeout' => 'AI did not respond in time. Your text is unchanged; retry the AI request.',
     'AI result unchanged' => 'AI did not change the text.',
     'AI source changed' => 'The source changed after the request was sent. Run the action again.',
     'AI media pending' => 'Wait for images and audio to finish uploading.',

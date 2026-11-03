@@ -107,6 +107,8 @@ if (params.has('ai')) {
     initAiTools(form, {
         enabled: true, entityName: 'Post', contentId: Number(id), url: '/admin-ai',
         working: 'Working', requestFailed: 'Failed', sourceChanged: 'The source text has changed.',
+        networkError: 'Unable to get a response from the site. Your text is unchanged; retry the AI request.',
+        timeout: 'AI did not respond in time. Your text is unchanged; retry the AI request.',
     });
 }
 if (params.has('alt')) {

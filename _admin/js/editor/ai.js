@@ -79,7 +79,8 @@ export function initAiTools(form, config) {
                 registerHandleErrorsInline: true
             }, {
                 timeoutMs: editorDeps.saveTimeoutMs,
-                timeoutMessage: config.timeout || requestFailed
+                timeoutMessage: config.timeout || requestFailed,
+                networkMessage: config.networkError || 'Unable to get a response from the site. Your text is unchanged; retry the AI request.'
             });
             if (controller.signal.aborted || activeController !== controller) return;
             if (!response.ok || !responseData?.success || typeof responseData.result !== 'string') {

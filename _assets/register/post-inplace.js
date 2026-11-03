@@ -5199,7 +5199,11 @@
                     'X-Requested-With': 'XMLHttpRequest',
                 },
                 signal: controller.signal,
-            }, {timeoutMs: editorConfig().saveTimeoutMs, timeoutMessage: editorConfig().saveTimeout});
+            }, {
+                timeoutMs: editorConfig().saveTimeoutMs,
+                timeoutMessage: editorConfig().aiTimeout || editorConfig().aiFailed,
+                networkMessage: editorConfig().aiNetworkError || 'Unable to get a response from the site. Your text is unchanged; retry the AI request.',
+            });
 
             if (
                 !response.ok

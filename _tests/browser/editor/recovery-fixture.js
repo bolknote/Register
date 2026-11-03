@@ -4,6 +4,8 @@
     const revision = Number(params.get('revision') || 1);
     const config = {
         aiAltEnabled: false,
+        aiNetworkError: 'Unable to get a response from the site. Your text is unchanged; retry the AI request.',
+        aiTimeout: 'AI did not respond in time. Your text is unchanged; retry the AI request.',
         titlePlaceholder: 'New post',
         tagSuggestionsUrl: '/_inplace/tags',
         recoveryUserId: user,

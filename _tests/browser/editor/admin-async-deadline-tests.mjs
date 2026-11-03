@@ -6,7 +6,7 @@ const previewPayload = text => ({
     success: true, message: 'Preview ready', content_html: `<p>${text}</p>`, pretty_json: text,
 });
 const scenarios = [
-    {name: 'AI', endpoint: '/admin-ai', flag: 'ai', error: 'Failed'},
+    {name: 'AI', endpoint: '/admin-ai', flag: 'ai', error: 'AI did not respond in time.'},
     {name: 'image alt', endpoint: '/admin-ai-alt', flag: 'alt', error: 'Alt failed'},
     {name: 'ActivityPub', endpoint: '/admin-activitypub-preview', flag: 'activitypub', error: 'Preview failed'},
 ];

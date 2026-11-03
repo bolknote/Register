@@ -38,7 +38,14 @@
                 })(), options, () => controller.abort());
             } catch (error) {
                 // Callers enable retries only for operations protected against duplication.
-                if (attempt >= retries || init.signal?.aborted) throw error;
+                if (attempt >= retries || init.signal?.aborted) {
+                    if (options.networkMessage && !init.signal?.aborted && error?.name !== 'EditorTimeoutError') {
+                        const networkError = new Error(options.networkMessage, {cause: error});
+                        networkError.name = 'EditorNetworkError';
+                        throw networkError;
+                    }
+                    throw error;
+                }
             } finally {
                 init.signal?.removeEventListener('abort', abort);
             }
