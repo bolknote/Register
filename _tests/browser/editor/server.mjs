@@ -20,6 +20,7 @@ export function createFixtureServer() {
                     authUrl.searchParams.get('mode') || 'methods',
                     authUrl.pathname === '/auth' ? 'panel' : 'dialog',
                     authUrl.searchParams.get('lang') || 'ru',
+                    authUrl.searchParams.get('prefix') || '',
                 ], {encoding: 'utf8'}));
                 return;
             }

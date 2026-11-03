@@ -8,6 +8,7 @@ import {runSavingFeedbackRegressions} from './saving-feedback-tests.mjs';
 import {runHtmlBlockRegressions} from './html-block-tests.mjs';
 import {runContextMenuRegressions} from './context-menu-tests.mjs';
 import {runPublicAuthRegressions} from './public-auth-tests.mjs';
+import {runCommentSubmissionRegressions} from './comment-submit-tests.mjs';
 import {runReactionRegressions} from './reactions-tests.mjs';
 import {runTagDisplayRegressions} from './tag-display-tests.mjs';
 import {runCommentQuoteRegressions} from './comment-quote-tests.mjs';
@@ -463,6 +464,7 @@ try {
             await runHtmlBlockRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runContextMenuRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runPublicAuthRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runCommentSubmissionRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runReactionRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runTelegramStickerRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runTagDisplayRegressions(browser, `http://127.0.0.1:${server.address().port}`);

@@ -19,27 +19,33 @@ $email = ($argv[2] ?? '1') === '1';
 $mode = $argv[3] ?? 'methods';
 $panel = ($argv[4] ?? '') === 'panel';
 $locale = ($argv[5] ?? 'ru') === 'en' ? 'en' : 'ru';
-$return = '/all/auth-example?view=full#comment-draft';
+$prefix = $argv[6] ?? '';
+$urlBuilder = new UrlBuilder('', '', $prefix);
+$return = $urlBuilder->rawLink('/all/auth-example', ['view=full']) . '#comment-draft';
 $query = ['providers' => $providers, 'email' => $email ? '1' : '0', 'lang' => $locale, 'return' => $return];
+if ($prefix !== '') {
+    $query['prefix'] = $prefix;
+}
+
 $config = new DynamicConfigProvider();
 (new ReflectionClass($config))->getProperty('params')->setValue($config, ['REGISTER_STYLE' => 'register']);
 $messages = require $root . '_lang/' . ($locale === 'ru' ? 'Russian' : 'English') . '/common.php';
 $messages = array_merge($messages, require $root . '_lang/' . ($locale === 'ru' ? 'Russian' : 'English') . '/comments.php');
-$viewer = new Viewer(new Translator($messages, $locale), new UrlBuilder('', '', ''), $root, $config->getStringProxy('REGISTER_STYLE'), false);
+$viewer = new Viewer(new Translator($messages, $locale), $urlBuilder, $root, $config->getStringProxy('REGISTER_STYLE'), false);
 $variables = [
     'email_enabled' => $email,
     'vk_enabled' => $providers === 'all',
     'yandex_enabled' => in_array($providers, ['yandex', 'all'], true),
-    'password_url' => '/auth/password', 'email_url' => '/auth/email',
-    'vk_url' => '/auth/oauth/vk?' . http_build_query(['return' => $return]),
-    'mail_url' => '/auth/oauth/mail_ru?' . http_build_query(['return' => $return]),
-    'ok_url' => '/auth/oauth/ok_ru?' . http_build_query(['return' => $return]),
-    'yandex_url' => '/auth/oauth/yandex?' . http_build_query(['return' => $return]),
+    'password_url' => $urlBuilder->rawLink('/auth/password'), 'email_url' => $urlBuilder->rawLink('/auth/email'),
+    'vk_url' => $urlBuilder->rawLink('/auth/oauth/vk', [http_build_query(['return' => $return])]),
+    'mail_url' => $urlBuilder->rawLink('/auth/oauth/mail_ru', [http_build_query(['return' => $return])]),
+    'ok_url' => $urlBuilder->rawLink('/auth/oauth/ok_ru', [http_build_query(['return' => $return])]),
+    'yandex_url' => $urlBuilder->rawLink('/auth/oauth/yandex', [http_build_query(['return' => $return])]),
     'return_path' => $return, 'form_token' => 'auth-fixture-token', 'initial_mode' => 'methods',
     'method_urls' => [
-        'methods' => '/auth?' . http_build_query($query),
-        'email' => '/auth?' . http_build_query(['mode' => 'email', ...$query]),
-        'password' => '/auth?' . http_build_query(['mode' => 'password', ...$query]),
+        'methods' => $urlBuilder->rawLink('/auth', [http_build_query($query)]),
+        'email' => $urlBuilder->rawLink('/auth', [http_build_query(['mode' => 'email', ...$query])]),
+        'password' => $urlBuilder->rawLink('/auth', [http_build_query(['mode' => 'password', ...$query])]),
     ],
 ];
 $panelVariables = $variables;
@@ -51,10 +57,10 @@ echo '<!doctype html><html lang="' . $locale . '"><head><meta charset="utf-8">'
     . '<link rel="stylesheet" href="/responsive-auth.css">'
     . '<script src="/_assets/register/partial-navigation.js" defer></script>'
     . '<script src="/_assets/register/public-auth.js" defer></script><script src="/_assets/register/comment-submit.js" defer></script></head><body>'
-    . '<main id="content" data-register-page><a id="auth-open" href="/auth?' . register_htmlencode(http_build_query($query)) . '" data-public-auth-open data-register-native-navigation>Sign in</a>'
+    . '<main id="content" data-register-page><a id="auth-open" href="' . register_htmlencode($urlBuilder->rawLink('/auth', [http_build_query($query)])) . '" data-public-auth-open data-register-native-navigation>Sign in</a>'
     . '<label>Draft<textarea id="auth-draft">A comment drafted before signing in.</textarea></label>'
     . $viewer->render('comment_form', [
-        'id' => '1', 'action' => '/all/auth-example', 'cancelReplyUrl' => '/all/auth-example#add-comment',
+        'id' => '1', 'action' => $urlBuilder->rawLink('/all/auth-example'), 'cancelReplyUrl' => $urlBuilder->rawLink('/all/auth-example') . '#add-comment',
         'antispamToken' => 'fixture-token', 'syntaxHelpItems' => [],
         'commentFieldNames' => array_combine(
             ['text', 'name', 'email', 'subscribed', 'homepage', 'id', 'parent_id', 'reply_number', 'reply_name'],

@@ -2,11 +2,13 @@
     'use strict';
 
     const dialog = () => document.getElementById('public-auth-dialog');
+    const canOpenDialog = () => typeof HTMLDialogElement === 'function'
+        && dialog() instanceof HTMLDialogElement && typeof dialog().showModal === 'function';
     let dialogOpener = null;
     let commentForm = null;
 
     const statusFor = (element) => {
-        const root = element.closest('.public-auth-dialog, .public-auth-panel');
+        const root = element?.closest('.public-auth-dialog, .public-auth-panel');
         return root?.querySelector('.public-auth-status') || null;
     };
 
@@ -65,9 +67,17 @@
         return true;
     };
 
+    function setUrlParameter(url, name, value) {
+        // Preserve routes such as /index.php?/auth while updating only the parameter.
+        const parts = url.search.slice(1).split('&').filter(part => part && !new URLSearchParams(part).has(name));
+        parts.push(new URLSearchParams({[name]: value}).toString());
+        url.search = parts.join('&');
+        return url;
+    }
+
     const openDialog = (trigger, forComment = null) => {
         const authDialog = dialog();
-        if (!(authDialog instanceof HTMLDialogElement) || typeof authDialog.showModal !== 'function') {
+        if (!canOpenDialog()) {
             return false;
         }
 
@@ -79,7 +89,7 @@
         authDialog.querySelectorAll('a[data-public-auth-mode-open], form.public-auth-provider-form').forEach((element) => {
             const attribute = element instanceof HTMLFormElement ? 'action' : 'href';
             const target = new URL(element.getAttribute(attribute), location.href);
-            target.searchParams.set('return', returnPath);
+            setUrlParameter(target, 'return', returnPath);
             element.setAttribute(attribute, target.pathname + target.search);
         });
         syncEmailValidation(authDialog.querySelector('.public-auth-email-form'));
@@ -100,7 +110,8 @@
         setMode(body, body?.dataset.publicAuthDefaultMode || 'methods');
         if (!authDialog.open) {
             dialogOpener = forComment?.querySelector('.comment-submit') || trigger;
-            authDialog.showModal();
+            try { authDialog.showModal(); }
+            catch (_) { dialogOpener = null; commentForm = null; return false; }
         }
         const selected = body?.querySelector('[data-public-auth-mode-panel]:not([hidden])');
         if (selected) focusMode(body, selected);
@@ -108,10 +119,11 @@
     };
 
     window.RegisterPublicAuth = {
+        canOpenDialog,
         openComment(form, returnPath) {
             const trigger = document.createElement('a');
             trigger.href = form.dataset.commentAuthUrl;
-            trigger.search = new URLSearchParams({return: returnPath}).toString();
+            setUrlParameter(trigger, 'return', returnPath);
             return openDialog(trigger, form);
         },
         error(message) { showStatus(dialog(), message, true); },
@@ -267,7 +279,7 @@
         }
 
         const authDialog = dialog();
-        if (authDialog instanceof HTMLDialogElement && event.target === authDialog) {
+        if (typeof HTMLDialogElement === 'function' && authDialog instanceof HTMLDialogElement && event.target === authDialog) {
             const rect = authDialog.getBoundingClientRect();
             const inside = event.clientX >= rect.left && event.clientX <= rect.right
                 && event.clientY >= rect.top && event.clientY <= rect.bottom;

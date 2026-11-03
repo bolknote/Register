@@ -3,6 +3,7 @@
     const drafts = new Map();
     const prefix = 'register_comment_draft:';
     const intentKey = 'register_comment_send';
+    let lastSavedAt = 0;
     const path = form => { const url = new URL(form.action, location.href); return url.pathname + url.search; };
     const source = form => form.querySelector('.comment-editor-source');
     const value = (form, selector) => form.querySelector(selector)?.value || '';
@@ -10,16 +11,37 @@
     const nonce = () => crypto.randomUUID?.()
         || Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('');
 
+    function setUrlParameter(url, name, value) {
+        // Query-based installations keep their route in the raw first segment.
+        const parts = url.search.slice(1).split('&').filter(part => part && !new URLSearchParams(part).has(name));
+        if (value !== null) parts.push(new URLSearchParams({[name]: value}).toString());
+        url.search = parts.join('&');
+        return url;
+    }
+
     function read(key) {
+        const copies = [drafts.get(key)];
         for (const kind of ['sessionStorage', 'localStorage']) {
-            try { const data = JSON.parse(window[kind].getItem(prefix + key) || 'null'); if (data) return data; } catch (_) { /* Storage may be unavailable. */ }
+            try { copies.push(JSON.parse(window[kind].getItem(prefix + key) || 'null')); } catch (_) { /* Storage may be unavailable. */ }
         }
-        return drafts.get(key) || null;
+        let latest = null;
+        let latestSavedAt = -1;
+        for (const data of copies) {
+            if (typeof data?.id !== 'string' || typeof data.text !== 'string') continue;
+            const savedAt = Number.isSafeInteger(data.savedAt) && data.savedAt >= 0 ? data.savedAt : 0;
+            lastSavedAt = Math.max(lastSavedAt, savedAt);
+            if (savedAt > latestSavedAt) { latest = data; latestSavedAt = savedAt; }
+        }
+        return latest;
     }
 
     function save(form) {
+        // Observe persisted versions before assigning a new one, including after
+        // a reload or a backwards clock correction. Failed writes keep old copies.
+        read(path(form));
+        lastSavedAt = Math.max(Date.now(), lastSavedAt + 1);
         const text = window.RegisterCommentEditor?.html(form) ?? source(form)?.value ?? '';
-        const data = {text, id: value(form, '.comment-form-id'), name: value(form, '#comment-name'),
+        const data = {text, savedAt: lastSavedAt, id: value(form, '.comment-form-id'), name: value(form, '#comment-name'),
             email: value(form, '#comment-email'), parent: value(form, '.comment-parent-id'),
             number: value(form, '.comment-reply-number'), replyName: value(form, '.comment-reply-name'),
             subscribed: !!form.querySelector('#subscribed')?.checked};
@@ -53,9 +75,9 @@
 
     function restore(form, data) {
         if (!data || data.id !== value(form, '.comment-form-id') || typeof data.text !== 'string') return;
-        if (!source(form).value) {
+        const restoreText = !source(form).value;
+        if (restoreText) {
             source(form).value = data.text;
-            source(form).dispatchEvent(new Event('input', {bubbles: true}));
         }
         const restoreReply = !value(form, '.comment-parent-id') && !!data.parent;
         for (const [selector, key] of [['#comment-name', 'name'], ['#comment-email', 'email'],
@@ -74,6 +96,21 @@
         }
         const subscribed = form.querySelector('#subscribed');
         if (subscribed && typeof data.subscribed === 'boolean') subscribed.checked = data.subscribed;
+        // Sync the rich editor and autosave only after the complete snapshot is
+        // restored; an early input event would persist blank identity/reply fields.
+        if (restoreText) source(form).dispatchEvent(new Event('input', {bubbles: true}));
+    }
+
+    function restoreGuestIdentity(form) {
+        const identity = form.querySelector('.comment-identity');
+        const wasHidden = !!identity?.hidden;
+        if (identity) {
+            identity.hidden = false;
+            identity.querySelectorAll('input').forEach(input => { input.disabled = false; });
+        }
+        form.dataset.commentNativeSubmit = '1';
+        if (wasHidden) identity.querySelector('input')?.focus();
+        return wasHidden;
     }
 
     function enhance() {
@@ -86,7 +123,7 @@
             try { clearPath(decodeURIComponent(sentPath)); } catch (_) { /* Ignore an invalid receipt. */ }
         } else if (sent) clearSent(sent);
         restore(form, read(path(form)));
-        if (!authenticated(form) && window.RegisterPublicAuth) {
+        if (!authenticated(form) && window.RegisterPublicAuth?.canOpenDialog?.()) {
             const identity = form.querySelector('.comment-identity');
             if (identity) {
                 identity.hidden = true;
@@ -98,7 +135,7 @@
         if (!marker) return;
         let intent;
         try { intent = JSON.parse(sessionStorage.getItem(intentKey) || 'null'); sessionStorage.removeItem(intentKey); } catch (_) { /* Do not send without a matching intent. */ }
-        url.searchParams.delete('comment_send');
+        setUrlParameter(url, 'comment_send', null);
         history.replaceState(history.state, '', url.pathname + url.search + url.hash);
         if (intent?.nonce === marker && intent.path === path(form) && authenticated(form) && source(form).value) {
             requestAnimationFrame(() => { if (form.isConnected) form.requestSubmit(); });
@@ -126,7 +163,13 @@
         if (!form.matches('[data-comment-submit-flow]')) return;
         const text = window.RegisterCommentEditor?.html(form) ?? source(form)?.value ?? '';
         if (authenticated(form) || form.dataset.commentEmailReady === '1') { save(form); return; }
-        if (!window.RegisterPublicAuth) return;
+        if (form.dataset.commentNativeSubmit === '1' || !window.RegisterPublicAuth?.canOpenDialog?.()) {
+            // If support disappeared after enhancement, first reveal the fields
+            // for the author to fill. Otherwise retain the ordinary native POST.
+            if (restoreGuestIdentity(form)) event.preventDefault();
+            save(form);
+            return;
+        }
         event.preventDefault();
         if (!text.trim()) {
             let error = form.querySelector('[data-comment-submit-error]');
@@ -138,9 +181,11 @@
         form.querySelector('[data-comment-submit-error]')?.remove();
         save(form);
         const target = new URL(form.action, location.href);
-        target.searchParams.set('comment_send', nonce());
+        setUrlParameter(target, 'comment_send', nonce());
         target.hash = 'add-comment';
-        window.RegisterPublicAuth.openComment(form, target.pathname + target.search + target.hash);
+        if (!window.RegisterPublicAuth.openComment(form, target.pathname + target.search + target.hash)) {
+            restoreGuestIdentity(form);
+        }
     }, true);
 
     document.addEventListener('input', event => {

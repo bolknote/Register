@@ -29,6 +29,12 @@ JavaScript. It exercises configured and disabled methods at mobile and desktop w
 in light/dark modes and is included in the main browser suite. No mail or external
 authorization is performed; backend sessions and mail are covered by `PublicAuthCest`.
 
+`node comment-submit-tests.mjs` checks recovery after real local/session storage
+quota failures, legacy drafts, same-millisecond edits and backwards clock changes.
+It also uses PHP-generated `/index.php?` and `/?` URLs for provider POSTs, sign-in
+return and automatic comment submission. Missing or failing modal-dialog support
+must leave a usable native comment form with its name, email and text intact.
+
 `npm run test:fuzz` runs a separate seeded editing fuzzer in headless Chromium,
 Firefox and WebKit. It generates valid articles containing Unicode text, emoji,
 RTL text, combining marks, nested lists, quotes, tables and captioned images,
