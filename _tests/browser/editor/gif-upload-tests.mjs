@@ -73,6 +73,7 @@ export async function runGifPostWorkflow(page, origin) {
             assert.ok((await card.locator('[data-post-inplace-body]').textContent()).includes(text), 'Saving preserves ' + text);
         }
         if (save === 0) {
+            await card.locator('.post-edit-start').waitFor({state: 'visible'});
             await card.locator('.post-edit-start').focus();
             await card.locator('.post-edit-start').press('Enter');
             await page.waitForFunction(() => document.querySelector('.post-card.is-editing'));
