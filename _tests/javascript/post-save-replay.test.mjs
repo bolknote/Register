@@ -66,6 +66,7 @@ function editor() {
         HTMLElement, HTMLInputElement, HTMLTextAreaElement, HTMLTimeElement, HTMLAnchorElement, HTMLFormElement,
         AbortController, editorStates, cardFor: () => card, editorElements: () => elements,
         editorConfig: () => ({}), closeOtherCards: () => true, closeConfirmation: noop,
+        showPostSaveFeedback: noop, postSaveAnnouncement: noop,
         clearError: noop, clearStatus: noop, destroyWidgets: noop, enhanceWidgets: noop,
         createFootHeightSpacer: () => new HTMLElement(), detachEditableBodyStyles: noop,
         restoreTypographicNoBreaks: noop, prepareEditableMedia: noop, setEditable: noop,

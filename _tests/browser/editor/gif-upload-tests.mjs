@@ -11,11 +11,17 @@ import {gifColorProfile, gifWithPrivateMetadata} from '../../_support/gif-fixtur
 const fixture = new URL('../../_resources/image-optimizer/animated.gif', import.meta.url);
 
 async function assertAnimation(image) {
-    await image.scrollIntoViewIfNeeded();
     const colors = new Set();
     const deadline = Date.now() + 5000;
     while (colors.size < 2 && Date.now() < deadline) {
-        const png = await image.screenshot();
+        // A live refresh may replace the saved image during screenshot capture.
+        // Resolve the current image again, within the same animation deadline.
+        let png;
+        try { png = await image.screenshot(); }
+        catch (error) {
+            if (error.message.includes('Element is not attached to the DOM')) continue;
+            throw error;
+        }
         const rendered = pixels(png);
         const width = png.readUInt32BE(16), height = png.readUInt32BE(20);
         const offset = (Math.floor(height / 2) * width + Math.floor(width / 2)) * rendered.channels;
