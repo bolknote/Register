@@ -93,8 +93,21 @@
             localStorage.removeItem('comment_showemail');
 
             if (document.cookie.indexOf('comment_form_sent=') !== -1) {
+                var sentId = document.cookie.split('; ').find(function (cookie) { return cookie.indexOf('comment_form_sent=') === 0; }).slice('comment_form_sent='.length);
+                var sentPathCookie = document.cookie.split('; ').find(function (cookie) { return cookie.indexOf('comment_path_sent=') === 0; });
+                var sentPath = null;
+                try { if (sentPathCookie) sentPath = decodeURIComponent(sentPathCookie.slice('comment_path_sent='.length)); } catch (error) { /* Ignore an invalid receipt. */ }
+                if (sentPath) window.RegisterCommentSubmission?.clearPath(sentPath);
+                else window.RegisterCommentSubmission?.clearSent(sentId);
                 document.cookie = 'comment_form_sent=0; expires=Thu, 01 Jan 1970 00:00:01 GMT; path=/';
-                localStorage.removeItem(textKey);
+                document.cookie = 'comment_path_sent=0; expires=Thu, 01 Jan 1970 00:00:01 GMT; path=/';
+                var actionUrl = new URL(form.action, window.location.href);
+                if (sentPath === actionUrl.pathname + actionUrl.search || (!sentPath && sentId === idField.value)) {
+                    localStorage.removeItem(textKey);
+                } else {
+                    textField.value = textField.value || localStorage.getItem(textKey) || '';
+                    textField.dispatchEvent(new Event('input', {bubbles: true}));
+                }
             } else {
                 var initialText = textField.value;
                 textField.value = textField.value || localStorage.getItem(textKey) || '';
@@ -210,6 +223,7 @@
             parentField.value = commentId;
             numberField.value = number;
             nameField.value = name;
+            form.dispatchEvent(new Event('change', {bubbles: true}));
             contextTarget.textContent = name || ('№ ' + number);
             contextTarget.href = '#' + number;
             context.hidden = false;
@@ -254,6 +268,7 @@
                 parentField.value = '';
                 numberField.value = '0';
                 nameField.value = '';
+                form.dispatchEvent(new Event('change', {bubbles: true}));
                 context.hidden = true;
                 restoreOrigin();
 

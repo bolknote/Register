@@ -299,6 +299,7 @@ final readonly class PublicAuthController implements ControllerInterface
             // Use the same marker and path as the normal comment submit; the
             // browser storage handler clears it only after a confirmed save.
             $response->headers->setCookie(Cookie::create('comment_form_sent', (string)$result['comment_id'], httpOnly: false));
+            $response->headers->setCookie(Cookie::create('comment_path_sent', $this->urlBuilder->rawLink(explode('#', $returnPath, 2)[0]), httpOnly: false));
         }
 
         return $response;

@@ -69,6 +69,14 @@ if ($vk_enabled) {
     </section>
     <?php endif; ?>
     <?php if ($email_enabled): ?>
+    <section class="public-auth-mode-panel" data-public-auth-mode-panel="comment-email" data-public-auth-heading="<?php echo register_htmlencode($trans('Confirm comment by email')); ?>" hidden>
+        <form class="public-auth-form" method="post" data-comment-email-form data-register-native-navigation>
+            <p><?php echo $trans('We will send a link to confirm and send your comment.'); ?></p>
+            <label class="public-auth-field"><span><?php echo $trans('Your name'); ?></span><input name="comment_name" type="text" autocomplete="name" maxlength="50" required></label>
+            <label class="public-auth-field"><span><?php echo $trans('Email address'); ?></span><input name="comment_email" type="email" autocomplete="email" inputmode="email" required></label>
+            <button class="public-auth-primary" type="submit"><?php echo $trans('Get confirmation link'); ?></button>
+        </form>
+    </section>
     <section class="public-auth-mode-panel" data-public-auth-mode-panel="email" data-public-auth-heading="<?php echo register_htmlencode($headings['email']); ?>"<?php if ($mode !== 'email'): ?> hidden<?php endif; ?>>
         <form class="public-auth-form public-auth-email-form" method="post" action="<?php echo register_htmlencode($email_url); ?>" data-public-auth-form="email" data-busy-label="<?php echo register_htmlencode($trans('Sending')); ?>">
             <p class="public-auth-email-hint"><?php echo $trans('No password: we will send a one-time link.'); ?></p>

@@ -160,6 +160,8 @@ export function createFixtureServer() {
                 ['/responsive-blog.css', ['../../../_assets/register/blog/site.css', 'text/css']],
                 ['/responsive-auth.css', ['../../../_assets/register/public-auth.css', 'text/css']],
                 ['/_assets/register/public-auth.js', ['../../../_assets/register/public-auth.js', 'text/javascript']],
+                ['/_assets/register/comment-submit.js', ['../../../_assets/register/comment-submit.js', 'text/javascript']],
+                ['/_assets/register/partial-navigation.js', ['../../../_assets/register/partial-navigation.js', 'text/javascript']],
                 ['/_assets/register/search/search.css', ['../../../_assets/register/search/search.css', 'text/css']],
                 ['/_assets/register/search/header-search.js', ['../../../_assets/register/search/header-search.js', 'text/javascript']],
                 ['/_assets/register/search/autocomplete.js', ['../../../_assets/register/search/autocomplete.js', 'text/javascript']],

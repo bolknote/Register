@@ -29,6 +29,19 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 class CommentCest
 {
+    public function testDeferredGuestFormLoadsRussianCommentTranslations(\IntegrationTester $I): void
+    {
+        $I->setConfigValue('REGISTER_LANGUAGE', 'Russian');
+        /** @var \Register\Core\Comment\CommentFormRenderer $renderer */
+        $renderer = $I->grabService(\Register\Core\Comment\CommentFormRenderer::class);
+        $request = \Symfony\Component\HttpFoundation\Request::create('https://localhost/example');
+        $html = $renderer->render($request, ['id' => '1'], $renderer->createSession($request));
+        $I->assertStringContainsString('После подтверждения почты первый комментарий будет проверен перед публикацией.', $html);
+        $I->assertStringContainsString('Отправить комментарий', $html);
+        $I->assertStringNotContainsString('Confirm your email before', $html);
+        $I->assertStringNotContainsString('Send confirmation link', $html);
+    }
+
     public function _before(\IntegrationTester $I): void
     {
         $I->setConfigValue(PublicAuthSettings::EMAIL_ENABLED_CONFIG_KEY, '1');
@@ -135,11 +148,10 @@ class CommentCest
         $I->amOnPage('https://localhost/thread-test');
 
         $I->seeElement('.public-auth-login-button[rel="nofollow"][data-public-auth-open]');
-        $I->seeElement('.comment-public-auth-login[rel="nofollow"][data-public-auth-open]');
-        $I->assertStringContainsString(
-            '%23add-comment',
-            (string)$I->grabAttributeFrom('.comment-public-auth-login', 'href'),
-        );
+        $I->dontSeeElement('.comment-public-auth-login');
+        $I->dontSeeElement('.comment-public-auth');
+        $I->seeElement('#comment-form[data-comment-submit-flow][data-comment-auth-url]');
+        $I->seeElement('.comment-submit[value="Send comment"]');
     }
 
     public function testSavesATopLevelCommentWithAnEmptyParentId(\IntegrationTester $I): void

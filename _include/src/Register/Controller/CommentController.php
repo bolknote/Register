@@ -463,6 +463,7 @@ readonly class CommentController implements ControllerInterface
 
         // Command for client code to clear draft from localStorage
         $response->headers->setCookie(Cookie::create('comment_form_sent', $id, httpOnly: false));
+        $response->headers->setCookie(Cookie::create('comment_path_sent', $this->urlBuilder->rawLink($path), httpOnly: false));
 
         return $response;
     }

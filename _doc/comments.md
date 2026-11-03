@@ -30,8 +30,13 @@ arbitrary media, unsafe links, and unknown attributes never enter canonical comm
 ## Identity and email sign-in
 
 An authenticated participant comments under the name and email of the account; the public form does
-not ask for a second name or address. A guest supplies a name and email. When email-link sign-in is
-enabled, the guest may prepare the comment while requesting a one-time link. The same validation,
+not ask for a second name or address. With JavaScript, guests first write their comment and press
+**Send comment**, then choose a configured sign-in method in a dialog. Name and email are requested
+only after choosing email confirmation. Closing the dialog, refreshing, or a failed sign-in retains
+the text and reply recipient. Password/provider sign-in resumes the explicitly requested submission;
+ordinary sign-in from the site header never sends a draft. Native forms remain available without
+JavaScript. When email-link sign-in is enabled, the guest may prepare the comment while requesting
+a one-time link. The same validation,
 sanitizer, replay protection, rate limiting, and spam checks run before the message is queued, and
 the pending comment is saved only after the link is opened successfully. Comments held for review
 show an explicit confirmation that they are awaiting moderation, with a link back to the article.

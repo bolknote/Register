@@ -38,6 +38,114 @@ async function assertLayout(dialog) {
 }
 
 export async function runPublicAuthRegressions(browser, origin) {
+    const commentContext = await browser.newContext({colorScheme: 'dark'});
+    try {
+        const page = await commentContext.newPage();
+        await page.goto(`${origin}/public-auth.html`);
+        const before = page.url();
+        const authRequests = [];
+        page.on('request', request => {
+            if (new URL(request.url()).pathname === '/auth') authRequests.push(request.url());
+        });
+        await page.locator('#comment-text').fill('Unsaved comment before sign-in');
+        assert.equal(await page.locator('.comment-public-auth').count(), 0);
+        assert.equal(await page.locator('#comment-name').isVisible(), false);
+        assert.equal(await page.locator('#comment-email').isVisible(), false);
+        await page.locator('.comment-submit').click();
+        await page.locator('#public-auth-dialog').waitFor({state: 'visible'});
+        if (process.env.AUTH_TEST_SCREENSHOTS) {
+            await mkdir(process.env.AUTH_TEST_SCREENSHOTS, {recursive: true});
+            await page.locator('#public-auth-dialog').screenshot({path: join(process.env.AUTH_TEST_SCREENSHOTS, `comment-methods-${browser.browserType().name()}.png`)});
+        }
+        await page.waitForTimeout(150);
+        assert.equal(page.url(), before, 'Comment sign-in opens the window without leaving the article');
+        assert.deepEqual(authRequests, [], 'Partial navigation never fetches the standalone sign-in page');
+        assert.equal(await page.locator('#comment-text').inputValue(), 'Unsaved comment before sign-in');
+        const destination = new URL(await page.locator('#public-auth-dialog input[name="return_path"]').first().inputValue(), origin);
+        assert.equal(destination.pathname, '/all/auth-example');
+        assert.equal(destination.hash, '#add-comment');
+        assert.ok(destination.searchParams.get('comment_send'));
+        await page.keyboard.press('Escape');
+        await page.reload();
+        assert.equal(await page.locator('#comment-text').inputValue(), 'Unsaved comment before sign-in', 'A closed window and reload retain the draft');
+        await page.context().addCookies([
+            {name: 'comment_form_sent', value: 'another-article', url: origin},
+            {name: 'comment_path_sent', value: encodeURIComponent('/another-article'), url: origin},
+        ]);
+        await page.reload();
+        assert.equal(await page.locator('#comment-text').inputValue(), 'Unsaved comment before sign-in', 'Sending a comment on another article cannot erase this draft');
+        await page.locator('.comment-submit').click();
+        await page.locator('#public-auth-dialog').getByRole('link', {name: 'Ссылка на почту', exact: true}).click();
+        const emailForm = page.locator('[data-comment-email-form]');
+        assert.equal(await emailForm.isVisible(), true);
+        await emailForm.locator('[name="comment_name"]').fill('Guest');
+        await emailForm.locator('[name="comment_email"]').fill('guest@example.test');
+        await page.keyboard.press('Escape');
+        await page.locator('.comment-submit').click();
+        await page.locator('#public-auth-dialog').getByRole('link', {name: 'Ссылка на почту', exact: true}).click();
+        assert.equal(await emailForm.locator('[name="comment_name"]').inputValue(), 'Guest');
+        assert.equal(await emailForm.locator('[name="comment_email"]').inputValue(), 'guest@example.test');
+        if (process.env.AUTH_TEST_SCREENSHOTS) {
+            await page.locator('#public-auth-dialog').screenshot({path: join(process.env.AUTH_TEST_SCREENSHOTS, `comment-email-${browser.browserType().name()}.png`)});
+        }
+        await page.route('**/all/auth-example', route => route.fulfill({contentType: 'text/html', body: 'Saved comment fixture'}));
+        const sent = page.waitForRequest(request => request.method() === 'POST');
+        await emailForm.getByRole('button', {name: 'Получить ссылку', exact: true}).click();
+        const payload = new URLSearchParams((await sent).postData());
+        assert.equal(payload.get('text'), 'Unsaved comment before sign-in');
+        assert.equal(payload.get('name'), 'Guest');
+        assert.equal(payload.get('email'), 'guest@example.test');
+        await page.goto(`${origin}/public-auth.html?providers=all`);
+        assert.equal(await page.locator('#comment-text').inputValue(), 'Unsaved comment before sign-in');
+        await page.locator('.comment-submit').click();
+        await page.route('**/auth/oauth/vk?*', route => route.fulfill({contentType: 'text/html', body: 'Provider fixture'}));
+        const providerRequest = page.waitForRequest(request => new URL(request.url()).pathname === '/auth/oauth/vk');
+        await page.locator('#public-auth-dialog').getByRole('button', {name: 'VK ID', exact: true}).click();
+        const providerUrl = new URL((await providerRequest).url());
+        assert.ok(new URL(providerUrl.searchParams.get('return'), origin).searchParams.get('comment_send'));
+        assert.equal(await page.evaluate(() => !!sessionStorage.getItem('register_comment_send')), true);
+        await page.goto(`${origin}/public-auth.html?providers=all`);
+        assert.equal(await page.locator('#comment-text').inputValue(), 'Unsaved comment before sign-in', 'An unsuccessful provider trip retains the comment');
+        await page.locator('#auth-open').click();
+        await page.locator('#public-auth-dialog').getByRole('link', {name: 'Ссылка на почту', exact: true}).click();
+        assert.equal(await page.locator('.public-auth-email-form').isVisible(), true, 'Ordinary sign-in keeps its own purpose and form');
+    } finally { await commentContext.close(); }
+
+    const queryContext = await browser.newContext();
+    try {
+        const page = await queryContext.newPage();
+        let article = 'first-article';
+        await page.route('**/public-auth.html?article=*', async route => {
+            const response = await route.fetch();
+            await route.fulfill({response, body: (await response.text()).replace('action="/all/auth-example"', `action="/index.php?/${article}"`)});
+        });
+        await page.goto(`${origin}/public-auth.html?article=${article}`);
+        await page.locator('#comment-text').fill('First article draft');
+        article = 'second-article';
+        await page.goto(`${origin}/public-auth.html?article=${article}`);
+        assert.equal(await page.locator('#comment-text').inputValue(), '', 'Query-based article URLs keep distinct drafts');
+        await page.locator('#comment-text').fill('Second article draft');
+        article = 'first-article';
+        await page.goto(`${origin}/public-auth.html?article=${article}`);
+        assert.equal(await page.locator('#comment-text').inputValue(), 'First article draft');
+    } finally { await queryContext.close(); }
+
+    const blockedContext = await browser.newContext();
+    try {
+        await blockedContext.addInitScript(() => {
+            for (const kind of ['localStorage', 'sessionStorage']) Object.defineProperty(window, kind, {get() { throw new Error('Unavailable'); }});
+        });
+        const page = await blockedContext.newPage();
+        await page.goto(`${origin}/public-auth.html?providers=all`);
+        await page.locator('#comment-text').fill('Live draft without storage');
+        await page.locator('.comment-submit').click();
+        let left = false;
+        page.on('request', request => { if (new URL(request.url()).pathname === '/auth/oauth/vk') left = true; });
+        await page.locator('#public-auth-dialog').getByRole('button', {name: 'VK ID', exact: true}).click();
+        await page.locator('.public-auth-status.is-error').waitFor({state: 'visible'});
+        assert.equal(left, false, 'A provider trip cannot discard a draft when both storage backends are unavailable');
+        assert.equal(await page.locator('#comment-text').inputValue(), 'Live draft without storage');
+    } finally { await blockedContext.close(); }
     const cases = [
         {width: 1280, colorScheme: 'dark', providers: 'yandex', email: '1'},
         {width: 320, colorScheme: 'light', providers: 'all', email: '1', hasTouch: true},

@@ -3,6 +3,7 @@
 
     const dialog = () => document.getElementById('public-auth-dialog');
     let dialogOpener = null;
+    let commentForm = null;
 
     const statusFor = (element) => {
         const root = element.closest('.public-auth-dialog, .public-auth-panel');
@@ -34,6 +35,7 @@
 
     const setMode = (root, mode, focus = false) => {
         if (!(root instanceof HTMLElement)) return false;
+        if (mode === 'email' && root.dataset.commentFlow === '1') mode = 'comment-email';
         const panels = Array.from(root.querySelectorAll('[data-public-auth-mode-panel]'));
         const selected = panels.find((panel) => panel.dataset.publicAuthModePanel === mode);
         if (!(selected instanceof HTMLElement)) return false;
@@ -45,7 +47,8 @@
         root.dataset.publicAuthMode = mode;
         const container = root.closest('.public-auth-dialog, .public-auth-panel');
         const title = container?.querySelector('[data-public-auth-title]');
-        if (title) title.textContent = selected.dataset.publicAuthHeading || '';
+        if (title) title.textContent = mode === 'methods' && root.dataset.commentFlow === '1'
+            ? commentForm?.dataset.commentHeading || '' : selected.dataset.publicAuthHeading || '';
         const back = container?.querySelector('.public-auth-mode-back');
         if (back) back.hidden = mode === 'methods';
         showStatus(root, '');
@@ -62,7 +65,7 @@
         return true;
     };
 
-    const openDialog = (trigger) => {
+    const openDialog = (trigger, forComment = null) => {
         const authDialog = dialog();
         if (!(authDialog instanceof HTMLDialogElement) || typeof authDialog.showModal !== 'function') {
             return false;
@@ -82,15 +85,61 @@
         syncEmailValidation(authDialog.querySelector('.public-auth-email-form'));
         showStatus(authDialog, '');
         const body = authDialog.querySelector('.public-auth-body');
+        commentForm = forComment;
+        if (body) body.dataset.commentFlow = forComment ? '1' : '0';
+        const hint = body?.querySelector('.public-auth-methods-hint');
+        if (hint) {
+            hint.dataset.defaultText ||= hint.textContent;
+            hint.textContent = forComment ? forComment.dataset.commentHint : hint.dataset.defaultText;
+        }
+        const commentEmail = body?.querySelector('[data-comment-email-form]');
+        if (commentEmail && forComment) {
+            commentEmail.elements.comment_name.value = forComment.querySelector('#comment-name')?.value || '';
+            commentEmail.elements.comment_email.value = forComment.querySelector('#comment-email')?.value || '';
+        }
         setMode(body, body?.dataset.publicAuthDefaultMode || 'methods');
         if (!authDialog.open) {
-            dialogOpener = trigger;
+            dialogOpener = forComment?.querySelector('.comment-submit') || trigger;
             authDialog.showModal();
         }
         const selected = body?.querySelector('[data-public-auth-mode-panel]:not([hidden])');
         if (selected) focusMode(body, selected);
         return true;
     };
+
+    window.RegisterPublicAuth = {
+        openComment(form, returnPath) {
+            const trigger = document.createElement('a');
+            trigger.href = form.dataset.commentAuthUrl;
+            trigger.search = new URLSearchParams({return: returnPath}).toString();
+            return openDialog(trigger, form);
+        },
+        error(message) { showStatus(dialog(), message, true); },
+    };
+
+    document.addEventListener('submit', (event) => {
+        if (!event.target.matches?.('[data-comment-email-form]')) return;
+        event.preventDefault();
+        if (!commentForm?.isConnected) return;
+        const name = commentForm.querySelector('#comment-name');
+        const email = commentForm.querySelector('#comment-email');
+        if (!name || !email) return;
+        name.value = event.target.elements.comment_name.value;
+        email.value = event.target.elements.comment_email.value;
+        name.disabled = email.disabled = false;
+        commentForm.dataset.commentEmailReady = '1';
+        commentForm.requestSubmit();
+    });
+
+    document.addEventListener('input', (event) => {
+        const form = event.target.closest?.('[data-comment-email-form]');
+        if (!form || !commentForm?.isConnected) return;
+        const name = commentForm.querySelector('#comment-name');
+        const email = commentForm.querySelector('#comment-email');
+        if (name) name.value = form.elements.comment_name.value;
+        if (email) email.value = form.elements.comment_email.value;
+        commentForm.dispatchEvent(new Event('change', {bubbles: true}));
+    });
 
     const submit = async (form) => {
         if (form.classList.contains('is-busy')) return;
@@ -125,7 +174,9 @@
             }
 
             if (typeof payload.redirect === 'string' && payload.redirect) {
-                if (window.RegisterNavigation?.navigate) {
+                if (form.closest('.public-auth-body')?.dataset.commentFlow === '1') {
+                    window.location.assign(payload.redirect);
+                } else if (window.RegisterNavigation?.navigate) {
                     void window.RegisterNavigation.navigate(payload.redirect, {
                         mode: 'replace',
                         foregroundOnly: true,

@@ -24,6 +24,7 @@ $query = ['providers' => $providers, 'email' => $email ? '1' : '0', 'lang' => $l
 $config = new DynamicConfigProvider();
 (new ReflectionClass($config))->getProperty('params')->setValue($config, ['REGISTER_STYLE' => 'register']);
 $messages = require $root . '_lang/' . ($locale === 'ru' ? 'Russian' : 'English') . '/common.php';
+$messages = array_merge($messages, require $root . '_lang/' . ($locale === 'ru' ? 'Russian' : 'English') . '/comments.php');
 $viewer = new Viewer(new Translator($messages, $locale), new UrlBuilder('', '', ''), $root, $config->getStringProxy('REGISTER_STYLE'), false);
 $variables = [
     'email_enabled' => $email,
@@ -48,8 +49,17 @@ echo '<!doctype html><html lang="' . $locale . '"><head><meta charset="utf-8">'
     . '<meta name="viewport" content="width=device-width, initial-scale=1">'
     . '<title>Register account fixture</title><link rel="stylesheet" href="/site.css">'
     . '<link rel="stylesheet" href="/responsive-auth.css">'
-    . '<script src="/_assets/register/public-auth.js" defer></script></head><body>'
-    . '<main id="content"><a id="auth-open" href="/auth?' . register_htmlencode(http_build_query($query)) . '" data-public-auth-open>Sign in</a>'
+    . '<script src="/_assets/register/partial-navigation.js" defer></script>'
+    . '<script src="/_assets/register/public-auth.js" defer></script><script src="/_assets/register/comment-submit.js" defer></script></head><body>'
+    . '<main id="content" data-register-page><a id="auth-open" href="/auth?' . register_htmlencode(http_build_query($query)) . '" data-public-auth-open data-register-native-navigation>Sign in</a>'
     . '<label>Draft<textarea id="auth-draft">A comment drafted before signing in.</textarea></label>'
+    . $viewer->render('comment_form', [
+        'id' => '1', 'action' => '/all/auth-example', 'cancelReplyUrl' => '/all/auth-example#add-comment',
+        'antispamToken' => 'fixture-token', 'syntaxHelpItems' => [],
+        'commentFieldNames' => array_combine(
+            ['text', 'name', 'email', 'subscribed', 'homepage', 'id', 'parent_id', 'reply_number', 'reply_name'],
+            ['text', 'name', 'email', 'subscribed', 'homepage', 'id', 'parent_id', 'reply_number', 'reply_name'],
+        ),
+    ])
     . ($panel ? $viewer->render('public_auth_panel', $panelVariables) : '')
     . '</main>' . $viewer->render('public_auth_dialog', $variables) . '</body></html>';

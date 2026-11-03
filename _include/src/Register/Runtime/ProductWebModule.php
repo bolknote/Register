@@ -195,6 +195,7 @@ final readonly class ProductWebModule implements ContainerAwareListenerModuleInt
                 ->addJs($assetUrl->versioned('/_assets/register/partial-navigation.js'), [AssetPack::OPTION_DEFER])
                 ->addCss($assetUrl->versioned('/_assets/register/public-auth.css'))
                 ->addJs($assetUrl->versioned('/_assets/register/public-auth.js'), [AssetPack::OPTION_DEFER])
+                ->addJs($assetUrl->versioned('/_assets/register/comment-submit.js'), [AssetPack::OPTION_DEFER])
             ;
         });
 

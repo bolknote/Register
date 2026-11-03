@@ -59,20 +59,17 @@ if ($authenticatedUser instanceof \Register\Core\Model\AuthenticatedPublicUser) 
         </span>
         <a class="comment-reply-cancel" href="<?php echo register_htmlencode($action); ?>"><?php echo $trans('Cancel reply'); ?></a>
     </div>
-    <div class="comment-public-auth">
     <?php if ($authenticatedUser instanceof \Register\Core\Model\AuthenticatedPublicUser): ?>
+    <div class="comment-public-auth">
         <span class="comment-public-auth-copy"><?php echo $trans('Commenting as'); ?> <strong><?php echo register_htmlencode($authenticatedUser->displayName()); ?></strong></span>
         <form class="comment-public-auth-logout public-auth-logout-form" method="post" action="<?php echo register_htmlencode($authLogoutUrl); ?>" data-public-auth-form="logout">
             <input type="hidden" name="csrf_token" value="<?php echo register_htmlencode($authenticatedUser->publicLogoutCsrfToken()); ?>">
             <input type="hidden" name="return_path" value="<?php echo register_htmlencode($commentReturnPath . '#add-comment'); ?>">
             <button type="submit"><?php echo $trans('Sign out'); ?></button>
         </form>
-    <?php else: ?>
-        <span class="comment-public-auth-copy"><?php echo $trans('Confirm your email before the comment is published.'); ?></span>
-        <a class="public-auth-open comment-public-auth-login" href="<?php echo register_htmlencode($authLoginUrl); ?>" rel="nofollow" data-public-auth-open><?php echo $trans('Sign in'); ?></a>
-    <?php endif; ?>
     </div>
-    <form method="post" name="post_comment" id="comment-form" action="<?php echo register_htmlencode($action); ?>">
+    <?php endif; ?>
+    <form method="post" name="post_comment" id="comment-form" data-comment-submit-flow data-comment-auth-url="<?php echo register_htmlencode($authLoginUrl); ?>" data-comment-empty="<?php echo register_htmlencode($trans('Write your comment before sending.')); ?>" data-comment-heading="<?php echo register_htmlencode($trans('Identify yourself to send your comment')); ?>" data-comment-hint="<?php echo register_htmlencode($trans('Choose how to send your comment')); ?>" data-comment-storage-error="<?php echo register_htmlencode($trans('Unable to save your comment in this browser. Keep this page open and try again.')); ?>" action="<?php echo register_htmlencode($action); ?>">
         <div class="input text comment-text-input">
             <label id="comment-text-label" for="comment-text"><?php echo $trans('Your comment'); ?></label>
             <?php
@@ -90,6 +87,7 @@ if ($authenticatedUser instanceof \Register\Core\Model\AuthenticatedPublicUser) 
         </div>
         <?php else: ?>
         <div class="comment-identity" data-comment-guest-identity>
+            <noscript><p><?php echo $trans('Confirm your email before the comment is published.'); ?></p></noscript>
             <p class="input name">
                 <label for="comment-name"><?php echo $trans('Your name'); ?></label>
                 <input id="comment-name" type="text" name="<?php echo $fieldName('name'); ?>" value="<?php echo register_htmlencode($name); ?>" maxlength="50" size="40" autocomplete="name" />
@@ -120,7 +118,7 @@ if ($authenticatedUser instanceof \Register\Core\Model\AuthenticatedPublicUser) 
         <input class="comment-reply-number" type="hidden" name="<?php echo $fieldName('reply_number'); ?>" value="<?php echo $reply_number; ?>" />
         <input class="comment-reply-name" type="hidden" name="<?php echo $fieldName('reply_name'); ?>" value="<?php echo register_htmlencode($reply_name); ?>" />
         <p class="input buttons">
-            <input class="comment-submit" type="submit" name="submit" value="<?php echo $trans($authenticatedUser instanceof \Register\Core\Model\AuthenticatedPublicUser ? 'Submit' : 'Send confirmation link'); ?>" />
+            <input class="comment-submit" type="submit" name="submit" value="<?php echo $trans('Send comment'); ?>" />
         </p>
     </form>
     <a class="comment-form-origin" href="<?php echo register_htmlencode($cancelReplyUrl); ?>" hidden></a>

@@ -233,5 +233,13 @@ return [
     'Sign in by email subject' => 'Sign in to %site%',
     'Confirm comment by email subject' => 'Confirm your comment on %site%',
     'Sign in by email body' => "Open this one-time link to sign in to %site%:\n\n%url%\n\nIt is valid for 15 minutes and works once. Ignore this email if you did not request it.",
-    'Confirm comment by email body' => "Open this one-time link to sign in and publish your comment on %site%:\n\n%url%\n\nIt is valid for 15 minutes and works once. Ignore this email if you did not submit a comment."
+    'Confirm comment by email body' => "Open this one-time link to sign in and publish your comment on %site%:\n\n%url%\n\nIt is valid for 15 minutes and works once. Ignore this email if you did not submit a comment.",
+    'Identify yourself to send your comment' => 'Identify yourself to send your comment',
+    'Choose how to send your comment' => 'Choose how to confirm your identity',
+    'Confirm comment by email' => 'Confirm by email',
+    'We will send a link to confirm and send your comment.' => 'We will send a link to confirm and send your comment.',
+    'Get confirmation link' => 'Get confirmation link',
+    'Send comment' => 'Send comment',
+    'Write your comment before sending.' => 'Write your comment before sending.',
+    'Unable to save your comment in this browser. Keep this page open and try again.' => 'Unable to save your comment in this browser. Keep this page open and try again.',
 ];

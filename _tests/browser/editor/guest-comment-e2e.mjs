@@ -63,7 +63,10 @@ async function runReplyJourney(browser, javaScriptEnabled) {
         assert.equal(count(), before, 'Selecting a reply is read-only');
         const cancel = page.locator('.comment-reply-cancel');
         if (javaScriptEnabled) {
+            await page.reload();
+            assert.equal(await page.locator('.comment-parent-id').inputValue(), String(parent), 'Selecting a reply persists even without another keystroke');
             await cancel.click();
+            await page.reload();
             assert.equal(await page.locator('#comment-form .comment-editor-surface').textContent(), 'Preserved reply draft');
         } else {
             await Promise.all([page.waitForNavigation(), cancel.click()]);
@@ -116,16 +119,35 @@ async function runGuestJourney(browser, javaScriptEnabled) {
         const form = page.locator('#comment-form');
         const editor = page.locator(javaScriptEnabled ? '#comment-form .comment-editor-surface' : '#comment-form .comment-editor-source');
         await editor.fill(text);
-        await page.locator('#comment-name').fill('Guest ' + label);
-        // The first submit has no email. Validation must keep the entire long comment.
-        await Promise.all([page.waitForNavigation(), form.locator('.comment-submit').click()]);
-        assert.equal((await editor.textContent() || await editor.inputValue()).replace(/\s+/g, ' ').trim(), text);
-        await page.locator('#comment-email').fill(email);
+        let submit = form.locator('.comment-submit');
+        if (javaScriptEnabled) {
+            assert.equal(await page.locator('.comment-public-auth').count(), 0);
+            assert.equal(await page.locator('#comment-name').isVisible(), false);
+            await submit.click();
+            await page.locator('#public-auth-dialog').waitFor({state: 'visible'});
+            await page.keyboard.press('Escape');
+            await page.reload();
+            assert.equal((await editor.textContent() || await editor.inputValue()).replace(/\s+/g, ' ').trim(), text);
+            await submit.click();
+            await page.locator('#public-auth-dialog .public-auth-method[data-public-auth-mode-open="email"]').click();
+            const identity = page.locator('[data-comment-email-form]');
+            await identity.locator('[name="comment_name"]').fill('Guest ' + label);
+            await identity.getByRole('button').click();
+            assert.equal(await identity.isVisible(), true, 'An empty email keeps the saved comment and identity form');
+            await identity.locator('[name="comment_email"]').fill(email);
+            submit = identity.getByRole('button');
+        } else {
+            await page.locator('#comment-name').fill('Guest ' + label);
+            // Native fallback preserves the draft on an omitted email as well.
+            await Promise.all([page.waitForNavigation(), submit.click()]);
+            assert.equal((await editor.textContent() || await editor.inputValue()).replace(/\s+/g, ' ').trim(), text);
+            await page.locator('#comment-email').fill(email);
+        }
         const storageKey = javaScriptEnabled ? 'comment_text_' + await form.locator('.comment-form-id').inputValue() : null;
         const invalidFields = await form.evaluate(form => Array.from(form.elements).filter(element => element.willValidate && !element.validity.valid)
             .map(element => ({name: element.name, type: element.type, message: element.validationMessage, length: element.value.length})));
         assert.deepEqual(invalidFields, [], 'Native form constraints allow the corrected guest submission');
-        await Promise.all([page.waitForNavigation(), form.locator('.comment-submit').click()]);
+        await Promise.all([page.waitForNavigation(), submit.click()]);
         const waitingUrl = page.url();
         const firstLink = await confirmationUrl();
         const originalHtml = storedDraft();
@@ -207,6 +229,46 @@ async function runGuestJourney(browser, javaScriptEnabled) {
     } finally { await context.close(); }
 }
 
+async function runPasswordCommentJourney(browser) {
+    database('DELETE FROM spam_rate_events');
+    const context = await browser.newContext({reducedMotion: 'reduce'});
+    const page = await context.newPage();
+    page.setDefaultTimeout(15000);
+    const text = 'Comment after password sign-in ' + browser.browserType().name();
+    try {
+        await page.goto(article);
+        const reply = page.locator('.comment-reply-form button').first();
+        const parent = await reply.getAttribute('value');
+        await reply.click();
+        await page.locator('#comment-form .comment-editor-surface').fill(text);
+        await page.locator('.comment-submit').click();
+        const dialog = page.locator('#public-auth-dialog');
+        await dialog.getByRole('link', {name: 'Login and password', exact: true}).click();
+        const password = dialog.locator('.public-auth-password-form');
+        await password.locator('[name="login"]').fill('editor');
+        await password.locator('[name="pass"]').fill('wrong-password');
+        await password.getByRole('button', {name: 'Sign in', exact: true}).click();
+        await dialog.locator('.public-auth-status.is-error').waitFor({state: 'visible'});
+        assert.equal(await page.locator('#comment-form .comment-editor-surface').textContent(), text);
+        await password.locator('[name="pass"]').fill('editor-password');
+        const sent = page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === new URL(article).pathname);
+        await password.getByRole('button', {name: 'Sign in', exact: true}).click();
+        const posted = await sent;
+        assert.equal(posted.status(), 302);
+        await page.waitForURL(new URL(posted.headers().location, article).href);
+        await page.waitForLoadState('domcontentloaded');
+        const comments = database('SELECT text,parent_id FROM comments WHERE text LIKE ?', ['%' + text + '%']);
+        assert.equal(comments.length, 1, 'Successful password sign-in sends the saved comment exactly once');
+        assert.equal(String(comments[0].parent_id), parent, 'The reply addressee survives sign-in');
+        assert.ok(comments[0].text.includes(text));
+        await page.goto(article);
+        await page.reload();
+        assert.equal(database('SELECT COUNT(*) AS count FROM comments WHERE text LIKE ?', ['%' + text + '%'])[0].count, 1);
+        assert.equal(await page.locator('#comment-form .comment-editor-surface').textContent(), '', 'Successful sending clears the recovered draft');
+        console.log('Password comment E2E ' + browser.browserType().name() + ': failed login, retained reply, automatic send and no duplicates');
+    } finally { await context.close(); }
+}
+
 try {
     const {pageId} = JSON.parse(execFileSync(php, [resolve(directory, 'e2e-seed.php'), settings],
         {cwd: root, encoding: 'utf8', env: {...process.env, XDEBUG_MODE: 'off'}}));
@@ -241,6 +303,7 @@ try {
             await runReplyJourney(browser, false);
             await runGuestJourney(browser, true);
             await runGuestJourney(browser, false);
+            await runPasswordCommentJourney(browser);
         } finally { await browser.close(); }
     }
 } catch (error) {

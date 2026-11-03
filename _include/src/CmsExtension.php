@@ -513,7 +513,7 @@ class CmsExtension implements ExtensionInterface
 
         $container->set(CommentFormRenderer::class, static fn(Container $container): CommentFormRenderer => new CommentFormRenderer(
             $container->get(UrlBuilder::class),
-            $container->get('translator'),
+            $container->get('comments_translator'),
             $container->get(Viewer::class),
             $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
             $container->get(CommentFormTokenManager::class),

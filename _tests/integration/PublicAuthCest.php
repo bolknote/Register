@@ -1057,8 +1057,8 @@ final class PublicAuthCest
         $articleId = $this->insertContent($dbLayer, 'email-comment-test');
 
         $I->amOnPage('https://localhost/email-comment-test');
-        $I->see('After you confirm your email, your first comment will be reviewed before publication.', '.comment-public-auth');
-        $I->seeElement('#comment-form .comment-submit[value="Send confirmation link"]');
+        $I->dontSeeElement('.comment-public-auth');
+        $I->seeElement('#comment-form .comment-submit[value="Send comment"]');
         $I->dontSeeElement('#comment-form .comment-email-submit');
 
         $I->sendJson('https://localhost/_visitor/resolve', [
