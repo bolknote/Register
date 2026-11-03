@@ -65,6 +65,14 @@ export async function runToolLayoutRegressions(browser, origin) {
         await page.locator('.post-edit-start').hover();
         assert.equal(await page.locator('.post-edit-start').evaluate(button => button.matches(':hover')), true);
         await assertToolsStayAttached(page);
+        await page.setViewportSize({width: 1280, height: 900});
+        await page.locator('.post.body').evaluate(body => {
+            body.innerHTML = '<p>Ordinary article content.</p>'.repeat(60);
+            scrollTo(0, 900);
+        });
+        const nativeTools = await page.locator('.post-inplace-tools').boundingBox();
+        assert.ok(nativeTools.y >= 8 && nativeTools.y + nativeTools.height <= 892,
+            'Reading tools remain visible through native CSS even with JavaScript disabled');
         console.log(`${browser.browserType().name()}: tools stay attached from 320px mobile to a 3840px zoomed-out viewport`);
     } finally { await context.close(); }
     await runToolScrollRegressions(browser, origin);

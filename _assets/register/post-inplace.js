@@ -6427,60 +6427,6 @@
         button.click();
     }
 
-    function keepPostToolsVisible() {
-        const rails = new Map();
-        let frame = null;
-        const schedule = () => {
-            if (frame === null) frame = requestAnimationFrame(update);
-        };
-        const observer = new ResizeObserver(schedule);
-        function update() {
-            frame = null;
-            for (const [tools, entry] of rails) {
-                if (!tools.isConnected || !entry.card.isConnected) {
-                    observer.unobserve(tools);
-                    observer.unobserve(entry.card);
-                    rails.delete(tools);
-                }
-            }
-            document.querySelectorAll('.post-card > .post-inplace-tools').forEach(tools => {
-                if (rails.has(tools)) return;
-                const card = tools.parentElement;
-                rails.set(tools, {card, offset: 0});
-                observer.observe(card);
-                observer.observe(tools);
-            });
-            const gap = parseFloat(getComputedStyle(document.documentElement).fontSize) * 0.75;
-            const visibleTop = (window.visualViewport?.offsetTop || 0) + gap;
-            // Read all geometry before changing transforms. The rail stays in
-            // its original gutter without affecting the document's text flow.
-            const updates = [];
-            for (const [tools, entry] of rails) {
-                if (!tools.getClientRects().length) continue;
-                const rect = tools.getBoundingClientRect();
-                const naturalTop = rect.top - entry.offset;
-                const lastTop = entry.card.getBoundingClientRect().bottom - gap - rect.height;
-                const offset = Math.max(0, Math.min(visibleTop - naturalTop, lastTop - naturalTop));
-                if (Math.abs(offset - entry.offset) > 0.1) updates.push({tools, entry, offset});
-            }
-            updates.forEach(({tools, entry, offset}) => {
-                tools.style.setProperty('--post-tools-scroll-offset', `${offset}px`);
-                tools.toggleAttribute('data-post-tools-floating', offset > 0);
-                entry.offset = offset;
-            });
-        }
-        new MutationObserver(schedule).observe(document.documentElement, {
-            subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'hidden'],
-        });
-        window.addEventListener('scroll', schedule, {passive: true});
-        window.addEventListener('resize', schedule, {passive: true});
-        window.visualViewport?.addEventListener('resize', schedule, {passive: true});
-        window.visualViewport?.addEventListener('scroll', schedule, {passive: true});
-        document.addEventListener('register:fragment-updated', schedule);
-        schedule();
-    }
-
-    keepPostToolsVisible();
     applyShortcutHints(document);
     openEditorFromUrl();
     refreshPostRecoveryOffers();

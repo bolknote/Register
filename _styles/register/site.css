@@ -919,17 +919,18 @@ h2.preview,
 }
 
 .post-inplace-tools {
-    position: absolute;
+    position: sticky;
     z-index: 3;
-    top: auto;
+    top: max(0.75rem, env(safe-area-inset-top, 0px));
     right: auto;
-    left: calc(-1 * var(--content-tools-gutter));
+    left: auto;
     display: flex;
     width: var(--content-tools-gutter);
+    margin-left: calc(-1 * var(--content-tools-gutter));
+    float: left;
     flex-direction: column;
     align-items: center;
     gap: 0.15rem;
-    translate: 0 var(--post-tools-scroll-offset, 0px);
     opacity: 0;
     pointer-events: auto;
     transform: translateY(0.2rem);
@@ -2741,14 +2742,18 @@ h2.preview,
     .post-card:hover > .post-inplace-tools,
     .post-card:focus-within > .post-inplace-tools,
     .post-card.is-editing > .post-inplace-tools {
-        right: 0;
+        right: auto;
         left: auto;
         width: auto;
+        margin-top: calc(-2.75rem - 0.9rem);
+        margin-bottom: -2.75rem;
+        margin-left: 0;
+        float: right;
         flex-direction: row;
         align-items: center;
         gap: 0.1rem;
         opacity: 1;
-        transform: translateY(calc(-100% - 0.9rem));
+        transform: none;
     }
 
     .post-inplace-button {
@@ -2756,7 +2761,7 @@ h2.preview,
         min-height: 2.75rem;
     }
 
-    .post-inplace-tools[data-post-tools-floating]::before {
+    .post-inplace-tools::before {
         position: absolute;
         z-index: -1;
         inset: -0.2rem -0.25rem;
