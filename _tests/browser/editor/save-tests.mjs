@@ -89,9 +89,10 @@ export async function runScheduledStatusRegressions(browser, origin) {
                 const status = card.locator(':scope > .post-inplace-status');
                 const banner = card.locator(':scope > .post-scheduled-notice');
                 assert.equal(await banner.count(), scheduled ? 1 : 0);
-                assert.equal(await status.isVisible(), !scheduled,
-                    'The schedule banner replaces the generic save confirmation');
-                assert.equal(await status.textContent(), scheduled ? '' : payload.message);
+                assert.equal(await status.isVisible(), false,
+                    'The tool rail confirms a save without duplicating it above the article');
+                assert.equal(await status.textContent(), '');
+                assert.equal(await card.locator('.post-save-label').textContent(), 'Saved');
                 if (scheduled) {
                     assert.equal(await banner.isVisible(), true);
                     assert.equal(await banner.textContent(), scheduleMessage);

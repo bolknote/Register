@@ -61,6 +61,8 @@ $config = [
     'recoveryMedia' => $trans('Post recovery media'),
     'recoveryMarkup' => $trans('Post recovery markup'),
     'saveTimeout' => $trans('Post save timeout'),
+    'saveWorking' => $trans('Post saving'),
+    'saveDone' => $trans('Post saved'),
     'creationRecovered' => $trans('Post creation recovered'),
 ];
 ?>

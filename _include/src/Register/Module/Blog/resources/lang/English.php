@@ -96,6 +96,8 @@ return [
     'Confirm post deletion' => 'Delete post',
     'Cancel post deletion' => 'Cancel',
     'Post changes saved' => 'Changes saved',
+    'Post saving' => 'Saving…',
+    'Post saved' => 'Saved',
     'Post deleted' => 'Post deleted',
     'Post list' => 'Back to posts',
     'Post editing failed' => 'Unable to change the post.',

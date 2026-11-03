@@ -929,6 +929,7 @@ h2.preview,
     flex-direction: column;
     align-items: center;
     gap: 0.15rem;
+    translate: 0 var(--post-tools-scroll-offset, 0px);
     opacity: 0;
     pointer-events: auto;
     transform: translateY(0.2rem);
@@ -2396,6 +2397,74 @@ h2.preview,
     opacity: 0.55;
 }
 
+.post-inplace-tools[data-post-save-state],
+.post-card[aria-busy="true"] > .post-inplace-tools[data-post-save-state] {
+    min-height: 3.5rem;
+    opacity: 1;
+}
+
+.post-inplace-tools[data-post-save-state] > :not(.post-save-feedback) {
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.post-save-feedback {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    display: flex;
+    width: max-content;
+    padding-top: 0.5rem;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--minor-color);
+    pointer-events: none;
+    transform: translateX(-50%);
+}
+
+.post-save-spinner,
+.post-save-check {
+    box-sizing: border-box;
+    width: 1.35rem;
+    height: 1.35rem;
+}
+
+.post-save-spinner {
+    border: 2px solid color-mix(in srgb, var(--minor-color) 22%, transparent);
+    border-top-color: var(--minor-color);
+    border-radius: 50%;
+    animation: post-media-upload-spin 0.9s linear infinite;
+}
+
+.post-save-check {
+    display: none;
+    fill: none;
+    stroke: var(--success-color);
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+}
+
+[data-post-save-state="saved"] .post-save-spinner {
+    display: none;
+}
+
+[data-post-save-state="saved"] .post-save-check {
+    display: block;
+}
+
+.post-save-label {
+    font: 0.75rem/1.35 var(--ui-font);
+    white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .post-save-spinner {
+        animation: none;
+    }
+}
+
 .post-media-conflict-backdrop {
     position: fixed;
     z-index: 120;
@@ -2684,6 +2753,30 @@ h2.preview,
 
     .post-inplace-button {
         width: 2.75rem;
+        min-height: 2.75rem;
+    }
+
+    .post-inplace-tools[data-post-tools-floating]::before {
+        position: absolute;
+        z-index: -1;
+        inset: -0.2rem -0.25rem;
+        border-radius: 0.3rem;
+        background: var(--page-background);
+    }
+
+    .post-save-feedback {
+        right: 0;
+        left: auto;
+        height: 2.75rem;
+        padding: 0 0.35rem;
+        border-radius: 0.3rem;
+        flex-direction: row;
+        gap: 0.45rem;
+        background: var(--page-background);
+        transform: none;
+    }
+
+    .post-inplace-tools[data-post-save-state] {
         min-height: 2.75rem;
     }
 

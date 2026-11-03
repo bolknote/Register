@@ -4,6 +4,8 @@
     const editorStates = new WeakMap();
     const editorConfigs = new WeakMap();
     const editorStatusTimers = new WeakMap();
+    const postSaveFeedback = new WeakMap();
+    let postSaveAnnouncementOwner = null;
     const emptyEditorConfig = Object.freeze({});
     const recoverySessions = new Set();
     let inlineCodeBoundarySequence = 0;
@@ -355,6 +357,70 @@
                 if (status.textContent === message) clearStatus(state.card);
             }, duration);
             editorStatusTimers.set(state.card, timer);
+        }
+    }
+
+    function postSaveAnnouncement() {
+        let live = document.querySelector('.post-save-announcement');
+        if (!live) {
+            live = document.createElement('div');
+            live.className = 'visually-hidden post-save-announcement';
+            live.setAttribute('role', 'status');
+            live.setAttribute('aria-live', 'polite');
+            document.body.append(live);
+        }
+        return live;
+    }
+
+    function showPostSaveFeedback(card, phase = null) {
+        const tools = card.querySelector(':scope > .post-inplace-tools');
+        if (!tools) return;
+        let feedback = postSaveFeedback.get(card);
+        if (feedback) clearTimeout(feedback.timer);
+        const announcement = document.querySelector('.post-save-announcement');
+        if (!phase) {
+            feedback?.element.remove();
+            delete tools.dataset.postSaveState;
+            postSaveFeedback.delete(card);
+            if (announcement && postSaveAnnouncementOwner === card) {
+                announcement.textContent = '';
+                postSaveAnnouncementOwner = null;
+            }
+            return;
+        }
+        if (!feedback) {
+            const element = document.createElement('span');
+            element.className = 'post-save-feedback';
+            element.setAttribute('aria-hidden', 'true');
+            element.innerHTML = '<span class="post-save-spinner"></span>'
+                + '<svg class="post-save-check" viewBox="0 0 24 24"><path d="m5 12.2 4.2 4.2L19 6.8"/></svg>'
+                + '<span class="post-save-label"></span>';
+            tools.append(element);
+            feedback = {element, timer: null};
+            postSaveFeedback.set(card, feedback);
+        }
+        const message = phase === 'saving'
+            ? editorConfig().saveWorking || 'Saving…'
+            : editorConfig().saveDone || 'Saved';
+        feedback.element.querySelector('.post-save-label').textContent = message;
+        tools.dataset.postSaveState = phase;
+        if (phase === 'saving') {
+            // The editing card is inert while submitting. Announce progress
+            // outside that subtree so assistive technology can still hear it.
+            const live = postSaveAnnouncement();
+            live.textContent = message;
+            postSaveAnnouncementOwner = card;
+        } else {
+            clearStatus(card);
+            const live = postSaveAnnouncement();
+            live.textContent = message;
+            postSaveAnnouncementOwner = card;
+            feedback.timer = setTimeout(() => {
+                showPostSaveFeedback(card);
+                if (card.isConnected && !editorStates.has(card) && document.activeElement === document.body) {
+                    postToolsFocusTarget(card, '.post-edit-start')?.focus({preventScroll: true});
+                }
+            }, 1000);
         }
     }
 
@@ -1322,6 +1388,8 @@
         if (editorStates.has(card)) {
             return true;
         }
+        showPostSaveFeedback(card);
+        postSaveAnnouncement();
 
         const elements = editorElements(card);
         if (!elements) {
@@ -3119,6 +3187,7 @@
         }
 
         const focusBeforeSave = document.activeElement;
+        let saved = false;
         const buttons = card.querySelectorAll('.post-inplace-tools button, .post-delete-confirmation button');
         let lockedFields = null;
         const lockEditing = (locked) => {
@@ -3155,6 +3224,7 @@
             // reaches its upload request or a save's preparation times out.
             state?.recovery?.persist();
             setBusy(true);
+            if (state) showPostSaveFeedback(card, 'saving');
             if (state) {
                 const preparationOptions = {timeoutMs: editorConfig().saveTimeoutMs, timeoutMessage: editorConfig().saveTimeout};
                 if (state.mediaUploads.size > 0) {
@@ -3204,10 +3274,12 @@
             setBusy(false);
             if (payload.action === 'edit') {
                 updateEditedCard(card, form, payload);
+                saved = true;
             } else if (payload.action === 'create') {
                 const laterDraft = payload.replayed && payload.request_matched === false && state
                     ? recoverySnapshot(state) : null;
                 updateCreatedCard(card, form, payload);
+                saved = true;
                 if (laterDraft) {
                     beginEdit(card.querySelector('.post-edit-start'));
                     const next = editorStates.get(card);
@@ -3232,10 +3304,13 @@
             }
             if (card.isConnected) {
                 setBusy(false);
+                if (state) showPostSaveFeedback(card, saved && !editorStates.has(card) ? 'saved' : null);
                 if (editorStates.get(card) === state && document.activeElement === document.body
                     && focusBeforeSave instanceof HTMLElement && focusBeforeSave.isConnected) {
                     focusBeforeSave.focus({preventScroll: true});
                 }
+            } else if (state) {
+                showPostSaveFeedback(card);
             }
         }
     }
@@ -6352,6 +6427,60 @@
         button.click();
     }
 
+    function keepPostToolsVisible() {
+        const rails = new Map();
+        let frame = null;
+        const schedule = () => {
+            if (frame === null) frame = requestAnimationFrame(update);
+        };
+        const observer = new ResizeObserver(schedule);
+        function update() {
+            frame = null;
+            for (const [tools, entry] of rails) {
+                if (!tools.isConnected || !entry.card.isConnected) {
+                    observer.unobserve(tools);
+                    observer.unobserve(entry.card);
+                    rails.delete(tools);
+                }
+            }
+            document.querySelectorAll('.post-card > .post-inplace-tools').forEach(tools => {
+                if (rails.has(tools)) return;
+                const card = tools.parentElement;
+                rails.set(tools, {card, offset: 0});
+                observer.observe(card);
+                observer.observe(tools);
+            });
+            const gap = parseFloat(getComputedStyle(document.documentElement).fontSize) * 0.75;
+            const visibleTop = (window.visualViewport?.offsetTop || 0) + gap;
+            // Read all geometry before changing transforms. The rail stays in
+            // its original gutter without affecting the document's text flow.
+            const updates = [];
+            for (const [tools, entry] of rails) {
+                if (!tools.getClientRects().length) continue;
+                const rect = tools.getBoundingClientRect();
+                const naturalTop = rect.top - entry.offset;
+                const lastTop = entry.card.getBoundingClientRect().bottom - gap - rect.height;
+                const offset = Math.max(0, Math.min(visibleTop - naturalTop, lastTop - naturalTop));
+                if (Math.abs(offset - entry.offset) > 0.1) updates.push({tools, entry, offset});
+            }
+            updates.forEach(({tools, entry, offset}) => {
+                tools.style.setProperty('--post-tools-scroll-offset', `${offset}px`);
+                tools.toggleAttribute('data-post-tools-floating', offset > 0);
+                entry.offset = offset;
+            });
+        }
+        new MutationObserver(schedule).observe(document.documentElement, {
+            subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'hidden'],
+        });
+        window.addEventListener('scroll', schedule, {passive: true});
+        window.addEventListener('resize', schedule, {passive: true});
+        window.visualViewport?.addEventListener('resize', schedule, {passive: true});
+        window.visualViewport?.addEventListener('scroll', schedule, {passive: true});
+        document.addEventListener('register:fragment-updated', schedule);
+        schedule();
+    }
+
+    keepPostToolsVisible();
     applyShortcutHints(document);
     openEditorFromUrl();
     refreshPostRecoveryOffers();

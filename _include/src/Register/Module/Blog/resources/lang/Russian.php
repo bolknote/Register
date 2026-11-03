@@ -96,6 +96,8 @@ return [
     'Confirm post deletion' => 'Удалить пост',
     'Cancel post deletion' => 'Отмена',
     'Post changes saved' => 'Изменения сохранены',
+    'Post saving' => 'Сохраняю…',
+    'Post saved' => 'Сохранено',
     'Post deleted' => 'Пост удалён',
     'Post list' => 'К списку постов',
     'Post editing failed' => 'Не удалось изменить пост.',

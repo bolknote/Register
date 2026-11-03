@@ -67,4 +67,59 @@ export async function runToolLayoutRegressions(browser, origin) {
         await assertToolsStayAttached(page);
         console.log(`${browser.browserType().name()}: tools stay attached from 320px mobile to a 3840px zoomed-out viewport`);
     } finally { await context.close(); }
+    await runToolScrollRegressions(browser, origin);
+}
+
+export async function runToolScrollRegressions(browser, origin) {
+    for (const width of [1280, 390]) {
+        const context = await browser.newContext({viewport: {width, height: 700}, reducedMotion: 'reduce'});
+        const page = await context.newPage();
+        try {
+            await page.route('**/recovery-fixture.css', route => route.fulfill({contentType: 'text/css', body:
+                'body {margin:80px 80px 1600px} #content {width:100%} .post-inplace-tools {opacity:1}'
+                + '@media(max-width:760px) {body {margin:80px 16px 1600px}}'}));
+            await page.goto(origin + '/recovery.html');
+            await page.locator('.post-card [data-post-inplace-body]').evaluate(body => {
+                body.innerHTML = Array.from({length: 55}, (_, i) => `<p>Ordinary paragraph ${i + 1}: enough text to scroll a content-independent post.</p>`).join('');
+                body.closest('.post-card').querySelector('[name="body"]').value = body.innerHTML;
+            });
+            const card = page.locator('.post-card').first();
+            const tools = card.locator(':scope > .post-inplace-tools');
+            const settle = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+            for (const editing of [false, true]) {
+                await page.evaluate(() => scrollTo(0, 0));
+                if (editing) await card.getByRole('button', {name: 'Edit', exact: true}).click();
+                await settle();
+                const original = await card.locator('[data-post-inplace-body]').evaluate(body => ({text: body.textContent, width: body.getBoundingClientRect().width}));
+                const initialTools = await tools.boundingBox();
+                const geometry = () => card.evaluate(card => {
+                    const bounds = card.getBoundingClientRect();
+                    const tools = card.querySelector(':scope > .post-inplace-tools').getBoundingClientRect();
+                    return {card: {top: bounds.top, bottom: bounds.bottom}, tools: {top: tools.top, bottom: tools.bottom, left: tools.left, width: tools.width}};
+                });
+                const check = async label => {
+                    await settle();
+                    const current = await geometry();
+                    assert.ok(current.tools.top >= 8 && current.tools.bottom <= 700 - 8,
+                        `${width}px/${editing}/${label}: tools stay visible: ${JSON.stringify(current)}`);
+                    assert.ok(current.tools.bottom <= current.card.bottom + 1, 'The tools stay inside their own article');
+                    assert.ok(Math.abs(current.tools.left - initialTools.x) < 1, 'Scrolling keeps the existing horizontal position');
+                    assert.deepEqual(await card.locator('[data-post-inplace-body]').evaluate(body => ({text: body.textContent, width: body.getBoundingClientRect().width})), original,
+                        'Floating tools never change the prose or its width');
+                };
+                await page.evaluate(() => scrollTo(0, 850));
+                await check('middle');
+                await page.evaluate(() => scrollTo(0, 1450));
+                await check('further');
+                await card.evaluate(card => scrollTo(0, card.getBoundingClientRect().bottom + scrollY - 320));
+                await check('end');
+                await card.evaluate(card => scrollTo(0, card.getBoundingClientRect().bottom + scrollY + 50));
+                await settle();
+                assert.ok((await geometry()).tools.bottom < 0, 'Tools leave the viewport with their article');
+                await page.evaluate(() => scrollTo(0, 850));
+                await check('back');
+            }
+        } finally { await context.close(); }
+    }
+    console.log(`${browser.browserType().name()}: post tools follow scrolling while reading and editing, retain the gutter and stop at their article boundary`);
 }
