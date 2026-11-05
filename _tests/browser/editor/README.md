@@ -34,6 +34,11 @@ quota failures, legacy drafts, same-millisecond edits and backwards clock change
 It also uses PHP-generated `/index.php?` and `/?` URLs for provider POSTs, sign-in
 return and automatic comment submission. Missing or failing modal-dialog support
 must leave a usable native comment form with its name, email and text intact.
+Rich-editor link insertion, editing, removal and deleting beside rendered formulas
+must save without another keystroke.
+History-cache round trips retain the subscription, identity and reply addressee;
+fresh partial navigation restores the newest snapshot before legacy storage,
+including when local storage is full.
 
 `npm run test:fuzz` runs a separate seeded editing fuzzer in headless Chromium,
 Firefox and WebKit. It generates valid articles containing Unicode text, emoji,

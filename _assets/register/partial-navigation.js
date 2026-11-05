@@ -91,6 +91,7 @@
             'data-comment-moderation-bound',
             'data-comment-edit-bound',
             'data-comment-editor-ready',
+            'data-comment-submit-ready',
         ];
 
         clone.querySelectorAll('#register_search_tip').forEach((element) => element.remove());
@@ -278,6 +279,9 @@
             [window.RegisterLocalTime, 'enhance'],
             [window.RegisterSyntaxHighlighting, 'highlight'],
             [window.RegisterCommentEditor, 'enhance'],
+            // Restore the complete newest snapshot before theme listeners
+            // can import an older copy from legacy comment storage.
+            [window.RegisterCommentSubmission, 'enhance'],
             [window.RegisterMath, 'render'],
             [window.RegisterAudioPlayerLoader, 'enhance'],
             [window.RegisterSearchAutocomplete, 'enhance'],

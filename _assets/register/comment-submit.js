@@ -196,7 +196,7 @@
         const form = event.target.closest?.('form[data-comment-submit-flow]');
         if (form) save(form);
     });
-    window.RegisterCommentSubmission = {clearSent, clearPath};
+    window.RegisterCommentSubmission = {enhance, clearSent, clearPath};
     document.addEventListener('DOMContentLoaded', enhance);
     document.addEventListener('register:fragment-updated', enhance);
     if (document.readyState !== 'loading') enhance();

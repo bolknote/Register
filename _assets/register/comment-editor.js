@@ -332,13 +332,18 @@
         }
     }
 
-    function syncSource(state) {
+    function syncSource(state, notify = false) {
         const clone = state.surface.cloneNode(true);
         clone.querySelectorAll('[data-comment-formula-source]').forEach((formula) => {
             formula.replaceWith(document.createTextNode(formula.getAttribute('data-comment-formula-source') || ''));
         });
         const text = (clone.textContent || '').replace(/\u00a0/gu, ' ').trim();
-        state.source.value = text === '' ? '' : sanitizeHtml(clone.innerHTML);
+        const value = text === '' ? '' : sanitizeHtml(clone.innerHTML);
+        if (state.source.value === value) return;
+        state.source.value = value;
+        // Direct DOM edits do not emit a native input event. Notify draft
+        // storage without rebuilding the surface or disturbing its selection.
+        if (notify) state.source.dispatchEvent(new Event('change', {bubbles: true}));
     }
 
     function deepestNode(node, backwards) {
@@ -400,7 +405,7 @@
         formula.replaceWith(text);
         setCaret(text, caretAtEnd ? source.length : 0);
         state.range = window.getSelection()?.rangeCount ? window.getSelection().getRangeAt(0).cloneRange() : null;
-        syncSource(state);
+        syncSource(state, true);
     }
 
     function activeLink(state) {
@@ -467,7 +472,7 @@
         }
         closeLinkPanel(state, false);
         rememberSelection(state);
-        syncSource(state);
+        syncSource(state, true);
     }
 
     function removeLink(state) {
@@ -484,7 +489,7 @@
         }
         closeLinkPanel(state, false);
         rememberSelection(state);
-        syncSource(state);
+        syncSource(state, true);
     }
 
     function rangeElement(range) {
@@ -575,7 +580,7 @@
             state.surface.classList.remove('is-changing-quote');
         }
         renderCompleteFormulas(state);
-        syncSource(state);
+        syncSource(state, true);
         rememberSelection(state);
         updateToolbar(state);
 
@@ -623,7 +628,7 @@
         }
         document.execCommand(command, false, value);
         renderCompleteFormulas(state);
-        syncSource(state);
+        syncSource(state, true);
         rememberSelection(state);
         updateToolbar(state);
     }
@@ -681,7 +686,7 @@
             document.execCommand('insertText', false, text);
         }
         renderCompleteFormulas(state);
-        syncSource(state);
+        syncSource(state, true);
     }
 
     function handleKeydown(state, event) {

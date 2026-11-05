@@ -22,6 +22,142 @@ async function withPage(browser, run) {
     } finally { await page.close(); }
 }
 
+const richFixtureHtml = html => html
+    .replace('id="content" data-register-page', 'id="register-page" data-register-page')
+    .replace('<script src="/_assets/register/public-auth.js"',
+        '<script src="/comment-flow.js" defer></script><script src="/comment-editor.js" defer></script><script src="/_assets/register/public-auth.js"')
+    .replace('<label>Draft', '<div class="comment-actions"><button type="button" class="comment-reply" data-reply-comment="12" data-reply-number="7" data-reply-name="Recipient">Reply</button></div><label>Draft');
+
+async function openRichFixture(page, origin) {
+    const url = fixtureUrl(origin);
+    await page.route('**/public-auth.html?*', async route => {
+        const response = await route.fetch();
+        await route.fulfill({response, body: richFixtureHtml(await response.text())});
+    });
+    await page.goto(url);
+    return richFixtureHtml(await (await page.request.get(url)).text());
+}
+
+async function routeArticle(page, path, fragment) {
+    const assets = await page.locator('link[rel~="stylesheet"][href], script[src]')
+        .evaluateAll(nodes => nodes.map(node => node.href || node.src));
+    await page.route(url => url.pathname === path, route => route.fulfill({
+        contentType: 'application/vnd.register.page+json',
+        json: {version: 1, title: 'Article', lang: 'ru', bodyClass: '', head: '', assets, fragment},
+    }));
+}
+
+async function richDraftRegressions(browser, origin) {
+    await withPage(browser, async page => {
+        await openRichFixture(page, origin);
+        const form = page.locator('#comment-form');
+        const editor = form.locator('.comment-editor-surface');
+        const linkButton = form.locator('[data-comment-command="link"]');
+        const linkInput = form.locator('[data-comment-link-input]');
+        const apply = form.locator('[data-comment-link-apply]');
+        const assertStored = async () => {
+            const html = await form.locator('.comment-editor-source').inputValue();
+            for (const kind of ['localStorage', 'sessionStorage']) {
+                assert.equal(await page.evaluate(({kind, key}) => JSON.parse(window[kind].getItem(key)).text,
+                    {kind, key: draftKey}), html, 'Toolbar edits must save without another keystroke');
+            }
+            await page.reload();
+            assert.equal(await form.locator('.comment-editor-source').inputValue(), html, 'Reload retains the complete edited HTML');
+        };
+        await editor.fill('Draft with a link.');
+        await linkButton.click();
+        await linkInput.fill('https://example.test/first');
+        await apply.click();
+        assert.equal(await editor.locator('a').getAttribute('href'), 'https://example.test/first');
+        await assertStored();
+        await editor.locator('a').click();
+        await linkButton.click();
+        assert.equal(await linkInput.inputValue(), 'https://example.test/first');
+        await linkInput.fill('https://example.test/changed?keep=1&other=2');
+        await apply.click();
+        assert.equal(await editor.locator('a').getAttribute('href'), 'https://example.test/changed?keep=1&other=2');
+        await assertStored();
+        await editor.locator('a').click();
+        await linkButton.click();
+        await form.locator('[data-comment-link-remove]').click();
+        assert.equal(await editor.locator('a').count(), 0);
+        await assertStored();
+        for (const key of ['Backspace', 'Delete']) {
+            await editor.fill('$$x+1$$');
+            await editor.locator('.comment-editor-formula').waitFor();
+            await editor.evaluate((surface, key) => {
+                const formula = surface.querySelector('.comment-editor-formula');
+                const range = document.createRange();
+                if (key === 'Backspace') range.setStartAfter(formula);
+                else range.setStartBefore(formula);
+                range.collapse(true);
+                surface.focus();
+                getSelection().removeAllRanges();
+                getSelection().addRange(range);
+            }, key);
+            await page.keyboard.press(key);
+            assert.equal(await form.locator('.comment-editor-source').inputValue(), key === 'Backspace' ? '$$x+1$' : '$x+1$$');
+            await assertStored();
+        }
+    });
+
+    await withPage(browser, async page => {
+        await openRichFixture(page, origin);
+        const editor = page.locator('#comment-form .comment-editor-surface');
+        await editor.fill('A reply kept through navigation.');
+        await page.getByRole('button', {name: 'Reply', exact: true}).click();
+        await page.locator('#subscribed').check();
+        await page.locator('.comment-submit').click();
+        const dialog = page.locator('#public-auth-dialog');
+        await dialog.locator('[data-public-auth-mode-open="email"]').first().click();
+        await dialog.locator('[name="comment_name"]').fill('Reply author');
+        await dialog.locator('[name="comment_email"]').fill('author@example.test');
+        await page.keyboard.press('Escape');
+        const fields = () => page.locator('#comment-form').evaluate(form => ({
+            text: form.querySelector('.comment-editor-source').value,
+            name: form.querySelector('#comment-name').value, email: form.querySelector('#comment-email').value,
+            parent: form.querySelector('.comment-parent-id').value, number: form.querySelector('.comment-reply-number').value,
+            replyName: form.querySelector('.comment-reply-name').value, subscribed: form.querySelector('#subscribed').checked,
+        }));
+        const expected = await fields();
+        assert.equal(expected.subscribed, true);
+        assert.equal(expected.parent, '12');
+        await routeArticle(page, '/another-article', '<main id="register-page" data-register-page><p>Other article</p></main>');
+        for (let trip = 0; trip < 2; trip++) {
+            await page.evaluate(() => RegisterNavigation.navigate('/another-article'));
+            await page.goBack();
+            await page.waitForFunction(() => document.documentElement.dataset.registerNavigation === 'history');
+            await editor.waitFor({state: 'visible'});
+            assert.deepEqual(await fields(), expected, 'History-cache restoration retains subscription, identity, text and addressee');
+        }
+    });
+
+    await withPage(browser, async page => {
+        const html = await openRichFixture(page, origin);
+        const editor = page.locator('#comment-form .comment-editor-surface');
+        await editor.fill('Old short draft.');
+        await page.evaluate(() => {
+            for (const size of [65536, 1024]) {
+                let index = 0;
+                try { for (;;) localStorage.setItem(`quota-${size}-${index++}`, 'x'.repeat(size)); }
+                catch (error) { if (error.name !== 'QuotaExceededError') throw error; }
+            }
+        });
+        const latest = 'Latest valid comment. '.repeat(200).trimEnd();
+        await editor.fill(latest);
+        assert.equal(await page.evaluate(key => JSON.parse(sessionStorage.getItem(key)).text, draftKey), latest);
+        assert.equal(await page.evaluate(() => localStorage.getItem('comment_text_1')), 'Old short draft.');
+        await routeArticle(page, '/another-article', '<main id="register-page" data-register-page><p>Other article</p></main>');
+        await routeArticle(page, '/fresh-return', html.match(/<main\b[\s\S]*?<\/main>/u)[0]);
+        await page.evaluate(() => RegisterNavigation.navigate('/another-article'));
+        await page.evaluate(() => RegisterNavigation.navigate('/fresh-return'));
+        assert.equal(await page.evaluate(() => document.documentElement.dataset.registerNavigation), 'partial');
+        assert.equal(await page.locator('#comment-text').inputValue(), latest, 'Restore the newest snapshot before the legacy form-storage listener runs');
+        assert.equal(await page.evaluate(key => JSON.parse(sessionStorage.getItem(key)).text, draftKey), latest,
+            'Navigation must not replace the fresh snapshot with stale legacy text');
+    });
+}
+
 async function storageRegressions(browser, origin) {
     for (const full of ['sessionStorage', 'localStorage']) {
         await withPage(browser, async page => {
@@ -200,10 +336,11 @@ async function dialogFallbackRegressions(browser, origin) {
 }
 
 export async function runCommentSubmissionRegressions(browser, origin) {
+    await richDraftRegressions(browser, origin);
     await storageRegressions(browser, origin);
     await queryRouteRegressions(browser, origin);
     await dialogFallbackRegressions(browser, origin);
-    console.log(`${browser.browserType().name()}: newest drafts survive quota failures and clock changes; query routes, auto-send and native dialog fallbacks work`);
+    console.log(`${browser.browserType().name()}: link edits, history and partial navigation retain complete drafts; quota recovery, query routes, auto-send and native dialog fallbacks work`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

@@ -36,8 +36,10 @@ only after choosing email confirmation. Closing the dialog, refreshing, or a fai
 the text and reply recipient. Password/provider sign-in resumes the explicitly requested submission;
 ordinary sign-in from the site header never sends a draft. The newest successfully stored draft
 is restored when one browser storage backend rejects a write. Native forms remain available without
-JavaScript or when the sign-in dialog cannot open. When email-link sign-in is enabled, the guest may
-prepare the comment while requesting a one-time link. The same validation,
+JavaScript or when the sign-in dialog cannot open. Link edits are retained without requiring another
+keystroke, and returning through page navigation preserves the text, reply and subscription. When
+email-link sign-in is enabled, the guest may prepare the comment while requesting a one-time link.
+The same validation,
 sanitizer, replay protection, rate limiting, and spam checks run before the message is queued, and
 the pending comment is saved only after the link is opened successfully. Comments held for review
 show an explicit confirmation that they are awaiting moderation, with a link back to the article.
