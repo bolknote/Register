@@ -17,9 +17,12 @@ async function assertAnimation(image) {
         // A live refresh may replace the saved image during screenshot capture.
         // Resolve the current image again, within the same animation deadline.
         let png;
-        try { png = await image.screenshot(); }
+        try { png = await image.screenshot({timeout: Math.max(1, deadline - Date.now())}); }
         catch (error) {
-            if (error.message.includes('Element is not attached to the DOM')) continue;
+            // WebKit can lose the bounding box instead of reporting detachment
+            // when the authoritative feed patch replaces the image mid-capture.
+            if (error.message.includes('Element is not attached to the DOM')
+                || error.message.includes('Node is either not visible or not an HTMLElement')) continue;
             throw error;
         }
         const rendered = pixels(png);
