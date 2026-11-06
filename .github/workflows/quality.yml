@@ -40,11 +40,13 @@ jobs:
           if [[ -f /etc/apt/apt-mirrors.txt ]]; then
             sudo sed -i -E 's#https?://azure\.archive\.ubuntu\.com/ubuntu#https://archive.ubuntu.com/ubuntu#g' /etc/apt/apt-mirrors.txt
           fi
+          # APT merges fragments by name; these limits must follow runner defaults.
           printf '%s\n' \
-            'Acquire::http::Timeout "30";' \
-            'Acquire::https::Timeout "30";' \
-            'Acquire::Retries "2";' \
-            | sudo tee /etc/apt/apt.conf.d/80-register-downloads >/dev/null
+            'Acquire::http::Timeout "15";' \
+            'Acquire::https::Timeout "15";' \
+            'Acquire::Retries "1";' \
+            | sudo tee /etc/apt/apt.conf.d/zzzz-register-downloads >/dev/null
+          apt-config dump Acquire::Retries Acquire::http::Timeout Acquire::https::Timeout
       - name: Install test browsers
         working-directory: _tests/browser/editor
         run: npx playwright install --with-deps ${{ matrix.browser }}
