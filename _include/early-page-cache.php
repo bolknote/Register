@@ -16,9 +16,11 @@ $registerEarlyBootstrap = static function (): ?array {
     $_SERVER['REGISTER_EARLY_VARIANT'] = (new \Register\Module\Analytics\BotDetector())->isBot((string)($_SERVER['HTTP_USER_AGENT'] ?? ''))
         ? 'crawler'
         : (str_contains(strtolower((string)($_SERVER['HTTP_PURPOSE'] ?? '') . ' ' . (string)($_SERVER['HTTP_SEC_PURPOSE'] ?? '')), 'prefetch') ? 'prefetch' : 'reader');
-    // The located configuration decides whether forwarding metadata is ignored or
-    // requires the normal request parser. This first check covers public eligibility.
-    if (!EarlyPageCache::accepts($_SERVER, ignoreForwardingHeaders: true)) {
+    // Cookie names and forwarding policy come from the evaluated configuration.
+    // Before locating it, check only eligibility that does not depend on that policy.
+    $publicServer = $_SERVER;
+    unset($publicServer['HTTP_COOKIE']);
+    if (!EarlyPageCache::accepts($publicServer, ignoreForwardingHeaders: true)) {
         return null;
     }
 
@@ -35,6 +37,10 @@ $registerEarlyBootstrap = static function (): ?array {
         $location = EarlyPageCache::locate($root, $sourceStamp);
         if ($location === null || defined('REGISTER_DISABLE_CACHE') || defined('REGISTER_DEBUG')
             || defined('REGISTER_DEBUG_VIEW') || defined('REGISTER_SHOW_QUERIES')) {
+            return null;
+        }
+
+        if (!EarlyPageCache::accepts($_SERVER, $location['forwarding_ignored'], $location['public_cookies'])) {
             return null;
         }
 
@@ -61,7 +67,7 @@ $registerEarlyBootstrap = static function (): ?array {
         };
         require_once __DIR__ . '/src/Register/Update/RuntimeLock.php';
         return ['lock' => RuntimeLock::acquireShared($root), 'record' => $record,
-            'cache' => new EarlyPageCache($cacheDirectory, $root, sourceStamp: $sourceStamp, ignoreForwardingHeaders: $location['forwarding_ignored'])];
+            'cache' => new EarlyPageCache($cacheDirectory, $root, sourceStamp: $sourceStamp, ignoreForwardingHeaders: $location['forwarding_ignored'], publicCookies: $location['public_cookies'])];
     } catch (Throwable) {
         return null;
     }

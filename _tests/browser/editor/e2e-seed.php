@@ -34,7 +34,7 @@ foreach (['scratch', 'database', 'origin', 'id', 'config'] as $key) {
 
 $root = isset($settings['root']) && is_string($settings['root'])
     ? rtrim($settings['root'], '/') . '/' : dirname(__DIR__, 3) . '/';
-$disableCache = !is_file($root . '_include/asset-manifest.json');
+$disableCache = ($settings['enable_cache'] ?? false) !== true && !is_file($root . '_include/asset-manifest.json');
 $scratch = $settings['scratch'];
 foreach (['cache', 'media', 'sessions'] as $directory) {
     mkdir($scratch . '/' . $directory, 0700, true);

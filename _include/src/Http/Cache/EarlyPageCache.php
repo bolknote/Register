@@ -71,7 +71,7 @@ final class EarlyPageCache
     }
 
     /**
-     * @return array{directory:string,stamp:string,forwarding_ignored:bool}|null
+     * @return array{directory:string,stamp:string,forwarding_ignored:bool,public_cookies:list<string>}|null
      * @phpstan-impure The location can change between requests and configuration writes.
      */
     public static function locate(string $root, ?string $sourceStamp = null): ?array
@@ -86,11 +86,19 @@ final class EarlyPageCache
         if (!is_array($location) || ($location['enabled'] ?? false) !== true
             || !is_string($location['directory'] ?? null) || !is_string($location['stamp'] ?? null)
             || !is_bool($location['forwarding_ignored'] ?? null)
+            || !is_array($location['public_cookies'] ?? null) || !array_is_list($location['public_cookies'])
             || $location['stamp'] !== ($sourceStamp ?? self::sourceStamp($root))) {
             return null;
         }
 
-        return ['directory' => $location['directory'], 'stamp' => $location['stamp'], 'forwarding_ignored' => $location['forwarding_ignored']];
+        foreach ($location['public_cookies'] as $cookie) {
+            if (!is_string($cookie) || preg_match('/^[a-zA-Z0-9_-]+$/D', $cookie) !== 1) {
+                return null;
+            }
+        }
+
+        return ['directory' => $location['directory'], 'stamp' => $location['stamp'], 'forwarding_ignored' => $location['forwarding_ignored'],
+            'public_cookies' => $location['public_cookies']];
     }
 
     /** Publish only normalized configuration after the normal bootstrap has evaluated it. */
@@ -106,7 +114,7 @@ final class EarlyPageCache
         }
 
         $location = ['directory' => $directory, 'enabled' => !$this->disabled && !$this->unavailable,
-            'stamp' => $expectedSourceStamp, 'forwarding_ignored' => $this->ignoreForwardingHeaders];
+            'stamp' => $expectedSourceStamp, 'forwarding_ignored' => $this->ignoreForwardingHeaders, 'public_cookies' => $this->publicCookies];
         $path = self::locationPath($this->applicationRoot);
         if ($this->read($path) !== $location) {
             $this->write($path, $location);
@@ -118,12 +126,14 @@ final class EarlyPageCache
         return $root . '/_cache/.early-cache-' . substr(hash('sha256', (string)getenv('APP_ENV')), 0, 16) . '.json';
     }
 
+    /** @param list<string> $publicCookies Cookies that cannot personalize the public page shell. */
     public function __construct(
         private readonly string $cacheDirectory,
         private readonly string $applicationRoot,
         private readonly bool $disabled = false,
         ?string $sourceStamp = null,
         private readonly bool $ignoreForwardingHeaders = false,
+        private readonly array $publicCookies = [],
     ) {
         $this->sourceStamp = $sourceStamp ?? self::sourceStamp($applicationRoot);
         $this->directory = rtrim($cacheDirectory, '/\\') . '/early-pages-v1';
@@ -138,21 +148,41 @@ final class EarlyPageCache
         }
     }
 
-    /** @param array<string, mixed> $server */
-    public static function accepts(array $server, bool $ignoreForwardingHeaders = false): bool
+    /**
+     * @param array<string, mixed> $server
+     * @param list<string> $publicCookies
+     */
+    public static function accepts(array $server, bool $ignoreForwardingHeaders = false, array $publicCookies = []): bool
     {
-        return self::requestBypassReason($server, $ignoreForwardingHeaders) === null;
+        return self::requestBypassReason($server, $ignoreForwardingHeaders, $publicCookies) === null;
     }
 
-    /** @param array<string,mixed> $server */
-    private static function requestBypassReason(array $server, bool $ignoreForwardingHeaders): ?string
+    /**
+     * @param array<string,mixed> $server
+     * @param list<string> $publicCookies
+     */
+    private static function requestBypassReason(array $server, bool $ignoreForwardingHeaders, array $publicCookies): ?string
     {
         if (!in_array($server['REQUEST_METHOD'] ?? '', ['GET', 'HEAD'], true)) {
             return 'method';
         }
 
-        foreach (['HTTP_COOKIE', 'HTTP_AUTHORIZATION', 'REDIRECT_HTTP_AUTHORIZATION', 'HTTP_RANGE',
-            'HTTP_X_REGISTER_NAVIGATION', 'HTTP_IF_MATCH', 'HTTP_IF_UNMODIFIED_SINCE', 'PHP_AUTH_USER', 'PHP_AUTH_PW'] as $header) {
+        $cookies = $server['HTTP_COOKIE'] ?? '';
+        if ($cookies !== '') {
+            if (!is_string($cookies) || strlen($cookies) > 16_384) {
+                return 'http-cookie';
+            }
+
+            foreach (explode(';', $cookies) as $cookie) {
+                $parts = explode('=', trim($cookie), 2);
+                if (count($parts) !== 2 || !in_array($parts[0], $publicCookies, true)) {
+                    return 'http-cookie';
+                }
+            }
+        }
+
+        foreach (['HTTP_AUTHORIZATION', 'REDIRECT_HTTP_AUTHORIZATION', 'HTTP_RANGE',
+            'HTTP_X_REGISTER_NAVIGATION', 'HTTP_X_REGISTER_COMMENT_FORM', 'HTTP_IF_MATCH', 'HTTP_IF_UNMODIFIED_SINCE', 'PHP_AUTH_USER', 'PHP_AUTH_PW'] as $header) {
             if (isset($server[$header]) && $server[$header] !== '') {
                 return strtolower(str_replace('_', '-', $header));
             }
@@ -188,7 +218,7 @@ final class EarlyPageCache
      */
     public function lookup(array $server, ?int $now = null): ?array
     {
-        if ($this->disabled || $this->unavailable || !self::accepts($server, $this->ignoreForwardingHeaders) || is_file($this->applicationRoot . '/.register-maintenance.json')) {
+        if ($this->disabled || $this->unavailable || !self::accepts($server, $this->ignoreForwardingHeaders, $this->publicCookies) || is_file($this->applicationRoot . '/.register-maintenance.json')) {
             return null;
         }
 
@@ -364,7 +394,7 @@ final class EarlyPageCache
     public function store(array $server, array $headers, string $body, array $views = [], ?string $contentId = null, ?int $validUntil = null, ?int $now = null): bool
     {
         $headers = $this->normalizeHeaders($headers);
-        $requestBypass = self::requestBypassReason($server, $this->ignoreForwardingHeaders);
+        $requestBypass = self::requestBypassReason($server, $this->ignoreForwardingHeaders, $this->publicCookies);
         if ($requestBypass !== null) {
             $this->decision = 'bypass-request-' . $requestBypass;
             return false;

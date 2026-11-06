@@ -20,6 +20,7 @@ $mode = $argv[3] ?? 'methods';
 $panel = ($argv[4] ?? '') === 'panel';
 $locale = ($argv[5] ?? 'ru') === 'en' ? 'en' : 'ru';
 $prefix = $argv[6] ?? '';
+$deferred = ($argv[7] ?? '') === 'deferred';
 $urlBuilder = new UrlBuilder('', '', $prefix);
 $return = $urlBuilder->rawLink('/all/auth-example', ['view=full']) . '#comment-draft';
 $query = ['providers' => $providers, 'email' => $email ? '1' : '0', 'lang' => $locale, 'return' => $return];
@@ -59,13 +60,15 @@ echo '<!doctype html><html lang="' . $locale . '"><head><meta charset="utf-8">'
     . '<script src="/_assets/register/public-auth.js" defer></script><script src="/_assets/register/comment-submit.js" defer></script></head><body>'
     . '<main id="content" data-register-page><a id="auth-open" href="' . register_htmlencode($urlBuilder->rawLink('/auth', [http_build_query($query)])) . '" data-public-auth-open data-register-native-navigation>Sign in</a>'
     . '<label>Draft<textarea id="auth-draft">A comment drafted before signing in.</textarea></label>'
-    . $viewer->render('comment_form', [
+    . ($deferred ? $viewer->render('comment_form_deferred', [
+        'id' => '1', 'formUrl' => $urlBuilder->rawLink('/all/auth-example', ['comment_form=1']) . '#add-comment',
+    ]) : $viewer->render('comment_form', [
         'id' => '1', 'action' => $urlBuilder->rawLink('/all/auth-example'), 'cancelReplyUrl' => $urlBuilder->rawLink('/all/auth-example') . '#add-comment',
         'antispamToken' => 'fixture-token', 'syntaxHelpItems' => [],
         'commentFieldNames' => array_combine(
             ['text', 'name', 'email', 'subscribed', 'homepage', 'id', 'parent_id', 'reply_number', 'reply_name'],
             ['text', 'name', 'email', 'subscribed', 'homepage', 'id', 'parent_id', 'reply_number', 'reply_name'],
         ),
-    ])
+    ]))
     . ($panel ? $viewer->render('public_auth_panel', $panelVariables) : '')
     . '</main>' . $viewer->render('public_auth_dialog', $variables) . '</body></html>';

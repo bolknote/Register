@@ -335,7 +335,129 @@ async function dialogFallbackRegressions(browser, origin) {
     }
 }
 
+async function deferredFormRegressions(browser, origin) {
+    for (const prefix of ['', '/?', '/index.php?']) {
+        await withPage(browser, async page => {
+            const html = await (await page.request.get(fixtureUrl(origin, prefix))).text();
+            const formHtml = html.match(/<section class="comment-form-block"[\s\S]*?<\/section>/u)?.[0];
+            assert.ok(formHtml);
+            await page.route('**/public-auth.html?*', async route => {
+                const response = await route.fetch();
+                const body = (await response.text())
+                    .replace('</head>', '<script src="/comment-flow.js" defer></script></head>')
+                    .replace('<label>Draft', '<button type="button" class="comment-reply" data-reply-comment="12" data-reply-number="7" data-reply-name="Recipient">Reply</button><label>Draft');
+                await route.fulfill({response, body});
+            });
+            let requests = 0;
+            await page.route(url => url.searchParams.get('comment_form') === '1', async route => {
+                requests++;
+                assert.equal(route.request().headers()['x-register-comment-form'], '1');
+                await route.fulfill({contentType: 'text/html', headers: {'X-Register-Comment-Form': '1'}, body: formHtml});
+            });
+            await page.goto(fixtureUrl(origin, prefix) + '&deferred=1');
+            await page.locator('#comment-form[data-comment-submit-ready]').waitFor();
+            assert.equal(requests, 1, 'One private form request for each public snapshot');
+            await page.locator('#comment-text').fill('A draft written into the separately loaded form.');
+            await page.locator('.comment-reply').click();
+            assert.equal(await page.locator('.comment-parent-id').inputValue(), '12', 'Existing reply buttons bind to the new form');
+            assert.equal(await page.evaluate(key => JSON.parse(localStorage.getItem(key)).text,
+                'register_comment_draft:' + prefix + '/all/auth-example'), 'A draft written into the separately loaded form.');
+            await page.evaluate(() => {
+                document.dispatchEvent(new CustomEvent('register:fragment-updated'));
+                document.dispatchEvent(new CustomEvent('register:fragment-updated'));
+            });
+            assert.equal(requests, 1);
+        });
+    }
+
+    await withPage(browser, async page => {
+        const html = await (await page.request.get(fixtureUrl(origin))).text();
+        const formHtml = html.match(/<section class="comment-form-block"[\s\S]*?<\/section>/u)[0];
+        let requests = 0;
+        await page.route('**/all/auth-example?comment_form=1', route => {
+            requests++;
+            return route.fulfill(requests === 1 ? {status: 503, body: 'Unavailable'}
+                : {contentType: 'text/html', headers: {'X-Register-Comment-Form': '1'}, body: formHtml});
+        });
+        await page.goto(fixtureUrl(origin) + '&deferred=1');
+        await page.locator('[data-comment-form-state="failed"]').waitFor();
+        await page.evaluate(() => {
+            for (let i = 0; i < 5; i++) document.dispatchEvent(new CustomEvent('register:fragment-updated'));
+        });
+        await page.waitForTimeout(150);
+        assert.equal(requests, 1, 'A failed form load cannot create another fetch loop');
+        await page.locator('[data-comment-form-load]').click();
+        await page.locator('#comment-form[data-comment-submit-ready]').waitFor();
+        assert.equal(requests, 2, 'The visible link can retry a failed load');
+    });
+
+    await withPage(browser, async page => {
+        let release;
+        const pending = new Promise(resolve => { release = resolve; });
+        const html = await (await page.request.get(fixtureUrl(origin))).text();
+        const formHtml = html.match(/<section class="comment-form-block"[\s\S]*?<\/section>/u)[0];
+        await page.route('**/all/auth-example?comment_form=1', async route => {
+            await pending;
+            await route.fulfill({contentType: 'text/html', headers: {'X-Register-Comment-Form': '1'}, body: formHtml});
+        });
+        await page.goto(fixtureUrl(origin) + '&deferred=1');
+        await page.locator('[data-comment-form-state="loading"]').waitFor();
+        await page.locator('[data-comment-form-deferred]').evaluate(node => node.remove());
+        release();
+        await page.waitForTimeout(150);
+        assert.equal(await page.locator('#comment-form').count(), 0, 'An old form cannot replace a newly navigated page');
+    });
+
+    await withPage(browser, async page => {
+        const html = await (await page.request.get(fixtureUrl(origin))).text();
+        const formHtml = html.match(/<section class="comment-form-block"[\s\S]*?<\/section>/u)[0];
+        let requests = 0;
+        await page.route('**/all/auth-example?comment_form=1', route => {
+            requests++;
+            return route.fulfill(requests === 1 ? {status: 503, body: 'Unavailable'}
+                : {contentType: 'text/html', headers: {'X-Register-Comment-Form': '1'}, body: formHtml});
+        });
+        await page.goto(fixtureUrl(origin) + '&deferred=1');
+        await page.locator('[data-comment-form-state="failed"]').waitFor();
+        await page.evaluate(() => {
+            // Partial-navigation history restores a DOM snapshot, including old state attributes.
+            const old = document.querySelector('[data-comment-form-deferred]');
+            const restored = old.cloneNode(true);
+            restored.dataset.commentFormState = 'loading';
+            restored.setAttribute('aria-busy', 'true');
+            old.replaceWith(restored);
+            document.dispatchEvent(new CustomEvent('register:fragment-updated', {detail: {root: document.body}}));
+        });
+        await page.locator('#comment-form[data-comment-submit-ready]').waitFor();
+        assert.equal(requests, 2, 'A restored history snapshot can load a fresh private form');
+    });
+
+    const native = await browser.newPage({javaScriptEnabled: false});
+    try {
+        await native.route('**/site.css', async route => {
+            const response = await route.fetch();
+            await route.fulfill({response, body: (await response.text()) + '\n@view-transition { navigation: none; }'});
+        });
+        const html = await (await native.request.get(fixtureUrl(origin))).text();
+        await native.route('**/all/auth-example?comment_form=1', route => route.fulfill({contentType: 'text/html', body: html}));
+        await native.goto(fixtureUrl(origin) + '&deferred=1');
+        assert.equal(await native.locator('#comment-form').count(), 0);
+        await native.locator('[data-comment-form-load]').click();
+        await native.locator('#comment-text').fill('A native comment.');
+        await native.locator('#comment-name').fill('Guest');
+        await native.locator('#comment-email').fill('guest@example.test');
+        let posted;
+        await native.route('**/all/auth-example', async route => {
+            posted = new URLSearchParams(route.request().postData());
+            await route.fulfill({contentType: 'text/html', body: 'Native comment accepted'});
+        });
+        await Promise.all([native.waitForURL('**/all/auth-example'), native.locator('.comment-submit').press('Enter')]);
+        assert.equal(posted.get('text'), 'A native comment.');
+    } finally { await native.close(); }
+}
+
 export async function runCommentSubmissionRegressions(browser, origin) {
+    await deferredFormRegressions(browser, origin);
     await richDraftRegressions(browser, origin);
     await storageRegressions(browser, origin);
     await queryRouteRegressions(browser, origin);

@@ -230,6 +230,12 @@ class CmsExtension implements ExtensionInterface
                 || $container->getBoolParameter('debug_view') || $container->getBoolParameter('show_queries')
                 || $container->getStringParameter('url_prefix') !== '',
             ignoreForwardingHeaders: $container->getParameter('trusted_proxies') === [],
+            publicCookies: [
+                $container->getStringParameter('cookie_name') . '_visitor',
+                $container->getStringParameter('cookie_name') . '_antispam',
+                'comment_form_sent',
+                'comment_path_sent',
+            ],
         ));
         $container->set(PageCachePoolFactory::class, fn(Container $container): PageCachePoolFactory => new PageCachePoolFactory(
             $container->get(LoggerInterface::class),

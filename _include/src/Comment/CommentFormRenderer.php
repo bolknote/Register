@@ -42,6 +42,15 @@ final readonly class CommentFormRenderer
         );
     }
 
+    /** Public fallback works without JavaScript; enhanced readers load the private form nearby. */
+    public function deferred(Request $request, string $contentId): string
+    {
+        return $this->viewer->render('comment_form_deferred', [
+            'id' => $contentId,
+            'formUrl' => $this->urlBuilder->rawLink($request->getPathInfo(), ['comment_form=1']) . '#add-comment',
+        ]);
+    }
+
     /**
      * @param array<string, mixed> $comment
      */

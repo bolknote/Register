@@ -21,6 +21,7 @@ export function createFixtureServer() {
                     authUrl.pathname === '/auth' ? 'panel' : 'dialog',
                     authUrl.searchParams.get('lang') || 'ru',
                     authUrl.searchParams.get('prefix') || '',
+                    authUrl.searchParams.get('deferred') === '1' ? 'deferred' : '',
                 ], {encoding: 'utf8'}));
                 return;
             }

@@ -9,12 +9,21 @@ declare(strict_types = 1);
 
 namespace Register\Core\Comment;
 
+use Symfony\Component\HttpFoundation\Request;
+
 /** Encodes a safe, cacheable placeholder for a request-bound comment form. */
 final class DeferredCommentForm
 {
     private const string PREFIX = '<!-- register-deferred-comment-form-v1:';
 
     private const string PATTERN = '#<!-- register-deferred-comment-form-v1:([A-Za-z0-9_-]{1,342}) -->#';
+
+    public static function isFragmentRequest(Request $request): bool
+    {
+        return $request->isMethod(Request::METHOD_GET)
+            && ($request->query->all()['comment_form'] ?? null) === '1'
+            && $request->headers->get('X-Register-Comment-Form') === '1';
+    }
 
     public static function placeholder(string $contentId): string
     {

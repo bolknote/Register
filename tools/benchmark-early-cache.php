@@ -95,6 +95,11 @@ try {
 
     $router = <<<'PHP'
 <?php
+$assetPath = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+if (is_string($assetPath) && (str_starts_with($assetPath, '/_assets/') || str_starts_with($assetPath, '/_styles/'))
+    && is_file(__DIR__ . $assetPath)) {
+    return false;
+}
 $usageStart = getrusage();
 register_shutdown_function(static function () use ($usageStart): void {
     $end = getrusage();
@@ -136,7 +141,8 @@ PHP;
     }
 
     $expectedViews = 0;
-    $send = static function (string $path, array $headers = [], int $expectedStatus = 200) use ($baseUrl, &$expectedViews): array {
+    $expectedCommentViews = 0;
+    $send = static function (string $path, array $headers = [], int $expectedStatus = 200) use ($baseUrl, &$expectedViews, &$expectedCommentViews): array {
         $context = stream_context_create(['http' => ['ignore_errors' => true, 'timeout' => 20,
             'header' => implode("\r\n", array_merge(['Connection: close'], $headers))]]);
         $stream = fopen($baseUrl . $path, 'rb', false, $context);
@@ -168,13 +174,19 @@ PHP;
 
         $checkBody = ($parsed['content-encoding'] ?? '') === 'gzip' ? gzdecode($body) : $body;
         if ($expectedStatus === 200) {
-            if (!is_string($checkBody) || !str_contains($checkBody, 'Benchmark page')) {
+            $formFragment = in_array('X-Register-Comment-Form: 1', $headers, true);
+            if (!is_string($checkBody) || !str_contains($checkBody, $formFragment ? 'id="comment-form"' : 'Benchmark page')) {
                 throw new RuntimeException('The benchmark did not render the fixture article: ' . substr(strip_tags((string)$checkBody), 0, 300));
             }
 
             if (preg_match('#^/benchmark-(?:[1-9]|10)$#D', $path) === 1
                 && in_array('User-Agent: Mozilla/5.0 benchmark reader', $headers, true)) {
                 ++$expectedViews;
+            }
+
+            if (preg_match('#^/benchmark-11(?:\?comment_form=1)?$#D', $path) === 1 && !$formFragment
+                && in_array('User-Agent: Mozilla/5.0 benchmark reader', $headers, true)) {
+                ++$expectedCommentViews;
             }
         }
 
@@ -207,14 +219,44 @@ PHP;
     $send('/benchmark-3', $forwardedHeaders);
     $forwardedReply = $send('/benchmark-3', $forwardedHeaders);
     $checks['forwarded_public_request_can_be_cached'] = ($forwardedReply['headers']['x-register-early-cache'] ?? '') === 'hit';
-    $readMetrics(9);
+    $readerHeaders = ['User-Agent: Mozilla/5.0 benchmark reader'];
+    $firstCommentPage = $send('/benchmark-11', $readerHeaders);
+    $cookieName = \Register\Core\Config\StaticConfigLoader::DEFAULT_COOKIE_NAME;
+    $visitorId = str_repeat('b', 32);
+    $visitorCookie = $cookieName . '_visitor=' . $visitorId . '.' . hash_hmac('sha256', "register-visitor\0" . $visitorId, str_repeat('a', 64));
+    $anonymousCookies = 'Cookie: ' . $visitorCookie . '; ' . explode(';', $firstCommentPage['headers']['set-cookie'] ?? '')[0];
+    $publicCommentPage = $send('/benchmark-11', array_merge($readerHeaders, [$anonymousCookies]));
+    $checks['comment_snapshot_excludes_private_form'] = ($publicCommentPage['headers']['x-register-early-cache'] ?? '') === 'hit'
+        && str_contains($publicCommentPage['body'], 'data-comment-form-deferred=')
+        && !str_contains($publicCommentPage['body'], 'name="antispam_token"')
+        && !isset($publicCommentPage['headers']['set-cookie']);
+    $fullForm = $send('/benchmark-11?comment_form=1', $readerHeaders);
+    $checks['comment_form_without_javascript'] = str_contains($fullForm['body'], 'name="antispam_token"')
+        && isset($fullForm['headers']['set-cookie']) && ($fullForm['headers']['x-register-early-cache'] ?? '') !== 'hit';
+    $privateFormA = $send('/benchmark-11?comment_form=1', array_merge($readerHeaders, ['X-Register-Comment-Form: 1']));
+    $privateFormB = $send('/benchmark-11?comment_form=1', array_merge($readerHeaders, ['X-Register-Comment-Form: 1', $anonymousCookies]));
+    $checks['private_comment_fragments_are_isolated'] = ($privateFormA['headers']['x-register-comment-form'] ?? '') === '1'
+        && str_contains($privateFormA['headers']['cache-control'] ?? '', 'no-store')
+        && str_contains($privateFormA['body'], 'name="antispam_token"')
+        && !str_contains($privateFormA['body'], 'Benchmark page')
+        && $privateFormA['body'] !== $privateFormB['body']
+        && !isset($privateFormA['headers']['x-register-offline-cache']);
+    $cookieFreePage = $send('/benchmark-11', $readerHeaders);
+    $checks['anonymous_visitors_share_only_public_html'] = ($cookieFreePage['headers']['x-register-early-cache'] ?? '') === 'hit'
+        && $cookieFreePage['body'] === $publicCommentPage['body'];
+    $readMetrics(15);
     $scenarios = [];
-    foreach (['reader' => 'Mozilla/5.0 benchmark reader', 'crawler' => 'SyntheticCrawler/1.0'] as $kind => $agent) {
+    foreach ([
+        'reader' => ['Mozilla/5.0 benchmark reader', [], range(1, 10)],
+        'crawler' => ['SyntheticCrawler/1.0', [], range(1, 10)],
+        'returning_reader' => ['Mozilla/5.0 benchmark reader', [$anonymousCookies], range(1, 10)],
+        'reader_comments' => ['Mozilla/5.0 benchmark reader', [$anonymousCookies], [11]],
+    ] as $kind => [$agent, $extraHeaders, $pages]) {
         foreach (['identity', 'gzip'] as $encoding) {
             file_put_contents($fixture . '/metrics.jsonl', '');
-            $headers = ['User-Agent: ' . $agent, 'Accept-Encoding: ' . $encoding];
+            $headers = array_merge(['User-Agent: ' . $agent, 'Accept-Encoding: ' . $encoding], $extraHeaders);
             for ($i = 0; $i < 30; ++$i) {
-                $send('/benchmark-' . (($i % 10) + 1), $headers);
+                $send('/benchmark-' . $pages[$i % count($pages)], $headers);
             }
 
             // Wait for the last warm-up's shutdown callback before clearing its measurements.
@@ -223,7 +265,7 @@ PHP;
                 file_put_contents($fixture . '/metrics.jsonl', '');
                 $hits = 0;
                 for ($i = 0; $i < $requests; ++$i) {
-                    $reply = $send('/benchmark-' . (($i % 10) + 1), array_merge($headers, $extra));
+                    $reply = $send('/benchmark-' . $pages[$i % count($pages)], array_merge($headers, $extra));
                     if ($i === 0) {
                         file_put_contents($fixture . '/' . $kind . '-' . $encoding . '-' . $mode . '.json', json_encode($reply['headers'], JSON_THROW_ON_ERROR));
                     }
@@ -246,7 +288,7 @@ PHP;
         }
     }
 
-    foreach (['/benchmark-11' => 'private_comment_form', '/benchmark-12' => 'fresh_csp_nonce'] as $path => $name) {
+    foreach (['/benchmark-12' => 'fresh_csp_nonce'] as $path => $name) {
         $send($path, ['User-Agent: Mozilla/5.0 benchmark reader']);
         $reply = $send($path, ['User-Agent: Mozilla/5.0 benchmark reader']);
         $checks[$name] = ($reply['headers']['x-register-early-cache'] ?? '') !== 'hit';
@@ -261,14 +303,18 @@ PHP;
         $checks[explode(':', $header, 2)[0] . '_bypasses'] = ($reply['headers']['x-register-early-cache'] ?? '') !== 'hit';
     }
 
-    $readMetrics($requests + 6);
+    $readMetrics($requests + 4);
     $spool = new \Register\Content\ContentViewSpool($fixture . '/_cache/content-view-spool', minimumSegmentAge: 0);
     $spool->sealDue(time() + 20);
     $pending = 0;
+    $commentViews = 0;
     foreach ($spool->sealedSegments(128) as $segment) {
         foreach ($spool->readSegment($segment)['increments'] as $increment) {
             if (in_array($increment->contentId->value, array_slice(array_values($ids), 0, 10), true)) {
                 $pending += $increment->views;
+            }
+            if ($increment->contentId->value === $ids[11]) {
+                $commentViews += $increment->views;
             }
         }
     }
@@ -281,6 +327,11 @@ PHP;
     $persisted = (int)$viewQuery->fetchColumn();
     $accountedViews = $expectedViews;
     $checks['all_reader_views_preserved'] = $expectedViews === $persisted + $pending;
+    $commentViewQuery = $pdo->query('SELECT COALESCE(SUM(views),0) FROM content_views_daily WHERE content_id=' . $ids[11]);
+    if ($commentViewQuery === false) {
+        throw new RuntimeException('Unable to read fixture comment-page views.');
+    }
+    $checks['private_form_fetch_does_not_add_a_view'] = $expectedCommentViews === (int)$commentViewQuery->fetchColumn() + $commentViews;
 
     // Exercise the real product mutation/invalidation path in this fixture only.
     $app = require $fixture . '/_include/common.php';

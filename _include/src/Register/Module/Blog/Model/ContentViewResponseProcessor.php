@@ -13,6 +13,7 @@ use Register\Content\ContentId;
 use Register\Content\ContentViewRepository;
 use Register\Content\ContentViewRecorderInterface;
 use Register\Core\Framework\ResponseProcessorInterface;
+use Register\Core\Comment\DeferredCommentForm;
 use Register\Core\Http\Cache\EarlyPageCache;
 use Register\Module\Analytics\BotDetector;
 use Register\Core\Template\PartialPageResponse;
@@ -39,6 +40,10 @@ final readonly class ContentViewResponseProcessor implements ResponseProcessorIn
     public function process(Request $request, Response $response): Response
     {
         try {
+            if (DeferredCommentForm::isFragmentRequest($request)) {
+                return $response;
+            }
+
             $request->attributes->set(EarlyPageCache::CONTENT_ATTRIBUTE, $response->headers->get(self::CONTENT_ID_HEADER));
             $this->recordPrimaryContent($request, $response);
 

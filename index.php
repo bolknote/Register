@@ -21,6 +21,7 @@ use Register\Core\Queue\ShutdownWorkCoordinator;
 use Register\Core\Security\Monitoring\SecurityTelemetryRecorder;
 use Symfony\Component\HttpFoundation\Request;
 use Register\Core\Comment\ObsoleteReplyUrl;
+use Register\Core\Comment\CommentFormCacheSnapshot;
 
 require_once __DIR__ . '/_include/src/Comment/ObsoleteReplyUrl.php';
 if (ObsoleteReplyUrl::matches($_SERVER['REQUEST_METHOD'] ?? 'GET', $_GET)) {
@@ -121,10 +122,12 @@ if ($registerEarlyPageCache instanceof EarlyPageCache && $response->getStatusCod
 ) {
     $deadline = $response->headers->get(EarlyPageCache::DEADLINE_HEADER);
     $publicDeadline = $app->container->get(\Register\Module\Blog\Model\BlogPageCache::class)->responseDeadline();
+    $formSnapshot = $request->attributes->get(CommentFormCacheSnapshot::ATTRIBUTE);
+    $publicResponse = $formSnapshot instanceof CommentFormCacheSnapshot ? $formSnapshot->publicResponse($response) : $response;
     $registerEarlyPageCache->store(
         $registerEarlyServer,
-        $response->headers->all(),
-        (string)$response->getContent(),
+        $publicResponse->headers->all(),
+        (string)$publicResponse->getContent(),
         $request->attributes->get(EarlyPageCache::VIEW_ATTRIBUTE, []),
         $request->attributes->get(EarlyPageCache::CONTENT_ATTRIBUTE),
         min(is_string($deadline) && ctype_digit($deadline) ? (int)$deadline : PHP_INT_MAX, $publicDeadline ?? PHP_INT_MAX),

@@ -34,10 +34,13 @@ final readonly class CommentFormResponseProcessor implements ResponseProcessorIn
 
         $renderer = ($this->rendererProvider)();
         $session = null;
-        $render = function (string $contentId) use ($renderer, $request, &$session): string {
+        $forms = [];
+        $render = function (string $contentId) use ($renderer, $request, &$session, &$forms): string {
             $session ??= $renderer->createSession($request);
 
-            return $renderer->render($request, ['id' => $contentId], $session);
+            $html = $renderer->render($request, ['id' => $contentId], $session);
+            $forms[] = ['form' => $html, 'placeholder' => $renderer->deferred($request, $contentId)];
+            return $html;
         };
 
         if ($this->isPartialPageResponse($response)) {
@@ -60,6 +63,15 @@ final readonly class CommentFormResponseProcessor implements ResponseProcessorIn
             }
 
             $content = $hydrated;
+        }
+
+        if (DeferredCommentForm::isFragmentRequest($request) && !$this->isPartialPageResponse($response)) {
+            $content = implode("\n", array_column($forms, 'form'));
+            $response->headers->set('Cache-Control', 'no-store, private');
+            $response->headers->set('X-Register-Comment-Form', '1');
+        } elseif ($session instanceof CommentFormRenderSession && !$this->isPartialPageResponse($response)
+            && $request->isMethod(Request::METHOD_GET) && $response->headers->has('X-Register-Page-Cache')) {
+            $request->attributes->set(CommentFormCacheSnapshot::ATTRIBUTE, new CommentFormCacheSnapshot($forms, $session->visitorCookie));
         }
 
         $response->setContent($content);

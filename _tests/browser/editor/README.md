@@ -618,6 +618,11 @@ on a free loopback port, and removes all its files in `finally`. It never opens
 `config.e2e-<random>.php` in the repository contains fixture paths and is removed
 on exit. The workflow runs this suite after the browser regressions.
 
+`npm run test:cached-comments` also enables the early public cache in the disposable
+installation. It checks that cached HTML contains no private comment token, then
+runs the real reply, guest email, password sign-in and submission journeys in all
+three browsers, including the ordinary form link when JavaScript is disabled.
+
 The end-to-end suite uses real login forms, session cookies, editor controls,
 PHP validation/controllers and SQLite writes. It loses a creation response after
 the DB commit and verifies that retry returns the same post without another row.

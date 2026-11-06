@@ -62,6 +62,27 @@ final class EarlyPageCacheTest extends TestCase
         }
     }
 
+    public function testOnlyDeclaredAnonymousCookiesCanReuseAndPublishThePublicSnapshot(): void
+    {
+        $cache = new EarlyPageCache($this->directory . '/cache', $this->directory, publicCookies: ['site_visitor', 'site_antispam']);
+        $guest = $this->request(['HTTP_COOKIE' => 'site_visitor=one; site_antispam=private-token']);
+        self::assertTrue($cache->store($guest, $this->headers(), 'public'));
+        self::assertSame('public', $cache->lookup($this->request())['body'] ?? null);
+        self::assertSame('public', $cache->lookup($this->request(['HTTP_COOKIE' => 'site_visitor=another']))['body'] ?? null);
+        foreach (['site_c=login', 'site=admin', 'PHPSESSID=private', 'theme=unknown',
+            'site_visitor=one; site_c=login', 'site_visitor[]=array', 'site%5Fc=login', 'site_visitor',
+            'site_visitor=one; site.antispam=normalized', 'site_visitor=one;'] as $cookie) {
+            $request = $this->request(['HTTP_COOKIE' => $cookie]);
+            self::assertNull($cache->lookup($request), $cookie);
+            self::assertFalse($cache->store($request, $this->headers(), 'private'), $cookie);
+            self::assertSame('bypass-request-http-cookie', $cache->decision());
+        }
+
+        self::assertNull($cache->lookup($this->request(['HTTP_X_REGISTER_COMMENT_FORM' => '1'])));
+        $cache->publishLocation(EarlyPageCache::sourceStamp($this->directory));
+        self::assertSame(['site_visitor', 'site_antispam'], EarlyPageCache::locate($this->directory)['public_cookies'] ?? null);
+    }
+
     public function testNeverPublishesPrivateFormsNoncePagesAndUncachedResponses(): void
     {
         foreach ([

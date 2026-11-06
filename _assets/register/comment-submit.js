@@ -10,6 +10,85 @@
     const authenticated = form => !!form.querySelector('.comment-authenticated-identity');
     const nonce = () => crypto.randomUUID?.()
         || Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('');
+    const deferredForms = new WeakSet();
+    const pendingDeferred = new WeakSet();
+    const observedDeferred = new Set();
+    const deferredObserver = typeof IntersectionObserver === 'function'
+        ? new IntersectionObserver(entries => {
+            for (const entry of entries) {
+                if (entry.isIntersecting && entry.target.dataset.commentFormState === 'waiting') void loadDeferred(entry.target);
+            }
+        }, {rootMargin: '600px 0px'})
+        : null;
+
+    async function loadDeferred(placeholder) {
+        if (!placeholder.isConnected || pendingDeferred.has(placeholder)) return;
+        const link = placeholder.querySelector('[data-comment-form-load]');
+        if (!(link instanceof HTMLAnchorElement)) return;
+        const url = new URL(link.href, location.href);
+        if (url.origin !== location.origin) return;
+        placeholder.dataset.commentFormState = 'loading';
+        pendingDeferred.add(placeholder);
+        placeholder.setAttribute('aria-busy', 'true');
+        deferredObserver?.unobserve(placeholder);
+        observedDeferred.delete(placeholder);
+        try {
+            const response = await fetch(url, {
+                credentials: 'same-origin',
+                headers: {'X-Register-Comment-Form': '1', 'Accept': 'text/html'},
+            });
+            if (!response.ok || response.headers.get('X-Register-Comment-Form') !== '1'
+                || !response.headers.get('Content-Type')?.startsWith('text/html')) throw new Error('Comment form unavailable');
+            const parsed = new DOMParser().parseFromString(await response.text(), 'text/html');
+            const form = parsed.querySelector('form[data-comment-submit-flow]');
+            const block = form?.closest('.comment-form-block');
+            if (!block || form.querySelector('.comment-form-id')?.value !== placeholder.dataset.commentFormDeferred) {
+                throw new Error('Unexpected comment form');
+            }
+            if (!placeholder.isConnected) return;
+            placeholder.dataset.commentFormState = 'loaded';
+            placeholder.replaceWith(block);
+            const root = block.closest('[data-register-page]') || document.body;
+            document.dispatchEvent(new CustomEvent('register:fragment-updated', {detail: {root}}));
+        } catch (_) {
+            // No automatic retry loop. The ordinary link remains a working no-JS fallback.
+            placeholder.dataset.commentFormState = 'failed';
+            placeholder.removeAttribute('aria-busy');
+        } finally {
+            pendingDeferred.delete(placeholder);
+        }
+    }
+
+    function enhanceDeferred() {
+        for (const placeholder of observedDeferred) {
+            if (!placeholder.isConnected) {
+                deferredObserver?.unobserve(placeholder);
+                observedDeferred.delete(placeholder);
+            }
+        }
+        document.querySelectorAll('[data-comment-form-deferred]').forEach(placeholder => {
+            if (deferredForms.has(placeholder)) return;
+            deferredForms.add(placeholder);
+            // History snapshots copy HTML attributes, but never an in-flight request.
+            placeholder.dataset.commentFormState = 'waiting';
+            placeholder.removeAttribute('aria-busy');
+            if (deferredObserver) {
+                observedDeferred.add(placeholder);
+                deferredObserver.observe(placeholder);
+            }
+            else void loadDeferred(placeholder);
+        });
+    }
+
+    document.addEventListener('click', event => {
+        const link = event.target.closest?.('[data-comment-form-load]');
+        if (!link || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+        const placeholder = link.closest('[data-comment-form-deferred]');
+        if (placeholder && new URL(link.href, location.href).origin === location.origin) {
+            event.preventDefault();
+            void loadDeferred(placeholder);
+        }
+    });
 
     function setUrlParameter(url, name, value) {
         // Query-based installations keep their route in the raw first segment.
@@ -114,6 +193,7 @@
     }
 
     function enhance() {
+        enhanceDeferred();
         const form = document.querySelector('form[data-comment-submit-flow]');
         if (!form || form.dataset.commentSubmitReady) return;
         form.dataset.commentSubmitReady = '1';

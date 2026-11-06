@@ -23,13 +23,22 @@ const article = origin + '/guest-comment-fixture';
 const mailLog = resolve(scratch, 'mail.jsonl');
 const dbFile = resolve(scratch, 'site.sqlite');
 const settings = resolve(scratch, 'settings.json');
-await writeFile(settings, JSON.stringify({scratch, id, config, origin, root, database: relative(root, dbFile)}));
+const cached = process.env.REGISTER_E2E_CACHE === '1';
+await writeFile(settings, JSON.stringify({scratch, id, config, origin, root, database: relative(root, dbFile), enable_cache: cached}));
 const database = (sql, parameters = []) => JSON.parse(execFileSync(php, ['-r',
     '$db = new PDO("sqlite:" . $argv[1]); $s = $db->prepare($argv[2]); $s->execute(json_decode($argv[3], true)); echo json_encode($s->fetchAll(PDO::FETCH_ASSOC), JSON_THROW_ON_ERROR);',
     dbFile, sql, JSON.stringify(parameters)], {encoding: 'utf8'}));
 let server;
 let serverLog = '';
 let serverError;
+
+async function prepareCommentForm(page, javaScriptEnabled) {
+    const link = page.locator('[data-comment-form-load]');
+    if (await link.count()) {
+        if (javaScriptEnabled) await link.scrollIntoViewIfNeeded();
+        else await Promise.all([page.waitForNavigation(), link.click()]);
+    }
+}
 
 async function runReplyJourney(browser, javaScriptEnabled) {
     const context = await browser.newContext({javaScriptEnabled, reducedMotion: 'reduce'});
@@ -46,6 +55,7 @@ async function runReplyJourney(browser, javaScriptEnabled) {
     const before = count();
     try {
         await page.goto(article);
+        await prepareCommentForm(page, javaScriptEnabled);
         const reply = page.locator(`button.comment-reply[data-reply-comment="${parent}"]`);
         assert.equal(await page.locator('a.comment-reply').count(), 0);
         assert.equal(await reply.getAttribute('type'), 'submit');
@@ -64,9 +74,11 @@ async function runReplyJourney(browser, javaScriptEnabled) {
         const cancel = page.locator('.comment-reply-cancel');
         if (javaScriptEnabled) {
             await page.reload();
+            await prepareCommentForm(page, javaScriptEnabled);
             assert.equal(await page.locator('.comment-parent-id').inputValue(), String(parent), 'Selecting a reply persists even without another keystroke');
             await cancel.click();
             await page.reload();
+            await prepareCommentForm(page, javaScriptEnabled);
             assert.equal(await page.locator('#comment-form .comment-editor-surface').textContent(), 'Preserved reply draft');
         } else {
             await Promise.all([page.waitForNavigation(), cancel.click()]);
@@ -115,6 +127,7 @@ async function runGuestJourney(browser, javaScriptEnabled) {
     const storedDraft = () => database('SELECT comment_text FROM auth_magic_links WHERE email=?', [email])[0].comment_text;
     try {
         await page.goto(article);
+        await prepareCommentForm(page, javaScriptEnabled);
         if (!javaScriptEnabled) assert.equal(await page.locator('.comment-editor-surface').isVisible(), false);
         const form = page.locator('#comment-form');
         const editor = page.locator(javaScriptEnabled ? '#comment-form .comment-editor-surface' : '#comment-form .comment-editor-source');
@@ -127,6 +140,7 @@ async function runGuestJourney(browser, javaScriptEnabled) {
             await page.locator('#public-auth-dialog').waitFor({state: 'visible'});
             await page.keyboard.press('Escape');
             await page.reload();
+            await prepareCommentForm(page, javaScriptEnabled);
             assert.equal((await editor.textContent() || await editor.inputValue()).replace(/\s+/g, ' ').trim(), text);
             await submit.click();
             await page.locator('#public-auth-dialog .public-auth-method[data-public-auth-mode-open="email"]').click();
@@ -237,6 +251,7 @@ async function runPasswordCommentJourney(browser) {
     const text = 'Comment after password sign-in ' + browser.browserType().name();
     try {
         await page.goto(article);
+        await prepareCommentForm(page, true);
         const reply = page.locator('.comment-reply-form button').first();
         const parent = await reply.getAttribute('value');
         await reply.click();
@@ -262,6 +277,7 @@ async function runPasswordCommentJourney(browser) {
         assert.equal(String(comments[0].parent_id), parent, 'The reply addressee survives sign-in');
         assert.ok(comments[0].text.includes(text));
         await page.goto(article);
+        await prepareCommentForm(page, true);
         await page.reload();
         assert.equal(database('SELECT COUNT(*) AS count FROM comments WHERE text LIKE ?', ['%' + text + '%'])[0].count, 1);
         assert.equal(await page.locator('#comment-form .comment-editor-surface').textContent(), '', 'Successful sending clears the recovered draft');
@@ -295,6 +311,16 @@ try {
         try { if ((await fetch(origin, {signal: AbortSignal.timeout(2000)})).ok) break; } catch (_) { /* Server is starting. */ }
         if (attempt > 100) throw new Error('The disposable PHP server did not start: ' + serverLog);
         await new Promise(done => setTimeout(done, 100));
+    }
+    if (cached) {
+        const options = {headers: {'User-Agent': 'Mozilla/5.0 cache regression'}};
+        await fetch(article, options);
+        const warm = await fetch(article, options);
+        assert.equal(warm.headers.get('X-Register-Early-Cache'), 'hit');
+        const html = await warm.text();
+        assert.ok(html.includes('data-comment-form-deferred='));
+        assert.ok(!html.includes('name="antispam_token"'));
+        console.log('Cached comment E2E: a real early public response contains no private form token');
     }
     for (const engine of [chromium, firefox, webkit]) {
         const browser = await engine.launch();
