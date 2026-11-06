@@ -122,6 +122,30 @@ test('split batches retain an earlier concurrent cause while the feed is locked'
     ok(document.querySelector('[data-version="merged"]'), 'The earlier external cause must keep the patch pending');
 });
 
+test('leaving a document aborts its pending poll and returning from history resumes updates', async () => {
+    setup(40);
+    const originalFetch = window.fetch;
+    let started;
+    const pending = new Promise(resolve => { started = resolve; });
+    window.fetch = (_input, options) => new Promise((_resolve, reject) => {
+        options.signal.addEventListener('abort', () => reject(new DOMException('Page left', 'AbortError')), {once: true});
+        started(options.signal);
+    });
+    let signal;
+    try {
+        document.dispatchEvent(new CustomEvent('register:live-refresh'));
+        signal = await pending;
+        window.dispatchEvent(new PageTransitionEvent('pagehide', {persisted: true}));
+        equal(signal.aborted, true, 'An outgoing document must not keep a background fetch alive');
+    } finally {
+        window.fetch = originalFetch;
+        window.RegisterLiveUpdates.reconfigure(60000);
+    }
+    await waitForSynchronizations(1, () => {
+        window.dispatchEvent(new PageTransitionEvent('pageshow', {persisted: true}));
+    });
+});
+
 document.getElementById('run').addEventListener('click', async () => {
     const output = document.getElementById('results');
     const results = [];

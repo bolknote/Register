@@ -341,6 +341,10 @@
     document.addEventListener('register:live-unlock', applyPendingPatches);
     document.addEventListener('register:navigation-will-update', stop);
     document.addEventListener('register:navigation-updated', () => configure(0));
+    window.addEventListener('pagehide', stop);
+    window.addEventListener('pageshow', event => {
+        if (event.persisted) configure(0);
+    });
     window.addEventListener('offline', () => {
         window.clearTimeout(timer);
         requestController?.abort();

@@ -16,6 +16,7 @@ final class CommentFormCacheSnapshotTest extends TestCase
         $cookie = Cookie::create('site_antispam', 'private');
         $response = new Response('<article>Public</article><form>Private token</form>');
         $response->headers->setCookie($cookie);
+
         $snapshot = new CommentFormCacheSnapshot([['form' => '<form>Private token</form>', 'placeholder' => '<a>Load form</a>']], $cookie);
         $public = $snapshot->publicResponse($response);
         self::assertSame('<article>Public</article><a>Load form</a>', $public->getContent());
@@ -41,6 +42,7 @@ final class CommentFormCacheSnapshotTest extends TestCase
             if ($actualCookie instanceof Cookie) {
                 $response->headers->setCookie($actualCookie);
             }
+
             self::assertTrue($snapshot->publicResponse($response)->headers->hasCacheControlDirective('no-store'));
         }
     }

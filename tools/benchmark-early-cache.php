@@ -93,26 +93,26 @@ try {
             time() - 3600, time() - 3600, time(), 1, $i === 11 ? 1 : 0]);
     }
 
-    $router = <<<'PHP'
-<?php
-$assetPath = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-if (is_string($assetPath) && (str_starts_with($assetPath, '/_assets/') || str_starts_with($assetPath, '/_styles/'))
-    && is_file(__DIR__ . $assetPath)) {
-    return false;
-}
-$usageStart = getrusage();
-register_shutdown_function(static function () use ($usageStart): void {
-    $end = getrusage();
-    $cpu = static fn(array $u): float => ($u['ru_utime.tv_sec'] + $u['ru_stime.tv_sec']) * 1000.0
-        + ($u['ru_utime.tv_usec'] + $u['ru_stime.tv_usec']) / 1000.0;
-    file_put_contents(__DIR__ . '/metrics.jsonl', json_encode([
-        'cpu_ms' => $cpu($end) - $cpu($usageStart),
-        'engine_loaded' => class_exists('Register\Core\Framework\Application', false),
-        'included_files' => count(get_included_files()),
-    ]) . "\n", FILE_APPEND | LOCK_EX);
-});
-require __DIR__ . '/index.php';
-PHP;
+    $router = <<<'PHP_WRAP'
+    <?php
+    $assetPath = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+    if (is_string($assetPath) && (str_starts_with($assetPath, '/_assets/') || str_starts_with($assetPath, '/_styles/'))
+        && is_file(__DIR__ . $assetPath)) {
+        return false;
+    }
+    $usageStart = getrusage();
+    register_shutdown_function(static function () use ($usageStart): void {
+        $end = getrusage();
+        $cpu = static fn(array $u): float => ($u['ru_utime.tv_sec'] + $u['ru_stime.tv_sec']) * 1000.0
+            + ($u['ru_utime.tv_usec'] + $u['ru_stime.tv_usec']) / 1000.0;
+        file_put_contents(__DIR__ . '/metrics.jsonl', json_encode([
+            'cpu_ms' => $cpu($end) - $cpu($usageStart),
+            'engine_loaded' => class_exists('Register\Core\Framework\Application', false),
+            'included_files' => count(get_included_files()),
+        ]) . "\n", FILE_APPEND | LOCK_EX);
+    });
+    require __DIR__ . '/index.php';
+    PHP_WRAP;
     file_put_contents($fixture . '/router.php', $router);
     $environment = getenv();
     $environment['APP_ENV'] = '';
@@ -313,6 +313,7 @@ PHP;
             if (in_array($increment->contentId->value, array_slice(array_values($ids), 0, 10), true)) {
                 $pending += $increment->views;
             }
+
             if ($increment->contentId->value === $ids[11]) {
                 $commentViews += $increment->views;
             }
@@ -331,6 +332,7 @@ PHP;
     if ($commentViewQuery === false) {
         throw new RuntimeException('Unable to read fixture comment-page views.');
     }
+
     $checks['private_form_fetch_does_not_add_a_view'] = $expectedCommentViews === (int)$commentViewQuery->fetchColumn() + $commentViews;
 
     // Exercise the real product mutation/invalidation path in this fixture only.

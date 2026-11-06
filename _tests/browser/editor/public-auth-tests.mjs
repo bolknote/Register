@@ -90,8 +90,10 @@ export async function runPublicAuthRegressions(browser, origin) {
         }
         await page.route('**/all/auth-example', route => route.fulfill({contentType: 'text/html', body: 'Saved comment fixture'}));
         const sent = page.waitForRequest(request => request.method() === 'POST');
+        const sentNavigation = page.waitForURL(url => url.pathname === '/all/auth-example', {waitUntil: 'domcontentloaded'});
         await emailForm.getByRole('button', {name: 'Получить ссылку', exact: true}).click();
         const payload = new URLSearchParams((await sent).postData());
+        await sentNavigation;
         assert.equal(payload.get('text'), 'Unsaved comment before sign-in');
         assert.equal(payload.get('name'), 'Guest');
         assert.equal(payload.get('email'), 'guest@example.test');
@@ -100,8 +102,10 @@ export async function runPublicAuthRegressions(browser, origin) {
         await page.locator('.comment-submit').click();
         await page.route('**/auth/oauth/vk?*', route => route.fulfill({contentType: 'text/html', body: 'Provider fixture'}));
         const providerRequest = page.waitForRequest(request => new URL(request.url()).pathname === '/auth/oauth/vk');
+        const providerNavigation = page.waitForURL(url => url.pathname === '/auth/oauth/vk', {waitUntil: 'domcontentloaded'});
         await page.locator('#public-auth-dialog').getByRole('button', {name: 'VK ID', exact: true}).click();
         const providerUrl = new URL((await providerRequest).url());
+        await providerNavigation;
         assert.ok(new URL(providerUrl.searchParams.get('return'), origin).searchParams.get('comment_send'));
         assert.equal(await page.evaluate(() => !!sessionStorage.getItem('register_comment_send')), true);
         await page.goto(`${origin}/public-auth.html?providers=all`);
