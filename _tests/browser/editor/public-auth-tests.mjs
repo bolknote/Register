@@ -37,7 +37,34 @@ async function assertLayout(dialog) {
     }
 }
 
+async function deferredFocusRegression(browser, origin) {
+    const context = await browser.newContext();
+    try {
+        const page = await context.newPage();
+        await page.goto(`${origin}/public-auth.html`);
+        await page.evaluate(() => {
+            window.authFocusFrames = [];
+            window.requestAnimationFrame = callback => window.authFocusFrames.push(callback);
+        });
+        await page.locator('#comment-text').fill('A comment before choosing email.');
+        await page.locator('.comment-submit').click();
+        await page.locator('#public-auth-dialog').getByRole('link', {name: 'Ссылка на почту', exact: true}).click();
+        const form = page.locator('[data-comment-email-form]');
+        await form.locator('[name="comment_name"]').fill('Guest');
+        await form.locator('[name="comment_email"]').focus();
+        await page.evaluate(() => {
+            for (const callback of window.authFocusFrames.splice(0)) callback(performance.now());
+        });
+        assert.equal(await active(form.locator('[name="comment_email"]')), true,
+            'Deferred panel focus must respect a field the reader has already chosen');
+        await form.locator('[name="comment_email"]').fill('guest@example.test');
+        assert.equal(await form.locator('[name="comment_name"]').inputValue(), 'Guest');
+        assert.equal(await form.locator('[name="comment_email"]').inputValue(), 'guest@example.test');
+    } finally { await context.close(); }
+}
+
 export async function runPublicAuthRegressions(browser, origin) {
+    await deferredFocusRegression(browser, origin);
     const commentContext = await browser.newContext({colorScheme: 'dark'});
     try {
         const page = await commentContext.newPage();

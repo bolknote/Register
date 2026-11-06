@@ -30,10 +30,15 @@
         if (error instanceof HTMLElement) error.hidden = !hasError;
     };
 
-    const focusMode = (root, selected) => requestAnimationFrame(() => {
-        if (selected.hidden || !root.isConnected || !selected.getClientRects().length) return;
-        selected.querySelector('.public-auth-method, input:not([type="hidden"]), button[type="submit"]')?.focus({preventScroll: true});
-    });
+    const focusMode = (root, selected) => {
+        const previousFocus = document.activeElement;
+        requestAnimationFrame(() => {
+            if (selected.hidden || !root.isConnected || !selected.getClientRects().length) return;
+            // A reader may choose a field before this deferred focus runs.
+            if (document.activeElement !== previousFocus && selected.contains(document.activeElement)) return;
+            selected.querySelector('.public-auth-method, input:not([type="hidden"]), button[type="submit"]')?.focus({preventScroll: true});
+        });
+    };
 
     const setMode = (root, mode, focus = false) => {
         if (!(root instanceof HTMLElement)) return false;
