@@ -1762,9 +1762,11 @@
             return false;
         }
 
-        state.titleHistory?.before();
-        state.title.textContent = title;
-        state.titleHistory?.record();
+        if (state.titleDirty) {
+            state.titleHistory?.before();
+            state.title.textContent = title;
+            state.titleHistory?.record();
+        }
         state.titleField.value = title;
         state.bodyField.value = state.bodyDirty ? editableBodyHtml(state) : state.originalBody;
 

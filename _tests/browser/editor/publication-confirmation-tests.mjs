@@ -14,7 +14,7 @@ function saved(data, draft, creating = true) {
 }
 
 export async function runPublicationConfirmationRegressions(browser, origin) {
-    async function withPage(run) {
+    async function withPage(run, creating = true) {
         const page = await browser.newPage({viewport: {width: 1280, height: 800}, timezoneId: 'Europe/Moscow'});
         page.setDefaultTimeout(8000);
         const errors = [];
@@ -25,14 +25,36 @@ export async function runPublicationConfirmationRegressions(browser, origin) {
             const requests = holdRequests(page, '**/_inplace/post/*');
             await requests.installed;
             await page.goto(origin + '/recovery.html?draft-tools=1&publish-confirm=1');
-            await page.getByRole('button', {name: 'New post', exact: true}).click();
-            const card = page.locator('.post-card.is-editing');
-            await card.locator('[data-post-inplace-title]').fill('A deliberate publication <with text>');
-            await card.locator('[data-post-inplace-body]').fill('Keep this exact unfinished text.');
+            if (creating) await page.getByRole('button', {name: 'New post', exact: true}).click();
+            const card = page.locator(creating ? '.post-card.is-editing' : '.post-card');
+            if (creating) {
+                await card.locator('[data-post-inplace-title]').fill('A deliberate publication <with text>');
+                await card.locator('[data-post-inplace-body]').fill('Keep this exact unfinished text.');
+            }
             await run(page, card, requests);
             assert.deepEqual(errors, []);
         } finally { await page.close(); }
     }
+
+    await withPage(async (page, card, requests) => {
+        await card.evaluate(card => {
+            card.classList.add('is-draft-preview');
+            card.dataset.postDateMode = 'now';
+            card.querySelector('[name="title"]').value = 'Тест и пример';
+            card.querySelector('[data-post-inplace-title]').textContent = 'Тест и\u00a0пример';
+        });
+        await card.locator('.post-edit-start').click();
+        await card.locator('.post-edit-save').click();
+        await page.getByRole('dialog', {name: 'Publish this post?', exact: true})
+            .getByRole('button', {name: 'Continue editing'}).click();
+        await page.waitForTimeout(350);
+        assert.deepEqual(await page.evaluate(() => RegisterPostRecovery.createStore(localStorage, '/_inplace/tags', 1).list()), [],
+            'Cancelling publication cannot turn presentation-only typography into unsaved text');
+        await card.locator('.post-edit-cancel').click();
+        await page.waitForFunction(() => !document.querySelector('.post-card.is-editing'));
+        assert.equal(await page.locator('.post-recovery-notice').count(), 0);
+        assert.equal(requests.count, 0);
+    }, false);
 
     await withPage(async (page, card, requests) => {
         const body = card.locator('[data-post-inplace-body]');
