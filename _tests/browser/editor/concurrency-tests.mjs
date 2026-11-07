@@ -84,7 +84,8 @@ export async function runConcurrencyRegressions(browser, origin) {
                 await page.waitForFunction(() => document.getElementById('content-editor-ai-tools').getAttribute('aria-busy') === 'false');
                 const applies = change === 'unchanged' || change === 'outside-selection';
                 assert.equal(await target.inputValue(), applies ? 'Generated suggestion' : original);
-                assert.equal(await page.locator('#ai-tools-status').textContent(), applies ? '' : 'The source text has changed.');
+                if (applies) assert.equal(await page.locator('.ai-tools-status-icon').getAttribute('data-phase'), 'applied');
+                else assert.equal(await page.locator('#ai-tools-status').textContent(), 'The source text has changed.');
                 assert.equal(await page.evaluate(() => window.adminEditor.getValue()), editedBody);
                 if (!applies) {
                     await page.locator(`[data-ai-action="${action}"]`).click();

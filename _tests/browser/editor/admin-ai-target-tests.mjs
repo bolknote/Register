@@ -98,7 +98,9 @@ export async function runAdminAiTargetRegressions(browser, origin) {
             await page.waitForFunction(() => document.getElementById('content-editor-ai-tools').getAttribute('aria-busy') === 'false');
             if (mode === 'failure') expected = before;
             assert.equal(await page.evaluate(() => adminEditor.getValue()), expected, `${mode}/${action}: AI must edit only its original source`);
-            assert.equal(await page.locator('#ai-tools-status').textContent(), stale ? 'The source text has changed.' : mode === 'failure' ? 'AI failed' : '');
+            if (stale || ['failure', 'save'].includes(mode)) {
+                assert.equal(await page.locator('#ai-tools-status').textContent(), stale ? 'The source text has changed.' : mode === 'failure' ? 'AI failed' : '');
+            } else assert.equal(await page.locator('.ai-tools-status-icon').getAttribute('data-phase'), 'applied');
             assert.equal(await page.locator('[name="title"]').inputValue(), 'Server title');
             assert.equal(await page.locator('[name="tags"]').inputValue(), 'old');
             assert.equal(await page.evaluate(() => document.querySelector('.CodeMirror').CodeMirror.getAllMarks()

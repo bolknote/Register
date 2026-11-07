@@ -125,7 +125,7 @@ export async function runAdminInputRegressions(browser, origin) {
         assert.equal(await input.inputValue(), '');
         assert.equal(await page.locator('[name="tags"]').inputValue(), 'Fresh suggestion');
         assert.deepEqual(await page.locator('.editor-tag-chip-label').allTextContents(), ['Fresh suggestion']);
-        assert.equal(await page.locator('#ai-tools-status').textContent(), '');
+        assert.equal(await page.locator('.ai-tools-status-icon').getAttribute('data-phase'), 'applied');
     });
     console.log('admin tags: a delayed AI result preserves unfinished input and a fresh request still applies');
 

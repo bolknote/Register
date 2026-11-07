@@ -165,7 +165,7 @@ final class AssetPackTest extends Unit
             $site,
         );
         self::assertMatchesRegularExpression(
-            '/\.post-card\.is-editing\s*>\s*\.post\.time\s*>\s*\.post-inplace-date-button\s*'
+            '/\.post-card\.is-editing\s*>\s*\.post\.time\s*>\s*:is\(\.post-inplace-date-button,\s*\.post-inplace-date-now\)\s*'
                 . '\{[^}]*position:\s*static;[^}]*transform:\s*none;/s',
             $site,
         );

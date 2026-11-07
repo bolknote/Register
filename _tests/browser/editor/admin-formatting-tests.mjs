@@ -124,7 +124,7 @@ export async function runSmartParagraphNoopRegressions(browser, origin) {
         await page.waitForFunction(() => document.getElementById('content-editor-ai-tools').getAttribute('aria-busy') === 'false');
         const expected = initial.replace('A sentense.', 'A sentence.');
         assert.equal(await value(page), expected, 'No-op formatting keeps an unchanged selection valid for a pending correction');
-        assert.equal(await page.locator('#ai-tools-status').textContent(), '');
+        assert.equal(await page.locator('.ai-tools-status-icon').getAttribute('data-phase'), 'applied');
         await checkHistoryAndSave(page, initial, expected);
     }, '&ai=1');
     console.log('admin smart paragraphs: no-op formatting preserves selections, redo and pending corrections, with undo, recovery and save');
