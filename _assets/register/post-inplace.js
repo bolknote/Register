@@ -3409,7 +3409,9 @@
                 const slugChanged = state.slugField && state.slugField.value !== state.originalSlug;
                 if (!state.creating && !state.titleDirty && !state.bodyDirty && !state.tagsDirty && !state.dateDirty && !slugChanged
                     && !card.classList.contains('is-draft-preview')) {
-                    closeEditor(card, true);
+                    // Synchronization restores raw source text over typography.
+                    // This is a clean close, so do not persist it as a new edit.
+                    closeEditor(card, true, true);
                     return;
                 }
                 lockEditing(true);

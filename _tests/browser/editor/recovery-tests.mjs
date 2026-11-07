@@ -35,6 +35,54 @@ export async function runRecoveryRegressions(browser, origin) {
     try {
         await page.route('**/_inplace/tags', route => route.fulfill({json: {tags: []}}));
         await open();
+        for (const [source, rendered, shortcut] of [
+            ['Тест и пример', 'Тест и\u00a0пример', false],
+            ['A "quoted" title...', 'A «quoted» title…', true],
+        ]) {
+            await page.evaluate(({source, rendered}) => {
+                const card = document.querySelector('.post-card');
+                const field = card.querySelector('[name="title"]');
+                field.value = field.defaultValue = source;
+                card.querySelector('[data-post-inplace-title]').textContent = rendered;
+            }, {source, rendered});
+            let saves = 0;
+            await page.route('**/_inplace/post/9', route => {
+                saves++;
+                return route.fulfill({status: 503, json: {success: false, message: 'Unexpected save'}});
+            });
+            await page.getByRole('button', {name: 'Edit', exact: true}).click();
+            if (shortcut) await edited().locator('[data-post-inplace-title]').press('Control+s');
+            else await edited().getByRole('button', {name: 'Save', exact: true}).click();
+            await page.waitForFunction(() => !document.querySelector('.post-card.is-editing'));
+            await page.waitForTimeout(350);
+            assert.equal(saves, 0, 'An unchanged published post needs no save request');
+            assert.deepEqual(await copies(), [], 'Restoring the source title must not create an unsaved local copy');
+            assert.equal(await page.locator('.post-recovery-notice').count(), 0);
+            assert.equal(await page.locator('[data-post-inplace-title]').textContent(), rendered);
+            await page.unroute('**/_inplace/post/9');
+            await page.reload();
+            assert.equal(await page.locator('.post-recovery-notice').count(), 0, 'The false offer must not return after reload');
+        }
+        const other = await context.newPage();
+        try {
+            await other.goto(origin + '/recovery.html');
+            await other.getByRole('button', {name: 'Edit', exact: true}).click();
+            await other.locator('.is-editing [data-post-inplace-body]').fill('Real unsaved text in another tab.');
+            await other.waitForFunction(() => RegisterPostRecovery.createStore(localStorage, '/_inplace/tags', 1).list().length === 1);
+            const preserved = await copies();
+            await page.evaluate(() => {
+                document.querySelector('[data-post-inplace-title]').textContent = 'Server title\u00a01';
+            });
+            await page.getByRole('button', {name: 'Edit', exact: true}).click();
+            await edited().getByRole('button', {name: 'Save', exact: true}).click();
+            await page.waitForFunction(() => !document.querySelector('.post-card.is-editing'));
+            await page.waitForTimeout(350);
+            assert.deepEqual(await copies(), preserved, 'Closing an unchanged editor preserves another tab\'s real local copy');
+            assert.equal(await page.locator('.post-recovery-notice').count(), 1);
+        } finally { await other.close(); }
+        await reset();
+        console.log('recovery: unchanged saves of typographic titles create no local copy or reload notice and preserve real text from another tab');
+
         await page.getByRole('button', {name: 'Edit', exact: true}).click();
         await edited().locator('[data-post-inplace-title]').fill('Unfinished title');
         await edited().locator('[data-post-inplace-body]').fill('Text before connection loss');
