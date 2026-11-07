@@ -1152,7 +1152,7 @@ h2.preview,
     display: none;
 }
 
-.post-inplace-date-button {
+:is(.post-inplace-date-button, .post-inplace-date-now) {
     position: absolute;
     top: 0;
     left: calc(100% + 0.25rem);
@@ -1173,22 +1173,22 @@ h2.preview,
     cursor: pointer;
 }
 
-.post-inplace-date-button[hidden] {
+:is(.post-inplace-date-button, .post-inplace-date-now)[hidden] {
     display: none;
 }
 
-.post-inplace-date-button:hover,
-.post-inplace-date-button:focus-visible {
+:is(.post-inplace-date-button, .post-inplace-date-now):hover,
+:is(.post-inplace-date-button, .post-inplace-date-now):focus-visible {
     background: color-mix(in srgb, var(--minor-color) 12%, transparent);
     color: var(--accent-color);
     outline: none;
 }
 
-.post-inplace-date-button:focus-visible {
+:is(.post-inplace-date-button, .post-inplace-date-now):focus-visible {
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-color) 52%, transparent);
 }
 
-.post-inplace-date-button svg {
+:is(.post-inplace-date-button, .post-inplace-date-now) svg {
     width: 1.1rem;
     height: 1.1rem;
     fill: none;
@@ -1196,6 +1196,10 @@ h2.preview,
     stroke-linecap: round;
     stroke-linejoin: round;
     stroke-width: 1.75;
+}
+
+.post-inplace-date-now {
+    left: calc(100% + 2rem);
 }
 
 .post-card.is-editing > .post.body[data-post-inplace-body].uses-synthetic-boundary-caret {
@@ -1995,23 +1999,16 @@ h2.preview,
     opacity: 0.5;
 }
 
-.post-card.is-ai-working > .post-inplace-status::before {
-    display: inline-block;
-    width: 0.82rem;
-    height: 0.82rem;
-    margin-right: 0.45rem;
-    vertical-align: -0.1em;
-    border: 2px solid color-mix(in srgb, var(--accent-color) 24%, transparent);
-    border-top-color: var(--accent-color);
-    border-radius: 50%;
-    content: "";
-    animation: post-media-upload-spin 700ms linear infinite;
-}
-
 @container post-editor (max-width: 42rem) {
     .post-card.is-editing .post-inplace-date-button {
         top: 50%;
         right: 0.35rem;
+        left: auto;
+        transform: translateY(-50%);
+    }
+    .post-card.is-editing .post-inplace-date-now {
+        top: 50%;
+        right: 2.2rem;
         left: auto;
         transform: translateY(-50%);
     }
@@ -2383,8 +2380,7 @@ h2.preview,
 
 @media (prefers-reduced-motion: reduce) {
     .post-media-upload::before,
-    .post-media-processing-progress::before,
-    .post-card.is-ai-working > .post-inplace-status::before {
+    .post-media-processing-progress::before {
         animation: none;
     }
 
@@ -2422,6 +2418,7 @@ h2.preview,
     color: var(--minor-color);
     pointer-events: none;
     transform: translateX(-50%);
+    transition: opacity 180ms ease;
 }
 
 .post-save-spinner,
@@ -2447,23 +2444,77 @@ h2.preview,
     stroke-width: 1.8;
 }
 
-[data-post-save-state="saved"] .post-save-spinner {
+[data-post-save-state="saved"] .post-save-spinner,
+[data-post-save-state="returning"] .post-save-spinner {
     display: none;
 }
 
-[data-post-save-state="saved"] .post-save-check {
+[data-post-save-state="saved"] .post-save-check,
+[data-post-save-state="returning"] .post-save-check {
     display: block;
 }
 
-.post-save-label {
-    font: 0.75rem/1.35 var(--ui-font);
-    white-space: nowrap;
+[data-post-save-state="saved"] .post-save-check path,
+.post-ai-feedback:not([data-ai-state="working"]) .post-ai-check {
+    stroke-dasharray: 1;
+    animation: post-check-draw 280ms ease-out both;
+}
+
+@keyframes post-check-draw {
+    from { stroke-dashoffset: 1; }
+    to { stroke-dashoffset: 0; }
+}
+
+[data-post-save-state="returning"] .post-save-feedback {
+    opacity: 0;
+}
+
+.post-inplace-tools[data-post-save-state="returning"] > :not(.post-save-feedback) {
+    visibility: visible;
+    pointer-events: auto;
+    animation: post-tools-return 180ms ease both;
+}
+
+@keyframes post-tools-return {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.post-ai-feedback {
+    display: grid;
+    width: 2rem;
+    height: 2.5rem;
+    place-items: center;
+    color: var(--success-color);
+}
+
+.post-ai-mark {
+    width: 1.5rem;
+    height: 1.5rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.post-ai-feedback[data-ai-state="working"] .post-ai-mark,
+.post-ai-feedback:not([data-ai-state="working"]) .post-save-spinner {
+    display: none;
+}
+
+.post-edit-draft {
+    margin-top: 0.6rem;
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .post-save-spinner {
+    .post-save-spinner,
+    [data-post-save-state="saved"] .post-save-check path,
+    .post-ai-feedback .post-ai-check,
+    .post-inplace-tools[data-post-save-state="returning"] > :not(.post-save-feedback) {
         animation: none;
     }
+    .post-save-feedback { transition: none; }
 }
 
 .post-media-conflict-backdrop {
@@ -2724,7 +2775,7 @@ h2.preview,
         gap: 0.25rem;
     }
 
-    .post-card.is-editing > .post.time > .post-inplace-date-button {
+    .post-card.is-editing > .post.time > :is(.post-inplace-date-button, .post-inplace-date-now) {
         position: static;
         top: auto;
         right: auto;
@@ -2784,6 +2835,28 @@ h2.preview,
     .post-inplace-tools[data-post-save-state] {
         min-height: 2.75rem;
     }
+
+    .post-card.is-editing:is(.is-creating, .is-draft-preview) > .post.time {
+        padding-right: 0;
+    }
+
+    .post-card.is-editing:is(.is-creating, .is-draft-preview) > .post-inplace-tools {
+        display: grid;
+        grid-template-columns: repeat(3, 2.75rem);
+        margin: 0.2rem 0 0.6rem;
+        float: none;
+        justify-content: end;
+    }
+
+    .post-card.is-editing:is(.is-creating, .is-draft-preview) > .post-inplace-tools > .post-tools-overflow {
+        display: contents;
+    }
+
+    .post-card.is-editing:is(.is-creating, .is-draft-preview) .post-edit-menu { grid-area: 1 / 1; }
+    .post-card.is-editing:is(.is-creating, .is-draft-preview) .post-edit-save { grid-area: 1 / 2; }
+    .post-card.is-editing:is(.is-creating, .is-draft-preview) .post-edit-cancel { grid-area: 1 / 3; }
+    .post-card.is-editing:is(.is-creating, .is-draft-preview) .post-edit-draft { grid-area: 2 / 3; }
+    .post-card.is-editing:is(.is-creating, .is-draft-preview) .post-ai-feedback { grid-area: 2 / 1; }
 
     .post-inplace-button.post-tools-menu-toggle {
         display: grid;

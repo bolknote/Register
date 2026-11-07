@@ -175,7 +175,7 @@ export async function runRecoveryRegressions(browser, origin) {
         await page.waitForFunction(() => !document.querySelector('.post-card.is-editing'));
         assert.ok(submitted);
         assert.equal((await copies()).length, 0);
-        assert.equal(await page.locator('.post-save-label').textContent(), 'Saved');
+        assert.equal(await page.locator('.post-save-check').isVisible(), true);
         assert.equal(await page.locator('.post-inplace-status.is-editor-toast, .post-inplace-status.is-error').count(), 0);
         assert.equal(await page.locator('.post-inplace-edit-error').isVisible(), false);
         await page.unroute('**/_inplace/post/9');

@@ -175,6 +175,7 @@ class PostPageController extends BlogController
         }
 
         if ($isDraftPreview) {
+            $row['date_auto'] = $row['create_time'] === null;
             $row['create_time'] = max(1, (int)($row['create_time'] ?? $row['created_at']));
             $row['draft_preview'] = true;
         }

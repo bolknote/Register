@@ -910,6 +910,131 @@ final class PostInplaceCest
         $I->assertGreaterThan($oldId, $newId);
     }
 
+    public function savesAnInlineDraftInExistingStorageAndPublishesItAtServerTime(\IntegrationTester $I): void
+    {
+        $dbLayer = $I->grabService(DbLayer::class);
+        $I->login('author', 'author');
+        $I->amOnPage('https://localhost/');
+
+        $createToken = (string)$I->grabAttributeFrom(
+            '.site-header-shell .post-create-template input[name="inplace_token"]', 'value',
+        );
+        $create = [
+            'inplace_action' => 'create', 'inplace_token' => $createToken, 'revision' => '0',
+            'request_id' => bin2hex(random_bytes(16)), 'publication' => 'draft', 'date_mode' => 'now',
+            'title' => 'An inline server draft', 'body' => '<p>First draft text.</p>', 'tags' => 'draft-test',
+            'published_at' => '1000000000',
+        ];
+        $I->sendAjaxPostRequest('https://localhost/_inplace/post/new', $create);
+        $I->seeResponseCodeIs(Response::HTTP_OK);
+
+        $draft = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
+        $I->assertTrue($draft['draft']);
+        $I->assertFalse($draft['scheduled']);
+        $I->assertSame('now', $draft['date_mode']);
+        $I->assertStringNotContainsString('post-foot-views', $draft['foot_html']);
+
+        $id = (int)$draft['id'];
+        $stored = $this->contentRow($dbLayer, $id);
+        $I->assertSame(0, (int)$stored['published']);
+        $I->assertNull($stored['published_at']);
+        $I->assertSame(0, (int)$stored['scheduled_at']);
+        $create['published_at'] = '2000000000';
+        $I->sendAjaxPostRequest('https://localhost/_inplace/post/new', $create);
+        $I->seeResponseCodeIs(Response::HTTP_OK);
+
+        $replay = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
+        $I->assertSame($id, $replay['id']);
+        $I->assertTrue($replay['request_matched']);
+        $I->assertTrue($replay['draft']);
+
+        $edit = [
+            'inplace_action' => 'edit', 'inplace_token' => $draft['token'], 'revision' => '1',
+            'publication' => 'draft', 'date_mode' => 'now', 'published_at' => '1000000000',
+            'title' => $draft['title'], 'body' => '<p>Second draft text.</p>', 'tags' => 'draft-test',
+        ];
+        $I->sendAjaxPostRequest('https://localhost' . $draft['action_url'], $edit);
+        $I->seeResponseCodeIs(Response::HTTP_OK);
+
+        $saved = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
+        $I->assertSame(2, $saved['revision']);
+        $I->assertTrue($saved['draft']);
+        $I->assertNull($this->contentRow($dbLayer, $id)['published_at']);
+        $I->amOnPage('https://localhost' . $draft['url']);
+        $I->seeElement('.post-card.is-draft-preview[data-post-date-mode="now"]');
+        $I->logout();
+        $I->amOnPage('https://localhost' . $draft['url']);
+        $I->seeResponseCodeIs(Response::HTTP_NOT_FOUND);
+        $I->dontSee('Second draft text.');
+
+        $I->login('author', 'author');
+        $edit['revision'] = '2';
+        $I->amOnPage('https://localhost' . $draft['url']);
+        $edit['inplace_token'] = (string)$I->grabAttributeFrom('.post-card[data-post-id="' . $id . '"] > .post-inplace-edit-form input[name="inplace_token"]', 'value');
+        $edit['publication'] = 'publish';
+        $before = time();
+        $I->sendAjaxPostRequest('https://localhost' . $draft['action_url'], $edit);
+        $I->seeResponseCodeIs(Response::HTTP_OK);
+
+        $published = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
+        $I->assertFalse($published['draft']);
+        $I->assertGreaterOrEquals($before, $published['published_at']);
+        $I->assertLessOrEquals(time(), $published['published_at']);
+        $I->assertSame(1, (int)$this->contentRow($dbLayer, $id)['published']);
+        // Retry after the committed time is in the past: retain that time and revision.
+        $committedAt = $published['published_at'] - 5;
+        $dbLayer->update(ContentSchema::TABLE_NAME)->set('published_at', ':time')->setParameter('time', $committedAt)
+            ->where('id = :id')->setParameter('id', $id)->execute();
+        $I->sendAjaxPostRequest('https://localhost' . $draft['action_url'], $edit);
+        $I->seeResponseCodeIs(Response::HTTP_OK);
+
+        $retried = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
+        $I->assertSame($committedAt, $retried['published_at']);
+        $I->assertSame($published['revision'], $retried['revision']);
+        $I->logout();
+        $I->amOnPage('https://localhost' . $draft['url']);
+        $I->seeResponseCodeIs(Response::HTTP_OK);
+        $I->see('Second draft text.');
+    }
+
+    public function keepsAManualDraftDateUntilAnExplicitPublish(\IntegrationTester $I): void
+    {
+        $dbLayer = $I->grabService(DbLayer::class);
+        $I->login('author', 'author');
+        $I->amOnPage('https://localhost/');
+
+        $chosen = time() + 3600;
+        $I->sendAjaxPostRequest('https://localhost/_inplace/post/new', [
+            'inplace_action' => 'create', 'revision' => '0',
+            'inplace_token' => $I->grabAttributeFrom('.site-header-shell .post-create-template input[name="inplace_token"]', 'value'),
+            'publication' => 'draft', 'date_mode' => 'fixed', 'published_at' => (string)$chosen,
+            'title' => 'A manually dated draft', 'body' => '<p>Keep this private.</p>', 'tags' => '',
+        ]);
+        $I->seeResponseCodeIs(Response::HTTP_OK);
+
+        $draft = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
+        $I->assertTrue($draft['draft']);
+        $I->assertFalse($draft['scheduled']);
+        $I->assertSame($chosen, (int)$this->contentRow($dbLayer, $draft['id'])['published_at']);
+        $I->amOnPage('https://localhost' . $draft['url']);
+        $I->seeElement('.post-card.is-draft-preview[data-post-date-mode="fixed"]');
+        $I->sendAjaxPostRequest('https://localhost' . $draft['action_url'], [
+            'inplace_action' => 'edit', 'inplace_token' => $draft['token'], 'revision' => '1',
+            'publication' => 'publish', 'date_mode' => 'fixed', 'published_at' => (string)$chosen,
+            'title' => $draft['title'], 'body' => '<p>Keep this private.</p>', 'tags' => '',
+        ]);
+        $I->seeResponseCodeIs(Response::HTTP_OK);
+
+        $scheduled = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
+        $I->assertFalse($scheduled['draft']);
+        $I->assertTrue($scheduled['scheduled']);
+
+        $row = $this->contentRow($dbLayer, $draft['id']);
+        $I->assertSame(0, (int)$row['published']);
+        $I->assertSame($chosen, (int)$row['scheduled_at']);
+        $I->assertNull($row['published_at']);
+    }
+
     public function schedulesAFuturePostAndLetsItsAuthorPublishItImmediately(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */

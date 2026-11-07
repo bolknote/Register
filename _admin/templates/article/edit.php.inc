@@ -187,6 +187,7 @@ $editorConfig = [
         'url'              => $basePath . '/_admin/ajax.php?action=register_ai_generate',
         'contentId'        => isset($primaryKey['id']) ? (int)$primaryKey['id'] : 0,
         'working'          => $trans('AI working'),
+        'applied'          => $trans('AI changes applied'),
         'requestFailed'    => $trans('AI request failed'),
         'networkError'     => $trans('AI network error'),
         'timeout'          => $trans('AI timeout'),

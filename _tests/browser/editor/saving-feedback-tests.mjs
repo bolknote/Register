@@ -45,7 +45,7 @@ export async function runSavingFeedbackRegressions(browser, origin) {
                 const initial = await requests.next();
                 const firstData = await formData(initial);
                 await page.waitForFunction(() => document.querySelector('[data-post-save-state="saving"]'));
-                assert.equal(await tools.locator('.post-save-label').textContent(), 'Saving…');
+                assert.equal(await tools.locator('.post-save-label').count(), 0, 'Saving uses an icon without a visible caption');
                 assert.equal(await tools.locator('.post-save-spinner').isVisible(), true);
                 assert.equal(await card.locator('.post-edit-save').isVisible(), false, 'Saving replaces the tools instead of dimming their icons');
                 assert.equal(await card.evaluate(card => card.inert), true);
@@ -80,7 +80,7 @@ export async function runSavingFeedbackRegressions(browser, origin) {
                 }
                 await success.fulfill({json: saved(data, creating)});
                 await page.waitForFunction(() => document.querySelector('[data-post-save-state="saved"]'));
-                assert.equal(await tools.locator('.post-save-label').textContent(), 'Saved');
+                assert.equal(await tools.locator('.post-save-label').count(), 0, 'Success uses the animated green check');
                 assert.equal(await tools.locator('.post-save-spinner').isVisible(), false);
                 assert.equal(await tools.locator('.post-save-check').isVisible(), true);
                 const savedCard = page.locator(`.post-card[data-post-id="${creating ? 10 : 9}"]`);

@@ -91,7 +91,7 @@
             const suggestionList = document.createElement('span');
             const suggestionListId = `post-tag-suggestions-${++tagEditorSequence}`;
             let tags = normalizeTags(state.originalTags) || [];
-            const originalTags = [...tags];
+            let originalTags = [...tags];
             let suggestions = [];
             let matches = [];
             let activeIndex = -1;
@@ -391,6 +391,7 @@
                     || tags.length !== originalTags.length
                     || tags.some((tag, index) => tag !== originalTags[index]),
                 sync: () => commit() ? [...tags] : null,
+                markSaved: () => { originalTags = [...tags]; },
                 snapshot: () => [...tags, input.value].filter(Boolean).join(', '),
                 restore: value => {
                     const parsed = normalizeTags(value);

@@ -4160,6 +4160,65 @@ section.large-edit-form form {
     color: var(--admin-error-color);
 }
 
+.ai-tools-status-icon {
+    display: inline-grid;
+    width: 1.5rem;
+    height: 1.5rem;
+    place-items: center;
+    color: var(--admin-success-color, #438960);
+}
+
+.ai-tools-status-icon svg {
+    width: 100%;
+    height: 100%;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.ai-tools-spinner {
+    box-sizing: border-box;
+    width: 1.25rem;
+    height: 1.25rem;
+    border: 2px solid color-mix(in srgb, currentColor 22%, transparent);
+    border-top-color: var(--admin-secondary-text-color);
+    border-radius: 50%;
+    animation: ai-tools-spin 900ms linear infinite;
+}
+
+.ai-tools-status-icon[data-phase="working"] svg,
+.ai-tools-status-icon:not([data-phase="working"]) .ai-tools-spinner {
+    display: none;
+}
+
+.ai-tools-check {
+    stroke-dasharray: 1;
+    animation: ai-tools-check-draw 280ms ease-out both;
+}
+
+.ai-tools-status-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+}
+
+@keyframes ai-tools-spin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes ai-tools-check-draw {
+    from { stroke-dashoffset: 1; }
+    to { stroke-dashoffset: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ai-tools-spinner, .ai-tools-check { animation: none; }
+}
+
 .ai-setup-note {
     margin: 0.3rem 0 0;
     color: var(--admin-secondary-text-color);

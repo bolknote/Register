@@ -47,6 +47,7 @@ $analyticsSection = (string)($tagNames[0] ?? '');
 <article
     class="post-card<?php echo $inplaceData !== null ? ' is-manageable' : ''; ?><?php echo $isCreating ? ' is-creating' : ''; ?><?php echo $isScheduledPreview ? ' is-scheduled-preview' : ''; ?><?php echo $isDraftPreview ? ' is-draft-preview' : ''; ?>"
     data-post-id="<?php echo $postId; ?>"
+    data-post-date-mode="<?php echo $isCreating || !empty($date_auto) ? 'now' : 'fixed'; ?>"
 <?php if ($heading === 'h1' && !$isCreating && !$isPrivatePreview): ?>
     data-analytics-content-type="post"
     data-analytics-content-id="<?php echo $postId; ?>"
@@ -134,6 +135,9 @@ $analyticsSection = (string)($tagNames[0] ?? '');
         </svg>
     </button>
     <input class="post-inplace-datetime" type="datetime-local" step="1" tabindex="-1" aria-label="<?php echo register_htmlencode($trans('Post publication date')); ?>" hidden>
+    <button class="post-inplace-date-now" type="button" title="<?php echo register_htmlencode($trans('Use current publication time')); ?>" aria-label="<?php echo register_htmlencode($trans('Use current publication time')); ?>" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/></svg>
+    </button>
 <?php endif; ?>
 </div>
 <?php if ($inplaceData !== null): ?>
@@ -175,6 +179,9 @@ $analyticsSection = (string)($tagNames[0] ?? '');
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path d="m7 7 10 10M17 7 7 17" />
         </svg>
+    </button>
+    <button class="post-inplace-button post-edit-draft" type="button" title="<?php echo register_htmlencode($trans('Save post draft')); ?>" aria-label="<?php echo register_htmlencode($trans('Save post draft')); ?>" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 3h8l4 4v14H6ZM14 3v5h4M9 12h6M9 16h6"/></svg>
     </button>
 </nav>
 <?php endif; ?>

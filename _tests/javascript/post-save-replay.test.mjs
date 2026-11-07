@@ -15,11 +15,12 @@ const lifecycle = ['beginEdit', 'syncEditor', 'updateEditedCard', 'updateCreated
 function editor() {
     class HTMLElement {
         constructor() {
+            this.id = '';
             this.dataset = {};
             this.attributes = new Map();
             this.innerHTML = '';
             this.textContent = '';
-            this.classList = {add() {}, remove() {}, toggle() {}};
+            this.classList = {add() {}, remove() {}, toggle() {}, contains() { return false; }};
         }
         querySelector() { return null; }
         querySelectorAll() { return []; }
@@ -50,7 +51,7 @@ function editor() {
     const title = new HTMLElement();
     title.closest = () => permalink;
     const elements = {
-        form: {elements: {namedItem: name => fields[name]}, action: '/_inplace/post/new'},
+        form: {id: '', elements: {namedItem: name => fields[name]}, action: '/_inplace/post/new'},
         title, body: new HTMLElement(), tags: new HTMLElement(), tagsHost: new HTMLElement(),
         foot: new HTMLElement(), titleField: fields.title, bodyField: fields.body, tagsField: fields.tags,
         publishedAtField: fields.published_at, uploadedMediaField: fields.uploaded_media_ids,
@@ -66,7 +67,7 @@ function editor() {
         HTMLElement, HTMLInputElement, HTMLTextAreaElement, HTMLTimeElement, HTMLAnchorElement, HTMLFormElement,
         AbortController, editorStates, cardFor: () => card, editorElements: () => elements,
         editorConfig: () => ({}), closeOtherCards: () => true, closeConfirmation: noop,
-        showPostSaveFeedback: noop, postSaveAnnouncement: noop,
+        showPostSaveFeedback: noop, postSaveAnnouncement: noop, updateDateClock: noop, setInterval: noop,
         clearError: noop, clearStatus: noop, destroyWidgets: noop, enhanceWidgets: noop,
         createFootHeightSpacer: () => new HTMLElement(), detachEditableBodyStyles: noop,
         restoreTypographicNoBreaks: noop, prepareEditableMedia: noop, setEditable: noop,

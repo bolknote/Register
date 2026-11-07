@@ -5,6 +5,7 @@
     const editorConfigs = new WeakMap();
     const editorStatusTimers = new WeakMap();
     const postSaveFeedback = new WeakMap();
+    const postAiFeedback = new WeakMap();
     let postSaveAnnouncementOwner = null;
     const emptyEditorConfig = Object.freeze({});
     const recoverySessions = new Set();
@@ -104,7 +105,7 @@
     });
 
     const {postRecoveryStore, recoverySnapshot, startPostRecovery, restorePostRecovery, refreshPostRecoveryOffers} = window.RegisterEditorRecovery.create({
-        beginCreate, beginEdit, clearStatus, closeEditor, editableBodyHtml, editorConfig, editorTemplate, focusEdge, prepareEditableMedia, showEditorStatus, editorStates, recoverySessions,
+        beginCreate, beginEdit, clearStatus, closeEditor, editableBodyHtml, editorConfig, editorTemplate, focusEdge, prepareEditableMedia, showEditorStatus, updateDateClock, editorStates, recoverySessions,
     });
 
     // The page owns one config and template set, including after partial navigation.
@@ -382,7 +383,7 @@
             feedback?.element.remove();
             delete tools.dataset.postSaveState;
             postSaveFeedback.delete(card);
-            if (announcement && postSaveAnnouncementOwner === card) {
+            if (announcement && postSaveAnnouncementOwner === feedback?.element) {
                 announcement.textContent = '';
                 postSaveAnnouncementOwner = null;
             }
@@ -393,8 +394,7 @@
             element.className = 'post-save-feedback';
             element.setAttribute('aria-hidden', 'true');
             element.innerHTML = '<span class="post-save-spinner"></span>'
-                + '<svg class="post-save-check" viewBox="0 0 24 24"><path d="m5 12.2 4.2 4.2L19 6.8"/></svg>'
-                + '<span class="post-save-label"></span>';
+                + '<svg class="post-save-check" viewBox="0 0 24 24"><path pathLength="1" d="m5 12.2 4.2 4.2L19 6.8"/></svg>';
             tools.append(element);
             feedback = {element, timer: null};
             postSaveFeedback.set(card, feedback);
@@ -402,26 +402,61 @@
         const message = phase === 'saving'
             ? editorConfig().saveWorking || 'Saving…'
             : editorConfig().saveDone || 'Saved';
-        feedback.element.querySelector('.post-save-label').textContent = message;
         tools.dataset.postSaveState = phase;
         if (phase === 'saving') {
             // The editing card is inert while submitting. Announce progress
             // outside that subtree so assistive technology can still hear it.
             const live = postSaveAnnouncement();
             live.textContent = message;
-            postSaveAnnouncementOwner = card;
+            postSaveAnnouncementOwner = feedback.element;
         } else {
             clearStatus(card);
             const live = postSaveAnnouncement();
             live.textContent = message;
-            postSaveAnnouncementOwner = card;
+            postSaveAnnouncementOwner = feedback.element;
             feedback.timer = setTimeout(() => {
-                showPostSaveFeedback(card);
-                if (card.isConnected && !editorStates.has(card) && document.activeElement === document.body) {
-                    postToolsFocusTarget(card, '.post-edit-start')?.focus({preventScroll: true});
-                }
-            }, 1000);
+                tools.dataset.postSaveState = 'returning';
+                feedback.timer = setTimeout(() => {
+                    showPostSaveFeedback(card);
+                    if (card.isConnected && !editorStates.has(card) && document.activeElement === document.body) {
+                        postToolsFocusTarget(card, '.post-edit-start')?.focus({preventScroll: true});
+                    }
+                }, 180);
+            }, 700);
         }
+    }
+
+    function showAiFeedback(state, phase = null, message = '') {
+        let feedback = postAiFeedback.get(state.card);
+        if (feedback) clearTimeout(feedback.timer);
+        if (!phase || !state.card.isConnected) {
+            feedback?.element.remove();
+            if (postSaveAnnouncementOwner === feedback?.element) {
+                postSaveAnnouncement().textContent = '';
+                postSaveAnnouncementOwner = null;
+            }
+            postAiFeedback.delete(state.card);
+            return;
+        }
+        const tools = state.card.querySelector(':scope > .post-inplace-tools');
+        if (!tools) return;
+        if (phase === 'working') clearStatus(state.card);
+        if (!feedback) {
+            const element = document.createElement('span');
+            element.className = 'post-ai-feedback';
+            element.setAttribute('role', 'img');
+            element.innerHTML = '<span class="post-save-spinner"></span>'
+                + '<svg class="post-ai-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 3 1.5 4.5L14 9l-4.5 1.5L8 15l-1.5-4.5L2 9l4.5-1.5Z"/><path class="post-ai-check" pathLength="1" d="m11 17 3 3 8-9"/></svg>';
+            tools.insertBefore(element, tools.querySelector('.post-edit-draft'));
+            feedback = {element, timer: null};
+            postAiFeedback.set(state.card, feedback);
+        }
+        feedback.element.dataset.aiState = phase;
+        feedback.element.title = message;
+        feedback.element.setAttribute('aria-label', message);
+        postSaveAnnouncement().textContent = message;
+        postSaveAnnouncementOwner = feedback.element;
+        if (phase !== 'working') feedback.timer = setTimeout(() => showAiFeedback(state), 900);
     }
 
     function closePostToolsMenu(tools, restoreFocus = false) {
@@ -468,6 +503,17 @@
         tools.querySelector('.post-edit-save')?.toggleAttribute('hidden', !editing);
         tools.querySelector('.post-edit-cancel')?.toggleAttribute('hidden', !editing);
         tools.querySelector('.post-edit-menu')?.toggleAttribute('hidden', !editing);
+        tools.querySelector('.post-edit-draft')?.toggleAttribute('hidden', !editing
+            || !(card.hasAttribute('data-post-creating') || card.classList.contains('is-draft-preview')));
+        const save = tools.querySelector('.post-edit-save');
+        if (save && editorConfig().publishLabel) {
+            save.dataset.saveLabel ||= save.getAttribute('aria-label') || save.dataset.shortcutTitle || save.title || save.textContent.trim();
+            const label = card.hasAttribute('data-post-creating') || card.classList.contains('is-draft-preview')
+                ? editorConfig().publishLabel : save.dataset.saveLabel;
+            save.dataset.shortcutTitle = label;
+            save.title = label + ' — ' + editorShortcuts.save[0];
+            save.setAttribute('aria-label', label);
+        }
     }
 
     function localDateTimeValue(timestamp) {
@@ -501,9 +547,23 @@
     }
 
     function editorPublishedAt(state) {
-        return state.dateDirty
+        return state.autoDate ? Math.floor(Date.now() / 1000) : state.dateDirty
             ? Math.floor(new Date(state.dateInput.value).getTime() / 1000)
             : state.originalPublishedAt;
+    }
+
+    function updateDateClock(state) {
+        const reset = state.card.querySelector('.post-inplace-date-now');
+        if (reset) reset.hidden = !state.floatingDate || state.autoDate;
+        if (!state.autoDate) return;
+        const now = Math.floor(Date.now() / 1000);
+        if (document.activeElement !== state.dateInput) {
+            state.dateInput.value = localDateTimeValue(now);
+            state.lastClockValue = state.dateInput.value;
+        }
+        const date = new Date(now * 1000);
+        state.time.dateTime = date.toISOString();
+        state.time.textContent = dateTimeText(date, state.time.dataset.locale || document.documentElement.lang);
     }
 
     function imageOptimizerFrame() {
@@ -1107,7 +1167,7 @@
             || editableBodyHtml(state) !== state.originalEditableBodyHtml
             || state.tagEditor.hasChanges()
             || (state.slugField && state.slugField.value !== state.originalSlug)
-            || state.dateInput.value !== state.originalDateInputValue;
+            || (!state.autoDate && state.dateInput.value !== state.originalDateInputValue);
     }
 
     function closeDiscardChangesDialog(state, restoreFocus) {
@@ -1198,6 +1258,8 @@
     }
 
     function stopEditing(state) {
+        clearInterval(state.dateClockTimer);
+        showAiFeedback(state);
         if (pendingMediaClipboard?.state === state) pendingMediaClipboard = null;
         if (activeMediaDrag?.state === state) activeMediaDrag = null;
         state.recovery?.stop();
@@ -1227,6 +1289,7 @@
         clearAiChangeMarks(state.body);
         state.dateInput.hidden = true;
         state.dateButton.hidden = true;
+        state.card.querySelector('.post-inplace-date-now')?.setAttribute('hidden', '');
         unsetEditable(state.title);
         unsetEditable(state.body);
         restoreEditableBodyStyles(state);
@@ -1424,6 +1487,8 @@
             bodyDirty: false,
             tagsDirty: false,
             dateDirty: false,
+            floatingDate: card.hasAttribute('data-post-creating') || card.classList.contains('is-draft-preview'),
+            autoDate: card.hasAttribute('data-post-creating') || card.dataset.postDateMode === 'now',
             creating: card.hasAttribute('data-post-creating'),
             requestId: card.hasAttribute('data-post-creating') ? window.RegisterEditorStorage.recordId() : null,
             mediaUploads: new Set(),
@@ -1470,6 +1535,8 @@
         elements.dateButton.hidden = false;
         state.tagEditor = createTagEditor(state);
         editorStates.set(card, state);
+        updateDateClock(state);
+        if (state.floatingDate) state.dateClockTimer = setInterval(() => updateDateClock(state), 1000);
         if (state.creating) {
             let operation = state.form.elements.namedItem('request_id');
             if (!operation) {
@@ -2893,6 +2960,18 @@
     }
 
     function updateScheduledPreview(card, time, payload) {
+        card.classList.toggle('is-draft-preview', payload.draft === true);
+        card.dataset.postDateMode = payload.date_mode || 'fixed';
+        let draftNotice = card.querySelector(':scope > .post-draft-notice');
+        if (payload.draft === true) {
+            if (!draftNotice) {
+                draftNotice = document.createElement('p');
+                draftNotice.className = 'post-draft-notice';
+                draftNotice.setAttribute('role', 'status');
+                card.querySelector(':scope > .post.author, :scope > .post.head')?.before(draftNotice);
+            }
+            draftNotice.textContent = editorConfig().draftNotice || 'Private draft preview';
+        } else draftNotice?.remove();
         card.classList.toggle('is-scheduled-preview', payload.scheduled);
         let notice = card.querySelector(':scope > .post-scheduled-notice');
         if (!payload.scheduled) {
@@ -2914,8 +2993,73 @@
         notice.textContent = payload.schedule_message;
     }
 
-    function updateEditedCard(card, form, payload, forceLiveRefresh = false) {
+    function acceptDraftSave(state, payload, replacementFooter) {
+        state.recovery?.stop(true);
+        const wasCreating = state.creating;
+        state.creating = false;
+        state.floatingDate = true;
+        state.autoDate = payload.date_mode === 'now';
+        state.originalPublishedAt = payload.published_at;
+        state.dateInput.value = localDateTimeValue(payload.published_at);
+        state.originalDateInputValue = state.dateInput.value;
+        state.originalTimeDateTime = payload.datetime;
+        state.originalTimeText = payload.time;
+        state.originalTitle = payload.title;
+        state.originalTitleHtml = state.title.innerHTML;
+        state.originalTitleText = state.title.textContent || '';
+        state.originalBody = typeof payload.body === 'string' ? payload.body : state.bodyField.value;
+        state.originalEditableBodyHtml = editableBodyHtml(state);
+        state.originalTags = payload.tags.map(tag => tag.name).join(', ');
+        const links = document.createElement('span');
+        payload.tags.forEach(tag => {
+            const link = document.createElement('a');
+            link.className = 'post-tag-link';
+            link.href = tag.url;
+            link.textContent = tag.name;
+            links.append(link);
+        });
+        state.originalTagsHtml = links.innerHTML;
+        state.tagEditor.markSaved?.();
+        state.titleDirty = state.bodyDirty = state.tagsDirty = state.dateDirty = false;
+        for (const [name, value] of [['title', state.originalTitle], ['body', state.originalBody],
+            ['tags', state.originalTags], ['published_at', String(payload.published_at)], ['uploaded_media_ids', '']]) {
+            const field = state.form.elements.namedItem(name);
+            if (field) field.value = field.defaultValue = value;
+        }
+        if (typeof payload.slug === 'string') {
+            if (!state.slugField) {
+                state.slugField = document.createElement('input');
+                state.slugField.type = 'hidden';
+                state.slugField.name = 'slug';
+                state.form.append(state.slugField);
+            }
+            state.slugField.value = state.slugField.defaultValue = state.originalSlug = payload.slug;
+        }
+        state.card.querySelectorAll('input[name="revision"]').forEach(field => {
+            field.value = field.defaultValue = String(payload.revision);
+        });
+        if (payload.url) state.titleLinkHref = payload.url;
+        if (replacementFooter) {
+            replacementFooter.querySelector('.post-foot-tags')?.replaceWith(state.tagsHost);
+            state.foot.replaceWith(replacementFooter);
+            state.foot = replacementFooter;
+            state.foot.append(state.footSpacer);
+        } else if (wasCreating) state.foot.append(state.footSpacer);
+        state.uploadedMediaIds.clear();
+        state.recoveryMediaIds.clear();
+        updateScheduledPreview(state.card, state.time, payload);
+        updateDateClock(state);
+        toggleEditingTools(state.card, true);
+        startPostRecovery(state);
+        acknowledgeLiveMutation(payload);
+        refreshPostRecoveryOffers();
+    }
+
+    function updateEditedCard(card, form, payload, forceLiveRefresh = false, keepEditing = false) {
         const state = editorStates.get(card);
+        const wasDraft = card.classList.contains('is-draft-preview');
+        const publishingPreview = (wasDraft || card.classList.contains('is-scheduled-preview'))
+            && payload.draft === false && payload.scheduled === false && !card.closest('.live-post-feed');
         const title = state?.title || card.querySelector(':scope > .post.head [data-post-inplace-title]');
         const currentBody = state?.body || card.querySelector(':scope > .post.body[data-post-inplace-body]');
         const tagValues = state?.tags || card.querySelector(':scope > .post.foot [data-post-inplace-tags-values]');
@@ -2950,6 +3094,10 @@
         ) {
             throw new Error(editorConfig().applyError || 'Unable to apply the updated post.');
         }
+        if (state && keepEditing && payload.draft === true) {
+            acceptDraftSave(state, payload, replacementFooter);
+            return;
+        }
 
         // Fragment insertion leaves scripts inert, and the current document's
         // CSP may not authorize newly added inline scripts or styles. A full
@@ -2958,7 +3106,7 @@
         const previousBody = document.createElement('template');
         previousBody.innerHTML = state?.originalBody || '';
         // Removing a program's DOM does not remove its global listeners/timers.
-        const requiresDocumentLoad = replacementBody.querySelector('script, style') !== null
+        const requiresDocumentLoad = publishingPreview || replacementBody.querySelector('script, style') !== null
             || previousBody.content.querySelector('script, style') !== null;
 
         if (state) {
@@ -3052,11 +3200,12 @@
             // Stop pending fragment requests before leaving this document;
             // there is no need to request a live patch before a full load.
             dispatch('register:navigation-will-update', card);
-            if (payload.url_changed === true && typeof payload.url === 'string') {
-                window.location.assign(payload.url);
-            } else {
-                window.location.reload();
-            }
+            const load = () => {
+                if (payload.url_changed === true && typeof payload.url === 'string') window.location.assign(payload.url);
+                else window.location.reload();
+            };
+            if (publishingPreview) setTimeout(load, 700);
+            else load();
             return;
         }
         // Editing an existing card is fully represented by the local DOM update,
@@ -3065,7 +3214,7 @@
         // pagination), which the temporary editor card cannot reproduce. Let the
         // authoritative feed patch run after a create instead of acknowledging it
         // as already applied.
-        const acknowledged = !forceLiveRefresh && acknowledgeLiveMutation(payload);
+        const acknowledged = !forceLiveRefresh && !wasDraft && acknowledgeLiveMutation(payload);
         unlock();
         if (!acknowledged) {
             refresh();
@@ -3076,7 +3225,7 @@
         }
     }
 
-    function updateCreatedCard(card, form, payload) {
+    function updateCreatedCard(card, form, payload, keepEditing = false) {
         if (
             !Number.isInteger(payload.id)
             || payload.id <= 0
@@ -3088,6 +3237,20 @@
         }
 
         card.dataset.postId = String(payload.id);
+        if (form.id.startsWith('post-inplace-edit-')) form.id = 'post-inplace-edit-' + payload.id;
+        const menu = card.querySelector('.post-tools-overflow');
+        if (menu?.id.startsWith('post-tools-menu-')) {
+            menu.id = 'post-tools-menu-' + payload.id;
+            card.querySelector('.post-tools-menu-toggle')?.setAttribute('aria-controls', menu.id);
+        }
+        const dialog = card.querySelector(':scope > .post-delete-confirmation');
+        for (const [attribute, prefix] of [['aria-labelledby', 'post-delete-title-'], ['aria-describedby', 'post-delete-description-']]) {
+            const element = dialog?.querySelector(`[id^="${prefix}"]`);
+            if (element) {
+                element.id = prefix + payload.id;
+                dialog.setAttribute(attribute, element.id);
+            }
+        }
         card.removeAttribute('data-post-creating');
         card.classList.remove('is-creating');
         form.action = payload.action_url;
@@ -3111,9 +3274,9 @@
                 deleteToken.defaultValue = payload.token;
             }
         }
-        updateEditedCard(card, form, payload, true);
+        updateEditedCard(card, form, payload, true, keepEditing);
         const titleLink = card.querySelector(':scope > .post.head > a');
-        if (titleLink instanceof HTMLAnchorElement) {
+        if (titleLink instanceof HTMLAnchorElement && !editorStates.has(card)) {
             titleLink.href = payload.url;
         }
     }
@@ -3163,7 +3326,7 @@
         notice.focus();
     }
 
-    async function submit(form) {
+    async function submit(form, publication = null) {
         const card = cardFor(form);
         if (!card) {
             return;
@@ -3178,6 +3341,7 @@
         }
         if (state) {
             state.submitting = true;
+            showAiFeedback(state);
             state.aiController?.abort();
             state.aiController = null;
             state.card.classList.remove('is-ai-working');
@@ -3243,7 +3407,8 @@
                     return;
                 }
                 const slugChanged = state.slugField && state.slugField.value !== state.originalSlug;
-                if (!state.creating && !state.titleDirty && !state.bodyDirty && !state.tagsDirty && !state.dateDirty && !slugChanged) {
+                if (!state.creating && !state.titleDirty && !state.bodyDirty && !state.tagsDirty && !state.dateDirty && !slugChanged
+                    && !card.classList.contains('is-draft-preview')) {
                     closeEditor(card, true);
                     return;
                 }
@@ -3254,6 +3419,8 @@
             state?.recovery?.persist();
             const formData = new FormData(form);
             if (state) {
+                formData.set('date_mode', state.autoDate ? 'now' : 'fixed');
+                if (state.floatingDate) formData.set('publication', publication || 'publish');
                 const body = parseBody('<div data-post-inplace-body>' + state.bodyField.value + '</div>');
                 formData.set('legacy_media_ids', legacyMediaIds(body).join(','));
             }
@@ -3273,12 +3440,12 @@
 
             setBusy(false);
             if (payload.action === 'edit') {
-                updateEditedCard(card, form, payload);
+                updateEditedCard(card, form, payload, false, publication === 'draft');
                 saved = true;
             } else if (payload.action === 'create') {
                 const laterDraft = payload.replayed && payload.request_matched === false && state
                     ? recoverySnapshot(state) : null;
-                updateCreatedCard(card, form, payload);
+                updateCreatedCard(card, form, payload, publication === 'draft' && !laterDraft);
                 saved = true;
                 if (laterDraft) {
                     beginEdit(card.querySelector('.post-edit-start'));
@@ -3304,7 +3471,7 @@
             }
             if (card.isConnected) {
                 setBusy(false);
-                if (state) showPostSaveFeedback(card, saved && !editorStates.has(card) ? 'saved' : null);
+                if (state) showPostSaveFeedback(card, saved ? 'saved' : null);
                 if (editorStates.get(card) === state && document.activeElement === document.body
                     && focusBeforeSave instanceof HTMLElement && focusBeforeSave.isConnected) {
                     focusBeforeSave.focus({preventScroll: true});
@@ -4297,13 +4464,14 @@
             return;
         }
         if (state.aiAltStatusPending > 0) {
-            showEditorStatus(
-                state,
+            showAiFeedback(
+                state, 'working',
                 editorConfig().aiAltWorking || 'AI is creating alt text…',
             );
             return;
         }
         if (hasFailedMissingImageAlt(state)) {
+            showAiFeedback(state);
             showEditorStatus(
                 state,
                 editorConfig().aiAltFailed || 'Unable to create alt text. Add it manually or try again.',
@@ -4312,8 +4480,8 @@
             return;
         }
         if (applied) {
-            showEditorStatus(
-                state,
+            showAiFeedback(
+                state, 'applied',
                 editorConfig().aiAltApplied || 'AI added alt text.',
             );
         }
@@ -5254,7 +5422,7 @@
         const controller = new AbortController();
         state.aiController = controller;
         state.card.classList.add('is-ai-working');
-        showEditorStatus(state, editorConfig().aiWorking || 'AI is processing the text…');
+        showAiFeedback(state, 'working', editorConfig().aiWorking || 'AI is processing the text…');
 
         const token = state.form.elements.namedItem('inplace_token');
         const data = new FormData();
@@ -5317,8 +5485,8 @@
             }
 
             if (payload.result === source && !['tags', 'title'].includes(action)) {
-                showEditorStatus(
-                    state,
+                showAiFeedback(
+                    state, 'clean',
                     action === 'proofread'
                         ? (editorConfig().aiProofreadClean || 'No errors found.')
                         : (editorConfig().aiUnchanged || 'AI did not change the text.'),
@@ -5371,10 +5539,11 @@
             }
 
             clearError(state.form);
-            showEditorStatus(state, editorConfig().aiApplied || 'AI changes applied.');
+            showAiFeedback(state, 'applied', editorConfig().aiApplied || 'AI changes applied.');
             generateMissingImageAlts(state);
         } catch (error) {
             if (!(error instanceof DOMException && error.name === 'AbortError')) {
+                showAiFeedback(state);
                 showEditorStatus(
                     state,
                     error instanceof Error
@@ -5387,6 +5556,8 @@
             if (state.aiController === controller) {
                 state.aiController = null;
                 state.card.classList.remove('is-ai-working');
+                if (state.aiAltStatusPending === 0
+                    && postAiFeedback.get(state.card)?.element.dataset.aiState === 'working') showAiFeedback(state);
             }
         }
     }
@@ -6085,12 +6256,25 @@
             const state = dateCard ? editorStates.get(dateCard) : null;
             if (state) {
                 event.preventDefault();
+                state.dateInput.focus({preventScroll: true});
                 try {
                     state.dateInput.showPicker();
                 } catch (_error) {
                     state.dateInput.focus({preventScroll: true});
                     state.dateInput.click();
                 }
+            }
+            return;
+        }
+
+        const dateNow = target?.closest('.post-inplace-date-now');
+        if (dateNow) {
+            const state = editorStates.get(cardFor(dateNow));
+            if (state?.floatingDate) {
+                state.autoDate = true;
+                state.dateDirty = true;
+                updateDateClock(state);
+                state.card.dispatchEvent(new Event('change', {bubbles: true}));
             }
             return;
         }
@@ -6102,6 +6286,13 @@
             if (state) {
                 submit(state.form);
             }
+            return;
+        }
+
+        const draftSave = target?.closest('.post-edit-draft');
+        if (draftSave) {
+            const state = editorStates.get(cardFor(draftSave));
+            if (state?.floatingDate) submit(state.form, 'draft');
             return;
         }
 
@@ -6318,8 +6509,12 @@
             state.history?.record(event.inputType);
         }
         if (event.target === state.dateInput) {
+            // Firefox can emit input when committing an unchanged picker value.
+            if (state.autoDate && state.dateInput.value === state.lastClockValue) return;
             state.dateDirty = true;
+            state.autoDate = false;
             updateDatePreview(state);
+            updateDateClock(state);
         }
         clearError(card.querySelector(':scope > .post-inplace-edit-form'));
         clearStatus(card);

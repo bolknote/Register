@@ -2,7 +2,7 @@
 (() => {
     'use strict';
 
-    function create({beginCreate, beginEdit, clearStatus, closeEditor, editableBodyHtml, editorConfig, editorTemplate, focusEdge, prepareEditableMedia, showEditorStatus, editorStates, recoverySessions}) {
+    function create({beginCreate, beginEdit, clearStatus, closeEditor, editableBodyHtml, editorConfig, editorTemplate, focusEdge, prepareEditableMedia, showEditorStatus, updateDateClock, editorStates, recoverySessions}) {
         let discardConfirmation = null;
 
         function closeDiscardConfirmation(restoreFocus) {
@@ -80,7 +80,8 @@
                 title: state.title.textContent || '',
                 body: editableBodyHtml({...state, body}),
                 tags: state.tagEditor.snapshot(),
-                date: state.dateInput.value,
+                date: state.autoDate ? '' : state.dateInput.value,
+                autoDate: state.autoDate === true,
                 slug: state.form.elements.namedItem('slug')?.value || '',
                 slugChanged: Boolean(state.slugField && state.slugField.value !== state.originalSlug),
                 mediaIds: Array.from(state.uploadedMediaIds),
@@ -193,7 +194,9 @@
             prepareEditableMedia(state.body);
             state.htmlBlocks?.prepare();
             state.tagEditor.restore(snapshot.tags);
-            state.dateInput.value = snapshot.date;
+            state.autoDate = state.floatingDate && snapshot.autoDate === true;
+            if (!state.autoDate && snapshot.autoDate !== true) state.dateInput.value = snapshot.date;
+            updateDateClock?.(state);
             const slug = state.form.elements.namedItem('slug');
             if (slug && snapshot.slugChanged) slug.value = snapshot.slug;
             state.uploadedMediaIds = new Set(snapshot.mediaIds);

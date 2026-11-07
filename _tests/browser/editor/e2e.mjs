@@ -8,6 +8,7 @@ import {fileURLToPath} from 'node:url';
 import {createServer} from 'node:net';
 import {assertToolsStayAttached} from './tool-layout-tests.mjs';
 import {runGifPostWorkflow} from './gif-upload-tests.mjs';
+import {runDraftPostWorkflow} from './draft-workflow.mjs';
 
 const directory = dirname(fileURLToPath(import.meta.url));
 const sourceRoot = resolve(directory, '../../..');
@@ -531,6 +532,11 @@ try {
             for (const text of ['Text before the animated image.', 'Animated caption.', 'Text after the animated image.']) {
                 assert.ok(gifBody.includes(text), 'The stored GIF post preserves ' + text);
             }
+
+            const draftPage = await context.newPage();
+            draftPage.setDefaultTimeout(15000);
+            try { await runDraftPostWorkflow(draftPage, origin); }
+            finally { await draftPage.close(); }
 
             const editUrl = `${origin}/_admin/index.php?entity=Article&action=edit&id=${pageId}`;
             await page.goto(editUrl);

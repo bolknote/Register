@@ -12,6 +12,7 @@
                     && snapshot && typeof snapshot.title === 'string'
                     && typeof snapshot.body === 'string' && typeof snapshot.tags === 'string'
                     && typeof snapshot.date === 'string' && typeof snapshot.slug === 'string'
+                    && (snapshot.autoDate === undefined || typeof snapshot.autoDate === 'boolean')
                     && (snapshot.requestId === undefined || /^[a-zA-Z0-9_-]{16,80}$/u.test(snapshot.requestId))
                     && Array.isArray(snapshot.mediaIds) && snapshot.mediaIds.length <= 1000
                     && snapshot.mediaIds.every(id => Number.isSafeInteger(id) && id > 0);

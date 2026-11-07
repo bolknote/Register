@@ -18,6 +18,7 @@ export function initAiTools(form, config) {
     }
 
     let activeController = null;
+    let statusTimer;
     const requestFailed = config.requestFailed || 'Unable to generate text. Please try again.';
 
     function setBusy(busy) {
@@ -27,9 +28,25 @@ export function initAiTools(form, config) {
         });
     }
 
-    function setStatus(message, error) {
-        status.textContent = message || '';
+    function setStatus(message, error, phase = null) {
+        clearTimeout(statusTimer);
+        status.replaceChildren();
         status.classList.toggle('is-error', !!error);
+        if (!phase) {
+            status.textContent = message || '';
+            return;
+        }
+        const icon = document.createElement('span');
+        icon.className = 'ai-tools-status-icon';
+        icon.dataset.phase = phase;
+        icon.title = message;
+        icon.setAttribute('aria-hidden', 'true');
+        icon.innerHTML = '<span class="ai-tools-spinner"></span><svg viewBox="0 0 24 24"><path d="m8 3 1.5 4.5L14 9l-4.5 1.5L8 15l-1.5-4.5L2 9l4.5-1.5Z"/><path class="ai-tools-check" pathLength="1" d="m11 17 3 3 8-9"/></svg>';
+        const label = document.createElement('span');
+        label.className = 'ai-tools-status-label';
+        label.textContent = message;
+        status.append(icon, label);
+        if (phase !== 'working') statusTimer = setTimeout(() => setStatus('', false), 900);
     }
 
     document.addEventListener('save_article_start.register', function () {
@@ -60,7 +77,7 @@ export function initAiTools(form, config) {
         const targetValue = targetInput?.value;
         activeController = controller;
         setBusy(true);
-        setStatus(config.working, false);
+        setStatus(config.working, false, 'working');
 
         const data = new FormData();
         data.set('entity_name', config.entityName);
@@ -104,7 +121,7 @@ export function initAiTools(form, config) {
                     titleInput.dispatchEvent(new Event('input', {bubbles: true}));
                     titleInput.focus();
                 }
-                setStatus('', false);
+                setStatus(config.applied || 'AI changes applied.', false, 'applied');
                 return;
             }
 
@@ -115,13 +132,13 @@ export function initAiTools(form, config) {
                     tagsInput.dispatchEvent(new Event('input', {bubbles: true}));
                     tagsInput.dispatchEvent(new Event('focus_tag_editor.register'));
                 }
-                setStatus('', false);
+                setStatus(config.applied || 'AI changes applied.', false, 'applied');
                 return;
             }
 
             {
                 if (responseData.result === snapshot.text) {
-                    setStatus(action === 'proofread' ? config.proofreadClean : config.unchanged, false);
+                    setStatus(action === 'proofread' ? config.proofreadClean : config.unchanged, false, 'clean');
                     return;
                 }
 
@@ -131,7 +148,7 @@ export function initAiTools(form, config) {
                     range.end,
                     findCorrectionRanges(snapshot.text, responseData.result)
                 );
-                setStatus('', false);
+                setStatus(config.applied || 'AI changes applied.', false, 'applied');
             }
         } catch (error) {
             if (!controller.signal.aborted && activeController === controller && error.name !== 'AbortError') {

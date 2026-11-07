@@ -539,6 +539,7 @@ return [
     'Suggest title'                        => 'Suggest title',
     'Suggest tags'                         => 'Suggest tags',
     'AI working'                           => 'AI is processing the text…',
+    'AI changes applied'                   => 'AI changes applied.',
     'AI request failed'                    => 'Unable to get a response from AI.',
     'AI network error'                     => 'Unable to get a response from the site. Your text is unchanged; retry the AI request.',
     'AI timeout'                           => 'AI did not respond in time. Your text is unchanged; retry the AI request.',

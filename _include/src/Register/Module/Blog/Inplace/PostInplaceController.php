@@ -586,7 +586,16 @@ final readonly class PostInplaceController implements ControllerInterface
         }
 
         $storedPublishedAt = $this->storedPublicationAt($post);
-        $publishedAt    = $this->publishedAt($request, $storedPublishedAt);
+        $publication = $request->request->getString('publication');
+        $dateMode = $request->request->getString('date_mode');
+        $wasDraft = (int)$post['published'] === 0 && (int)$post['scheduled_at'] <= 0;
+        if (!in_array($publication, ['', 'draft', 'publish'], true)
+            || !in_array($dateMode, ['', 'now', 'fixed'], true)
+            || ($publication === 'draft' && !$wasDraft)) {
+            return $this->error($request, 'Invalid post content', Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $publishedAt = $dateMode === 'now' ? time() : $this->publishedAt($request, $storedPublishedAt);
         $tagNames       = $storedTagNames;
         if ($request->request->has('tags')) {
             $submittedTags = $request->request->get('tags');
@@ -622,9 +631,22 @@ final readonly class PostInplaceController implements ControllerInterface
             (string)$post['meta_description'],
         );
 
-        $isDraft = (int)$post['published'] === 0 && (int)$post['scheduled_at'] <= 0;
+        $isDraft = $wasDraft && $publication !== 'publish';
+        $autoDate = $dateMode === 'now' || ($dateMode === '' && $wasDraft
+            && $post['published_at'] === null && $publishedAt === $storedPublishedAt);
+        if ($autoDate) {
+            // Resolve automatic publication time after metadata preparation.
+            // A retry after a successful publish retains its committed time.
+            $publishedAt = !$wasDraft && $submittedRevision < (int)$post['revision']
+                ? $storedPublishedAt : time();
+        }
+
         $scheduled = !$isDraft && $publishedAt > time();
         $storedScheduled = (int)$post['published'] === 0 && (int)$post['scheduled_at'] > 0;
+        $publicationState = $isDraft ? 'draft' : ($scheduled ? 'scheduled' : 'published');
+        $storedPublicationState = $wasDraft ? 'draft' : ($storedScheduled ? 'scheduled' : 'published');
+        $revisionDate = $isDraft && $autoDate ? null : $publishedAt;
+        $storedRevisionDate = $wasDraft && $post['published_at'] === null ? null : $storedPublishedAt;
         $normalizedTagNames = array_map(mb_strtolower(...), $tagNames);
         $normalizedStoredTagNames = array_map(mb_strtolower(...), $storedTagNames);
         $revision = $this->revisionService->resolve(
@@ -635,8 +657,9 @@ final readonly class PostInplaceController implements ControllerInterface
                 'body'     => $body,
                 'meta_description' => $metadata->metaDescription,
                 'tags'     => $normalizedTagNames,
-                'published_at' => $publishedAt,
+                'published_at' => $revisionDate,
                 'scheduled' => $scheduled,
+                'publication_state' => $publicationState,
                 'revision' => $submittedRevision,
             ],
             [
@@ -646,24 +669,26 @@ final readonly class PostInplaceController implements ControllerInterface
                 'column_body'     => (string)$post['body'],
                 'column_meta_description' => (string)$post['meta_description'],
                 'column_tags'     => $normalizedStoredTagNames,
-                'column_published_at' => $storedPublishedAt,
+                'column_published_at' => $storedRevisionDate,
                 'column_scheduled' => $storedScheduled,
+                'column_publication_state' => $storedPublicationState,
                 'column_revision' => (int)$post['revision'],
             ],
-            ['title', 'slug', 'excerpt', 'body', 'meta_description', 'tags', 'published_at', 'scheduled'],
+            ['title', 'slug', 'excerpt', 'body', 'meta_description', 'tags', 'published_at', 'scheduled', 'publication_state'],
         );
         if (!$revision instanceof \Register\Content\Admin\ContentRevision) {
             return $this->error($request, 'Post has changed in another window', Response::HTTP_CONFLICT);
         }
 
         $tagsChanged = $normalizedTagNames !== $normalizedStoredTagNames;
-        $dateChanged = $publishedAt !== $storedPublishedAt;
+        $dateChanged = $revisionDate !== $storedRevisionDate;
         $scheduleChanged = $scheduled !== $storedScheduled;
+        $publicationChanged = $publicationState !== $storedPublicationState;
         $orphanMedia = [];
         $liveCursor = null;
         if ($revision->contentChanged) {
             try {
-                $write = function () use ($request, $contentId, $postId, $title, $slug, $metadata, $body, $publishedAt, $scheduled, $isDraft, $dateChanged, $scheduleChanged, $tagNames, $tagsChanged, $revision, $submittedRevision, $editor, &$orphanMedia, &$liveCursor): bool {
+                $write = function () use ($request, $contentId, $postId, $title, $slug, $metadata, $body, $publishedAt, $scheduled, $isDraft, $autoDate, $dateChanged, $scheduleChanged, $publicationChanged, $tagNames, $tagsChanged, $revision, $submittedRevision, $editor, &$orphanMedia, &$liveCursor): bool {
                     $update = $this->dbLayer
                         ->update(ContentSchema::TABLE_NAME)
                         ->set('title', ':title')->setParameter('title', $title)
@@ -677,11 +702,12 @@ final readonly class PostInplaceController implements ControllerInterface
                         ->andWhere('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
                         ->andWhere('revision = :revision')->setParameter('revision', $submittedRevision)
                     ;
-                    if ($dateChanged || $scheduleChanged) {
+                    if ($dateChanged || $scheduleChanged || $publicationChanged) {
                         $update->set('date_label', "''");
                         if ($isDraft) {
-                            // Editing a draft never publishes or schedules it implicitly.
-                            $update->set('published_at', ':published_at')->setParameter('published_at', $publishedAt);
+                            $update
+                                ->set('published', '0')->set('scheduled_at', '0')
+                                ->set('published_at', ':published_at')->setParameter('published_at', $autoDate ? null : $publishedAt);
                         } elseif ($scheduled) {
                             $update
                                 ->set('published', '0')
@@ -767,6 +793,8 @@ final readonly class PostInplaceController implements ControllerInterface
             'datetime'  => gmdate(DATE_ATOM, $publishedAt),
             'time'      => $this->postProvider->displayDate($publishedAt, $dateChanged ? '' : (string)$post['date_label']),
             'scheduled' => $scheduled,
+            'draft' => $isDraft,
+            'date_mode' => $isDraft && $autoDate ? 'now' : 'fixed',
             'schedule_message' => $this->translator->trans('Scheduled post preview'),
             'body'      => $body,
             'body_html' => $this->fragmentRenderer->render(
@@ -793,10 +821,20 @@ final readonly class PostInplaceController implements ControllerInterface
             return $this->error($request, 'Invalid post mutation request', Response::HTTP_BAD_REQUEST);
         }
 
-        $hash = hash('sha256', serialize(array_map(
+        $fields = ['title', 'body', 'tags', 'published_at', 'uploaded_media_ids'];
+        if ($request->request->has('publication') || $request->request->has('date_mode')) {
+            $fields = [...$fields, 'publication', 'date_mode'];
+        }
+
+        $values = array_map(
             $request->request->getString(...),
-            ['title', 'body', 'tags', 'published_at', 'uploaded_media_ids'],
-        )));
+            $fields,
+        );
+        if ($request->request->getString('date_mode') === 'now') {
+            $values[3] = 'now';
+        }
+
+        $hash = hash('sha256', serialize($values));
 
         if ($requestId !== '') {
             // Read the receipt under the same mutex as its post. A deletion
@@ -820,10 +858,16 @@ final readonly class PostInplaceController implements ControllerInterface
     {
         $title       = trim($request->request->getString('title'));
         $body        = $request->request->getString('body');
-        $publishedAt = $this->publishedAt($request, time());
+        $publication = $request->request->getString('publication');
+        $dateMode = $request->request->getString('date_mode');
+        $autoDate = $dateMode === 'now';
+        $isDraft = $publication === 'draft';
+        $publishedAt = $autoDate ? time() : $this->publishedAt($request, time());
         $tagNames    = $this->parseTags($request->request->getString('tags'));
         if (
             $publishedAt === null
+            || !in_array($publication, ['', 'draft', 'publish'], true)
+            || !in_array($dateMode, ['', 'now', 'fixed'], true)
             || $tagNames === null
             || $title === ''
             || mb_strlen($title) > 255
@@ -843,14 +887,19 @@ final readonly class PostInplaceController implements ControllerInterface
         }
 
         $metadata = $this->publicationMetadataGenerator->complete($title, $body);
-        $scheduled = $publishedAt > time();
+        $scheduled = !$isDraft && $publishedAt > time();
 
         $postId      = 0;
         $slug        = '';
         $orphanMedia = [];
         $liveCursor  = null;
-        $write = function () use ($request, $editor, $title, $metadata, $body, $publishedAt, $scheduled, $tagNames, $requestId, $hash, &$postId, &$slug, &$orphanMedia, &$liveCursor): bool {
+        $write = function () use ($request, $editor, $title, $metadata, $body, $autoDate, $isDraft, $tagNames, $requestId, $hash, &$publishedAt, &$scheduled, &$postId, &$slug, &$orphanMedia, &$liveCursor): bool {
             $now  = time();
+            if ($autoDate) {
+                $publishedAt = $now;
+            }
+
+            $scheduled = !$isDraft && $publishedAt > $now;
             $slug = $this->contentSlugService->generatePost($title);
             $values = [
                 'id'           => ContentIdAllocator::allocate($this->dbLayer),
@@ -864,7 +913,7 @@ final readonly class PostInplaceController implements ControllerInterface
                 'updated_at'   => $now,
                 'author_id'    => $editor->id,
             ];
-            $values[$scheduled ? 'scheduled_at' : 'published_at'] = $publishedAt;
+            $values[$scheduled ? 'scheduled_at' : 'published_at'] = $isDraft && $autoDate ? null : $publishedAt;
             $this->dbLayer
                 ->insert(ContentSchema::TABLE_NAME)
                 ->values([
@@ -881,7 +930,7 @@ final readonly class PostInplaceController implements ControllerInterface
                     'scheduled_at'     => $scheduled ? ':scheduled_at' : '0',
                     'updated_at'       => ':updated_at',
                     'revision'         => '1',
-                    'published'        => $scheduled ? '0' : '1',
+                    'published'        => $scheduled || $isDraft ? '0' : '1',
                     'comments_enabled' => '1',
                     'author_id'        => ':author_id',
                 ])
@@ -956,6 +1005,7 @@ final readonly class PostInplaceController implements ControllerInterface
             'action'         => 'create',
             'live_cursor'    => $liveCursor,
             'id'             => $postId,
+            'slug'           => $slug,
             'url'            => $url,
             'action_url'     => $controls['action_url'],
             'token'          => $controls['token'],
@@ -965,13 +1015,15 @@ final readonly class PostInplaceController implements ControllerInterface
             'datetime'       => gmdate(DATE_ATOM, $publishedAt),
             'time'           => $this->postProvider->displayDate($publishedAt, ''),
             'scheduled'      => $scheduled,
+            'draft'          => $isDraft,
+            'date_mode'      => $isDraft && $autoDate ? 'now' : 'fixed',
             'schedule_message' => $this->translator->trans('Scheduled post preview'),
             'body'           => $body,
             'body_html'      => $this->fragmentRenderer->render(
                 '<div class="post body" data-post-inplace-body>' . $body . '</div>',
             ),
             'foot_html'      => $this->fragmentRenderer->render($this->footerRenderer->render(
-                $postId, $url, $savedTags, true, $scheduled,
+                $postId, $url, $savedTags, true, $scheduled || $isDraft,
             )),
             'tags'           => array_map(
                 fn(\Register\Content\Tag $tag): array => [
@@ -1009,16 +1061,19 @@ final readonly class PostInplaceController implements ControllerInterface
 
         $publishedAt = $this->storedPublicationAt($post);
         $scheduled = (int)$post['scheduled_at'] > 0;
+        $isDraft = (int)$post['published'] === 0 && !$scheduled;
         $contentId = ContentId::post($postId);
         $tags = $this->tagRepository->findForContent([$contentId])[(string)$contentId] ?? [];
 
         return $this->json([
             'success' => true, 'action' => 'create', 'replayed' => true, 'request_matched' => $matched,
             'id' => $postId, 'url' => $url, 'action_url' => $controls['action_url'], 'token' => $controls['token'],
+            'slug' => (string)$post['slug'],
             'title' => (string)$post['title'], 'revision' => (int)$post['revision'], 'published_at' => $publishedAt,
             'datetime' => gmdate(DATE_ATOM, $publishedAt),
             'time' => $this->postProvider->displayDate($publishedAt, (string)$post['date_label']),
             'scheduled' => $scheduled, 'schedule_message' => $this->translator->trans('Scheduled post preview'),
+            'draft' => $isDraft, 'date_mode' => $isDraft && $post['published_at'] === null ? 'now' : 'fixed',
             'body' => (string)$post['body'],
             'body_html' => $this->fragmentRenderer->render('<div class="post body" data-post-inplace-body>' . $post['body'] . '</div>'),
             'foot_html' => $this->fragmentRenderer->render($this->footerRenderer->render(

@@ -3,6 +3,9 @@
 declare(strict_types = 1);
 
 return [
+    'Save post draft' => 'Save draft',
+    'Publish post' => 'Publish',
+    'Use current publication time' => 'Use current time',
     'HTML block' => 'HTML block',
     'Edit HTML code' => 'Edit code',
     'Finish editing HTML code' => 'Done',
@@ -24,7 +27,7 @@ return [
     'Post recovery unavailable' => 'Unable to save a local copy. Keep this tab open and save the post when the connection returns.',
     'Post recovery media' => 'Unfinished uploads must be added again. Check images and audio before saving.',
     'Post recovery markup' => 'Custom markup, scripts and embedded objects were removed from the local copy. Check formatting and media before saving.',
-    'Draft post preview' => 'Draft — saving changes does not publish it',
+    'Draft post preview' => 'Draft — this post has not been published',
 
     'N Comments'   => '{{ count }} comment|{{ count }} comments',
     'N Views'      => '{{ count }} view|{{ count }} views',

@@ -6,6 +6,25 @@ the new-post control, after reloading or returning to the page. The user chooses
 **Restore text** or **Delete local copy**. The editor never replaces server content
 automatically and restoring does not publish or save a post.
 
+The editor also saves the site's existing server drafts. **Save draft** is a separate
+control below the other tools when creating a post or editing a draft. It updates
+the same content record, keeps it unpublished and unscheduled, and leaves editing
+and its undo history available. **Publish** explicitly publishes that draft, or
+schedules it when its manually chosen date is in the future. Existing published
+posts retain their publication date during ordinary editing.
+
+New posts and automatically dated drafts display the current time while editing.
+Opening the date picker without changing its value keeps this automatic mode.
+Choosing a date fixes it; **Use current time** restores automatic mode. Recovery
+copies preserve this choice without treating the ticking clock as an edit. Server
+drafts use the existing nullable publication date to retain automatic mode. An
+automatic publication uses server time after preparation, and retries retain the
+already committed publication time.
+
+Saving uses a spinner followed by a briefly animated green check in the tool rail.
+AI processing and completion use a distinct spark/check icon. Descriptions remain
+available to assistive technology and in tooltips; failures retain readable text.
+
 When the server revision differs from the copy's starting revision, the offer
 explicitly warns that the site has changed. Restoration keeps the current server
 revision and the ordinary server-side optimistic-concurrency check still applies

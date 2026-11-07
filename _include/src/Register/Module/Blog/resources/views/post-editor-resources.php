@@ -63,6 +63,8 @@ $config = [
     'saveTimeout' => $trans('Post save timeout'),
     'saveWorking' => $trans('Post saving'),
     'saveDone' => $trans('Post saved'),
+    'publishLabel' => $trans('Publish post'),
+    'draftNotice' => $trans('Draft post preview'),
     'creationRecovered' => $trans('Post creation recovered'),
 ];
 ?>

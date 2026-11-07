@@ -1,5 +1,12 @@
 # Editor browser regressions
 
+`node draft-time-tests.mjs` covers the existing server-draft controls, retained
+undo, live/manual publication time and recovery of the selected time mode in all
+three engines. `node operation-feedback-tests.mjs` checks icon-only AI feedback
+in both editors and the mobile draft button layout. The PHP/SQLite E2E suite also
+uploads an image into a private draft, reopens and saves it, verifies guest access
+is denied, and publishes it using server time despite a shifted browser clock.
+
 These tests execute the real `post-inplace.js` with real DOM, Selection, editing
 commands and input/keyboard events. Unlike the VM unit tests, they exercise undo
 history. The fixture exposes private functions **only in its loopback test server**;

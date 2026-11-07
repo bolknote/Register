@@ -13,6 +13,7 @@
         recoveryFound: 'This device has unsaved text:',
         recoveryChanged: 'The site has a newer version. Review it before saving.',
         recoveryRestore: 'Restore text', recoveryDiscard: 'Delete local copy',
+        ...(params.has('draft-tools') ? {publishLabel: 'Publish'} : {}),
     };
     document.getElementById('post-editor-resources').dataset.config = JSON.stringify(config);
     function post(creating) {
@@ -36,6 +37,7 @@
             <h2 class="post head"><a href="/server-slug"><span class="post-title-text" data-post-inplace-title></span></a></h2>
             <div class="post time"><time datetime="2026-09-06T12:00:00Z" data-local-time="datetime" data-locale="ru">6 September</time>
                 <button type="button" class="post-inplace-date-button" hidden>Date</button>
+                <button type="button" class="post-inplace-date-now" hidden>Now</button>
                 <input class="post-inplace-datetime" type="datetime-local" step="1" hidden></div>
             <nav class="post-inplace-tools">
                 <button class="post-inplace-button post-edit-start" type="button">Edit</button>
@@ -44,6 +46,7 @@
                 </button>
                 <button class="post-inplace-button post-edit-save" type="button" hidden>Save</button>
                 <button class="post-inplace-button post-edit-cancel" type="button" hidden>Cancel</button>
+                <button class="post-inplace-button post-edit-draft" type="button" aria-label="Save draft" hidden>Draft</button>
             </nav>
             <div class="post body" data-post-inplace-body></div>
             <div class="post foot"><div class="post-foot-meta"><span class="post-foot-tags"><span data-post-inplace-tags-values>old</span></span></div></div>`;

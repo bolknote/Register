@@ -92,7 +92,7 @@ export async function runScheduledStatusRegressions(browser, origin) {
                 assert.equal(await status.isVisible(), false,
                     'The tool rail confirms a save without duplicating it above the article');
                 assert.equal(await status.textContent(), '');
-                assert.equal(await card.locator('.post-save-label').textContent(), 'Saved');
+                assert.equal(await card.locator('.post-save-check').isVisible(), true);
                 if (scheduled) {
                     assert.equal(await banner.isVisible(), true);
                     assert.equal(await banner.textContent(), scheduleMessage);
