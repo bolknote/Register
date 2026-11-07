@@ -5,6 +5,12 @@ declare(strict_types = 1);
 return [
     'Save post draft' => 'Save draft',
     'Publish post' => 'Publish',
+    'Confirm post publication' => 'Publish this post?',
+    'Post publication warning' => 'The post will become visible to all readers.',
+    'Confirm post scheduling' => 'Schedule publication?',
+    'Post scheduling warning' => 'The post will become visible to all readers on %s.',
+    'Schedule post' => 'Schedule',
+    'Post publication confirmation failed' => 'Unable to open publication confirmation. Your text remains in the editor.',
     'Use current publication time' => 'Use current time',
     'HTML block' => 'HTML block',
     'Edit HTML code' => 'Edit code',

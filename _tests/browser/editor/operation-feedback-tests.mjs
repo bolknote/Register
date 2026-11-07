@@ -53,18 +53,36 @@ export async function runOperationFeedbackRegressions(browser, origin) {
         } finally { await page.close(); }
     }
 
-    const mobile = await browser.newPage({viewport: {width: 390, height: 800}, hasTouch: true});
-    try {
-        await mobile.route('**/_inplace/tags', route => route.fulfill({json: {tags: []}}));
-        await mobile.goto(origin + '/recovery.html?draft-tools=1');
-        await mobile.getByRole('button', {name: 'New post', exact: true}).click();
-        const draft = await mobile.locator('.is-editing .post-edit-draft').boundingBox();
-        const cancel = await mobile.locator('.is-editing .post-edit-cancel').boundingBox();
-        const body = await mobile.locator('.is-editing [data-post-inplace-body]').boundingBox();
-        assert.ok(draft.y >= cancel.y + cancel.height + 5, 'The mobile draft button sits below the other tools');
-        assert.ok(draft.x >= 0 && draft.x + draft.width <= 390, 'Draft saving stays within the viewport');
-        assert.ok(body.y >= draft.y + draft.height, 'The extra row cannot cover authored text');
-    } finally { await mobile.close(); }
+    for (const width of [320, 390]) {
+        const mobile = await browser.newPage({viewport: {width, height: 800}, hasTouch: true});
+        try {
+            await mobile.route('**/_inplace/tags', route => route.fulfill({json: {tags: []}}));
+            const requests = holdRequests(mobile, '**/_inplace/post/new');
+            await requests.installed;
+            await mobile.goto(origin + '/recovery.html?draft-tools=1');
+            await mobile.getByRole('button', {name: 'New post', exact: true}).click();
+            const draft = await mobile.locator('.is-editing .post-edit-draft').boundingBox();
+            const save = await mobile.locator('.is-editing .post-edit-save').boundingBox();
+            const cancel = await mobile.locator('.is-editing .post-edit-cancel').boundingBox();
+            const body = await mobile.locator('.is-editing [data-post-inplace-body]').boundingBox();
+            const distance = (a, b) => Math.hypot(a.x + a.width / 2 - b.x - b.width / 2,
+                a.y + a.height / 2 - b.y - b.height / 2);
+            assert.ok(draft.y + draft.height <= save.y, 'The mobile draft button sits above publishing');
+            assert.ok(Math.abs(distance(draft, save) - distance(save, cancel)) < 1, 'Draft and cancel are equally far from publishing');
+            assert.ok(draft.x >= 0 && cancel.x + cancel.width <= width, 'The tools stay within the viewport');
+            assert.ok(save.width >= 44 && cancel.width >= 44, 'Touch targets do not shrink on narrow phones');
+            assert.ok(body.y >= cancel.y + cancel.height, 'The tools cannot cover authored text');
+            await mobile.locator('.is-editing [data-post-inplace-body]').fill('Some text.');
+            await mobile.locator('.is-editing .post-edit-menu').click();
+            await mobile.locator('[data-context-ai-action="proofread"]').click();
+            const request = await requests.next();
+            const indicator = await mobile.locator('.post-ai-feedback').boundingBox();
+            const menu = await mobile.locator('.is-editing .post-edit-menu').boundingBox();
+            assert.ok(indicator.y + indicator.height <= menu.y, 'AI feedback cannot cover the editor tools');
+            await request.fulfill({json: {success: true, action: 'ai', ai_action: 'proofread', result: 'Some text.'}});
+            await mobile.locator('.post-ai-feedback').waitFor({state: 'detached'});
+        } finally { await mobile.close(); }
+    }
     console.log(`${browser.browserType().name()}: AI processing/success/clean use icons in both editors; mobile draft tools keep text unobscured`);
 }
 

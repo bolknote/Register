@@ -1,5 +1,13 @@
 # Editor browser regressions
 
+`node publication-confirmation-tests.mjs` checks new and stored draft publication,
+safe initial focus, keyboard and pointer cancellation, retained text and caret,
+retry consent, scheduling (including a date passing while the dialog is open),
+navigation cleanup and missing-template failures in all three browsers.
+The recovery fixture normally accepts publication automatically for unrelated
+editing regressions; `?publish-confirm=1` requires an explicit choice, as does the
+real PHP/SQLite end-to-end suite.
+
 `node draft-time-tests.mjs` covers the existing server-draft controls, retained
 undo, live/manual publication time and recovery of the selected time mode in all
 three engines. `node operation-feedback-tests.mjs` checks icon-only AI feedback

@@ -2503,10 +2503,6 @@ h2.preview,
     display: none;
 }
 
-.post-edit-draft {
-    margin-top: 0.6rem;
-}
-
 @media (prefers-reduced-motion: reduce) {
     .post-save-spinner,
     [data-post-save-state="saved"] .post-save-check path,
@@ -2543,6 +2539,32 @@ h2.preview,
 .post-media-conflict-dialog > header {
     padding: 1.3rem 1.4rem 1rem;
     border-bottom: 1px solid var(--border-color);
+}
+
+.post-publish-confirmation {
+    box-sizing: border-box;
+    width: min(34rem, calc(100% - 2 * var(--page-margin)));
+    padding: 0;
+}
+
+.post-publish-confirmation::backdrop {
+    background: color-mix(in srgb, #000 58%, transparent);
+    backdrop-filter: blur(2px);
+}
+
+.post-publish-confirmation header .post-publish-title {
+    margin: 0.8rem 0 0.55rem;
+    color: var(--text-color);
+    font-weight: 650;
+    overflow-wrap: anywhere;
+}
+
+.post-publish-confirmation > .post-publish-actions {
+    padding-top: 1.15rem;
+}
+
+.post-publish-confirmation .post-publish-actions button {
+    min-height: 2.75rem;
 }
 
 .post-media-conflict-dialog > header > span {
@@ -2852,11 +2874,15 @@ h2.preview,
         display: contents;
     }
 
-    .post-card.is-editing:is(.is-creating, .is-draft-preview) .post-edit-menu { grid-area: 1 / 1; }
-    .post-card.is-editing:is(.is-creating, .is-draft-preview) .post-edit-save { grid-area: 1 / 2; }
-    .post-card.is-editing:is(.is-creating, .is-draft-preview) .post-edit-cancel { grid-area: 1 / 3; }
-    .post-card.is-editing:is(.is-creating, .is-draft-preview) .post-edit-draft { grid-area: 2 / 3; }
-    .post-card.is-editing:is(.is-creating, .is-draft-preview) .post-ai-feedback { grid-area: 2 / 1; }
+    .post-card.is-editing:is(.is-creating, .is-draft-preview) .post-edit-menu { grid-area: 2 / 1; }
+    .post-card.is-editing:is(.is-creating, .is-draft-preview) .post-edit-save { grid-area: 2 / 2; }
+    .post-card.is-editing:is(.is-creating, .is-draft-preview) .post-edit-cancel { grid-area: 2 / 3; }
+    .post-card.is-editing:is(.is-creating, .is-draft-preview) .post-edit-draft { grid-area: 1 / 2; }
+    .post-card.is-editing:is(.is-creating, .is-draft-preview) .post-ai-feedback { grid-area: 1 / 1; }
+
+    .post-card.is-editing:is(.is-creating, .is-draft-preview) > .post-inplace-tools > :is(.post-edit-save, .post-edit-cancel) {
+        width: 2.75rem;
+    }
 
     .post-inplace-button.post-tools-menu-toggle {
         display: grid;

@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
 
+export async function confirmPublication(page) {
+    await page.locator('.post-publish-confirmation[open] [data-publish-action="confirm"]').click();
+}
+
 export async function formData(route) {
     const request = route.request();
     return new Request(request.url(), {

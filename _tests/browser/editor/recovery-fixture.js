@@ -16,6 +16,13 @@
         ...(params.has('draft-tools') ? {publishLabel: 'Publish'} : {}),
     };
     document.getElementById('post-editor-resources').dataset.config = JSON.stringify(config);
+    // Editing regressions assume deliberate publication; the confirmation suite
+    // uses ?publish-confirm=1 and makes each choice explicitly.
+    if (!params.has('publish-confirm')) {
+        new MutationObserver(() => {
+            document.querySelector('.post-publish-confirmation[open] [data-publish-action="confirm"]')?.click();
+        }).observe(document.body, {childList: true});
+    }
     function post(creating) {
         const card = document.createElement('article');
         card.className = 'post-card' + (user ? ' is-manageable' : '') + (creating ? ' is-creating' : '');
@@ -44,9 +51,9 @@
                 <button class="post-inplace-button post-edit-menu" type="button" aria-label="Editor tools" aria-haspopup="menu" aria-expanded="false" hidden>
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h3m4 0h9M4 12h9m4 0h3M4 18h3m4 0h9"/><circle cx="9" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="9" cy="18" r="2"/></svg>
                 </button>
+                <button class="post-inplace-button post-edit-draft" type="button" aria-label="Save draft" hidden>Draft</button>
                 <button class="post-inplace-button post-edit-save" type="button" hidden>Save</button>
                 <button class="post-inplace-button post-edit-cancel" type="button" hidden>Cancel</button>
-                <button class="post-inplace-button post-edit-draft" type="button" aria-label="Save draft" hidden>Draft</button>
             </nav>
             <div class="post body" data-post-inplace-body></div>
             <div class="post foot"><div class="post-foot-meta"><span class="post-foot-tags"><span data-post-inplace-tags-values>old</span></span></div></div>`;

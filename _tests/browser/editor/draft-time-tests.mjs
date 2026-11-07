@@ -61,8 +61,11 @@ export async function runDraftTimeRegressions(browser, origin) {
         await page.waitForFunction(() => /T14:00(?::00)?$/u.test(document.querySelector('.post-card.is-editing .post-inplace-datetime').value));
         const draft = card.getByRole('button', {name: 'Save draft', exact: true});
         const draftBox = await draft.boundingBox();
+        const saveBox = await card.locator('.post-edit-save').boundingBox();
         const cancelBox = await card.locator('.post-edit-cancel').boundingBox();
-        assert.ok(draftBox.y >= cancelBox.y + cancelBox.height + 5, 'Draft saving sits below the other tools');
+        assert.ok(draftBox.y + draftBox.height <= saveBox.y, 'Draft saving sits above publishing');
+        assert.ok(Math.abs((saveBox.y - draftBox.y) - (cancelBox.y - saveBox.y)) < 1,
+            'Draft, publish and cancel have equal spacing');
         await draft.click();
         const first = await requests.next();
         const firstData = await formData(first);

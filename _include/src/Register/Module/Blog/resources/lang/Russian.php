@@ -5,6 +5,12 @@ declare(strict_types = 1);
 return [
     'Save post draft' => 'Сохранить черновик',
     'Publish post' => 'Опубликовать',
+    'Confirm post publication' => 'Опубликовать пост?',
+    'Post publication warning' => 'Пост станет доступен всем читателям.',
+    'Confirm post scheduling' => 'Запланировать публикацию?',
+    'Post scheduling warning' => 'Пост станет доступен всем читателям: %s.',
+    'Schedule post' => 'Запланировать',
+    'Post publication confirmation failed' => 'Не удалось открыть подтверждение публикации. Текст остался в редакторе.',
     'Use current publication time' => 'Сейчас — использовать текущее время',
     'HTML block' => 'HTML-вставка',
     'Edit HTML code' => 'Изменить код',

@@ -64,11 +64,31 @@ $config = [
     'saveWorking' => $trans('Post saving'),
     'saveDone' => $trans('Post saved'),
     'publishLabel' => $trans('Publish post'),
+    'confirmPublish' => $trans('Confirm post publication'),
+    'publishWarning' => $trans('Post publication warning'),
+    'confirmSchedule' => $trans('Confirm post scheduling'),
+    'scheduleWarning' => $trans('Post scheduling warning'),
+    'scheduleLabel' => $trans('Schedule post'),
+    'publishConfirmationError' => $trans('Post publication confirmation failed'),
     'draftNotice' => $trans('Draft post preview'),
     'creationRecovered' => $trans('Post creation recovered'),
 ];
 ?>
 <div id="post-editor-resources" hidden data-config="<?php echo register_htmlencode(json_encode($config, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)); ?>">
+<template class="post-publish-template">
+    <dialog class="post-media-conflict-dialog post-publish-confirmation" aria-modal="true">
+        <header>
+            <span><?php echo $trans('Editor'); ?></span>
+            <h2 data-publish-heading></h2>
+            <p class="post-publish-title" data-publish-title></p>
+            <p data-publish-message></p>
+        </header>
+        <div class="post-media-conflict-actions post-publish-actions">
+            <button type="button" data-publish-action="cancel" autofocus><?php echo $trans('Continue post editing'); ?></button>
+            <button type="button" class="is-primary" data-publish-action="confirm"></button>
+        </div>
+    </dialog>
+</template>
 <template class="post-editor-context-menu-template">
     <div class="post-editor-context-menu" role="menu" aria-label="<?php echo register_htmlencode($trans('Editor context menu')); ?>" tabindex="-1">
         <header class="post-editor-context-header">

@@ -170,6 +170,9 @@ $analyticsSection = (string)($tagNames[0] ?? '');
             <circle cx="9" cy="6" r="2" /><circle cx="15" cy="12" r="2" /><circle cx="9" cy="18" r="2" />
         </svg>
     </button>
+    <button class="post-inplace-button post-edit-draft" type="button" title="<?php echo register_htmlencode($trans('Save post draft')); ?>" aria-label="<?php echo register_htmlencode($trans('Save post draft')); ?>" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 3h8l4 4v14H6ZM14 3v5h4M9 12h6M9 16h6"/></svg>
+    </button>
     <button class="post-inplace-button post-edit-save" type="button" title="<?php echo $trans('Save post changes'); ?>" aria-label="<?php echo $trans('Save post changes'); ?>" data-editor-shortcut="save" hidden>
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path d="m5 12.2 4.2 4.2L19 6.8" />
@@ -179,9 +182,6 @@ $analyticsSection = (string)($tagNames[0] ?? '');
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path d="m7 7 10 10M17 7 7 17" />
         </svg>
-    </button>
-    <button class="post-inplace-button post-edit-draft" type="button" title="<?php echo register_htmlencode($trans('Save post draft')); ?>" aria-label="<?php echo register_htmlencode($trans('Save post draft')); ?>" hidden>
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 3h8l4 4v14H6ZM14 3v5h4M9 12h6M9 16h6"/></svg>
     </button>
 </nav>
 <?php endif; ?>

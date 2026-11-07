@@ -7,6 +7,16 @@
 <link rel="stylesheet" href="/recovery-fixture.css">
 <main id="content"><div class="live-post-feed"></div></main>
 <div id="post-editor-resources" hidden>
+    <template class="post-publish-template">
+        <dialog class="post-media-conflict-dialog post-publish-confirmation" aria-modal="true">
+            <header><span>Editor</span><h2 data-publish-heading></h2>
+                <p class="post-publish-title" data-publish-title></p><p data-publish-message></p></header>
+            <div class="post-media-conflict-actions post-publish-actions">
+                <button type="button" data-publish-action="cancel" autofocus>Continue editing</button>
+                <button type="button" class="is-primary" data-publish-action="confirm"></button>
+            </div>
+        </dialog>
+    </template>
     <template class="post-editor-context-menu-template">
         <div class="post-editor-context-menu">
             <div class="post-editor-context-main">

@@ -7,11 +7,14 @@ the new-post control, after reloading or returning to the page. The user chooses
 automatically and restoring does not publish or save a post.
 
 The editor also saves the site's existing server drafts. **Save draft** is a separate
-control below the other tools when creating a post or editing a draft. It updates
-the same content record, keeps it unpublished and unscheduled, and leaves editing
+control above the publication check, equally spaced from it as Cancel, when
+creating a post or editing a draft. It updates the same content record, keeps it
+unpublished and unscheduled, and leaves editing
 and its undo history available. **Publish** explicitly publishes that draft, or
-schedules it when its manually chosen date is in the future. Existing published
-posts retain their publication date during ordinary editing.
+schedules it when its manually chosen date is in the future. Both actions require
+confirmation with the post title and, for scheduling, the chosen date. The default
+choice, Escape and a backdrop click return to editing. Saving a draft proceeds
+directly. Existing published posts retain their publication date during ordinary editing.
 
 New posts and automatically dated drafts display the current time while editing.
 Opening the date picker without changing its value keeps this automatic mode.

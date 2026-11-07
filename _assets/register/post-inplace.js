@@ -1184,6 +1184,95 @@
         }
     }
 
+    function closePublicationConfirmation(state, confirmed = false, restoreFocus = true) {
+        const confirmation = state.publicationConfirmation;
+        if (!confirmation) return;
+        state.publicationConfirmation = null;
+        confirmation.controller.abort();
+        if (confirmation.dialog.open) confirmation.dialog.close();
+        confirmation.dialog.remove();
+        if (!confirmed && restoreFocus && editorStates.get(state.card) === state) {
+            const target = confirmation.restoreTarget?.isConnected ? confirmation.restoreTarget : state.body;
+            target.focus({preventScroll: true});
+        }
+        confirmation.resolve(confirmed);
+    }
+
+    function requestPublicationConfirmation(state) {
+        const template = editorTemplate('.post-publish-template');
+        const dialog = template?.content.querySelector('.post-publish-confirmation')?.cloneNode(true);
+        const heading = dialog?.querySelector('[data-publish-heading]');
+        const title = dialog?.querySelector('[data-publish-title]');
+        const message = dialog?.querySelector('[data-publish-message]');
+        const cancel = dialog?.querySelector('[data-publish-action="cancel"]');
+        const confirm = dialog?.querySelector('[data-publish-action="confirm"]');
+        if (!(dialog instanceof HTMLDialogElement) || !heading || !title || !message || !cancel || !confirm) {
+            throw new Error(editorConfig().publishConfirmationError || 'Unable to open publication confirmation. Your text remains in the editor.');
+        }
+        const config = editorConfig();
+        const updateIntent = () => {
+            const publicationAt = editorPublishedAt(state);
+            const scheduled = !state.autoDate && publicationAt > Math.floor(Date.now() / 1000);
+            heading.textContent = scheduled ? config.confirmSchedule || 'Schedule publication?'
+                : config.confirmPublish || 'Publish this post?';
+            title.textContent = state.title.textContent || '';
+            message.textContent = scheduled
+                ? (config.scheduleWarning || 'The post will become visible to all readers on %s.').replace('%s',
+                    dateTimeText(new Date(publicationAt * 1000), state.time.dataset.locale || document.documentElement.lang))
+                : config.publishWarning || 'The post will become visible to all readers.';
+            confirm.textContent = scheduled ? config.scheduleLabel || 'Schedule' : config.publishLabel || 'Publish';
+            return `${scheduled}:${state.autoDate ? 'now' : publicationAt}`;
+        };
+        let intent = updateIntent();
+        const id = window.RegisterEditorStorage.recordId();
+        heading.id = 'post-publish-heading-' + id;
+        message.id = 'post-publish-message-' + id;
+        dialog.setAttribute('aria-labelledby', heading.id);
+        dialog.setAttribute('aria-describedby', message.id);
+        const controller = new AbortController();
+        const options = {signal: controller.signal};
+        return new Promise((resolve) => {
+            state.publicationConfirmation = {dialog, controller, resolve, restoreTarget: document.activeElement};
+            dialog.addEventListener('click', event => {
+                const action = event.target instanceof Element ? event.target.closest('[data-publish-action]') : null;
+                if (action) {
+                    if (action.dataset.publishAction === 'confirm') {
+                        const currentIntent = updateIntent();
+                        if (intent !== currentIntent) {
+                            intent = currentIntent;
+                            cancel.focus({preventScroll: true});
+                            return;
+                        }
+                    }
+                    closePublicationConfirmation(state, action.dataset.publishAction === 'confirm');
+                } else if (event.target === dialog) {
+                    const bounds = dialog.getBoundingClientRect();
+                    if (event.clientX < bounds.left || event.clientX > bounds.right
+                        || event.clientY < bounds.top || event.clientY > bounds.bottom) closePublicationConfirmation(state);
+                }
+            }, options);
+            dialog.addEventListener('cancel', event => {
+                event.preventDefault();
+                closePublicationConfirmation(state);
+            }, options);
+            dialog.addEventListener('close', () => closePublicationConfirmation(state), options);
+            dialog.addEventListener('keydown', event => {
+                if (event.key === 'Tab') {
+                    event.preventDefault();
+                    (document.activeElement === cancel ? confirm : cancel).focus();
+                    return;
+                }
+                if ((event.ctrlKey || event.metaKey) && (event.code === 'KeyS' || event.key.toLowerCase() === 's')) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+            }, options);
+            document.body.append(dialog);
+            dialog.showModal();
+            cancel.focus({preventScroll: true});
+        });
+    }
+
     function requestCloseEditor(card, restoreFocus) {
         const state = editorStates.get(card);
         if (!state || state.submitting) {
@@ -1258,6 +1347,7 @@
     }
 
     function stopEditing(state) {
+        closePublicationConfirmation(state, false, false);
         clearInterval(state.dateClockTimer);
         showAiFeedback(state);
         if (pendingMediaClipboard?.state === state) pendingMediaClipboard = null;
@@ -3352,6 +3442,7 @@
 
         const focusBeforeSave = document.activeElement;
         let saved = false;
+        let saveStarted = false;
         const buttons = card.querySelectorAll('.post-inplace-tools button, .post-delete-confirmation button');
         let lockedFields = null;
         const lockEditing = (locked) => {
@@ -3387,6 +3478,11 @@
             // Keep the draft durable even if processing an attachment never
             // reaches its upload request or a save's preparation times out.
             state?.recovery?.persist();
+            if (state && publication !== 'draft' && (state.creating || card.classList.contains('is-draft-preview'))) {
+                if (!syncEditor(state) || !await requestPublicationConfirmation(state)) return;
+                if (editorStates.get(card) !== state) return;
+            }
+            saveStarted = true;
             setBusy(true);
             if (state) showPostSaveFeedback(card, 'saving');
             if (state) {
@@ -3463,6 +3559,7 @@
                 throw new Error('Unable to process the server response.');
             }
         } catch (error) {
+            if (state) closePublicationConfirmation(state, false, false);
             showError(
                 form,
                 error instanceof Error ? error.message : (editorConfig().editError || 'Unable to change the post.'),
@@ -3471,14 +3568,14 @@
             if (state) {
                 state.submitting = false;
             }
-            if (card.isConnected) {
+            if (saveStarted && card.isConnected) {
                 setBusy(false);
                 if (state) showPostSaveFeedback(card, saved ? 'saved' : null);
                 if (editorStates.get(card) === state && document.activeElement === document.body
                     && focusBeforeSave instanceof HTMLElement && focusBeforeSave.isConnected) {
                     focusBeforeSave.focus({preventScroll: true});
                 }
-            } else if (state) {
+            } else if (saveStarted && state) {
                 showPostSaveFeedback(card);
             }
         }
@@ -6580,6 +6677,7 @@
     });
     document.addEventListener('register:navigation-will-update', () => {
         recoverySessions.forEach(state => {
+            closePublicationConfirmation(state, false, false);
             if (state.recovery?.stop()) state.uploadedMediaIds.clear();
         });
     });

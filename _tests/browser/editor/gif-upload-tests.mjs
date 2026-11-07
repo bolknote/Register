@@ -4,7 +4,7 @@ import {pathToFileURL} from 'node:url';
 import {execFileSync} from 'node:child_process';
 import {chromium, firefox, webkit} from 'playwright';
 import {createFixtureServer} from './server.mjs';
-import {formData} from './save-tests.mjs';
+import {formData, confirmPublication} from './save-tests.mjs';
 import {pixels} from './media-navigation-tests.mjs';
 import {gifColorProfile, gifWithPrivateMetadata} from '../../_support/gif-fixture.mjs';
 
@@ -36,7 +36,7 @@ async function assertAnimation(image) {
 }
 
 // Runs unchanged against the fixture server and the real PHP/SQLite site.
-export async function runGifPostWorkflow(page, origin) {
+export async function runGifPostWorkflow(page, origin, confirm = true) {
     const bytes = await readFile(fixture);
     const label = page.context().browser().browserType().name();
     await page.goto(origin + '/');
@@ -73,6 +73,7 @@ export async function runGifPostWorkflow(page, origin) {
     for (let save = 0; save < 2; save++) {
         const editing = page.locator('.post-card.is-editing');
         await editing.locator('.post-edit-save').click();
+        if (save === 0 && confirm) await confirmPublication(page);
         await page.waitForFunction(() => !document.querySelector('.post-card.is-editing'));
         const card = page.locator(`.post-card:has([data-post-inplace-title]:text-is("Animated image ${label}"))`);
         const image = card.locator('[data-post-inplace-body] img');
@@ -164,7 +165,7 @@ export async function runGifUploadRegressions(browser, origin) {
                     card.querySelector('[data-post-inplace-body]').innerHTML = ${JSON.stringify(savedBody)}; feed.append(card); }`,
             )});
         });
-        await runGifPostWorkflow(page, origin);
+        await runGifPostWorkflow(page, origin, false);
         for (const [name, width, mimeType, metadata] of [
             ['animated.gif', 96, 'image/gif'], ['static.gif', 96, 'image/gif'],
             ['animated-wide.gif', 2400, 'image/gif'], ['animated.gif', 96, ''],

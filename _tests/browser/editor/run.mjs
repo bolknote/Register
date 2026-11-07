@@ -7,6 +7,7 @@ import {runToolLayoutRegressions} from './tool-layout-tests.mjs';
 import {runSavingFeedbackRegressions} from './saving-feedback-tests.mjs';
 import {runDraftTimeRegressions} from './draft-time-tests.mjs';
 import {runOperationFeedbackRegressions} from './operation-feedback-tests.mjs';
+import {runPublicationConfirmationRegressions} from './publication-confirmation-tests.mjs';
 import {runHtmlBlockRegressions} from './html-block-tests.mjs';
 import {runContextMenuRegressions} from './context-menu-tests.mjs';
 import {runPublicAuthRegressions} from './public-auth-tests.mjs';
@@ -502,6 +503,7 @@ try {
             await runSavingFeedbackRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runDraftTimeRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runOperationFeedbackRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runPublicationConfirmationRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runSaveRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runScheduledStatusRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runReviewRegressions(browser, `http://127.0.0.1:${server.address().port}`);

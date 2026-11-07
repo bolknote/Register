@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {confirmPublication} from './save-tests.mjs';
 
 export async function runDraftPostWorkflow(page, origin) {
     const label = page.context().browser().browserType().name();
@@ -68,6 +69,7 @@ export async function runDraftPostWorkflow(page, origin) {
     const before = Math.floor(Date.now() / 1000);
     const navigation = page.waitForNavigation({waitUntil: 'domcontentloaded'});
     await saved.getByRole('button', {name: 'Publish', exact: true}).click();
+    await confirmPublication(page);
     const published = await (await publishedResponse).json();
     assert.equal(published.draft, false);
     assert.equal(published.scheduled, false);

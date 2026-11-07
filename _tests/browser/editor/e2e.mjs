@@ -9,6 +9,7 @@ import {createServer} from 'node:net';
 import {assertToolsStayAttached} from './tool-layout-tests.mjs';
 import {runGifPostWorkflow} from './gif-upload-tests.mjs';
 import {runDraftPostWorkflow} from './draft-workflow.mjs';
+import {confirmPublication} from './save-tests.mjs';
 
 const directory = dirname(fileURLToPath(import.meta.url));
 const sourceRoot = resolve(directory, '../../..');
@@ -201,6 +202,7 @@ async function runMediaBoundarySaveRegression(page, browserName) {
         && new URL(response.url()).pathname === '/_inplace/post/new'
         && (await response.json()).action === 'create');
     await card.locator('.post-edit-save').click();
+    await confirmPublication(page);
     const savedPost = await (await savedResponse).json();
     assert.equal(savedPost.success, true);
     const postId = Number(savedPost.id);
@@ -363,6 +365,7 @@ try {
                 else await route.fulfill({response});
             });
             await card.locator('.post-edit-save').click();
+            await confirmPublication(page);
 
             await page.waitForFunction(() => !document.querySelector('[data-post-creating]'));
             assert.equal(attempts, 2);
