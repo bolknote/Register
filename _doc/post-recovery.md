@@ -15,6 +15,8 @@ schedules it when its manually chosen date is in the future. Both actions requir
 confirmation with the post title and, for scheduling, the chosen date. The default
 choice, Escape and a backdrop click return to editing. Saving a draft proceeds
 directly. Existing published posts retain their publication date during ordinary editing.
+Moving an existing scheduled post to another date, or publishing it immediately,
+also requires confirmation; editing its text while keeping the agreed date does not.
 
 New posts and automatically dated drafts display the current time while editing.
 Opening the date picker without changing its value keeps this automatic mode.

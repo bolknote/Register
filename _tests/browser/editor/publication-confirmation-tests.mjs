@@ -151,6 +151,44 @@ export async function runPublicationConfirmationRegressions(browser, origin) {
     });
 
     await withPage(async (page, card, requests) => {
+        const future = Date.parse('2026-11-09T06:12:00Z') / 1000;
+        const chooseDate = value => card.locator('.post-inplace-datetime').evaluate((node, value) => {
+            node.value = value;
+            node.dispatchEvent(new Event('input', {bubbles: true}));
+        }, value);
+        await chooseDate('2026-11-09T09:12');
+        await card.locator('.post-edit-save').click();
+        await confirmPublication(page);
+        const creation = await requests.next();
+        const payload = {...saved(await formData(creation), false), scheduled: true, published_at: future,
+            datetime: new Date(future * 1000).toISOString(), schedule_message: 'Scheduled post preview'};
+        await creation.fulfill({json: payload});
+        await page.waitForFunction(() => !document.querySelector('.post-card.is-editing'));
+        await page.waitForFunction(() => !document.querySelector('[data-post-save-state]'));
+        await page.locator('.post-card[data-post-id="10"] .post-edit-start').click();
+        await card.locator('[data-post-inplace-body]').fill('An edit retaining the agreed publication date.');
+        await card.locator('.post-edit-save').click();
+        const edit = await requests.next();
+        assert.equal(await page.locator('.post-publish-confirmation').count(), 0, 'Editing an agreed schedule keeps its confirmation');
+        const editedBody = (await formData(edit)).get('body');
+        await edit.fulfill({json: {...payload, action: 'edit', body: editedBody,
+            body_html: `<div class="post body" data-post-inplace-body>${editedBody}</div>`}});
+        await page.waitForFunction(() => !document.querySelector('.post-card.is-editing'));
+        await page.waitForFunction(() => !document.querySelector('[data-post-save-state]'));
+        await page.locator('.post-card[data-post-id="10"] .post-edit-start').click();
+        await chooseDate('2026-11-06T09:12');
+        await card.locator('.post-edit-save').click();
+        await page.getByRole('dialog', {name: 'Publish this post?', exact: true}).waitFor();
+        assert.equal(requests.count, 0, 'A scheduled post cannot become public immediately without confirmation');
+        await page.keyboard.press('Escape');
+        await chooseDate('2026-11-10T09:12');
+        await card.locator('.post-edit-save').click();
+        await page.getByRole('dialog', {name: 'Schedule publication?', exact: true}).waitFor();
+        assert.equal(requests.count, 0, 'Changing an agreed schedule also needs confirmation');
+        await page.keyboard.press('Escape');
+    });
+
+    await withPage(async (page, card, requests) => {
         await card.locator('.post-inplace-datetime').evaluate(node => {
             node.value = '2026-11-07T13:01';
             node.dispatchEvent(new Event('input', {bubbles: true}));

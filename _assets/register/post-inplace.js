@@ -3478,7 +3478,10 @@
             // Keep the draft durable even if processing an attachment never
             // reaches its upload request or a save's preparation times out.
             state?.recovery?.persist();
-            if (state && publication !== 'draft' && (state.creating || card.classList.contains('is-draft-preview'))) {
+            const changingSchedule = state && card.classList.contains('is-scheduled-preview') && editorHasUnsavedChanges(state)
+                && (editorPublishedAt(state) !== state.originalPublishedAt
+                    || editorPublishedAt(state) <= Math.floor(Date.now() / 1000));
+            if (state && publication !== 'draft' && (state.creating || card.classList.contains('is-draft-preview') || changingSchedule)) {
                 if (!syncEditor(state) || !await requestPublicationConfirmation(state)) return;
                 if (editorStates.get(card) !== state) return;
             }
