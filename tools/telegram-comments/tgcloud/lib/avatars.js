@@ -10,22 +10,30 @@ export function messageAuthor(message) {
     return Number.isSafeInteger(message?.from?.id) && message.from.id > 0 ? `user${message.from.id}` : null;
 }
 
+async function smallChatPhoto(id, api) {
+    const chat = await api.getChat({ chat_id: id });
+    return chat.photo ? { file_id: chat.photo.small_file_id, file_unique_id: chat.photo.small_file_unique_id } : null;
+}
+
 async function photoFor(author, api, config) {
     const id = Number(author.replace(/^(user|channel)/, ''));
-    if (author.startsWith('channel')) {
-        const chat = await api.getChat({ chat_id: -1_000_000_000_000 - id });
-        return chat.photo ? { file_id: chat.photo.small_file_id, file_unique_id: chat.photo.small_file_unique_id } : null;
-    }
+    if (author.startsWith('channel')) return smallChatPhoto(-1_000_000_000_000 - id, api);
     let result;
     try {
-        result = await api.getUserProfilePhotos({ user_id: id, offset: 0, limit: 1 });
+        try {
+            result = await api.getUserProfilePhotos({ user_id: id, offset: 0, limit: 1 });
+        } catch (error) {
+            if (error?.code !== 400 || typeof api.getChatMember !== 'function') throw error;
+            // Resolving a group member can make an older user's identity available to the Bot API.
+            await api.getChatMember({ chat_id: config.discussionChatId, user_id: id });
+            result = await api.getUserProfilePhotos({ user_id: id, offset: 0, limit: 1 });
+        }
     } catch (error) {
-        if (error?.code !== 400 || typeof api.getChatMember !== 'function') throw error;
-        // Resolving a group member can make an older user's identity available to the Bot API.
-        await api.getChatMember({ chat_id: config.discussionChatId, user_id: id });
-        result = await api.getUserProfilePhotos({ user_id: id, offset: 0, limit: 1 });
+        if (![400, 403].includes(error?.code)) throw error;
     }
-    return [...(result.photos?.[0] ?? [])].sort((a, b) => a.width * a.height - b.width * b.height)[0] ?? null;
+    const photo = [...(result?.photos?.[0] ?? [])].sort((a, b) => a.width * a.height - b.width * b.height)[0];
+    // Telegram can expose a public profile picture through getChat even with an empty photo gallery.
+    return photo ?? smallChatPhoto(id, api);
 }
 
 /** Optional enrichment after comment delivery. Its failures never reject a Telegram update. */

@@ -75,6 +75,7 @@ test('a hidden or inaccessible photo gets a bounded negative result without down
                 if (inaccessible) throw Object.assign(new Error('not accessible'), { code: 403 });
                 return { total_count: 0, photos: [] };
             },
+            async getChat() { return {}; },
             async getFileContent() { assert.fail('No picture is available'); },
         };
         const result = await syncAvatars(config, api, async (_url, options) => {
@@ -98,6 +99,55 @@ test('a transient API failure is left retryable rather than recorded as a missin
     }, ['user22']);
     assert.deepEqual(result, { filled: 0, unavailable: 0, failed: 1 });
     assert.equal(posts, 0);
+});
+
+test('a public chat photo is imported even when the user profile photo gallery is empty', async () => {
+    const api = {
+        async getUserProfilePhotos() { return { total_count: 0, photos: [] }; },
+        async getChat(input) {
+            assert.deepEqual(input, { chat_id: 22 });
+            return { photo: { small_file_id: 'public_photo', small_file_unique_id: 'public_unique' } };
+        },
+        async getFileContent(id) { assert.equal(id, 'public_photo'); return new Uint8Array([1, 2]); },
+    };
+    const result = await syncAvatars(config, api, async (_url, options) => {
+        if (!options.method) return response({ success: true, authors: ['user22'] });
+        assert.equal(options.headers['Content-Type'], 'application/octet-stream');
+        assert.equal(options.headers['X-Register-Telegram-Photo'], 'public_unique');
+        return response({ success: true, filled: 7 });
+    }, ['user22']);
+    assert.deepEqual(result, { filled: 7, unavailable: 0, failed: 0 });
+});
+
+test('an unavailable group member can still have a public photo in the private chat', async () => {
+    const calls = [];
+    const api = {
+        async getUserProfilePhotos() { calls.push('photos'); throw Object.assign(new Error('unknown user'), { code: 400 }); },
+        async getChatMember() { calls.push('member'); throw Object.assign(new Error('unknown member'), { code: 400 }); },
+        async getChat() { calls.push('chat'); return { photo: { small_file_id: 'public_photo', small_file_unique_id: 'public_unique' } }; },
+        async getFileContent() { return new Uint8Array([1]); },
+    };
+    const result = await syncAvatars(config, api, async (_url, options) =>
+        response(options.method ? { success: true, filled: 1 } : { success: true, authors: ['user22'] }), ['user22']);
+    assert.deepEqual(calls, ['photos', 'member', 'chat']);
+    assert.deepEqual(result, { filled: 1, unavailable: 0, failed: 0 });
+});
+
+test('a transient public chat photo failure stays retryable while an inaccessible chat is negative cached', async () => {
+    for (const code of [400, 500]) {
+        let negatives = 0;
+        const api = {
+            async getUserProfilePhotos() { return { photos: [] }; },
+            async getChat() { throw Object.assign(new Error('unavailable chat'), { code }); },
+        };
+        const result = await syncAvatars(config, api, async (_url, options) => {
+            if (!options.method) return response({ success: true, authors: ['user22'] });
+            negatives++;
+            return response({ success: true, filled: 0 });
+        }, ['user22']);
+        assert.deepEqual(result, { filled: 0, unavailable: code === 400 ? 1 : 0, failed: code === 500 ? 1 : 0 });
+        assert.equal(negatives, code === 400 ? 1 : 0);
+    }
 });
 
 test('a lost avatar acknowledgement retries the same bytes without downloading them again', async () => {
