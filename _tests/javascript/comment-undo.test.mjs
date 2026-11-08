@@ -235,12 +235,19 @@ test('bulk recovery shows partial results and never retries comments already res
     assert.match(runtime.body.querySelector('.comment-undo-progress').textContent, /3 of 3/);
 });
 
-test('deleted leaves keep an inline restoration control after collapsing history and after live patches', async () => {
+test('discussion recovery switches between inline controls and history without duplicating them', async () => {
     const runtime = setup({url: 'https://example.test/discussion'});
     const thread = runtime.create('div', 'comment-thread');
     const item = {...runtime.item(), data: {moderation_action: 'restore', comment_id: 1, comment_anchor: 4,
         return_to: '/discussion', moderation_token: 'csrf', undo_token: 'signed-1'}};
     runtime.window.RegisterCommentUndo.remember(runtime.payload(), [item]);
+    assert.equal(runtime.body.querySelector('.comment-undo-history').hidden, true);
+    assert.equal(thread.querySelectorAll('.comment-undo-inline').length, 1);
+    runtime.expand();
+    assert.equal(runtime.body.querySelector('.comment-undo-history').hidden, false);
+    assert.equal(thread.querySelectorAll('.comment-undo-inline').length, 0);
+    runtime.document.dispatchEvent({type: 'register:live-synchronized'});
+    assert.equal(thread.querySelectorAll('.comment-undo-inline').length, 0);
     runtime.collapse();
     assert.equal(thread.querySelectorAll('.comment-undo-inline').length, 1);
     assert.equal(thread.querySelector('.comment-undo-context').textContent, 'Comment #1 — Author 1');
@@ -250,6 +257,19 @@ test('deleted leaves keep an inline restoration control after collapsing history
     assert.equal(runtime.calls[0].options.body.get('moderation_action'), 'restore');
     assert.match(runtime.navigation[0], /discussion#comment-1$/);
     assert.equal(runtime.reloads(), 1);
+    assert.equal(runtime.stored().collapsed, true, 'Restoration does not open a previously collapsed history');
+});
+
+test('public recovery without a discussion thread opens history instead of hiding the only control', () => {
+    const runtime = setup({url: 'https://example.test/discussion'});
+    const item = {...runtime.item(), data: {moderation_action: 'restore', comment_id: 1,
+        return_to: '/discussion', moderation_token: 'csrf', undo_token: 'signed-1'}};
+    runtime.window.RegisterCommentUndo.remember(runtime.payload(), [item]);
+    assert.equal(runtime.body.querySelector('.comment-undo-history').hidden, false);
+    assert.equal(runtime.forms().length, 1);
+    runtime.collapse();
+    runtime.window.RegisterCommentUndo.remember(runtime.payload(), [item]);
+    assert.equal(runtime.stored().collapsed, true, 'A duplicate response preserves the chosen history state');
 });
 
 test('successful restoration focuses and highlights the returned row once', async () => {

@@ -121,6 +121,10 @@ it does not send subscription emails again. The notification survives a page rel
 browser tab through `sessionStorage`; when browser storage is blocked it still works on the current
 page. Public moderation without JavaScript offers an ordinary POST form for Undo.
 
+In a discussion, Undo appears at the deleted comment's position, with recent deletions collapsed.
+Opening that history replaces the inline recovery controls; collapsing it brings them back.
+Administration and other pages without an inline location open the history immediately.
+
 Restoration requires the deleting moderator's authenticated session, the original CSRF context,
 and a signed token tied to the comment and its deletion revision. Expired, altered, replayed, or
 stale tokens cannot restore a comment. Hourly maintenance removes at most 100 deleted leaf comments

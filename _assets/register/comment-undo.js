@@ -72,6 +72,12 @@
         return url.pathname === window.location.pathname && url.search === window.location.search;
     }
 
+    function canRenderInline(entry) {
+        if (!onCurrentPage(entry) || !entry.data.comment_id || entry.state === 'restored') return false;
+        const comment = document.querySelector('.comment-item[data-comment-id="' + entry.commentId + '"]');
+        return comment ? comment.dataset.moderationState === 'deleted' : !!document.querySelector('.comment-thread');
+    }
+
     function openComment(entry) {
         if (onCurrentPage(entry)) {
             window.history.replaceState(window.history.state, '', entry.commentUrl);
@@ -100,6 +106,8 @@
         const l = labels(entry);
         const form = element('form', 'comment-undo-notice' + (inline ? ' comment-undo-inline' : ''));
         form.dataset.undoEntry = entry.id;
+        form.dataset.undoFocus = entry.id;
+        form.tabIndex = -1;
         const content = element('div', 'comment-undo-content');
         content.append(element('strong', 'comment-undo-context', entry.context || l.deleted));
         if (entry.excerpt) content.append(element('p', 'comment-undo-excerpt', entry.excerpt));
@@ -127,8 +135,9 @@
         document.querySelectorAll('.comment-undo-inline, .comment-undo-placeholder').forEach((node) => node.remove());
         // A live patch can replace the thread without replacing the fixed history panel.
         entries.forEach((entry, id) => views.set(id, (views.get(id) || []).filter((view) => !view.inline)));
+        if (!collapsed) return;
         for (const entry of entries.values()) {
-            if (!onCurrentPage(entry) || !entry.data.comment_id || entry.state === 'restored') continue;
+            if (!canRenderInline(entry)) continue;
             let comment = document.querySelector('.comment-item[data-comment-id="' + entry.commentId + '"]');
             if (!comment) {
                 const thread = document.querySelector('.comment-thread');
@@ -224,8 +233,11 @@
         panel.scrollTop = scrollTop;
         renderInline();
         if (focusKey) {
-            const view = views.get(focusKey)?.[0];
-            if (view) (view.restore.hidden ? view.link : view.restore).focus();
+            const view = views.get(focusKey)?.find((view) => view.inline || !collapsed);
+            if (view) {
+                const target = view.restore.hidden ? view.link : view.restore;
+                (target.disabled || target.hidden ? view.form : target).focus();
+            }
         }
         focusRestored();
         if (timer === null) timer = window.setInterval(tick, 1000);
@@ -285,7 +297,6 @@
                 if ((response.ok && payload?.success) || code === 'undo_already_restored') {
                     entry.state = 'restored';
                     entry.alreadyRestored = code === 'undo_already_restored';
-                    collapsed = false;
                     entry.updated = Date.now();
                     entry.focus = true;
                     restored.push(entry);
@@ -319,6 +330,7 @@
 
     function remember(payload, items, requestedAt = Date.now()) {
         const group = String(Date.now()) + ':' + items[0]?.data?.undo_token;
+        const added = [];
         for (const item of items.filter(validItem)) {
             if (entries.has(item.data.undo_token)) continue;
             const meta = {...payload, ...item};
@@ -333,15 +345,18 @@
             if (!Number.isSafeInteger(commentId) || commentId <= 0) continue;
             const commentUrl = safeUrl(item.comment_url || (item.data.return_to
                 ? item.data.return_to + '#comment-' + commentId : window.location.href.split('#')[0] + '#admin-comment-' + commentId));
-            entries.set(item.data.undo_token, {
+            const entry = {
                 id: item.data.undo_token, group, url: safeUrl(item.url), data: item.data, commentId, commentUrl,
                 context: typeof meta.undo_context === 'string' ? meta.undo_context : 'Comment #' + commentId,
                 excerpt: typeof meta.undo_excerpt === 'string' ? meta.undo_excerpt : '',
                 labels: {...defaults, ...meta.undo_labels}, expires,
                 state: expires <= Date.now() ? 'expired' : 'deleted', error: ''
-            });
+            };
+            entries.set(entry.id, entry);
+            added.push(entry);
         }
-        collapsed = false;
+        // Keep recovery next to the comment when possible; history is an alternate view.
+        if (added.length > 0) collapsed = added.every(canRenderInline);
         save(); render();
     }
 

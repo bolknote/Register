@@ -199,6 +199,7 @@ export function createFixtureServer() {
                 ['/_assets/register/partial-navigation.css', ['../../../_assets/register/partial-navigation.css', 'text/css']],
                 ['/comment-editor.css', ['../../../_assets/register/comment-editor.css', 'text/css']],
                 ['/comment-undo.css', ['../../../_assets/register/comment-undo.css', 'text/css']],
+                ['/comment-undo.js', ['../../../_assets/register/comment-undo.js', 'text/javascript']],
             ]);
             for (const module of ['form', 'form-recovery', 'ai', 'image-alt', 'tags', 'shortcuts', 'dialogs', 'deps', 'hash', 'preview', 'social-preview', 'activitypub', 'codemirror', 'text/paragraphs', 'text/corrections', 'text/html', 'text/plain', 'utils/escape', 'utils/form-errors']) {
                 files.set(`/admin/editor/${module}.js`, [`../../../_admin/js/editor/${module}.js`, 'text/javascript']);
