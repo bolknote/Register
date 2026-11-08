@@ -39,9 +39,9 @@ final readonly class TelegramAvatarStorage
             throw new \UnexpectedValueException('The Telegram avatar cannot be decoded.');
         }
 
-        $scale = min(1, 256 / max($info[0], $info[1]));
-        $width = max(1, (int)round($info[0] * $scale));
-        $height = max(1, (int)round($info[1] * $scale));
+        $scale = min(1.0, 256.0 / (float)max($info[0], $info[1]));
+        $width = max(1, (int)round((float)$info[0] * $scale));
+        $height = max(1, (int)round((float)$info[1] * $scale));
         $image = imagecreatetruecolor($width, $height);
         if (!$image instanceof \GdImage) {
             throw new \RuntimeException('The Telegram avatar canvas cannot be created.');
