@@ -41,6 +41,11 @@ final readonly class CommentImportService
         return $this->commentRepository->synchronizeImported($commentId, $comment);
     }
 
+    public function fillMissingUserpic(int $commentId, ContentId $contentId, int $userpicId): bool
+    {
+        return $this->commentRepository->fillMissingImportedUserpic($commentId, $contentId, $userpicId);
+    }
+
     public function update(int $commentId, ContentId $contentId, string $text): bool
     {
         $this->validateMutation($commentId, $contentId, $text);

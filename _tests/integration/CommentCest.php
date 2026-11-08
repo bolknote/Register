@@ -16,6 +16,10 @@ use Register\Comment\Antispam\SpamAssessmentRepository;
 use Register\Comment\CommentChangedEvent;
 use Register\Comment\CommentChangeKind;
 use Register\Comment\CommentSchema;
+use Register\Comment\CommentImport;
+use Register\Comment\CommentImportService;
+use Register\Comment\CommentRepository;
+use Register\Content\ContentId;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Comment\Antispam\SpamFeedbackService;
@@ -398,6 +402,23 @@ class CommentCest
             '[data-comment-id="' . $commentId . '"] .comment-userpic img[src="/_tests/_output/images/userpics/example.jpg"]'
         );
         $I->dontSeeElement('[data-comment-id="' . $commentId . '"] .comment-userpic-fallback');
+    }
+
+    public function testImportedEditPreservesAnExistingGuestUserpic(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $db */
+        $db = $I->grabService(DbLayer::class);
+        $contentId = ContentId::page($this->insertArticle($db));
+        $userpicId = $this->insertUserpic($db, 'imported-guest', time());
+        $commentId = $this->insertComment($db, $contentId->value, 'Imported author', '', $userpicId);
+        /** @var CommentImportService $importer */
+        $importer = $I->grabService(CommentImportService::class);
+        $I->assertTrue($importer->synchronize($commentId, new CommentImport(
+            $contentId, 'Imported author', 'An updated imported comment', null, time(),
+        )));
+        /** @var CommentRepository $comments */
+        $comments = $I->grabService(CommentRepository::class);
+        $I->assertSame($userpicId, $comments->find($commentId)?->userpicId);
     }
 
     public function testRendersInitialsWhenACommentHasNoStoredUserpic(\IntegrationTester $I): void

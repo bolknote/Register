@@ -25,6 +25,8 @@ use Register\Import\Telegram\TelegramMediaDownloadFailed;
 use Register\Import\Telegram\TelegramLiveReactionService;
 use Register\Import\Telegram\TelegramLiveMediaController;
 use Register\Import\Telegram\TelegramMediaUploadStorage;
+use Register\Import\Telegram\TelegramAvatarController;
+use Register\Import\Telegram\TelegramAvatarStorage;
 use Register\Import\ExternalImportMapRepository;
 use Register\Module\Reactions\ReactionAggregateSchema;
 use Register\Module\Reactions\ReactionRepository;
@@ -822,6 +824,134 @@ final class TelegramLiveImportCest
         }
 
         $I->assertSame(2, $I->grabService(CommentRepository::class)->count(ContentId::post($id), true));
+    }
+
+    public function avatarDeliveryFillsOldCommentsAndJsonReimportKeepsExistingPictures(\IntegrationTester $I): void
+    {
+        $id = $this->post($I);
+        $this->enable($I);
+        $I->setConfigValue('REGISTER_PREMODERATION', '0');
+        $snapshot = $this->snapshot();
+        $snapshot['messages'][2]['from_id'] = 'user22';
+        $snapshot['messages'][2]['from'] = 'Reader';
+        $this->send($I, $snapshot);
+        $I->seeResponseCodeIs(200);
+        /** @var CommentRepository $comments */
+        $comments = $I->grabService(CommentRepository::class);
+        $before = $comments->findForContent(ContentId::post($id));
+        $comments->hide($before[0]->id, ContentType::POST);
+        $I->sendRequestWithHeaders(TelegramAvatarController::PATH . '?chat_id=123&authors=user22', ['X-Register-Telegram-Token' => self::TOKEN]);
+        $I->seeResponseCodeIs(200);
+        $I->assertSame(['user22'], $I->grabJson()['authors'] ?? null);
+
+        $png = (string)file_get_contents(__DIR__ . '/../_resources/telegram-media/photo.png');
+        $headers = $this->avatarHeaders('user22');
+        $I->sendBinary(TelegramAvatarController::PATH, $png . '<?php untrusted_metadata();', $headers);
+        $I->seeResponseCodeIs(200);
+        $I->assertSame(2, $I->grabJson()['filled'] ?? null);
+
+        $first = $comments->find($before[0]->id);
+        $second = $comments->find($before[1]->id);
+        $I->assertNotNull($first?->userpicId);
+        $I->assertSame($first->userpicId, $second?->userpicId);
+        $I->assertFalse($first->shown);
+        $I->assertSame($before[0]->text, $first->text);
+        $I->assertSame($before[0]->time, $first->time);
+        $I->assertSame($before[0]->modifyTime, $first->modifyTime);
+        /** @var DbLayer $db */
+        $db = $I->grabService(DbLayer::class);
+        $picture = $db->select('*')->from('userpics')->where('id = :id')->setParameter('id', $first->userpicId)->execute()->fetchAssoc();
+        $I->assertIsArray($picture);
+        $I->assertSame('', $picture['source_url']);
+
+        $stored = (string)file_get_contents(__DIR__ . '/../_output/images/' . $picture['storage_key']);
+        $I->assertSame($picture['content_hash'], hash('sha256', $stored));
+        $I->assertStringNotContainsString('<?php', $stored);
+
+        // A later supplied image cannot replace pictures that these comments already have.
+        $I->sendBinary(TelegramAvatarController::PATH, 'a different image is unnecessary', $headers);
+        $I->seeResponseCodeIs(200);
+        $I->assertSame(0, $I->grabJson()['filled'] ?? null);
+        $I->assertSame($first->userpicId, $comments->find($first->id)?->userpicId);
+
+        $snapshot['messages'][1]['text'] = 'An imported edit';
+        $snapshot['messages'][1]['text_entities'] = [['type' => 'plain', 'text' => 'An imported edit']];
+        $snapshot['messages'][1]['edited_unixtime'] = '200';
+        $snapshot['messages'][] = array_replace($snapshot['messages'][2], ['id' => 4, 'reply_to_message_id' => 1]);
+        $file = tempnam(sys_get_temp_dir(), 'telegram-avatar-json-');
+        $I->assertIsString($file);
+        try {
+            file_put_contents($file, json_encode($snapshot, JSON_THROW_ON_ERROR));
+            $report = $I->grabService(TelegramImportService::class)->importFile($file);
+        } finally {
+            unlink($file);
+        }
+
+        $I->assertSame(1, $report['changes']['comments_inserted']);
+        $I->assertSame(1, $report['changes']['comments_avatars_filled']);
+
+        $rows = $comments->findForContent(ContentId::post($id));
+        $I->assertCount(3, $rows);
+        foreach ($rows as $row) {
+            $I->assertSame($first->userpicId, $row->userpicId);
+        }
+
+        $I->assertFalse($comments->find($first->id)->shown);
+    }
+
+    public function avatarReceiverRejectsUntrustedImagesAndBacksOffUnavailableAuthors(\IntegrationTester $I): void
+    {
+        $this->post($I);
+        $this->enable($I);
+        $this->send($I, $this->snapshot());
+        $path = TelegramAvatarController::PATH . '?chat_id=123';
+        $I->sendRequestWithMethod('GET', $path);
+        $I->seeResponseCodeIs(401);
+        $I->sendRequestWithHeaders(TelegramAvatarController::PATH . '?chat_id=456', ['X-Register-Telegram-Token' => self::TOKEN]);
+        $I->seeResponseCodeIs(422);
+        $I->sendBinary(TelegramAvatarController::PATH, '<svg onload="alert(1)"/>', $this->avatarHeaders('user22'));
+        $I->seeResponseCodeIs(422);
+        $I->sendBinary(TelegramAvatarController::PATH, str_repeat('x', TelegramAvatarStorage::MAX_BYTES + 1), $this->avatarHeaders('user22'));
+        $I->seeResponseCodeIs(413);
+        $I->sendJson(TelegramAvatarController::PATH, ['chat_id' => 123, 'author' => 'user22', 'unavailable' => true], headers: ['X-Register-Telegram-Token' => self::TOKEN]);
+        $I->seeResponseCodeIs(200);
+        $I->sendRequestWithHeaders($path, ['X-Register-Telegram-Token' => self::TOKEN]);
+        $I->assertSame(['user33'], $I->grabJson()['authors'] ?? null);
+        $I->assertSame(0, (int)$I->grabService(DbLayer::class)->select('COUNT(*)')->from('userpics')->execute()->result());
+    }
+
+    public function avatarDeliveryNeverFillsAnotherDiscussionScope(\IntegrationTester $I): void
+    {
+        $this->post($I);
+        $this->enable($I);
+        $this->send($I, $this->snapshot());
+        $other = $this->snapshot();
+        $other['id'] = 456;
+        $file = tempnam(sys_get_temp_dir(), 'telegram-avatar-scope-');
+        $I->assertIsString($file);
+        try {
+            file_put_contents($file, json_encode($other, JSON_THROW_ON_ERROR));
+            $I->grabService(TelegramImportService::class)->importFile($file);
+        } finally {
+            unlink($file);
+        }
+
+        $png = (string)file_get_contents(__DIR__ . '/../_resources/telegram-media/photo.png');
+        $I->sendBinary(TelegramAvatarController::PATH, $png, $this->avatarHeaders('user22'));
+        $I->seeResponseCodeIs(200);
+        $I->assertSame(1, $I->grabJson()['filled'] ?? null);
+
+        $maps = $I->grabService(ExternalImportMapRepository::class);
+        $comments = $I->grabService(CommentRepository::class);
+        $I->assertNotNull($comments->find($maps->find('telegram', '123', 'comment', '2')['target_id'])->userpicId);
+        $I->assertNull($comments->find($maps->find('telegram', '456', 'comment', '2')['target_id'])->userpicId);
+    }
+
+    /** @return array<string, string> */
+    private function avatarHeaders(string $author): array
+    {
+        return ['X-Register-Telegram-Token' => self::TOKEN, 'X-Register-Telegram-Chat' => '123',
+            'X-Register-Telegram-Author' => $author, 'X-Register-Telegram-Photo' => 'opaque_photo_identity'];
     }
 
     private function change(\IntegrationTester $I, string $name): int

@@ -118,7 +118,7 @@ final readonly class CommentRepository
             ->update(CommentSchema::TABLE_NAME)
             ->set('parent_id', ':parent_id')->setParameter('parent_id', $comment->parentId)
             ->set('user_id', ':user_id')->setParameter('user_id', $comment->userId)
-            ->set('userpic_id', ':userpic_id')->setParameter('userpic_id', $this->latestUserpicId($comment->userId))
+            ->set('userpic_id', 'COALESCE(userpic_id, :userpic_id)')->setParameter('userpic_id', $this->latestUserpicId($comment->userId))
             ->set('time', ':time')->setParameter('time', $comment->createdAt)
             ->set('modify_time', ':modify_time')->setParameter('modify_time', $comment->modifiedAt ?? 0)
             ->set('nick', ':nick')->setParameter('nick', $comment->name)
@@ -138,6 +138,34 @@ final readonly class CommentRepository
                 CommentChangeKind::EDITED,
                 CommentMutationSource::IMPORTED,
             );
+        }
+
+        return $updated;
+    }
+
+    /** Fills an imported comment's missing picture without changing its content or moderation. */
+    public function fillMissingImportedUserpic(int $commentId, ContentId $contentId, int $userpicId): bool
+    {
+        if ($commentId <= 0 || $userpicId <= 0) {
+            throw new \InvalidArgumentException('The comment and picture identifiers must be positive.');
+        }
+
+        $exists = $this->dbLayer->select('id')->from(UserpicSchema::TABLE_NAME)
+            ->where('id = :id')->setParameter('id', $userpicId)->execute()->fetchAssoc();
+        if ($exists === false) {
+            throw new \DomainException('The imported picture does not exist.');
+        }
+
+        $updated = $this->dbLayer->update(CommentSchema::TABLE_NAME)
+            ->set('userpic_id', ':userpic_id')->setParameter('userpic_id', $userpicId)
+            ->where('id = :id')->setParameter('id', $commentId)
+            ->andWhere('content_type = :type')->setParameter('type', $contentId->type->value)
+            ->andWhere('content_id = :content_id')->setParameter('content_id', $contentId->value)
+            ->andWhere('userpic_id IS NULL')->andWhere('deleted = 0')
+            ->execute()->affectedRows() > 0;
+        if ($updated) {
+            $this->liveUpdateRepository->publishComments($contentId);
+            $this->dispatch($commentId, $contentId, CommentChangeKind::EDITED, CommentMutationSource::IMPORTED);
         }
 
         return $updated;

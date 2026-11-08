@@ -6,6 +6,7 @@ import { ready } from './protocol.js';
 import { refreshConfig, restoreConfig } from './settings.js';
 import { sendSnapshot } from './transfer.js';
 import { createDeliverySession } from './request.js';
+import { messageAuthor, syncAvatars } from './avatars.js';
 
 function createSender() {
     const session = createDeliverySession(fetch, id => api.getFileContent(id));
@@ -67,12 +68,15 @@ export async function receive(message, ctx) {
             return;
         }
         const result = command === '/retry' && ready(config) ? await flush(config, store, createSender(), Date.now, 20, false) : null;
+        const avatars = command === '/retry' ? await syncAvatars(config, api, fetch) : null;
         const status = await store.status();
         const health = await checkReceiver();
-        await api.sendMessage({ chat_id: message.chat.id, text: `${config.enabled === false ? 'Импорт выключен в настройках блога.\n' : ''}${result ? `Передано: ${result.delivered}.\n` : ''}В очереди: ${status.count}.\n${health}\n${status.errors.map(e => `${e.last_error || 'ожидает'}: ${e.count}`).join('\n')}` });
+        await api.sendMessage({ chat_id: message.chat.id, text: `${config.enabled === false ? 'Импорт выключен в настройках блога.\n' : ''}${result ? `Передано: ${result.delivered}.\n` : ''}${avatars ? `Добавлено аватарок: ${avatars.filled}; недоступно: ${avatars.unavailable}; ошибок: ${avatars.failed}.\n` : ''}В очереди: ${status.count}.\n${health}\n${status.errors.map(e => `${e.last_error || 'ожидает'}: ${e.count}`).join('\n')}` });
         return;
     }
     if (message.chat?.id !== config.discussionChatId || !ready(config)) return;
     if (!ingested) await ingest(message, ctx.update.update_id, config, store);
     await flush(config, store, createSender(), Date.now, 20, true);
+    const author = messageAuthor(message);
+    if (author) await syncAvatars(config, api, fetch, [author]);
 }

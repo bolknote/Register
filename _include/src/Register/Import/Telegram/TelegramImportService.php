@@ -42,6 +42,7 @@ final readonly class TelegramImportService
         private TelegramManagedMediaStorage $mediaStorage,
         private string                      $baseUrl,
         private ?TelegramSettings           $settings = null,
+        private ?TelegramAvatarService      $avatars = null,
     ) {
     }
 
@@ -140,6 +141,7 @@ final readonly class TelegramImportService
         $changes = [
             'comments_inserted'              => 0,
             'comments_updated'               => 0,
+            'comments_avatars_filled'         => 0,
             'comments_unchanged'             => 0,
             'comments_media_available'       => 0,
             'comments_media_unavailable'     => 0,
@@ -476,6 +478,10 @@ final readonly class TelegramImportService
                     $reactionRows,
                     $changes,
                 );
+            }
+
+            if (!$dryRun) {
+                $changes['comments_avatars_filled'] = $this->avatars?->fillCached($chatId) ?? 0;
             }
 
             if ($startedTransaction) {

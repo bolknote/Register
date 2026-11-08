@@ -28,6 +28,9 @@ use Register\Import\Telegram\TelegramMediaUploadStorage;
 use Register\Import\Telegram\TelegramLiveMediaController;
 use Register\Import\Telegram\TelegramFileClientInterface;
 use Register\Import\Telegram\TelegramLiveReactionService;
+use Register\Import\Telegram\TelegramAvatarController;
+use Register\Import\Telegram\TelegramAvatarService;
+use Register\Import\Telegram\TelegramAvatarStorage;
 use Register\Core\Config\DynamicConfigProvider;
 use Register\Module\Reactions\ReactionAggregateRepository;
 use Register\AdminYard\SettingStorage\SettingStorageInterface;
@@ -52,6 +55,13 @@ final readonly class ImportModule implements ContainerModuleInterface
         $container->set(ExternalImportMapRepository::class, static fn(Container $container): ExternalImportMapRepository => new ExternalImportMapRepository(
             $container->get(DbLayer::class),
         ));
+        $container->set(TelegramAvatarStorage::class, static fn(Container $container): TelegramAvatarStorage => new TelegramAvatarStorage(
+            $container->getStringParameter('image_dir'), $container->get(\Register\Media\MediaMutationTracker::class),
+        ));
+        $container->set(TelegramAvatarService::class, static fn(Container $container): TelegramAvatarService => new TelegramAvatarService(
+            $container->get(DbLayer::class), $container->get(ExternalImportMapRepository::class),
+            $container->get(CommentImportService::class), $container->get(TelegramAvatarStorage::class),
+        ));
         $container->set(TelegramManagedMediaStorage::class, static fn(Container $container): TelegramManagedMediaStorage => new TelegramManagedMediaStorage(
             $container->getStringParameter('public_root_dir'),
             $container->getStringParameter('base_path'),
@@ -67,6 +77,7 @@ final readonly class ImportModule implements ContainerModuleInterface
             $container->get(TelegramManagedMediaStorage::class),
             $container->getStringParameter('base_url'),
             $container->get(TelegramSettings::class),
+            $container->get(TelegramAvatarService::class),
         ));
         $container->set(TelegramSettings::class, static fn(Container $container): TelegramSettings => new TelegramSettings(
             $container->get(DynamicConfigProvider::class),
@@ -75,6 +86,10 @@ final readonly class ImportModule implements ContainerModuleInterface
             $container->get(TelegramSettings::class),
         ));
         $container->set(TelegramLiveImportConfig::class, static fn(Container $container): TelegramLiveImportConfig => $container->get(TelegramSettings::class)->liveConfig(), ['dynamic_config_dependent']);
+        $container->set(TelegramAvatarController::class, static fn(Container $container): TelegramAvatarController => new TelegramAvatarController(
+            $container->get(TelegramLiveImportConfig::class), $container->get(TelegramAvatarService::class),
+            $container->getStringParameter('cache_dir') . 'telegram-import.lock', $container->get(LoggerInterface::class),
+        ), ['dynamic_config_dependent']);
         $container->set(TelegramMediaUploadStorage::class, static fn(Container $container): TelegramMediaUploadStorage => new TelegramMediaUploadStorage(
             $container->getStringParameter('cache_dir') . 'telegram-media',
             $container->get(TelegramLiveImportConfig::class)->discussionExportId(),
