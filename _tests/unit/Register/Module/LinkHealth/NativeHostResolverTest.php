@@ -92,6 +92,107 @@ final class NativeHostResolverTest extends Unit
         $resolver->resolve('example.test');
     }
 
+    public function testPrefersIpv4WhenTheIpv6AnswerArrivesFirst(): void
+    {
+        self::assertSame(['93.184.216.34'], $this->resolveUsingAddressServer('dual-stack', 0.4));
+    }
+
+    public function testFallsBackToIpv6WhenTheIpv4AnswerIsEmpty(): void
+    {
+        self::assertSame(['2001:4860:4860::8888'], $this->resolveUsingAddressServer('ipv6-only', 0.4));
+    }
+
+    public function testKeepsTheIpv6AnswerWhenTheIpv4ReplyMissesTheDeadline(): void
+    {
+        $startedAt = hrtime(true);
+
+        self::assertSame(['2001:4860:4860::8888'], $this->resolveUsingAddressServer('missing-ipv4', 0.05));
+        self::assertLessThan(0.5, ((float)hrtime(true) - (float)$startedAt) / 1_000_000_000.0);
+    }
+
+    /** @return list<string> */
+    private function resolveUsingAddressServer(string $scenario, float $timeout): array
+    {
+        if (!\function_exists('proc_open')) {
+            self::markTestSkipped('The DNS response fixture requires proc_open.');
+        }
+
+        $script = '$scenario = ' . var_export($scenario, true) . ';' . $this->dnsAddressServerScript();
+        $process = proc_open(
+            [PHP_BINARY, '-r', $script],
+            [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes,
+        );
+        self::assertIsResource($process);
+        self::assertCount(3, $pipes);
+        fclose($pipes[0]);
+        $endpoint = trim((string)fgets($pipes[1]));
+        self::assertNotSame('', $endpoint);
+
+        try {
+            $addresses = (new NativeHostResolver([$endpoint], $timeout))->resolve('dual-stack.example');
+        } finally {
+            $error = stream_get_contents($pipes[2]);
+            fclose($pipes[1]);
+            fclose($pipes[2]);
+            $exitCode = proc_close($process);
+        }
+
+        self::assertSame('', $error);
+        self::assertSame(0, $exitCode);
+
+        return $addresses;
+    }
+
+    private function dnsAddressServerScript(): string
+    {
+        return <<<'PHP_WRAP'
+        $errorCode = 0;
+        $errorMessage = '';
+        $server = stream_socket_server('udp://127.0.0.1:0', $errorCode, $errorMessage, STREAM_SERVER_BIND);
+        if (!is_resource($server)) {
+            fwrite(STDERR, $errorMessage);
+            exit(1);
+        }
+        stream_set_timeout($server, 2);
+        echo stream_socket_get_name($server, false), PHP_EOL;
+        flush();
+        $requests = [];
+        for ($number = 0; $number < 2; ++$number) {
+            $peer = null;
+            $request = stream_socket_recvfrom($server, 4096, 0, $peer);
+            if (!is_string($request) || strlen($request) < 17 || !is_string($peer) || $peer === '') {
+                exit(2);
+            }
+            $type = unpack('ntype', substr($request, -4, 2))['type'];
+            $requests[$type] = [$request, $peer];
+        }
+        foreach ([28, 1] as $type) {
+            if ($type === 1 && $scenario === 'missing-ipv4') {
+                continue;
+            }
+            [$request, $peer] = $requests[$type];
+            $address = $type === 28 ? inet_pton('2001:4860:4860::8888')
+                : ($scenario === 'dual-stack' ? inet_pton('93.184.216.34') : null);
+            $id = unpack('nid', substr($request, 0, 2))['id'];
+            $response = pack('nnnnnn', $id, 0x8180, 1, $address === null ? 0 : 1, 0, 0) . substr($request, 12);
+            if (is_string($address)) {
+                $response .= "\xc0\x0c" . pack('nnNn', $type, 1, 60, strlen($address)) . $address;
+            }
+            if ($type === 1) {
+                usleep(20_000);
+            }
+            if (stream_socket_sendto($server, $response, 0, $peer) !== strlen($response)) {
+                exit(3);
+            }
+        }
+        if ($scenario === 'missing-ipv4') {
+            usleep(100_000);
+        }
+        fclose($server);
+        PHP_WRAP;
+    }
+
     private function dnsRetryServerScript(): string
     {
         return <<<'PHP_WRAP'

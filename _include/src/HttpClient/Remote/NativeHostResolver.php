@@ -95,6 +95,7 @@ final readonly class NativeHostResolver implements HostResolverInterface
         }
 
         $completed = [$firstId => false, $secondId => false];
+        $ipv6Addresses = [];
         $temporaryFailure = false;
         $nextRetryAt = $this->monotonicNanoseconds()
             + self::RETRY_INTERVAL_SECONDS * 1_000_000_000.0;
@@ -157,13 +158,25 @@ final readonly class NativeHostResolver implements HostResolverInterface
                         }
 
                         if ($response->status === DnsResponseStatus::ANSWER) {
-                            return $response->addresses;
+                            if ($queries[$transactionId]['type'] === DnsMessageCodec::TYPE_A) {
+                                return $response->addresses;
+                            }
+
+                            // Prefer A records on dual-stack hosts: shared hosting may advertise
+                            // IPv6 in DNS without having an outbound IPv6 route.
+                            $ipv6Addresses = $response->addresses;
+                            $completed[$transactionId] = true;
+                            if ($completed[$firstId]) {
+                                return $ipv6Addresses;
+                            }
+
+                            continue;
                         }
 
                         if ($response->status === DnsResponseStatus::EMPTY) {
                             $completed[$transactionId] = true;
                             if (!\in_array(false, $completed, true)) {
-                                return [];
+                                return $ipv6Addresses;
                             }
                         } else {
                             $temporaryFailure = true;
@@ -172,6 +185,10 @@ final readonly class NativeHostResolver implements HostResolverInterface
                 }
 
                 if ($sockets === []) {
+                    if ($ipv6Addresses !== []) {
+                        return $ipv6Addresses;
+                    }
+
                     throw new RemoteHostResolverUnavailable('All bounded system DNS transports failed.');
                 }
 
@@ -179,6 +196,10 @@ final readonly class NativeHostResolver implements HostResolverInterface
                 if ($now >= $nextRetryAt && $now < $deadline) {
                     $this->retryQueries($sockets, $queries, $completed);
                     if ($sockets === []) {
+                        if ($ipv6Addresses !== []) {
+                            return $ipv6Addresses;
+                        }
+
                         throw new RemoteHostResolverUnavailable('All bounded system DNS transports failed.');
                     }
 
@@ -189,6 +210,10 @@ final readonly class NativeHostResolver implements HostResolverInterface
             foreach ($sockets as $socket) {
                 fclose($socket);
             }
+        }
+
+        if ($ipv6Addresses !== []) {
+            return $ipv6Addresses;
         }
 
         if ($temporaryFailure) {
