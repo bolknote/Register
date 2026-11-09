@@ -127,13 +127,18 @@ export async function runPublicAuthRegressions(browser, origin) {
         await page.goto(`${origin}/public-auth.html?providers=all`);
         assert.equal(await page.locator('#comment-text').inputValue(), 'Unsaved comment before sign-in');
         await page.locator('.comment-submit').click();
-        await page.route('**/auth/oauth/vk?*', route => route.fulfill({contentType: 'text/html', body: 'Provider fixture'}));
+        await page.route(url => url.pathname === '/auth/oauth/vk', route => route.fulfill({contentType: 'text/html', body: 'Provider fixture'}));
         const providerRequest = page.waitForRequest(request => new URL(request.url()).pathname === '/auth/oauth/vk');
         const providerNavigation = page.waitForURL(url => url.pathname === '/auth/oauth/vk', {waitUntil: 'domcontentloaded'});
         await page.locator('#public-auth-dialog').getByRole('button', {name: 'VK ID', exact: true}).click();
-        const providerUrl = new URL((await providerRequest).url());
+        const providerPost = await providerRequest;
+        const providerUrl = new URL(providerPost.url());
         await providerNavigation;
-        assert.ok(new URL(providerUrl.searchParams.get('return'), origin).searchParams.get('comment_send'));
+        assert.equal(providerPost.method(), 'POST');
+        assert.equal(providerUrl.search, '', 'Return paths do not create extra provider URLs');
+        const providerFields = new URLSearchParams(providerPost.postData());
+        assert.equal(providerFields.get('auth_token'), 'auth-fixture-token');
+        assert.ok(new URL(providerFields.get('return_path'), origin).searchParams.get('comment_send'));
         assert.equal(await page.evaluate(() => !!sessionStorage.getItem('register_comment_send')), true);
         await page.goto(`${origin}/public-auth.html?providers=all`);
         assert.equal(await page.locator('#comment-text').inputValue(), 'Unsaved comment before sign-in', 'An unsuccessful provider trip retains the comment');
@@ -316,13 +321,15 @@ export async function runPublicAuthRegressions(browser, origin) {
         for (const [provider, label] of [['yandex', 'Яндекс'], ['vk', 'VK ID'], ['mail_ru', 'Mail.ru'], ['ok_ru', 'Одноклассники']]) {
             await page.goto(`${origin}/public-auth.html?providers=all`);
             await page.locator('#auth-open').click();
-            await page.route(`**/auth/oauth/${provider}?*`, route => route.fulfill({contentType: 'text/html', body: '<p>Local authorization endpoint</p>'}), {times: 1});
+            await page.route(url => url.pathname === `/auth/oauth/${provider}`, route => route.fulfill({contentType: 'text/html', body: '<p>Local authorization endpoint</p>'}), {times: 1});
             const request = page.waitForRequest(request => new URL(request.url()).pathname === `/auth/oauth/${provider}`);
             await page.locator('#public-auth-dialog').getByRole('button', {name: label, exact: true}).click();
             const actual = await request;
             assert.equal(actual.method(), 'POST', 'A provider starts directly with the existing protected POST');
-            assert.equal(new URL(actual.url()).searchParams.get('return'), returnPath);
-            assert.equal(new URLSearchParams(actual.postData()).get('auth_token'), 'auth-fixture-token');
+            assert.equal(new URL(actual.url()).search, '', 'The provider action is independent of the return path');
+            const fields = new URLSearchParams(actual.postData());
+            assert.equal(fields.get('return_path'), returnPath);
+            assert.equal(fields.get('auth_token'), 'auth-fixture-token');
         }
     } finally { await context.close(); }
 
@@ -348,6 +355,17 @@ export async function runPublicAuthRegressions(browser, origin) {
         await page.waitForURL(url => url.searchParams.get('mode') === 'email');
         assert.equal(await panel.locator('.public-auth-email-form').isVisible(), true);
         assert.equal(await panel.locator('.public-auth-email-form [name="return_path"]').inputValue(), returnPath);
+        await panel.getByRole('link', {name: 'К способам входа', exact: true}).click();
+        await page.waitForURL(url => !url.searchParams.has('mode'));
+        await page.route(url => url.pathname === '/auth/oauth/vk', route => route.fulfill({contentType: 'text/html', body: 'Native provider accepted'}));
+        const nativePost = page.waitForRequest(request => new URL(request.url()).pathname === '/auth/oauth/vk');
+        await panel.getByRole('button', {name: 'VK ID', exact: true}).click();
+        const submitted = await nativePost;
+        assert.equal(submitted.method(), 'POST');
+        assert.equal(new URL(submitted.url()).search, '');
+        const nativeFields = new URLSearchParams(submitted.postData());
+        assert.equal(nativeFields.get('return_path'), returnPath, 'A native provider form retains the return path without JavaScript');
+        assert.equal(nativeFields.get('auth_token'), 'auth-fixture-token');
         await page.goto(`${origin}/auth?providers=none&email=0&mode=email`);
         assert.equal(await panel.locator('.public-auth-email-form').count(), 0);
         assert.equal(await panel.locator('.public-auth-password-form').isVisible(), true, 'A disabled method cannot be selected by URL');

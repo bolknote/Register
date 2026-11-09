@@ -232,20 +232,23 @@ async function queryRouteRegressions(browser, origin) {
             for (const form of await dialog.locator('.public-auth-provider-form').all()) {
                 const action = new URL(await form.getAttribute('action'), origin);
                 assert.ok((action.pathname + action.search).startsWith(prefix + '/auth/oauth/'), 'Opening the dialog preserves the provider route');
-                assert.equal(action.searchParams.get('return'), prefix + '/all/auth-example&view=full#comment-draft');
+                assert.equal(action.searchParams.has('return'), false, 'The provider action does not carry a return query');
+                assert.equal(await form.locator('[name="return_path"]').inputValue(), prefix + '/all/auth-example&view=full#comment-draft');
             }
             for (const link of await dialog.locator('[data-public-auth-mode-open]').all()) {
                 assert.ok((await link.getAttribute('href')).startsWith(prefix + '/auth&'), 'Method links retain their raw routing segment');
             }
             let providerPost;
-            await page.route(requestUrl => requestUrl.pathname + requestUrl.search === prefix + '/auth/oauth/yandex&return=' + encodeURIComponent(prefix + '/all/auth-example&view=full#comment-draft'), async route => {
+            await page.route(requestUrl => requestUrl.pathname + requestUrl.search === prefix + '/auth/oauth/yandex', async route => {
                 providerPost = {method: route.request().method(), body: route.request().postData()};
                 await route.fulfill({contentType: 'text/html', body: 'Provider accepted'});
             });
             await dialog.locator('.public-auth-provider-yandex').click();
             await page.waitForFunction(() => document.body.textContent === 'Provider accepted');
             assert.equal(providerPost.method, 'POST');
-            assert.ok(providerPost.body.includes('auth-fixture-token'));
+            const providerFields = new URLSearchParams(providerPost.body);
+            assert.equal(providerFields.get('auth_token'), 'auth-fixture-token');
+            assert.equal(providerFields.get('return_path'), prefix + '/all/auth-example&view=full#comment-draft');
 
             await page.goto(url);
             await page.locator('#comment-text').fill('A comment after signing in on a query-based site.');
