@@ -58,6 +58,7 @@ if ($vk_enabled) {
             <?php foreach ($providers as $provider): ?>
             <form class="public-auth-provider-form" method="post" action="<?php echo register_htmlencode($provider['url']); ?>">
                 <input type="hidden" name="auth_token" value="<?php echo register_htmlencode($form_token); ?>">
+                <input type="hidden" name="return_path" value="<?php echo register_htmlencode($return_path); ?>">
                 <button class="public-auth-method public-auth-provider public-auth-provider-<?php echo $provider['class']; ?>" type="submit">
                     <span class="public-auth-provider-logo" aria-hidden="true"><?php echo $provider['logo']; ?></span>
                     <span><?php echo $provider['label']; ?></span>

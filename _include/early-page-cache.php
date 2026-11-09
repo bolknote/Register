@@ -4,11 +4,12 @@
 declare(strict_types = 1);
 
 use Register\Core\Http\Cache\EarlyPageCache;
+use Register\Auth\PublicAuthCacheRequest;
 use Register\Update\RuntimeLock;
 
 require_once __DIR__ . '/src/Http/Cache/EarlyPageCache.php';
 
-/** @return array{cache:EarlyPageCache,lock:RuntimeLock,record:\Closure(array{content_id:?string}):bool}|null */
+/** @return array{cache:EarlyPageCache,lock:RuntimeLock,record:\Closure(array{content_id:?string}):bool,server:array<string,mixed>,transform:(\Closure(string):string)|null}|null */
 $registerEarlyBootstrap = static function (): ?array {
     $root = dirname(__DIR__);
     $sourceStamp = EarlyPageCache::sourceStamp($root);
@@ -20,6 +21,7 @@ $registerEarlyBootstrap = static function (): ?array {
     // Before locating it, check only eligibility that does not depend on that policy.
     $publicServer = $_SERVER;
     unset($publicServer['HTTP_COOKIE']);
+    $publicServer['REQUEST_URI'] = explode('?', (string)($publicServer['REQUEST_URI'] ?? ''), 2)[0];
     if (!EarlyPageCache::accepts($publicServer, ignoreForwardingHeaders: true)) {
         return null;
     }
@@ -40,7 +42,17 @@ $registerEarlyBootstrap = static function (): ?array {
             return null;
         }
 
-        if (!EarlyPageCache::accepts($_SERVER, $location['forwarding_ignored'], $location['public_cookies'])) {
+        $auth = null;
+        $uri = (string)($_SERVER['REQUEST_URI'] ?? '');
+        $authPath = $location['base_path'] . '/auth';
+        if ($uri === $authPath || str_starts_with($uri, $authPath . '?') || str_starts_with($uri, $authPath . '/oauth/')) {
+            require_once __DIR__ . '/src/Register/Auth/PublicReturnPath.php';
+            require_once __DIR__ . '/src/Register/Auth/PublicAuthCacheRequest.php';
+            $auth = PublicAuthCacheRequest::fromUri($uri, $authPath);
+        }
+
+        $server = $auth?->cacheServer($_SERVER) ?? $_SERVER;
+        if (!EarlyPageCache::accepts($server, $location['forwarding_ignored'], $location['public_cookies'])) {
             return null;
         }
 
@@ -66,7 +78,8 @@ $registerEarlyBootstrap = static function (): ?array {
             }
         };
         require_once __DIR__ . '/src/Register/Update/RuntimeLock.php';
-        return ['lock' => RuntimeLock::acquireShared($root), 'record' => $record,
+        return ['lock' => RuntimeLock::acquireShared($root), 'record' => $record, 'server' => $server,
+            'transform' => $auth !== null && $auth->mode !== null ? $auth->expand(...) : null,
             'cache' => new EarlyPageCache($cacheDirectory, $root, sourceStamp: $sourceStamp, ignoreForwardingHeaders: $location['forwarding_ignored'], publicCookies: $location['public_cookies'])];
     } catch (Throwable) {
         return null;

@@ -15,6 +15,8 @@ use Register\Auth\PublicAuthController;
 use Register\Auth\MagicLinkService;
 use Register\Auth\MagicLinkRateLimiter;
 use Register\Auth\PublicAuthFormToken;
+use Register\Auth\PublicAuthCacheRequest;
+use Register\Auth\PublicAuthPageSnapshot;
 use Register\Auth\PublicAuthRepository;
 use Register\Auth\PublicAuthSchema;
 use Register\Auth\PublicAuthSettings;
@@ -24,6 +26,7 @@ use Register\Core\Comment\CommentHtml;
 use Register\Core\Comment\Antispam\CommentFormTokenManager;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Cookie;
+use Symfony\Component\DomCrawler\Crawler;
 use Register\Comment\CommentSchema;
 use Register\Comment\Antispam\SpamFeedbackService;
 use Register\Content\ContentId;
@@ -64,6 +67,101 @@ final class PublicAuthCest
         $I->assertSame($first, $formToken->issue($hour + 3599));
         $I->assertNotSame($first, $formToken->issue($hour + 3600));
         $I->assertTrue($formToken->matches($first, $hour + 3599));
+    }
+
+    public function testAnonymousAuthSnapshotsRetainModeReturnAndTokenDeadline(\IntegrationTester $I): void
+    {
+        $application = $I->createApplication();
+        $pdo = $I->grabService(\PDO::class);
+        $application->container->decorate(\PDO::class, static fn(): mixed => $pdo);
+        $stack = $application->container->get(\Symfony\Component\HttpFoundation\RequestStack::class);
+        $dispatcher = $application->container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class);
+        $I->assertInstanceOf(\Symfony\Component\EventDispatcher\EventDispatcherInterface::class, $dispatcher);
+        $dispatcher->addListener(
+            \Register\Core\Template\TemplateEvent::EVENT_CREATED,
+            static function (\Register\Core\Template\TemplateEvent $event) use ($stack): void {
+                $current = $stack->getCurrentRequest();
+                if ($current !== null) {
+                    $event->htmlTemplate->addMetaTag('<meta name="extension-return" content="'
+                        . register_htmlencode($current->query->getString('return')) . '">');
+                }
+            },
+        );
+        foreach (['methods', 'email', 'password'] as $mode) {
+            $return = '/article?value="<&other=1#comment';
+            $request = Request::create('https://localhost/auth?mode=' . $mode . '&return=' . rawurlencode($return));
+            $response = $application->handle($request);
+            $I->assertSame(200, $response->getStatusCode());
+            $I->assertStringContainsString('value="' . register_htmlencode($return) . '"', (string)$response->getContent());
+            $I->assertSame(1, (new Crawler((string)$response->getContent()))
+                ->filter('.public-auth-panel [data-public-auth-mode-panel="' . $mode . '"]:not([hidden])')->count());
+            $I->assertStringNotContainsString(PublicAuthCacheRequest::RETURN_MARKER, (string)$response->getContent());
+            $snapshot = $request->attributes->get(PublicAuthPageSnapshot::ATTRIBUTE);
+            $I->assertInstanceOf(PublicAuthPageSnapshot::class, $snapshot);
+            $public = $snapshot->publicResponse($response);
+            $I->assertFalse($public->headers->hasCacheControlDirective('no-store'));
+            $I->assertStringNotContainsString(rawurlencode($return), (string)$public->getContent());
+            $I->assertStringContainsString(PublicAuthCacheRequest::RETURN_MARKER, (string)$public->getContent());
+            $I->assertStringContainsString('name="extension-return" content="' . PublicAuthCacheRequest::RETURN_MARKER . '"',
+                (string)$public->getContent());
+            $I->assertGreaterThan(time(), (int)$response->headers->get(EarlyPageCache::DEADLINE_HEADER));
+            $I->assertLessThanOrEqual($application->container->get(PublicAuthFormToken::class)->issueWithExpiry()['expires'],
+                (int)$response->headers->get(EarlyPageCache::DEADLINE_HEADER));
+            $I->assertNull($stack->getCurrentRequest());
+        }
+    }
+
+    public function testOAuthFormsUsePostReturnPathsAndAcceptOlderQueryForms(\IntegrationTester $I): void
+    {
+        $I->setConfigValue(PublicAuthSettings::VK_CLIENT_ID_CONFIG_KEY, 'vk-test-client');
+        $I->amOnPage('https://localhost/auth?return=%2Farticle%23comment');
+        $I->seeElement('.public-auth-provider-form[action="/auth/oauth/vk"]');
+        $I->assertSame('/article#comment', $I->grabValueFrom('.public-auth-provider-form[action="/auth/oauth/vk"] input[name="return_path"]'));
+
+        $controller = $I->grabService(PublicAuthController::class);
+        $token = $I->grabService(PublicAuthFormToken::class)->issue();
+        foreach ([['return_path' => '/posted'], []] as $fields) {
+            $request = Request::create('https://localhost/auth/oauth/vk?return=%2Flegacy', 'POST', $fields + ['auth_token' => $token],
+                server: ['HTTP_ORIGIN' => 'https://localhost']);
+            $request->attributes->add(['auth_action' => 'oauth_start', 'provider' => 'vk']);
+            $response = $controller->handle($request);
+            $I->assertSame(302, $response->getStatusCode());
+            $expected = $fields['return_path'] ?? '/legacy';
+            $I->assertSame(1, (int)$I->grabService(DbLayer::class)->select('COUNT(*)')->from(PublicAuthSchema::FLOWS_TABLE)
+                ->where('return_path = :path')->setParameter('path', $expected)->execute()->result());
+        }
+    }
+
+    public function testExtensionSpecificEncodingKeepsTheOriginalResponseAndDisablesSharing(\IntegrationTester $I): void
+    {
+        $application = $I->createApplication();
+        $pdo = $I->grabService(\PDO::class);
+        $application->container->decorate(\PDO::class, static fn(): mixed => $pdo);
+        $stack = $application->container->get(\Symfony\Component\HttpFoundation\RequestStack::class);
+        $dispatcher = $application->container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class);
+        $I->assertInstanceOf(\Symfony\Component\EventDispatcher\EventDispatcherInterface::class, $dispatcher);
+        $dispatcher->addListener(\Register\Core\Template\TemplateEvent::EVENT_CREATED,
+            static function (\Register\Core\Template\TemplateEvent $event) use ($stack): void {
+                $current = $stack->getCurrentRequest();
+                if ($current !== null) {
+                    $json = json_encode(['return' => $current->query->getString('return')], JSON_THROW_ON_ERROR);
+                    $event->htmlTemplate->addMetaTag('<meta name="extension-json" content="' . register_htmlencode($json) . '">');
+                }
+            },
+        );
+        $return = '/article?quote="&value=1';
+        $request = Request::create('https://localhost/auth?return=' . rawurlencode($return));
+        $response = $application->handle($request);
+        $I->assertSame(200, $response->getStatusCode());
+        $json = (new Crawler((string)$response->getContent()))->filter('meta[name="extension-json"]')->attr('content');
+        $I->assertIsString($json);
+        $I->assertSame(['return' => $return], json_decode($json, true, flags: JSON_THROW_ON_ERROR));
+
+        $snapshot = $request->attributes->get(PublicAuthPageSnapshot::ATTRIBUTE);
+        $I->assertInstanceOf(PublicAuthPageSnapshot::class, $snapshot);
+        $I->assertTrue($snapshot->publicResponse($response)->headers->hasCacheControlDirective('no-store'));
+        $I->assertStringNotContainsString(PublicAuthCacheRequest::RETURN_MARKER, (string)$response->getContent());
+        $I->assertNull($stack->getCurrentRequest());
     }
 
     public function testCachedSignInFormsRefreshInBothCacheLayersBeforeTheirTokenExpires(\IntegrationTester $I): void

@@ -43,7 +43,8 @@ final readonly class PublicAuthRenderer
     public function renderAccount(Request $request, bool $asLivePatch = false): string
     {
         $user = $this->authProvider->getAuthenticatedPublicUser($request);
-        $returnPath = PublicReturnPath::normalize($request->getRequestUri());
+        $returnPath = $request->attributes->getString(PublicAuthCacheRequest::RETURN_ATTRIBUTE,
+            PublicReturnPath::normalize($request->getRequestUri()));
         $liveRegion = null;
         $unread = 0;
         if ($user instanceof AuthenticatedPublicUser) {
@@ -75,10 +76,11 @@ final readonly class PublicAuthRenderer
         return $this->viewer->render('public_auth_dialog', $this->dialogVariables($request, $expireResponseAt));
     }
 
-    public function renderPanel(Request $request): string
+    /** @param (\Closure(int): void)|null $expireResponseAt */
+    public function renderPanel(Request $request, ?\Closure $expireResponseAt = null): string
     {
         return $this->viewer->render('public_auth_panel', [
-            ...$this->dialogVariables($request),
+            ...$this->dialogVariables($request, $expireResponseAt),
             'initial_mode' => $request->query->getString('mode', 'methods'),
         ]);
     }
@@ -103,9 +105,9 @@ final readonly class PublicAuthRenderer
      */
     private function dialogVariables(Request $request, ?\Closure $expireResponseAt = null): array
     {
-        $returnPath = PublicReturnPath::normalize(
+        $returnPath = $request->attributes->getString(PublicAuthCacheRequest::RETURN_ATTRIBUTE, PublicReturnPath::normalize(
             $request->query->getString('return', $request->getRequestUri()),
-        );
+        ));
         $credential = $this->formToken->issueWithExpiry();
         if ($expireResponseAt !== null) {
             $expireResponseAt($credential['expires']);
@@ -117,10 +119,10 @@ final readonly class PublicAuthRenderer
             'yandex_enabled' => $this->settings->yandexEnabled(),
             'password_url'  => $this->urlBuilder->link('/auth/password'),
             'email_url'     => $this->urlBuilder->link('/auth/email'),
-            'vk_url'        => $this->oauthUrl('vk', $returnPath),
-            'mail_url'      => $this->oauthUrl('mail_ru', $returnPath),
-            'ok_url'        => $this->oauthUrl('ok_ru', $returnPath),
-            'yandex_url'    => $this->oauthUrl('yandex', $returnPath),
+            'vk_url'        => $this->oauthUrl('vk'),
+            'mail_url'      => $this->oauthUrl('mail_ru'),
+            'ok_url'        => $this->oauthUrl('ok_ru'),
+            'yandex_url'    => $this->oauthUrl('yandex'),
             'return_path'   => $returnPath,
             'form_token'    => $credential['token'],
             'initial_mode'  => 'methods',
@@ -132,10 +134,8 @@ final readonly class PublicAuthRenderer
         ];
     }
 
-    private function oauthUrl(string $provider, string $returnPath): string
+    private function oauthUrl(string $provider): string
     {
-        return $this->urlBuilder->rawLink('/auth/oauth/' . $provider, [
-            'return=' . rawurlencode($returnPath),
-        ]);
+        return $this->urlBuilder->rawLink('/auth/oauth/' . $provider);
     }
 }

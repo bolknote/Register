@@ -153,6 +153,8 @@ final readonly class PublicAuthModule implements ContainerModuleInterface
             $container->get(LoggerInterface::class),
             $container->get(VisitorIdentityManager::class),
             new SameOriginRequestGuard(),
+            $container->get(\Symfony\Component\HttpFoundation\RequestStack::class),
+            $container->get(\Register\Core\Http\Cache\EarlyPageCache::class),
         ));
     }
 }

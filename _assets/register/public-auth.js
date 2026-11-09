@@ -75,9 +75,32 @@
     function setUrlParameter(url, name, value) {
         // Preserve routes such as /index.php?/auth while updating only the parameter.
         const parts = url.search.slice(1).split('&').filter(part => part && !new URLSearchParams(part).has(name));
-        parts.push(new URLSearchParams({[name]: value}).toString());
+        if (value !== null) parts.push(new URLSearchParams({[name]: value}).toString());
         url.search = parts.join('&');
         return url;
+    }
+
+    function updateReturnPaths(root, returnPath) {
+        root.querySelectorAll('input[name="return_path"]').forEach((input) => {
+            input.value = returnPath;
+        });
+        root.querySelectorAll('a[data-public-auth-mode-open], form.public-auth-provider-form').forEach((element) => {
+            const provider = element instanceof HTMLFormElement;
+            const attribute = provider ? 'action' : 'href';
+            const target = new URL(element.getAttribute(attribute), location.href);
+            if (provider) {
+                let input = element.querySelector('input[name="return_path"]');
+                if (!input) {
+                    input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'return_path';
+                    element.append(input);
+                }
+                input.value = returnPath;
+            }
+            setUrlParameter(target, 'return', provider ? null : returnPath);
+            element.setAttribute(attribute, target.pathname + target.search);
+        });
     }
 
     const openDialog = (trigger, forComment = null) => {
@@ -88,15 +111,7 @@
 
         const url = new URL(trigger.href, window.location.href);
         const returnPath = url.searchParams.get('return') || `${location.pathname}${location.search}${location.hash}`;
-        authDialog.querySelectorAll('input[name="return_path"]').forEach((input) => {
-            input.value = returnPath;
-        });
-        authDialog.querySelectorAll('a[data-public-auth-mode-open], form.public-auth-provider-form').forEach((element) => {
-            const attribute = element instanceof HTMLFormElement ? 'action' : 'href';
-            const target = new URL(element.getAttribute(attribute), location.href);
-            setUrlParameter(target, 'return', returnPath);
-            element.setAttribute(attribute, target.pathname + target.search);
-        });
+        updateReturnPaths(authDialog, returnPath);
         syncEmailValidation(authDialog.querySelector('.public-auth-email-form'));
         showStatus(authDialog, '');
         const body = authDialog.querySelector('.public-auth-body');

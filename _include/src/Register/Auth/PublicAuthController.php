@@ -16,6 +16,7 @@ use Register\Core\Framework\Exception\AccessDeniedException;
 use Register\Core\Helper\StringHelper;
 use Register\Core\Model\AuthProvider;
 use Register\Core\Model\UrlBuilder;
+use Register\Core\Http\Cache\EarlyPageCache;
 use Register\Core\Security\Audit\SecurityAuditLogger;
 use Register\Core\Security\Http\SameOriginRequestGuard;
 use Register\Core\Template\HtmlTemplateProvider;
@@ -24,6 +25,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -47,6 +49,8 @@ final readonly class PublicAuthController implements ControllerInterface
         private LoggerInterface               $logger,
         private VisitorIdentityManager         $visitorIdentityManager,
         private SameOriginRequestGuard         $sameOriginRequestGuard,
+        private RequestStack                   $requestStack,
+        private EarlyPageCache                 $earlyPageCache,
     ) {
     }
 
@@ -109,10 +113,43 @@ final readonly class PublicAuthController implements ControllerInterface
 
     private function page(Request $request): Response
     {
-        return $this->messagePage(
-            $this->translator->trans('Sign in'),
-            $this->renderer->renderPanel($request),
+        $authPath = $this->urlBuilder->rawLink('/auth');
+        $parameters = $request->getPathInfo() === '/auth'
+            ? PublicAuthCacheRequest::fromUri($authPath . '?' . http_build_query($request->query->all()), $authPath)
+            : null;
+        if ($parameters === null || $this->authProvider->hasAuthenticatedPublicSession($request)
+            || !$this->earlyPageCache->canStore($parameters->cacheServer($request->server->all()))) {
+            return $this->messagePage($this->translator->trans('Sign in'), $this->renderer->renderPanel($request), '/auth');
+        }
+
+        $deadline = PHP_INT_MAX;
+        $expire = static function (int $expires) use (&$deadline): void { $deadline = min($deadline, $expires); };
+        $request->attributes->set(PublicAuthCacheRequest::RETURN_ATTRIBUTE, $parameters->returnPath);
+        try {
+            $response = $this->messagePage($this->translator->trans('Sign in'), $this->renderer->renderPanel($request, $expire), '/auth');
+        } finally {
+            $request->attributes->remove(PublicAuthCacheRequest::RETURN_ATTRIBUTE);
+        }
+
+        $renderQuery = $parameters->queryFree ? '' : http_build_query(['mode' => $parameters->mode, 'return' => PublicAuthCacheRequest::RETURN_MARKER]);
+        $renderRequest = $request->duplicate(
+            query: ['mode' => $parameters->mode, 'return' => PublicAuthCacheRequest::RETURN_MARKER],
+            server: array_replace($request->server->all(), ['REQUEST_URI' => $authPath . ($renderQuery === '' ? '' : '?' . $renderQuery), 'QUERY_STRING' => $renderQuery]),
         );
+        $renderRequest->attributes->set(PublicAuthCacheRequest::RETURN_ATTRIBUTE, PublicAuthCacheRequest::RETURN_MARKER);
+
+        $this->requestStack->push($renderRequest);
+        try {
+            $public = $this->messagePage($this->translator->trans('Sign in'), $this->renderer->renderPanel($renderRequest, $expire), '/auth');
+        } finally {
+            $this->requestStack->pop();
+        }
+
+        $template = (string)$public->getContent();
+        $request->attributes->set(PublicAuthPageSnapshot::ATTRIBUTE, new PublicAuthPageSnapshot($parameters, $template));
+        $response->setEtag(md5((string)$response->getContent()), true);
+        $response->headers->set(EarlyPageCache::DEADLINE_HEADER, (string)$deadline);
+        return $response;
     }
 
     private function password(Request $request): Response
@@ -308,12 +345,18 @@ final readonly class PublicAuthController implements ControllerInterface
     private function oauthStart(Request $request): Response
     {
         if (!$request->isMethod(Request::METHOD_POST)) {
-            return new Response('OAuth start requires POST.', Response::HTTP_METHOD_NOT_ALLOWED, ['Allow' => Request::METHOD_POST]);
+            // Only the controller opts its invariant refusal into the early cache. This
+            // keeps route overrides, callbacks and future method changes authoritative.
+            return new Response('OAuth start requires POST.', Response::HTTP_METHOD_NOT_ALLOWED, [
+                'Allow' => Request::METHOD_POST,
+                'Content-Type' => 'text/plain; charset=utf-8',
+                'X-Register-Page-Cache' => 'method-not-allowed',
+            ]);
         }
 
         $this->requirePostToken($request);
         $provider = $request->attributes->getString('provider');
-        $returnPath = PublicReturnPath::normalize($request->query->getString('return'));
+        $returnPath = PublicReturnPath::normalize($request->request->getString('return_path', $request->query->getString('return')));
 
         return $this->oauthClient->authorizationResponse($request, $provider, $returnPath);
     }
@@ -411,7 +454,7 @@ final readonly class PublicAuthController implements ControllerInterface
         }
     }
 
-    private function messagePage(string $title, string $html): Response
+    private function messagePage(string $title, string $html, ?string $canonicalPath = null): Response
     {
         $template = $this->templateProvider->getTemplate('service.php');
         $template
@@ -419,6 +462,10 @@ final readonly class PublicAuthController implements ControllerInterface
             ->putInPlaceholder('title', $title)
             ->putInPlaceholder('text', $html)
         ;
+
+        if ($canonicalPath !== null) {
+            $template->putInPlaceholder('canonical_path', $canonicalPath);
+        }
 
         return $template->toHttpResponse();
     }

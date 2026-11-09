@@ -428,6 +428,9 @@ class Integration extends AbstractBrowserModule
     protected function collectParameters(array $overrides = []): array
     {
         $imgDir = '_tests/_output/images';
+        $databaseHost = getenv('DB_HOST');
+        $databaseUser = getenv('DB_USER');
+        $databasePassword = getenv('DB_PASSWORD');
 
         $result = [
             'root_dir'           => self::ROOT_DIR,
@@ -463,14 +466,16 @@ class Integration extends AbstractBrowserModule
             'backup_encryption_key' => str_repeat('cd', 32),
             'backup_recipient_public_key' => null,
             'force_admin_https' => true,
-            'db_host'           => '127.0.0.1',
+            'db_host'           => $databaseHost !== false && $databaseHost !== '' ? $databaseHost : '127.0.0.1',
             'db_name'           => 'register_test',
             'db_prefix'         => '',
             'p_connect'         => false,
             ...(match (getenv('APP_DB_TYPE')) {
                 'sqlite' => ['db_type' => 'sqlite', 'db_username' => '', 'db_password' => ''],
                 'pgsql' => ['db_type' => 'pgsql', 'db_username' => 'postgres', 'db_password' => '12345'],
-                default => ['db_type' => 'mysql', 'db_username' => 'root', 'db_password' => ''],
+                default => ['db_type' => 'mysql',
+                    'db_username' => $databaseUser !== false && $databaseUser !== '' ? $databaseUser : 'root',
+                    'db_password' => $databasePassword !== false ? $databasePassword : ''],
             })
         ];
 

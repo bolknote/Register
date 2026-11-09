@@ -36,6 +36,60 @@ final class EarlyPageCacheTest extends TestCase
         return $this->cache ?? throw new \LogicException('The cache fixture has not been initialized.');
     }
 
+    public function testTemplatePreparationUsesTheSamePrivacyAndMaintenanceGuards(): void
+    {
+        self::assertTrue($this->cache()->canStore($this->request()));
+        foreach ([['REQUEST_METHOD' => 'POST'], ['REQUEST_METHOD' => 'HEAD'], ['HTTP_COOKIE' => 'session=private'],
+            ['HTTP_AUTHORIZATION' => 'Bearer private'], ['HTTP_X_REGISTER_NAVIGATION' => 'partial'],
+            ['HTTP_CACHE_CONTROL' => 'no-cache']] as $override) {
+            self::assertFalse($this->cache()->canStore($this->request($override)));
+        }
+
+        file_put_contents($this->directory . '/.register-maintenance.json', '{}');
+        self::assertFalse($this->cache()->canStore($this->request()));
+        $disabled = new EarlyPageCache($this->directory . '/disabled', $this->directory, disabled: true);
+        self::assertFalse($disabled->canStore($this->request()));
+    }
+
+    public function testOptedInMethodRefusalsRemain405ForValidatorsAndNeverApplyToPost(): void
+    {
+        $headers = array_replace($this->headers(), ['content-type' => ['text/plain; charset=utf-8'], 'allow' => ['POST']]);
+        self::assertTrue($this->cache()->store($this->request(), $headers, 'Requires POST.', statusCode: 405));
+        foreach ([[], ['REQUEST_METHOD' => 'HEAD'], ['HTTP_IF_NONE_MATCH' => '*']] as $override) {
+            $hit = $this->cache()->lookup($this->request($override));
+            self::assertNotNull($hit);
+            self::assertSame(405, $hit['status']);
+            self::assertSame(['POST'], $hit['headers']['allow']);
+        }
+
+        self::assertNull($this->cache()->lookup($this->request(['REQUEST_METHOD' => 'POST'])));
+        self::assertFalse($this->cache()->store($this->request(), $headers, 'Private error.', statusCode: 403));
+        self::assertFalse($this->cache()->store($this->request(), array_replace($headers, ['allow' => ['GET']]), 'GET.', statusCode: 405));
+        self::assertFalse($this->cache()->store($this->request(), array_replace($headers, ['set-cookie' => ['private=1']]), 'Private.', statusCode: 405));
+        self::assertSame(405, $this->hit()['status']);
+    }
+
+    public function testTemplateExpansionUsesTheExpandedBodyForGzipAndConditionalRequests(): void
+    {
+        self::assertTrue($this->cache()->store($this->request(), $this->headers(), '<input value="MARKER">'));
+        $expand = static fn(string $body): string => str_replace('MARKER', '/first', $body);
+        $first = $this->cache()->lookup($this->request(), transformBody: $expand);
+        self::assertNotNull($first);
+        self::assertSame('<input value="/first">', $first['body']);
+        $etag = $first['headers']['etag'][0];
+        $gzip = $this->cache()->lookup($this->request(['HTTP_ACCEPT_ENCODING' => 'gzip']), transformBody: $expand);
+        self::assertNotNull($gzip);
+        self::assertSame($first['body'], gzdecode($gzip['body']));
+        $unchanged = $this->cache()->lookup($this->request(['HTTP_IF_NONE_MATCH' => $etag]), transformBody: $expand);
+        self::assertSame(304, $unchanged['status'] ?? null);
+        $other = $this->cache()->lookup($this->request(['HTTP_IF_NONE_MATCH' => $etag]),
+            transformBody: static fn(string $body): string => str_replace('MARKER', '/other', $body));
+        self::assertNotNull($other);
+        self::assertSame(200, $other['status']);
+        self::assertSame('<input value="/other">', $other['body']);
+        self::assertNotSame($etag, $other['headers']['etag'][0]);
+    }
+
     public function testReadsAnAnonymousSnapshotAndKeepsItsSecurityHeaders(): void
     {
         self::assertNull($this->cache()->lookup($this->request()));

@@ -236,6 +236,7 @@ class CmsExtension implements ExtensionInterface
                 'comment_form_sent',
                 'comment_path_sent',
             ],
+            basePath: $container->getStringParameter('base_path'),
         ));
         $container->set(PageCachePoolFactory::class, fn(Container $container): PageCachePoolFactory => new PageCachePoolFactory(
             $container->get(LoggerInterface::class),

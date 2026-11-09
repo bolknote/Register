@@ -22,6 +22,8 @@ use Register\Core\Security\Monitoring\SecurityTelemetryRecorder;
 use Symfony\Component\HttpFoundation\Request;
 use Register\Core\Comment\ObsoleteReplyUrl;
 use Register\Core\Comment\CommentFormCacheSnapshot;
+use Register\Auth\PublicAuthCacheRequest;
+use Register\Auth\PublicAuthPageSnapshot;
 
 require_once __DIR__ . '/_include/src/Comment/ObsoleteReplyUrl.php';
 if (ObsoleteReplyUrl::matches($_SERVER['REQUEST_METHOD'] ?? 'GET', $_GET)) {
@@ -40,7 +42,9 @@ if (ObsoleteReplyUrl::matches($_SERVER['REQUEST_METHOD'] ?? 'GET', $_GET)) {
 
 $registerEarlyContext = require __DIR__ . '/_include/early-page-cache.php';
 $registerEarlyServer = $_SERVER;
-if ($registerEarlyContext !== null && $registerEarlyContext['cache']->serve($registerEarlyServer, $registerEarlyContext['record'])) {
+if ($registerEarlyContext !== null && $registerEarlyContext['cache']->serve(
+    $registerEarlyContext['server'], $registerEarlyContext['record'], $registerEarlyContext['transform'],
+)) {
     exit;
 }
 
@@ -117,13 +121,25 @@ OfflineCachePolicy::apply(
     $app->container->get(AuthProvider::class)->hasAuthenticatedPublicSession($request),
 );
 
-if ($registerEarlyPageCache instanceof EarlyPageCache && $response->getStatusCode() === 200
+if ($registerEarlyPageCache instanceof EarlyPageCache && in_array($response->getStatusCode(), [200, 405], true)
     && !$app->container->get(PDO::class)->inTransaction()
 ) {
     $deadline = $response->headers->get(EarlyPageCache::DEADLINE_HEADER);
     $publicDeadline = $app->container->get(\Register\Module\Blog\Model\BlogPageCache::class)->responseDeadline();
     $formSnapshot = $request->attributes->get(CommentFormCacheSnapshot::ATTRIBUTE);
     $publicResponse = $formSnapshot instanceof CommentFormCacheSnapshot ? $formSnapshot->publicResponse($response) : $response;
+    $authSnapshot = $request->attributes->get(PublicAuthPageSnapshot::ATTRIBUTE);
+    if ($authSnapshot instanceof PublicAuthPageSnapshot) {
+        $publicResponse = $authSnapshot->publicResponse($response);
+        $registerEarlyServer = $authSnapshot->parameters->cacheServer($registerEarlyServer);
+    } elseif ($response->getStatusCode() === 405 && $response->headers->get('X-Register-Page-Cache') === 'method-not-allowed') {
+        $authParameters = PublicAuthCacheRequest::fromUri($registerEarlyServer['REQUEST_URI'] ?? '',
+            $app->container->get(\Register\Core\Model\UrlBuilder::class)->rawLink('/auth'));
+        if ($authParameters?->mode === null) {
+            $registerEarlyServer = $authParameters?->cacheServer($registerEarlyServer) ?? $registerEarlyServer;
+        }
+    }
+
     $registerEarlyPageCache->store(
         $registerEarlyServer,
         $publicResponse->headers->all(),
@@ -131,6 +147,7 @@ if ($registerEarlyPageCache instanceof EarlyPageCache && $response->getStatusCod
         $request->attributes->get(EarlyPageCache::VIEW_ATTRIBUTE, []),
         $request->attributes->get(EarlyPageCache::CONTENT_ATTRIBUTE),
         min(is_string($deadline) && ctype_digit($deadline) ? (int)$deadline : PHP_INT_MAX, $publicDeadline ?? PHP_INT_MAX),
+        statusCode: $response->getStatusCode(),
     );
     $response->headers->set('X-Register-Early-Cache', $registerEarlyPageCache->decision());
 }

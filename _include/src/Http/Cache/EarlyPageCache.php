@@ -71,7 +71,7 @@ final class EarlyPageCache
     }
 
     /**
-     * @return array{directory:string,stamp:string,forwarding_ignored:bool,public_cookies:list<string>}|null
+     * @return array{directory:string,stamp:string,forwarding_ignored:bool,public_cookies:list<string>,base_path:string}|null
      * @phpstan-impure The location can change between requests and configuration writes.
      */
     public static function locate(string $root, ?string $sourceStamp = null): ?array
@@ -87,6 +87,7 @@ final class EarlyPageCache
             || !is_string($location['directory'] ?? null) || !is_string($location['stamp'] ?? null)
             || !is_bool($location['forwarding_ignored'] ?? null)
             || !is_array($location['public_cookies'] ?? null) || !array_is_list($location['public_cookies'])
+            || !is_string($location['base_path'] ?? null)
             || $location['stamp'] !== ($sourceStamp ?? self::sourceStamp($root))) {
             return null;
         }
@@ -98,7 +99,7 @@ final class EarlyPageCache
         }
 
         return ['directory' => $location['directory'], 'stamp' => $location['stamp'], 'forwarding_ignored' => $location['forwarding_ignored'],
-            'public_cookies' => $location['public_cookies']];
+            'public_cookies' => $location['public_cookies'], 'base_path' => $location['base_path']];
     }
 
     /** Publish only normalized configuration after the normal bootstrap has evaluated it. */
@@ -114,7 +115,8 @@ final class EarlyPageCache
         }
 
         $location = ['directory' => $directory, 'enabled' => !$this->disabled && !$this->unavailable,
-            'stamp' => $expectedSourceStamp, 'forwarding_ignored' => $this->ignoreForwardingHeaders, 'public_cookies' => $this->publicCookies];
+            'stamp' => $expectedSourceStamp, 'forwarding_ignored' => $this->ignoreForwardingHeaders, 'public_cookies' => $this->publicCookies,
+            'base_path' => $this->basePath];
         $path = self::locationPath($this->applicationRoot);
         if ($this->read($path) !== $location) {
             $this->write($path, $location);
@@ -134,6 +136,7 @@ final class EarlyPageCache
         ?string $sourceStamp = null,
         private readonly bool $ignoreForwardingHeaders = false,
         private readonly array $publicCookies = [],
+        private readonly string $basePath = '',
     ) {
         $this->sourceStamp = $sourceStamp ?? self::sourceStamp($applicationRoot);
         $this->directory = rtrim($cacheDirectory, '/\\') . '/early-pages-v1';
@@ -155,6 +158,14 @@ final class EarlyPageCache
     public static function accepts(array $server, bool $ignoreForwardingHeaders = false, array $publicCookies = []): bool
     {
         return self::requestBypassReason($server, $ignoreForwardingHeaders, $publicCookies) === null;
+    }
+
+    /** @param array<string,mixed> $server */
+    public function canStore(array $server): bool
+    {
+        return !$this->disabled && !$this->unavailable && ($server['REQUEST_METHOD'] ?? '') === 'GET'
+            && self::accepts($server, $this->ignoreForwardingHeaders, $this->publicCookies)
+            && !is_file($this->applicationRoot . '/.register-maintenance.json');
     }
 
     /**
@@ -214,9 +225,10 @@ final class EarlyPageCache
 
     /**
      * @param array<string, mixed> $server
+     * @param (\Closure(string):string)|null $transformBody
      * @return array{status:int,headers:array<string,list<string>>,body:string,content_id:?string}|null
      */
-    public function lookup(array $server, ?int $now = null): ?array
+    public function lookup(array $server, ?int $now = null, ?\Closure $transformBody = null): ?array
     {
         if ($this->disabled || $this->unavailable || !self::accepts($server, $this->ignoreForwardingHeaders, $this->publicCookies) || is_file($this->applicationRoot . '/.register-maintenance.json')) {
             return null;
@@ -259,15 +271,25 @@ final class EarlyPageCache
                 $body = str_replace($this->viewMarker((string)$id), $view['html'], $body);
             }
 
+            if ($transformBody !== null) {
+                $expanded = $transformBody($body);
+                $changed = $changed || $expanded !== $body;
+                $body = $expanded;
+            }
+
             $headers = $entry['headers'];
             $headers['x-register-page-cache'] = ['hit'];
             $headers['x-register-early-cache'] = ['hit'];
             $headers['vary'] = array_values(array_unique([...($headers['vary'] ?? []), 'Accept-Encoding']));
             $headers['etag'] = ['W/"' . md5($body) . '"'];
             unset($headers['content-length'], $headers['content-encoding'], $headers['last-modified']);
-            $status = 200;
+            $status = $entry['status'] ?? 200;
+            if (!in_array($status, [200, 405], true)) {
+                return null;
+            }
+
             $validator = (string)($server['HTTP_IF_NONE_MATCH'] ?? '');
-            if ($validator !== '' && ($validator === '*' || in_array(
+            if ($status === 200 && $validator !== '' && ($validator === '*' || in_array(
                 substr($headers['etag'][0], 2),
                 array_map(static fn(string $tag): string => preg_replace('/^W\//', '', trim($tag)) ?? '', explode(',', $validator)),
                 true,
@@ -305,13 +327,13 @@ final class EarlyPageCache
     }
 
     /** @param array<string, mixed> $server */
-    public function serve(array $server, ?\Closure $beforeSend = null): bool
+    public function serve(array $server, ?\Closure $beforeSend = null, ?\Closure $transformBody = null): bool
     {
         if ($this->requiresEngine()) {
             return false;
         }
 
-        $hit = $this->lookup($server);
+        $hit = $this->lookup($server, transformBody: $transformBody);
         if ($hit === null || headers_sent()) {
             return false;
         }
@@ -391,7 +413,7 @@ final class EarlyPageCache
      * @param array<string, list<string|null>> $headers
      * @param array<string, array{html:string,count:int}> $views
      */
-    public function store(array $server, array $headers, string $body, array $views = [], ?string $contentId = null, ?int $validUntil = null, ?int $now = null): bool
+    public function store(array $server, array $headers, string $body, array $views = [], ?string $contentId = null, ?int $validUntil = null, ?int $now = null, int $statusCode = 200): bool
     {
         $headers = $this->normalizeHeaders($headers);
         $requestBypass = self::requestBypassReason($server, $this->ignoreForwardingHeaders, $this->publicCookies);
@@ -407,7 +429,8 @@ final class EarlyPageCache
             strlen($body) > self::MAX_BYTES / 2 => 'size',
             isset($headers['set-cookie']) => 'set-cookie',
             !isset($headers['x-register-page-cache']) => 'unshared',
-            !str_starts_with(strtolower($headers['content-type'][0] ?? ''), 'text/html') => 'content-type',
+            !in_array($statusCode, [200, 405], true) || ($statusCode === 405 && ($headers['allow'] ?? []) !== ['POST']) => 'status',
+            !str_starts_with(strtolower($headers['content-type'][0] ?? ''), $statusCode === 405 ? 'text/plain' : 'text/html') => 'content-type',
             str_contains(strtolower(implode(',', $headers['cache-control'] ?? [])), 'no-store') => 'private',
             str_contains(implode(' ', $headers['content-security-policy'] ?? []), "'nonce-")
                 || preg_match('/\bnonce\s*=/i', $body) === 1 => 'nonce',
@@ -457,7 +480,7 @@ final class EarlyPageCache
             }
 
             $packed = function_exists('gzencode') ? gzencode($body, 3) : false;
-            $entry = ['format' => self::FORMAT, 'generation' => $epoch, 'fingerprint' => $this->fingerprint(),
+            $entry = ['format' => self::FORMAT, 'status' => $statusCode, 'generation' => $epoch, 'fingerprint' => $this->fingerprint(),
                 'expires' => $expires, 'headers' => $headers, 'body' => base64_encode(is_string($packed) ? $packed : $body),
                 'body_compression' => is_string($packed) ? 'gzip' : '',
                 'gzip' => is_string($gzip) ? base64_encode($gzip) : null, 'views' => $viewHashes, 'content_id' => $contentId];
