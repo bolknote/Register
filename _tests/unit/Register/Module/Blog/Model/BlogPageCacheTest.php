@@ -13,6 +13,7 @@ use PHPUnit\Framework\TestCase;
 use Register\Content\ContentId;
 use Register\Core\Http\Cache\EarlyPageCache;
 use Register\Core\Http\Cache\PageCacheHeaders;
+use Register\Core\Http\ResponseCompressionCache;
 use Register\Core\Pdo\PDO;
 use Register\Module\Blog\Model\AllPostsPage;
 use Register\Module\Blog\Model\BlogPageCache;
@@ -90,16 +91,23 @@ final class BlogPageCacheTest extends TestCase
         self::assertIsString($first);
         self::assertIsString($second);
         $cache = new BlogPageCache(new ArrayAdapter());
+        $encodedPool = new ArrayAdapter();
+        $encoder = new ResponseCompressionCache($encodedPool);
         $identities = [];
         foreach ([$first, $second, $first] as $uri) {
             $response = $cache->publicResponse('full_bot', $uri, static fn(): Response => new Response($uri));
             self::assertSame($uri, $response->getContent());
             self::assertSame('miss', $response->headers->get('X-Register-Page-Cache'));
             $identities[] = $response->headers->get(PageCacheHeaders::IDENTITY);
+            $response->setEtag(md5($uri));
+            $encoded = $encoder->encode($response, 'gzip', $uri, static fn(string $body): string|false => gzencode($body));
+            self::assertNotNull($encoded);
+            self::assertSame($uri, gzdecode($encoded['content']));
         }
 
         self::assertSame($identities[0], $identities[2]);
-        self::assertNotSame($identities[0], $identities[1]);
+        self::assertSame($identities[0], $identities[1]);
+        self::assertCount(1, $encodedPool->getValues(), 'Encoded responses must reuse the bounded slot and validate their body signature.');
     }
 
     public function testInstallingAReleaseRefreshesHtmlAssetUrlsButKeepsContentWarm(): void

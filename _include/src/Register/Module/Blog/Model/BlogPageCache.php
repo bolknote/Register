@@ -290,16 +290,13 @@ final class BlogPageCache implements StatefulServiceInterface
         $identity = hash('sha256', $uri);
         // Query pagination can have arbitrarily many requested values. Keep a
         // bounded number of slots and validate the full URI inside each slot.
-        $response = $this->response(
+        return $this->response(
             $this->cache,
             self::PUBLIC_RESPONSE_PREFIX . substr($identity, 0, 3) . '_' . $this->validatedVariant($variant),
             $factory,
             $this->generation(self::PUBLIC_RESPONSE_GENERATION) . ':' . $identity,
             publicCollection: true,
         );
-        $response->headers->set(PageCacheHeaders::IDENTITY, hash('sha256', $identity . ':' . $variant));
-
-        return $response;
     }
 
     public function rememberContentPath(ContentId $contentId, string $path): void
