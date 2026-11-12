@@ -78,7 +78,7 @@ readonly class RecommendationProvider implements QueueHandlerInterface
             $previous = $cached;
             $this->cache->delete($cacheKey);
             $cached = $this->cache->get($cacheKey, fn(ItemInterface $_item): array => $this->getValueForCache($externalId));
-            if (serialize($previous[0]) !== serialize($cached[0])) {
+            if ($this->contentSignature($previous[0]) !== $this->contentSignature($cached[0])) {
                 $this->onRecommendationsChanged?->__invoke($externalId);
             }
         }
@@ -120,10 +120,38 @@ readonly class RecommendationProvider implements QueueHandlerInterface
         $this->cache->delete($cacheKey);
         $budget->checkpoint(0.5);
         $current = $this->cache->get($cacheKey, fn(ItemInterface $_item): array => $this->getValueForCache($externalId));
-        // Ignore the generation timestamp and compare values, not object identities.
-        if (($previous[2] ?? false) === true || serialize($previous[0]) !== serialize($current[0])) {
+        if (($previous[2] ?? false) === true || $this->contentSignature($previous[0]) !== $this->contentSignature($current[0])) {
             $this->onRecommendationsChanged?->__invoke($externalId);
         }
+    }
+
+    /**
+     * Compare rendering inputs, not SQL scores, debug aggregates or object identities.
+     * Some databases return those unused fields in a different order or precision.
+     * @param array<mixed> $recommendations
+     */
+    private function contentSignature(array $recommendations): string
+    {
+        $content = [];
+        foreach ($recommendations as $recommendation) {
+            $metadata = $recommendation['tocWithMetadata'] ?? null;
+            if (!$metadata instanceof TocEntryWithMetadata) {
+                throw new \LogicException('tocWithMetadata key must contain TocEntryWithMetadata');
+            }
+
+            $entry = $metadata->getTocEntry();
+            $images = [];
+            foreach ($metadata->getImgCollection()->toArray() as $image) {
+                if ($image->hasNumericDimensions()) {
+                    $images[] = [$image->getSrc(), (float)$image->getWidth(), (float)$image->getHeight()];
+                }
+            }
+
+            $content[] = [$entry->getTitle(), $entry->getUrl(), $entry->getDate()?->format(DATE_ATOM),
+                $recommendation['snippet'] ?? '', $recommendation['snippet2'] ?? '', $images];
+        }
+
+        return hash('sha256', serialize($content));
     }
 
     /**

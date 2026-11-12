@@ -95,6 +95,15 @@ final class RecommendationCest
         $I->assertTrue($early->store($unrelated, ['content-type' => ['text/html'], 'x-register-page-cache' => ['hit']], 'unrelated'));
         $I->assertNotNull($early->lookup($request));
 
+        // SQL aggregate/debug fields can differ between identical searches.
+        // They must not invalidate HTML when the displayed cards stay the same.
+        $item = $cache->getItem(RecommendationProvider::CACHE_KEY_PREFIX . hash('sha256', $externalId->toString()));
+        $cached = $item->get();
+        $I->assertIsArray($cached);
+        $cached[0][0]['names'] = 'same terms in a different SQL aggregation order';
+        $cached[0][0]['relevance'] = 123.456;
+        $I->assertTrue($cache->save($item->set($cached)));
+
         $provider->handle($externalId->toString(), RecommendationProvider::RECOMMENDATIONS_QUEUE, [], new QueueExecutionBudget(30));
         $I->assertNotNull($early->lookup($request));
         $I->assertNotNull($early->lookup($unrelated));
