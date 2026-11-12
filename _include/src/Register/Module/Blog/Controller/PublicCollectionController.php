@@ -66,6 +66,11 @@ final readonly class PublicCollectionController implements ControllerInterface
             fn(): Response => $this->render($request),
         );
         if ($this->feedStrategy !== null) {
+            // This is an origin representation validated against the current
+            // content generation. Its HTTP freshness starts at this validation,
+            // independently of the lifetime of the stored rendering inputs.
+            $response->setDate(new \DateTimeImmutable());
+            $response->headers->remove('Age');
             if ($response->headers->get(PageCacheHeaders::STATUS) === 'hit') {
                 $this->eventDispatcher->dispatch(new RssHitEvent($request, $this->feedStrategy));
             }

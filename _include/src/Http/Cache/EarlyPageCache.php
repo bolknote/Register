@@ -312,7 +312,12 @@ final class EarlyPageCache
             }
 
             if (isset($entry['stored_at']) && is_int($entry['stored_at'])) {
-                $headers['age'] = [(string)max(0, $now - $entry['stored_at'])];
+                // Feed content is revalidated against the origin generation on
+                // every hit. Do not advertise an already exhausted HTTP max-age
+                // merely because unchanged content was rendered yesterday.
+                $feed = $this->supportedContentType($headers['content-type'][0] ?? '', 200)
+                    && !str_starts_with(strtolower($headers['content-type'][0] ?? ''), 'text/html');
+                $headers['age'] = [$feed ? '0' : (string)max(0, $now - $entry['stored_at'])];
             }
 
             unset($headers['content-length'], $headers['content-encoding'], $headers['last-modified']);

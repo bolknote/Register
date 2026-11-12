@@ -29,6 +29,24 @@ use Symfony\Component\HttpFoundation\Response;
 
 final class BlogPageCacheTest extends TestCase
 {
+    public function testPublicSnapshotsSurviveSparseFeedPollingUntilTheContentChanges(): void
+    {
+        $clock = new BlogPageCacheTestClock(1_000);
+        $cache = new BlogPageCache(new ArrayAdapter(), clock: $clock(...));
+        $builds = 0;
+        $factory = static function () use (&$builds): Response {
+            return new Response('feed-' . ++$builds);
+        };
+        $cache->publicResponse('full_bot', '/rss', $factory);
+        $clock->now += 1800;
+        $response = $cache->publicResponse('full_bot', '/rss', $factory);
+        self::assertSame('hit', $response->headers->get(PageCacheHeaders::STATUS));
+        self::assertSame('feed-1', $response->getContent());
+        self::assertSame(1, $builds);
+        $cache->invalidateContentChange(ContentId::post(1));
+        self::assertSame('feed-2', $cache->publicResponse('full_bot', '/rss', $factory)->getContent());
+    }
+
     public function testPublicCollectionsRespectTimeContentAndCommentInvalidation(): void
     {
         $clock = new BlogPageCacheTestClock(1_000);
@@ -38,9 +56,9 @@ final class BlogPageCacheTest extends TestCase
             return new Response('collection-' . ++$builds);
         };
         self::assertSame('collection-1', $cache->publicResponse('full_bot', '/archive/2023/11/', $factory)->getContent());
-        $clock->now = 1_599;
+        $clock->now = 87_399;
         self::assertSame('collection-1', $cache->publicResponse('full_bot', '/archive/2023/11/', $factory)->getContent());
-        $clock->now = 1_600;
+        $clock->now = 87_400;
         self::assertSame('collection-2', $cache->publicResponse('full_bot', '/archive/2023/11/', $factory)->getContent());
         $cache->invalidateContentChange(ContentId::post(1));
         self::assertSame('collection-3', $cache->publicResponse('full_bot', '/archive/2023/11/', $factory)->getContent());

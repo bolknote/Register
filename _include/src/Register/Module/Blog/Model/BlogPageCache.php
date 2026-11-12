@@ -59,6 +59,8 @@ final class BlogPageCache implements StatefulServiceInterface
 
     private const string PUBLIC_RESPONSE_GENERATION = 'register_blog_public_response_generation_v1';
 
+    private const int PUBLIC_RESPONSE_LIFETIME = 86_400;
+
     /** Only crawler/prefetch HTML changed; keep ordinary reader responses warm. */
     private const string NON_INTERACTIVE_RESPONSE_SUFFIX = '_noninteractive_v2';
 
@@ -553,8 +555,8 @@ final class BlogPageCache implements StatefulServiceInterface
             $this->currentResponseInvalidationAt = null;
             try {
                 if ($publicCollection) {
-                    $item->expiresAfter(600);
-                    $deadline = ($this->clock)() + 600;
+                    $item->expiresAfter(self::PUBLIC_RESPONSE_LIFETIME);
+                    $deadline = ($this->clock)() + self::PUBLIC_RESPONSE_LIFETIME;
                     if (!is_int($deadline)) {
                         throw new \OverflowException('The public response cache deadline exceeds the supported timestamp range.');
                     }

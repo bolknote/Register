@@ -285,6 +285,26 @@ PHP;
         $send('/rss/', extraHeaders: ['User-Agent: New feed subscriber']);
         $feedSamples = $readMetrics(2);
         $checks['new_feed_readers_visit_analytics_once_then_use_early_cache'] = $feedSamples[0]['engine_loaded'] && !$feedSamples[1]['engine_loaded'];
+        $checks['sparse_feed_polling_retains_snapshots_and_fresh_http_headers'] = false;
+        $feedSnapshots = glob($fixture . '/_cache/early-pages-v1/[a-f0-9][a-f0-9]/*.json');
+        foreach ($feedSnapshots === false ? [] : $feedSnapshots as $snapshot) {
+            $entry = json_decode((string)file_get_contents($snapshot), true, 16, JSON_THROW_ON_ERROR);
+            if (($entry['feed_channel'] ?? null) !== 'feed:blog'
+                || !str_starts_with($entry['headers']['content-type'][0] ?? '', 'application/rss+xml')) {
+                continue;
+            }
+
+            $longLived = ($entry['expires'] ?? 0) > time() + 1800;
+            $entry['stored_at'] = time() - 1800;
+            file_put_contents($snapshot, json_encode($entry, JSON_THROW_ON_ERROR));
+            file_put_contents($fixture . '/metrics.jsonl', '');
+            $reply = $send('/rss/');
+            $checks['sparse_feed_polling_retains_snapshots_and_fresh_http_headers'] = $longLived
+                && !$readMetrics(1)[0]['engine_loaded'] && ($reply['headers']['age'] ?? '') === '0'
+                && str_contains($reply['headers']['cache-control'] ?? '', 'max-age=600');
+            break;
+        }
+
         foreach (['/rss/', '/tags/benchmark-topic/rss', '/feed.json', '/tags/benchmark-topic/feed.json'] as $path) {
             $cold = $send($path);
             $etag = $cold['headers']['etag'] ?? '';

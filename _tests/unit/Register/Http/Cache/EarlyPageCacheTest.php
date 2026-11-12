@@ -67,13 +67,28 @@ final class EarlyPageCacheTest extends TestCase
             $hit = $this->cache()->lookup($this->request(), $now + 10);
             self::assertNotNull($hit);
             self::assertSame([$type], $hit['headers']['content-type']);
-            self::assertSame(['110'], $hit['headers']['age']);
+            self::assertSame(['0'], $hit['headers']['age']);
             self::assertSame(['W/"feed-validator"'], $hit['headers']['etag']);
             self::assertSame(304, $this->cache()->lookup($this->request(['HTTP_IF_NONE_MATCH' => '"feed-validator"']), $now + 10)['status'] ?? null);
             self::assertNull($this->cache()->lookup($this->request(), $now + 500));
         }
 
         self::assertFalse($this->cache()->store($this->request(), array_replace($this->headers(), ['content-type' => ['application/json']]), '{}'));
+    }
+
+    public function testSparseFeedPollingRevalidatesTheSnapshotWithoutExtendingSemanticDeadlines(): void
+    {
+        $now = time();
+        $headers = array_replace($this->headers(), ['content-type' => ['application/rss+xml'],
+            'cache-control' => ['public, max-age=600, s-maxage=600'], 'etag' => ['W/"unchanged-feed"']]);
+        self::assertTrue($this->cache()->store($this->request(), $headers, '<rss/>', validUntil: $now + 86_400, now: $now));
+        $hit = $this->cache()->lookup($this->request(), $now + 1800);
+        self::assertNotNull($hit);
+        self::assertSame(['0'], $hit['headers']['age']);
+        self::assertSame(['public, max-age=600, s-maxage=600'], $hit['headers']['cache-control']);
+        self::assertSame(304, $this->cache()->lookup($this->request(['HTTP_IF_NONE_MATCH' => 'W/"unchanged-feed"']), $now + 3600)['status'] ?? null);
+        $this->cache()->invalidate();
+        self::assertNull($this->cache()->lookup($this->request(), $now + 3601));
     }
 
     public function testTrustedNonceTemplatesGetAFreshMatchingPolicyAndBodyWithout304(): void
