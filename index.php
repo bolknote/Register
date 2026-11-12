@@ -140,6 +140,11 @@ if ($registerEarlyPageCache instanceof EarlyPageCache && in_array($response->get
         }
     }
 
+    if ($request->attributes->get(\Register\Core\Http\Cache\PublicPageCacheRequest::ATTRIBUTE) === true) {
+        $pagination = \Register\Core\Http\Cache\PublicPageCacheRequest::fromUri((string)($registerEarlyServer['REQUEST_URI'] ?? ''));
+        $registerEarlyServer = $pagination?->cacheServer($registerEarlyServer) ?? $registerEarlyServer;
+    }
+
     $registerEarlyPageCache->store(
         $registerEarlyServer,
         $publicResponse->headers->all(),
@@ -148,8 +153,17 @@ if ($registerEarlyPageCache instanceof EarlyPageCache && in_array($response->get
         $request->attributes->get(EarlyPageCache::CONTENT_ATTRIBUTE),
         min(is_string($deadline) && ctype_digit($deadline) ? (int)$deadline : PHP_INT_MAX, $publicDeadline ?? PHP_INT_MAX),
         statusCode: $response->getStatusCode(),
+        dependencies: $request->attributes->get(EarlyPageCache::DEPENDENCIES_ATTRIBUTE, []),
+        feedChannel: $request->attributes->get(EarlyPageCache::FEED_ATTRIBUTE),
+        nonce: $trustedInlineElementNum > 0 ? $scriptNonce : null,
     );
     $response->headers->set('X-Register-Early-Cache', $registerEarlyPageCache->decision());
+}
+
+$registerFeedChannel = $request->attributes->get(EarlyPageCache::FEED_ATTRIBUTE);
+if ($registerEarlyPageCache instanceof EarlyPageCache && is_string($registerFeedChannel)
+    && in_array($response->getStatusCode(), [200, 304], true) && !$app->container->get(PDO::class)->inTransaction()) {
+    $registerEarlyPageCache->recordFeedRead($registerEarlyServer, $registerFeedChannel);
 }
 
 $response->headers->remove(EarlyPageCache::DEADLINE_HEADER);

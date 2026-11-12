@@ -24,6 +24,125 @@ use Symfony\Component\HttpFoundation\Request;
 
 final class BlogPageResponseCacheCest
 {
+    public function cachesPublicArchivesFavoritesAndFeedsAndRefreshesThemAfterAnEdit(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $db */
+        $db = $I->grabService(DbLayer::class);
+        $id = $this->insertPost($db, 'Public collection before edit', 'collection-entry');
+        $db->update(ContentSchema::TABLE_NAME)->set('featured', '1')->where('id = :id')->setParameter('id', $id)->execute();
+        $paths = ['/archive/2023/11/', '/archive/2023/11/14/', '/favorite/', '/rss/', '/feed.json'];
+        foreach ($paths as $path) {
+            $I->sendRequestWithHeaders($path, ['User-Agent' => 'SyntheticTestBot/1.0']);
+            $I->seeResponseCodeIs(200);
+            $I->seeHttpHeader('X-Register-Page-Cache', 'miss');
+            $I->assertStringContainsString('Public collection before edit', $I->grabResponse());
+            $I->sendRequestWithHeaders($path, ['User-Agent' => 'SyntheticTestBot/1.0']);
+            $I->seeHttpHeader('X-Register-Page-Cache', 'hit');
+            /** @var PDO $pdo */
+            $pdo = $I->grabService(\PDO::class);
+            $I->assertSame([], $pdo->getQueryLog());
+        }
+
+        $db->update(ContentSchema::TABLE_NAME)->set('title', ':title')->setParameter('title', 'Public collection after edit')
+            ->where('id = :id')->setParameter('id', $id)->execute();
+        /** @var ContentChangeDispatcher $changes */
+        $changes = $I->grabService(ContentChangeDispatcher::class);
+        $changes->dispatch(ContentId::post($id));
+        foreach ($paths as $path) {
+            $I->sendRequestWithHeaders($path, ['User-Agent' => 'SyntheticTestBot/1.0']);
+            $I->seeHttpHeader('X-Register-Page-Cache', 'miss');
+            $I->assertStringContainsString('Public collection after edit', $I->grabResponse());
+            $I->assertStringNotContainsString('Public collection before edit', $I->grabResponse());
+        }
+    }
+
+    public function cachesYearCalendarsWithoutRepeatingDatabaseQueries(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $db */
+        $db = $I->grabService(DbLayer::class);
+        $this->insertPost($db, 'Calendar article', 'calendar-article');
+        $I->sendRequestWithHeaders('/archive/2023/', ['User-Agent' => 'SyntheticTestBot/1.0']);
+        $I->seeHttpHeader('X-Register-Page-Cache', 'miss');
+        $I->sendRequestWithHeaders('/archive/2023/', ['User-Agent' => 'SyntheticTestBot/1.0']);
+        $I->seeHttpHeader('X-Register-Page-Cache', 'hit');
+        /** @var PDO $pdo */
+        $pdo = $I->grabService(\PDO::class);
+        $I->assertSame([], $pdo->getQueryLog());
+        $I->assertStringContainsString('/all/calendar-article', $I->grabResponse());
+    }
+
+    public function keepsTagPagesAndFeedsSeparateAndIgnoresNeitherPaginationNorPrivateRequests(\IntegrationTester $I): void
+    {
+        $I->setConfigValue('REGISTER_MAX_ITEMS', '1');
+        /** @var DbLayer $db */
+        $db = $I->grabService(DbLayer::class);
+        /** @var \Register\Content\TagRepository $tags */
+        $tags = $I->grabService(\Register\Content\TagRepository::class);
+        $tagIds = $tags->findOrCreateIdsByNames(['cache-topic']);
+        foreach ([1, 2] as $number) {
+            $id = $this->insertPost($db, 'Tagged entry ' . $number, 'tagged-entry-' . $number);
+            $db->update(ContentSchema::TABLE_NAME)->set('published_at', (string)(1_700_000_001 + $number))
+                ->where('id = :id')->setParameter('id', $id)->execute();
+            $tags->replace(ContentId::post($id), $tagIds);
+        }
+
+        $headers = ['User-Agent' => 'SyntheticTestBot/1.0'];
+        foreach (['/tags/cache-topic/' => 'Tagged entry 2', '/tags/cache-topic/?p=2' => 'Tagged entry 1',
+            '/tags/cache-topic/rss' => 'Tagged entry', '/tags/cache-topic/feed.json' => 'Tagged entry'] as $path => $title) {
+            $I->sendRequestWithHeaders($path, $headers);
+            $I->seeHttpHeader('X-Register-Page-Cache', 'miss');
+            $I->sendRequestWithHeaders($path, $headers);
+            $I->seeHttpHeader('X-Register-Page-Cache', 'hit');
+            $I->assertStringContainsString($title, $I->grabResponse());
+            /** @var PDO $pdo */
+            $pdo = $I->grabService(\PDO::class);
+            $I->assertSame([], $pdo->getQueryLog());
+        }
+
+        $I->sendRequestWithHeaders('/tags/cache-topic/?p=2&other=1', $headers);
+        $I->assertNull($I->grabHttpHeader('X-Register-Page-Cache'));
+        $I->sendRequestWithHeaders('/rss/', $headers + ['Authorization' => 'Bearer private']);
+        $I->assertNull($I->grabHttpHeader('X-Register-Page-Cache'));
+    }
+
+    public function cachesTheFullFeedBehindConditionalRequests(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $db */
+        $db = $I->grabService(DbLayer::class);
+        $this->insertPost($db, 'Conditional feed entry', 'conditional-entry');
+        foreach (['/rss/', '/feed.json'] as $path) {
+            $I->sendRequestWithHeaders($path, ['If-None-Match' => '*']);
+            $I->seeResponseCodeIs(304);
+            $I->sendRequestWithHeaders($path, ['User-Agent' => 'Mozilla/5.0 test reader']);
+            $I->seeResponseCodeIs(200);
+            $I->seeHttpHeader('X-Register-Page-Cache', 'hit');
+            $I->assertStringContainsString('Conditional feed entry', $I->grabResponse());
+            $etag = (string)$I->grabHttpHeader('ETag');
+            $I->sendRequestWithHeaders($path, ['If-None-Match' => $etag]);
+            $I->seeResponseCodeIs(304);
+            $I->seeHttpHeader('X-Register-Page-Cache', 'hit');
+            $I->assertSame('', $I->grabResponse());
+        }
+    }
+
+    public function cachedFeedsStillCountDifferentReadersOncePerDay(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $db */
+        $db = $I->grabService(DbLayer::class);
+        $this->insertPost($db, 'Feed readership fixture', 'feed-readership');
+        foreach (['First feed reader', 'First feed reader', 'Second feed reader'] as $reader) {
+            $I->sendRequestWithHeaders('/rss/', ['User-Agent' => $reader]);
+            $I->seeResponseCodeIs(200);
+        }
+
+        $I->seeHttpHeader('X-Register-Page-Cache', 'hit');
+        $row = $db->select('hits, unique_count')->from('register_analytics_daily')
+            ->where("channel = 'feed:blog'")->execute()->fetchAssoc();
+        $I->assertNotFalse($row);
+        $I->assertSame(2, (int)$row['hits']);
+        $I->assertSame(2, (int)$row['unique_count']);
+    }
+
     public function aWarmRequestBootstrapsAndServesContentWithoutOpeningADatabaseConnection(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */

@@ -32,6 +32,11 @@ readonly class RecommendationProvider implements QueueHandlerInterface
 
     public const string CACHE_KEY_PREFIX = 'recommendations_';
 
+    public static function dependencyKey(ExternalId $externalId): string
+    {
+        return 'recommendations:' . $externalId->toString();
+    }
+
     public function __construct(
         private RecommendationFinder $recommendationFinder,
         private LayoutMatcherFactory $layoutMatcherFactory,
@@ -67,13 +72,15 @@ readonly class RecommendationProvider implements QueueHandlerInterface
         }
 
         $cacheKey = $this->getCacheKey($externalId);
-        $cached = $this->cache->get($cacheKey, fn(ItemInterface $item): array => $buildColdCache
-            ? $this->getValueForCache($externalId)
-            : $this->getColdCachePlaceholder($item));
+        $cached = $this->cachedValue($externalId, $buildColdCache);
 
         if (($cached[2] ?? false) === true && $buildColdCache) {
+            $previous = $cached;
             $this->cache->delete($cacheKey);
             $cached = $this->cache->get($cacheKey, fn(ItemInterface $_item): array => $this->getValueForCache($externalId));
+            if (serialize($previous[0]) !== serialize($cached[0])) {
+                $this->onRecommendationsChanged?->__invoke($externalId);
+            }
         }
 
         [$recommendations, $generatedAt] = $cached;
@@ -109,10 +116,14 @@ readonly class RecommendationProvider implements QueueHandlerInterface
         $externalId = ExternalId::fromString($id);
         $cacheKey   = $this->getCacheKey($externalId);
 
+        $previous = $this->cachedValue($externalId, false);
         $this->cache->delete($cacheKey);
         $budget->checkpoint(0.5);
-        $this->cache->get($cacheKey, fn(ItemInterface $_item): array => $this->getValueForCache($externalId));
-        $this->onRecommendationsChanged?->__invoke();
+        $current = $this->cache->get($cacheKey, fn(ItemInterface $_item): array => $this->getValueForCache($externalId));
+        // Ignore the generation timestamp and compare values, not object identities.
+        if (($previous[2] ?? false) === true || serialize($previous[0]) !== serialize($current[0])) {
+            $this->onRecommendationsChanged?->__invoke($externalId);
+        }
     }
 
     /**
@@ -158,6 +169,14 @@ readonly class RecommendationProvider implements QueueHandlerInterface
         return self::CACHE_KEY_PREFIX . hash('sha256', $externalId->toString());
     }
 
+    /** @return array{0:array<mixed>,1:int,2?:true} */
+    private function cachedValue(ExternalId $externalId, bool $buildColdCache): array
+    {
+        return $this->cache->get($this->getCacheKey($externalId), fn(ItemInterface $item): array => $buildColdCache
+            ? $this->getValueForCache($externalId)
+            : $this->getColdCachePlaceholder($item));
+    }
+
     /** @return array{array<mixed>, int, true} */
     private function getColdCachePlaceholder(ItemInterface $item): array
     {
@@ -171,7 +190,7 @@ readonly class RecommendationProvider implements QueueHandlerInterface
     }
 
     /**
-     * @return array<mixed>
+     * @return array{array<mixed>,int}
      */
     private function getValueForCache(ExternalId $externalId): array
     {

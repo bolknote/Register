@@ -11,6 +11,7 @@ namespace Register\Module\Search\Service;
 
 use Register\Content\ContentId;
 use Register\Core\Framework\ResponseProcessorInterface;
+use Register\Core\Http\Cache\EarlyPageCache;
 use Register\Core\Template\PartialPageResponse;
 use Register\Core\Template\Viewer;
 use Register\Module\Analytics\BotDetector;
@@ -30,6 +31,7 @@ final readonly class RecommendationResponseProcessor implements ResponseProcesso
         private VisitorIdentityManager  $visitorIdentityManager,
         private Viewer                  $viewer,
         private BotDetector             $botDetector,
+        private EarlyPageCache          $earlyPageCache,
     ) {
     }
 
@@ -86,9 +88,14 @@ final readonly class RecommendationResponseProcessor implements ResponseProcesso
 
     private function render(Request $request, ContentId $contentId): string
     {
+        $externalId = new ExternalId(SearchDocumentFactory::externalId($contentId));
+        $key = RecommendationProvider::dependencyKey($externalId);
+        $dependencies = $request->attributes->get(EarlyPageCache::DEPENDENCIES_ATTRIBUTE, []);
+        $dependencies[$key] = $this->earlyPageCache->dependencyVersion($key);
+        $request->attributes->set(EarlyPageCache::DEPENDENCIES_ATTRIBUTE, $dependencies);
         [$recommendations, , $rawRecommendations] = $this->recommendationProvider->getRecommendations(
             $request->getPathInfo(),
-            new ExternalId(SearchDocumentFactory::externalId($contentId)),
+            $externalId,
             $this->visitorIdentityManager->visitorIdFromRequest($request) !== null,
         );
 

@@ -36,6 +36,93 @@ final class EarlyPageCacheTest extends TestCase
         return $this->cache ?? throw new \LogicException('The cache fixture has not been initialized.');
     }
 
+    public function testDependencyChangesInvalidateOnlySnapshotsThatRenderedThatDependency(): void
+    {
+        $dependency = 'recommendations:example';
+        $versions = [$dependency => $this->cache()->dependencyVersion($dependency)];
+        self::assertTrue($this->cache()->store($this->request(), $this->headers(), 'related links', dependencies: $versions));
+        $unrelated = $this->request(['REQUEST_URI' => '/unrelated']);
+        self::assertTrue($this->cache()->store($unrelated, $this->headers(), 'unrelated'));
+        $this->cache()->invalidateDependency($dependency);
+        self::assertNull($this->cache()->lookup($this->request()));
+        self::assertNotNull($this->cache()->lookup($unrelated));
+        // The renderer must capture the dependency before reading it, not when storing HTML.
+        $nextRequest = new EarlyPageCache($this->directory . '/cache', $this->directory);
+        self::assertFalse($nextRequest->store($this->request(), $this->headers(), 'stale render', dependencies: $versions));
+        self::assertNull($nextRequest->lookup($this->request()));
+        self::assertTrue($nextRequest->store($this->request(), $this->headers(), 'new links', dependencies: [
+            $dependency => $nextRequest->dependencyVersion($dependency),
+        ]));
+        self::assertSame('new links', $nextRequest->lookup($this->request())['body'] ?? null);
+        self::assertNotNull($nextRequest->lookup($unrelated));
+    }
+
+    public function testFeedsKeepTheirValidatorsMimeTypeAndFreshnessButArbitraryJsonIsNotShared(): void
+    {
+        $now = time();
+        foreach (['application/rss+xml' => '<rss/>', 'application/feed+json' => '{"items":[]}'] as $type => $body) {
+            $headers = array_replace($this->headers(), ['content-type' => [$type], 'etag' => ['W/"feed-validator"'],
+                'cache-control' => ['public, max-age=600'], 'date' => [gmdate('D, d M Y H:i:s', $now - 100) . ' GMT']]);
+            self::assertTrue($this->cache()->store($this->request(), $headers, $body, validUntil: $now + 500, now: $now));
+            $hit = $this->cache()->lookup($this->request(), $now + 10);
+            self::assertNotNull($hit);
+            self::assertSame([$type], $hit['headers']['content-type']);
+            self::assertSame(['110'], $hit['headers']['age']);
+            self::assertSame(['W/"feed-validator"'], $hit['headers']['etag']);
+            self::assertSame(304, $this->cache()->lookup($this->request(['HTTP_IF_NONE_MATCH' => '"feed-validator"']), $now + 10)['status'] ?? null);
+            self::assertNull($this->cache()->lookup($this->request(), $now + 500));
+        }
+
+        self::assertFalse($this->cache()->store($this->request(), array_replace($this->headers(), ['content-type' => ['application/json']]), '{}'));
+    }
+
+    public function testTrustedNonceTemplatesGetAFreshMatchingPolicyAndBodyWithout304(): void
+    {
+        $nonce = base64_encode(random_bytes(18));
+        $headers = array_replace($this->headers(), ['content-security-policy' => ["script-src 'self' 'nonce-" . $nonce . "'; style-src 'self' 'nonce-" . $nonce . "'"],
+            'content-security-policy-report-only' => ["script-src 'nonce-" . $nonce . "'"], 'etag' => ['"must-be-removed"']]);
+        $body = '<style nonce="' . $nonce . '">.example { color: red }</style><script nonce="' . $nonce . '">window.example = 1;</script>';
+        self::assertFalse($this->cache()->store($this->request(), $headers, $body));
+        self::assertTrue($this->cache()->store($this->request(), $headers, $body, nonce: $nonce));
+        $previous = null;
+        foreach ([[], ['HTTP_IF_NONE_MATCH' => '*'], ['HTTP_ACCEPT_ENCODING' => 'gzip']] as $override) {
+            $hit = $this->cache()->lookup($this->request($override));
+            self::assertNotNull($hit);
+            self::assertSame(200, $hit['status']);
+            self::assertArrayNotHasKey('etag', $hit['headers']);
+            $html = isset($override['HTTP_ACCEPT_ENCODING']) ? gzdecode($hit['body']) : $hit['body'];
+            self::assertIsString($html);
+            self::assertSame(1, preg_match('/<style nonce="([A-Za-z0-9+\/]{24})">/', $html, $match));
+            self::assertNotSame($nonce, $match[1]);
+            self::assertNotSame($previous, $match[1]);
+            self::assertStringContainsString('<script nonce="' . $match[1] . '">', $html);
+            self::assertStringContainsString("'nonce-" . $match[1] . "'", $hit['headers']['content-security-policy'][0]);
+            self::assertStringContainsString("'nonce-" . $match[1] . "'", $hit['headers']['content-security-policy-report-only'][0]);
+            self::assertStringNotContainsString('register-csp-template-', $html);
+            $previous = $match[1];
+        }
+
+        self::assertFalse($this->cache()->store($this->request(), $headers, $body . '<script nonce="foreign">untrusted()</script>', nonce: $nonce));
+        self::assertFalse($this->cache()->store($this->request(), array_replace($headers, ['set-cookie' => ['private=1']]), $body, nonce: $nonce));
+        self::assertFalse($this->cache()->store($this->request(), array_replace($headers, ['cache-control' => ['no-store']]), $body, nonce: $nonce));
+    }
+
+    public function testFeedReadersAreRecordedByDayChannelAndIdentityWithBoundedRetention(): void
+    {
+        $now = time();
+        $reader = $this->request(['REMOTE_ADDR' => '192.0.2.1', 'HTTP_USER_AGENT' => 'Synthetic feed reader']);
+        self::assertFalse($this->cache()->feedReadRecorded($reader, 'feed:blog', $now));
+        $this->cache()->recordFeedRead($reader, 'feed:blog', $now);
+        self::assertTrue($this->cache()->feedReadRecorded($reader, 'feed:blog', $now));
+        self::assertFalse($this->cache()->feedReadRecorded($reader, 'feed:blog-tag', $now));
+        self::assertFalse($this->cache()->feedReadRecorded(array_replace($reader, ['HTTP_USER_AGENT' => 'Another reader']), 'feed:blog', $now));
+        self::assertFalse($this->cache()->feedReadRecorded($reader, 'feed:blog', $now + 86_400));
+        $this->cache()->recordFeedRead(array_replace($reader, ['HTTP_COOKIE' => 'private=1']), 'feed:blog-tag', $now);
+        self::assertFalse($this->cache()->feedReadRecorded($reader, 'feed:blog-tag', $now));
+        $this->cache()->collect($now + 3 * 86_400);
+        self::assertFalse($this->cache()->feedReadRecorded($reader, 'feed:blog', $now));
+    }
+
     public function testTemplatePreparationUsesTheSamePrivacyAndMaintenanceGuards(): void
     {
         self::assertTrue($this->cache()->canStore($this->request()));
@@ -434,7 +521,7 @@ final class EarlyPageCacheTest extends TestCase
 
     /**
      * @param array<string,mixed> $override
-     * @return array{status:int,headers:array<string,list<string>>,body:string,content_id:?string}
+     * @return array{status:int,headers:array<string,list<string>>,body:string,content_id:?string,feed_channel:?string}
      */
     private function hit(array $override = []): array
     {

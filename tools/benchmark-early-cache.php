@@ -289,9 +289,15 @@ try {
     }
 
     foreach (['/benchmark-12' => 'fresh_csp_nonce'] as $path => $name) {
-        $send($path, ['User-Agent: Mozilla/5.0 benchmark reader']);
+        $first = $send($path, ['User-Agent: Mozilla/5.0 benchmark reader']);
         $reply = $send($path, ['User-Agent: Mozilla/5.0 benchmark reader']);
-        $checks[$name] = ($reply['headers']['x-register-early-cache'] ?? '') !== 'hit';
+        $nonceMatch = [];
+        preg_match('/<style nonce="([A-Za-z0-9+\/]{24})">/', $reply['body'], $nonceMatch);
+        $renderedNonce = $nonceMatch[1] ?? '';
+        $checks[$name] = ($reply['headers']['x-register-early-cache'] ?? '') === 'hit'
+            && $first['body'] !== $reply['body'] && !isset($reply['headers']['etag'])
+            && $renderedNonce !== ''
+            && str_contains($reply['headers']['content-security-policy'] ?? '', "'nonce-" . $renderedNonce . "'");
     }
 
     foreach (['Cookie: session=anything', 'Authorization: Bearer anything', 'X-Register-Navigation: partial'] as $header) {

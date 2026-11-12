@@ -18,6 +18,7 @@ use Register\Module\Blog\Controller\FlatCommentController;
 use Register\Module\Blog\Controller\FlatContentController;
 use Register\Module\Blog\Controller\LegacyRssRedirectController;
 use Register\Module\Blog\Controller\MainPageController;
+use Register\Module\Blog\Controller\PublicCollectionController;
 use Register\Module\Blog\Controller\MonthPageController;
 use Register\Module\Blog\Controller\RandomPostController;
 use Register\Module\Blog\Controller\RankedPostsController;
@@ -78,19 +79,19 @@ final readonly class RoutingModule implements ContainerAwareRoutingModuleInterfa
         ), $priority);
         $routes->add('blog_rss', new Route(
             '/rss',
-            ['_controller' => RssController::class],
+            ['_controller' => PublicCollectionController::serviceId(RssController::class)],
             options: ['utf8' => true],
             methods: ['GET'],
         ), $priority);
         $routes->add('blog_rss_trailing_slash', new Route(
             '/rss/',
-            ['_controller' => RssController::class],
+            ['_controller' => PublicCollectionController::serviceId(RssController::class)],
             options: ['utf8' => true],
             methods: ['GET'],
         ), $priority);
         $routes->add('blog_json_feed', new Route(
             '/feed.json',
-            ['_controller' => 'register_blog.json_feed_controller'],
+            ['_controller' => PublicCollectionController::serviceId('register_blog.json_feed_controller')],
             options: ['utf8' => true],
             methods: ['GET'],
         ), $priority);
@@ -108,7 +109,7 @@ final readonly class RoutingModule implements ContainerAwareRoutingModuleInterfa
         ), $priority);
         $routes->add('blog_favorite', new Route(
             '/' . $favoriteUrl . '{slash</?>}',
-            ['_controller' => FavoritePageController::class],
+            ['_controller' => PublicCollectionController::serviceId(FavoritePageController::class)],
             options: ['utf8' => true],
             methods: ['GET'],
         ), $priority);
@@ -132,43 +133,43 @@ final readonly class RoutingModule implements ContainerAwareRoutingModuleInterfa
         ), $priority);
         $routes->add('blog_tags', new Route(
             '/' . $tagsUrl . '{slash</?>}',
-            ['_controller' => TagsPageController::class],
+            ['_controller' => PublicCollectionController::serviceId(TagsPageController::class)],
             options: ['utf8' => true],
             methods: ['GET'],
         ), $priority);
         $routes->add('blog_tag_rss', new Route(
             '/' . $tagsUrl . '/{tag}/rss',
-            ['_controller' => 'register_blog.tag_rss_controller'],
+            ['_controller' => PublicCollectionController::serviceId('register_blog.tag_rss_controller')],
             options: ['utf8' => true],
             methods: ['GET'],
         ), $priority + 1);
         $routes->add('blog_tag_json_feed', new Route(
             '/' . $tagsUrl . '/{tag}/feed.json',
-            ['_controller' => 'register_blog.tag_json_feed_controller'],
+            ['_controller' => PublicCollectionController::serviceId('register_blog.tag_json_feed_controller')],
             options: ['utf8' => true],
             methods: ['GET'],
         ), $priority + 1);
         $routes->add('blog_tag', new Route(
             '/' . $tagsUrl . '/{tag}{slash</?>}',
-            ['_controller' => TagPageController::class],
+            ['_controller' => PublicCollectionController::serviceId(TagPageController::class)],
             options: ['utf8' => true],
             methods: ['GET'],
         ), $priority);
         $routes->add('blog_year', new Route(
             '/archive/{year<\d{4}>}/',
-            ['_controller' => YearPageController::class],
+            ['_controller' => PublicCollectionController::serviceId(YearPageController::class)],
             options: ['utf8' => true],
             methods: ['GET'],
         ), $priority);
         $routes->add('blog_month', new Route(
             '/archive/{year<\d{4}>}/{month<\d{2}>}/',
-            ['_controller' => MonthPageController::class],
+            ['_controller' => PublicCollectionController::serviceId(MonthPageController::class)],
             options: ['utf8' => true],
             methods: ['GET'],
         ), $priority);
         $routes->add('blog_day', new Route(
             '/archive/{year<\d{4}>}/{month<\d{2}>}/{day<\d{2}>}/',
-            ['_controller' => DayPageController::class],
+            ['_controller' => PublicCollectionController::serviceId(DayPageController::class)],
             options: ['utf8' => true],
             methods: ['GET'],
         ), $priority);

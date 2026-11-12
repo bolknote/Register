@@ -59,6 +59,7 @@ use Register\Module\Blog\Controller\LegacyRssRedirectController;
 use Register\Module\Blog\Controller\MainPageController;
 use Register\Module\Blog\Controller\MonthPageController;
 use Register\Module\Blog\Controller\PostPageController;
+use Register\Module\Blog\Controller\PublicCollectionController;
 use Register\Module\Blog\Controller\RandomPostController;
 use Register\Module\Blog\Controller\RankedPostsController;
 use Register\Module\Blog\Controller\TagPageController;
@@ -596,6 +597,24 @@ final class ServiceModule implements ContainerModuleInterface
                 $provider->getStringProxy('REGISTER_WEBMASTER'),
             );
         });
+        foreach ([DayPageController::class, MonthPageController::class, YearPageController::class,
+            FavoritePageController::class, TagsPageController::class, TagPageController::class,
+            RssController::class, 'register_blog.tag_rss_controller',
+            'register_blog.json_feed_controller', 'register_blog.tag_json_feed_controller'] as $controllerId) {
+            $container->set(PublicCollectionController::serviceId($controllerId), static fn(Container $container): PublicCollectionController => new PublicCollectionController(
+                $container->get($controllerId),
+                $container->get(BlogPageCache::class),
+                $container->get(BlogResponseCachePolicy::class),
+                eventDispatcher: $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
+                paginated: $controllerId === TagPageController::class,
+                feedStrategy: match ($controllerId) {
+                    RssController::class, 'register_blog.json_feed_controller' => $container->get(ContentRssStrategy::class),
+                    'register_blog.tag_rss_controller', 'register_blog.tag_json_feed_controller' => $container->get(TagRssStrategy::class),
+                    default => null,
+                },
+            ));
+        }
+
         $container->set('register_blog.comment_controller', static function (Container $container): \Register\Controller\CommentController {
             $provider = $container->get(DynamicConfigProvider::class);
             return new CommentController(

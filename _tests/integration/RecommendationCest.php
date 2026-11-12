@@ -84,14 +84,28 @@ final class RecommendationCest
         $I->assertSame('Alpha beta gamma delta. Useful details.', $recommendations[0]['snippet']);
         $I->assertSame('2024', $recommendations[0]['date']?->format('Y'));
 
-        // Queued recommendation refreshes must invalidate already hydrated public snapshots.
+        // Refreshing one recommendation set must preserve unrelated public snapshots.
         $early = new EarlyPageCache('_cache/test', dirname(__DIR__, 2));
         $request = ['HTTP_HOST' => 'register.localhost', 'REQUEST_METHOD' => 'GET', 'REQUEST_URI' => '/recommendation-invalidation-probe'];
-        $I->assertTrue($early->store($request, ['content-type' => ['text/html'], 'x-register-page-cache' => ['hit']], 'old recommendations'));
+        $dependency = RecommendationProvider::dependencyKey($externalId);
+        $I->assertTrue($early->store($request, ['content-type' => ['text/html'], 'x-register-page-cache' => ['hit']], 'old recommendations', dependencies: [
+            $dependency => $early->dependencyVersion($dependency),
+        ]));
+        $unrelated = array_replace($request, ['REQUEST_URI' => '/unrelated-probe']);
+        $I->assertTrue($early->store($unrelated, ['content-type' => ['text/html'], 'x-register-page-cache' => ['hit']], 'unrelated'));
         $I->assertNotNull($early->lookup($request));
 
         $provider->handle($externalId->toString(), RecommendationProvider::RECOMMENDATIONS_QUEUE, [], new QueueExecutionBudget(30));
+        $I->assertNotNull($early->lookup($request));
+        $I->assertNotNull($early->lookup($unrelated));
+
+        $indexer->index(
+            (new Indexable('page:11', 'Updated related reading', '<p>Alpha beta gamma delta. Useful details.</p>'))
+                ->setUrl('/related')->setDate(new \DateTime('2024-04-05')),
+        );
+        $provider->handle($externalId->toString(), RecommendationProvider::RECOMMENDATIONS_QUEUE, [], new QueueExecutionBudget(30));
         $I->assertNull($early->lookup($request));
+        $I->assertNotNull($early->lookup($unrelated));
 
         $I->assertTrue($cache->clear());
     }

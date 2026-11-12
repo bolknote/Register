@@ -15,6 +15,10 @@ final class EarlyPageCache
 
     public const string CONTENT_ATTRIBUTE = '_register_early_content';
 
+    public const string DEPENDENCIES_ATTRIBUTE = '_register_early_dependencies';
+
+    public const string FEED_ATTRIBUTE = '_register_early_feed';
+
     public const string DEADLINE_HEADER = 'X-Register-Cache-Deadline';
 
     private const int FORMAT = 1;
@@ -22,6 +26,8 @@ final class EarlyPageCache
     private const int MAX_BYTES = 4_194_304;
 
     private const int MAX_AGE = 86_400;
+
+    private const string NONCE_MARKER = 'register-csp-template-37f69d18d4a2';
 
     // 256 hash buckets cap public snapshots at 256 MiB and 8192 files.
     private const int MAX_BUCKET_BYTES = 1_048_576;
@@ -226,7 +232,7 @@ final class EarlyPageCache
     /**
      * @param array<string, mixed> $server
      * @param (\Closure(string):string)|null $transformBody
-     * @return array{status:int,headers:array<string,list<string>>,body:string,content_id:?string}|null
+     * @return array{status:int,headers:array<string,list<string>>,body:string,content_id:?string,feed_channel:?string}|null
      */
     public function lookup(array $server, ?int $now = null, ?\Closure $transformBody = null): ?array
     {
@@ -243,7 +249,8 @@ final class EarlyPageCache
                 || !is_int($entry['expires'] ?? null) || $entry['expires'] <= $now
                 || !is_string($entry['body'] ?? null) || !is_array($entry['headers'] ?? null)
                 || !$this->validHeaders($entry['headers'])
-                || !is_array($entry['views'] ?? null)) {
+                || !is_array($entry['views'] ?? null)
+                || !$this->dependenciesMatch($entry['dependencies'] ?? [])) {
                 return null;
             }
 
@@ -278,10 +285,36 @@ final class EarlyPageCache
             }
 
             $headers = $entry['headers'];
+            $nonceTemplate = ($entry['nonce_template'] ?? false) === true;
+            if ($nonceTemplate) {
+                if (!str_contains($body, self::NONCE_MARKER)
+                    || !str_contains(implode(' ', $headers['content-security-policy'] ?? []), "'nonce-" . self::NONCE_MARKER . "'")) {
+                    return null;
+                }
+
+                $nonce = base64_encode(random_bytes(18));
+                $body = str_replace(self::NONCE_MARKER, $nonce, $body);
+                foreach ($headers as $name => $values) {
+                    $headers[$name] = array_map(static fn(string $value): string => str_replace(self::NONCE_MARKER, $nonce, $value), $values);
+                }
+
+                $changed = true;
+                unset($headers['etag']);
+            }
+
             $headers['x-register-page-cache'] = ['hit'];
             $headers['x-register-early-cache'] = ['hit'];
             $headers['vary'] = array_values(array_unique([...($headers['vary'] ?? []), 'Accept-Encoding']));
-            $headers['etag'] = ['W/"' . md5($body) . '"'];
+            // HTML may contain counters or expanded form fields. Feeds retain
+            // their original validator, including on the first cached request.
+            if (!$nonceTemplate && ($changed || str_starts_with($headers['content-type'][0] ?? '', 'text/html') || !isset($headers['etag'][0]))) {
+                $headers['etag'] = ['W/"' . md5($body) . '"'];
+            }
+
+            if (isset($entry['stored_at']) && is_int($entry['stored_at'])) {
+                $headers['age'] = [(string)max(0, $now - $entry['stored_at'])];
+            }
+
             unset($headers['content-length'], $headers['content-encoding'], $headers['last-modified']);
             $status = $entry['status'] ?? 200;
             if (!in_array($status, [200, 405], true)) {
@@ -289,8 +322,9 @@ final class EarlyPageCache
             }
 
             $validator = (string)($server['HTTP_IF_NONE_MATCH'] ?? '');
-            if ($status === 200 && $validator !== '' && ($validator === '*' || in_array(
-                substr($headers['etag'][0], 2),
+            $etag = $headers['etag'][0] ?? '';
+            if (!$nonceTemplate && $status === 200 && $validator !== '' && ($validator === '*' || in_array(
+                preg_replace('/^W\//', '', $etag),
                 array_map(static fn(string $tag): string => preg_replace('/^W\//', '', trim($tag)) ?? '', explode(',', $validator)),
                 true,
             ))) {
@@ -315,12 +349,15 @@ final class EarlyPageCache
                 $headers['content-length'] = [(string)strlen($body)];
             }
 
-            if (($entry['generation'] ?? null) !== $this->epoch()) {
+            if (($entry['generation'] ?? null) !== $this->epoch() || !$this->dependenciesMatch($entry['dependencies'] ?? [])) {
                 return null;
             }
 
+            $contentId = $entry['content_id'] ?? null;
+            $feedChannel = $entry['feed_channel'] ?? null;
             return ['status' => $status, 'headers' => $headers, 'body' => $body,
-                'content_id' => is_string($entry['content_id'] ?? null) ? $entry['content_id'] : null];
+                'content_id' => is_string($contentId) ? $contentId : null,
+                'feed_channel' => is_string($feedChannel) ? $feedChannel : null];
         } catch (\Throwable) {
             return null;
         }
@@ -412,8 +449,9 @@ final class EarlyPageCache
      * @param array<string, mixed> $server
      * @param array<string, list<string|null>> $headers
      * @param array<string, array{html:string,count:int}> $views
+     * @param array<string,string> $dependencies Versions captured before rendering their dependent content.
      */
-    public function store(array $server, array $headers, string $body, array $views = [], ?string $contentId = null, ?int $validUntil = null, ?int $now = null, int $statusCode = 200): bool
+    public function store(array $server, array $headers, string $body, array $views = [], ?string $contentId = null, ?int $validUntil = null, ?int $now = null, int $statusCode = 200, array $dependencies = [], ?string $feedChannel = null, ?string $nonce = null): bool
     {
         $headers = $this->normalizeHeaders($headers);
         $requestBypass = self::requestBypassReason($server, $this->ignoreForwardingHeaders, $this->publicCookies);
@@ -421,6 +459,10 @@ final class EarlyPageCache
             $this->decision = 'bypass-request-' . $requestBypass;
             return false;
         }
+
+        $html = str_starts_with(strtolower($headers['content-type'][0] ?? ''), 'text/html');
+        $nonceTemplate = $nonce !== null && $statusCode === 200 && $html
+            && $this->prepareNonceTemplate($headers, $body, $nonce);
 
         $responseBypass = match (true) {
             $this->disabled => 'disabled',
@@ -430,10 +472,10 @@ final class EarlyPageCache
             isset($headers['set-cookie']) => 'set-cookie',
             !isset($headers['x-register-page-cache']) => 'unshared',
             !in_array($statusCode, [200, 405], true) || ($statusCode === 405 && ($headers['allow'] ?? []) !== ['POST']) => 'status',
-            !str_starts_with(strtolower($headers['content-type'][0] ?? ''), $statusCode === 405 ? 'text/plain' : 'text/html') => 'content-type',
+            !$this->supportedContentType($headers['content-type'][0] ?? '', $statusCode) => 'content-type',
             str_contains(strtolower(implode(',', $headers['cache-control'] ?? [])), 'no-store') => 'private',
-            str_contains(implode(' ', $headers['content-security-policy'] ?? []), "'nonce-")
-                || preg_match('/\bnonce\s*=/i', $body) === 1 => 'nonce',
+            !$nonceTemplate && (str_contains(implode(' ', [...($headers['content-security-policy'] ?? []), ...($headers['content-security-policy-report-only'] ?? [])]), "'nonce-")
+                || ($html && preg_match('/\bnonce\s*=/i', $body) === 1)) => 'nonce',
             default => null,
         };
         if ($responseBypass !== null) {
@@ -457,7 +499,7 @@ final class EarlyPageCache
             }
 
             $epoch = $this->generation;
-            if ($epoch === null || $epoch !== $this->epoch()) {
+            if ($epoch === null || $epoch !== $this->epoch() || !$this->dependenciesMatch($dependencies)) {
                 $this->decision = 'bypass-generation';
                 return false;
             }
@@ -474,6 +516,9 @@ final class EarlyPageCache
                 $viewHashes[$id] = hash('sha256', $view['html']);
             }
 
+            $date = strtotime($headers['date'][0] ?? '');
+            $date = $date === false ? $now : $date;
+            $age = max(0, $now - $date, (int)($headers['age'][0] ?? '0'));
             foreach (['date', 'expires', 'content-length', 'content-encoding', 'x-register-page-cache-key',
                 'x-register-rendered-content', 'x-register-cache-deadline', 'server-timing'] as $header) {
                 unset($headers[$header]);
@@ -481,6 +526,7 @@ final class EarlyPageCache
 
             $packed = function_exists('gzencode') ? gzencode($body, 3) : false;
             $entry = ['format' => self::FORMAT, 'status' => $statusCode, 'generation' => $epoch, 'fingerprint' => $this->fingerprint(),
+                'dependencies' => $dependencies, 'stored_at' => $now - $age, 'feed_channel' => $feedChannel, 'nonce_template' => $nonceTemplate,
                 'expires' => $expires, 'headers' => $headers, 'body' => base64_encode(is_string($packed) ? $packed : $body),
                 'body_compression' => is_string($packed) ? 'gzip' : '',
                 'gzip' => is_string($gzip) ? base64_encode($gzip) : null, 'views' => $viewHashes, 'content_id' => $contentId];
@@ -490,7 +536,7 @@ final class EarlyPageCache
             }
 
             $this->decision = 'stored';
-            return $epoch === $this->epoch();
+            return $epoch === $this->epoch() && $this->dependenciesMatch($dependencies);
         } catch (\Throwable) {
             $this->decision = 'bypass-unavailable';
             return false;
@@ -505,6 +551,151 @@ final class EarlyPageCache
 
         $this->write($this->directory . '/generation.json', ['value' => bin2hex(random_bytes(16))]);
         // Do not let an in-flight renderer adopt a newer generation after invalidation.
+    }
+
+    /**
+     * Only the nonce freshly granted by the front controller may become a template.
+     * Unrecognised nonces, marker collisions and private responses still fail closed.
+     * @param array<string,list<string>> $headers
+     */
+    private function prepareNonceTemplate(array &$headers, string &$body, string $nonce): bool
+    {
+        if (preg_match('~^[A-Za-z0-9+/]{24}$~D', $nonce) !== 1 || str_contains($body, self::NONCE_MARKER)
+            || !str_contains($body, 'nonce="' . $nonce . '"')
+            || preg_match('/\bnonce\s*=/i', str_replace('nonce="' . $nonce . '"', '', $body)) === 1
+            || !str_contains(implode(' ', $headers['content-security-policy'] ?? []), "'nonce-" . $nonce . "'")) {
+            return false;
+        }
+
+        foreach ($headers as $name => $values) {
+            foreach ($values as $value) {
+                if (str_contains($value, self::NONCE_MARKER)
+                    || (in_array($name, ['content-security-policy', 'content-security-policy-report-only'], true)
+                        && str_contains(str_replace("'nonce-" . $nonce . "'", '', $value), "'nonce-"))) {
+                    return false;
+                }
+            }
+        }
+
+        $body = str_replace($nonce, self::NONCE_MARKER, $body);
+        foreach ($headers as $name => $values) {
+            $headers[$name] = array_map(static fn(string $value): string => str_replace($nonce, self::NONCE_MARKER, $value), $values);
+        }
+
+        unset($headers['etag'], $headers['last-modified']);
+        return true;
+    }
+
+    /** Capture before reading a separately refreshed fragment; failure disables snapshot publication. */
+    public function dependencyVersion(string $key): string
+    {
+        if ($this->disabled || $this->unavailable) {
+            return '';
+        }
+
+        try {
+            $path = $this->dependencyPath($key);
+            $version = $this->read($path)['value'] ?? null;
+            if (is_string($version)) {
+                return $version;
+            }
+
+            $this->withDirectoryLock(dirname($path), function () use ($path): bool {
+                if (!is_string($this->read($path)['value'] ?? null)) {
+                    $this->write($path, ['value' => bin2hex(random_bytes(16))]);
+                }
+
+                return true;
+            });
+            $version = $this->read($path)['value'] ?? null;
+            return is_string($version) ? $version : '';
+        } catch (\Throwable) {
+            return '';
+        }
+    }
+
+    public function invalidateDependency(string $key): void
+    {
+        if (!$this->disabled && !$this->unavailable) {
+            $this->write($this->dependencyPath($key), ['value' => bin2hex(random_bytes(16))]);
+        }
+    }
+
+    private function dependencyPath(string $key): string
+    {
+        return $this->directory . '/dependencies/' . hash('sha256', $key) . '.json';
+    }
+
+    private function dependenciesMatch(mixed $dependencies): bool
+    {
+        if (!is_array($dependencies) || count($dependencies) > 16) {
+            return false;
+        }
+
+        foreach ($dependencies as $key => $version) {
+            if (!is_string($key) || !is_string($version) || preg_match('/^[a-f0-9]{32}$/D', $version) !== 1
+                || ($this->read($this->dependencyPath($key))['value'] ?? null) !== $version) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function supportedContentType(string $contentType, int $status): bool
+    {
+        $type = strtolower(trim(explode(';', $contentType, 2)[0]));
+        return $status === 405 ? $type === 'text/plain'
+            : in_array($type, ['text/html', 'application/rss+xml', 'application/feed+json'], true);
+    }
+
+    /**
+     * The first feed request per reader/channel/day still visits the analytics listener.
+     * @param array<string,mixed> $server
+     */
+    public function feedReadRecorded(array $server, string $channel, ?int $now = null): bool
+    {
+        [$path, $key] = $this->feedReaderLocation($server, $channel, $now ?? time());
+        $keys = $this->read($path)['keys'] ?? [];
+        return is_array($keys) && in_array($key, $keys, true);
+    }
+
+    /**
+     * Records only a private digest after the normal feed listener ran.
+     * @param array<string,mixed> $server
+     */
+    public function recordFeedRead(array $server, string $channel, ?int $now = null): void
+    {
+        if (!$this->canStore($server)) {
+            return;
+        }
+
+        [$path, $key] = $this->feedReaderLocation($server, $channel, $now ?? time());
+        try {
+            $this->withDirectoryLock(dirname($path), function () use ($path, $key): bool {
+                $keys = $this->read($path)['keys'] ?? [];
+                if (!is_array($keys) || in_array($key, $keys, true) || count($keys) >= self::MAX_BUCKET_ENTRIES) {
+                    return false;
+                }
+
+                $keys[] = $key;
+                $this->write($path, ['keys' => $keys]);
+                return true;
+            });
+        } catch (\Throwable) {
+            // Missing receipts fall back to normal analytics, never silently lose a reader.
+        }
+    }
+
+    /**
+     * @param array<string,mixed> $server
+     * @return array{string,string}
+     */
+    private function feedReaderLocation(array $server, string $channel, int $now): array
+    {
+        $key = hash_hmac('sha256', implode("\0", [$this->applicationRoot, $channel, (string)($server['REMOTE_ADDR'] ?? 'unknown'),
+            (string)($server['HTTP_USER_AGENT'] ?? '')]), $this->epoch() ?? '');
+        return [$this->directory . '/feed-readers/' . date('Y-m-d', $now) . '/' . substr($key, 0, 2) . '.json', $key];
     }
 
     public function publishView(string $contentId, int $count, string $html): void
@@ -586,6 +777,7 @@ final class EarlyPageCache
         $now ??= time();
         $removed = 0;
         try {
+            $this->collectFeedReaders($now);
             $this->withDirectoryLock($this->directory, function () use ($now, &$removed): bool {
                 $cursorPath = $this->directory . '/cleanup.json';
                 $cursor = $this->read($cursorPath)['bucket'] ?? 0;
@@ -603,6 +795,36 @@ final class EarlyPageCache
         }
 
         return $removed;
+    }
+
+    /** Bound daily analytics receipts to two days; retire at most 128 files per pulse. */
+    private function collectFeedReaders(int $now): void
+    {
+        $directory = $this->directory . '/feed-readers';
+        if (!is_dir($directory)) {
+            return;
+        }
+
+        $remaining = 128;
+        $cutoff = date('Y-m-d', $now - 86_400);
+        foreach (new \DirectoryIterator($directory) as $day) {
+            if (!$day->isDir() || $day->isLink() || preg_match('/^\d{4}-\d{2}-\d{2}$/D', $day->getFilename()) !== 1 || $day->getFilename() >= $cutoff) {
+                continue;
+            }
+
+            foreach (new \DirectoryIterator($day->getPathname()) as $file) {
+                if ($file->isDot()) {
+                    continue;
+                }
+
+                self::withoutWarnings(static fn(): bool => unlink($file->getPathname()));
+                if (--$remaining <= 0) {
+                    return;
+                }
+            }
+
+            self::withoutWarnings(static fn(): bool => rmdir($day->getPathname()));
+        }
     }
 
     /**

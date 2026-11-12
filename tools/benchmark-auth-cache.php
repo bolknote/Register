@@ -1,5 +1,8 @@
 <?php
-/** Measures server CPU in an isolated installation, never against a live site's database. */
+/**
+ * Measures server CPU in an isolated installation, never against a live site's database.
+ * Use --public-pages for archives, favorites, paginated tags and feeds; --root compares another checkout.
+ */
 
 declare(strict_types = 1);
 
@@ -19,7 +22,7 @@ if (PHP_SAPI !== 'cli') {
     throw new RuntimeException('This benchmark is CLI-only.');
 }
 
-$options = getopt('', ['requests:', 'keep', 'assert-fast', 'root:', 'base-path:']);
+$options = getopt('', ['requests:', 'keep', 'assert-fast', 'root:', 'base-path:', 'public-pages']);
 $rootOption = $options['root'] ?? dirname(__DIR__);
 $root = is_string($rootOption) ? realpath($rootOption) : false;
 if ($root === false || !is_file($root . '/_vendor/autoload.php')) {
@@ -98,8 +101,17 @@ try {
 
         $stmt->execute([$id, 'post', 'root', 'benchmark-' . $i, 'Benchmark page ' . $i, '',
             str_repeat('<p>Public benchmark article. No private or site-specific content.</p>', 100)
-                . ($i === 12 ? '<style>.benchmark { color: inherit; }</style>' : ''),
+                . ($i === 12 ? '<style>.benchmark { color: inherit; }</style><script>window.registerBenchmark = 1;</script>' : ''),
             time() - 3600, time() - 3600, time(), 1, $i === 11 ? 1 : 0]);
+        if (isset($options['public-pages'])) {
+            $tags = new \Register\Content\TagRepository($db);
+            $tags->replace(\Register\Content\ContentId::post($id), $tags->findOrCreateIdsByNames(['benchmark-topic']));
+        }
+    }
+
+    if (isset($options['public-pages'])) {
+        $db->update(ContentSchema::TABLE_NAME)->set('featured', '1')->where("content_type = 'post'")->execute();
+        $db->update('config')->set('value', "'5'")->where("name = 'REGISTER_MAX_ITEMS'")->execute();
     }
 
     $router = <<<'PHP'
@@ -197,7 +209,7 @@ PHP;
         throw new RuntimeException('Fixture CPU measurements did not finish.');
     };
     $scenarios = [];
-    foreach ([
+    $paths = [
         'cached_article' => ['/benchmark-1', 200],
         'auth_plain_page' => ['/auth', 200],
         'auth_page' => ['/auth?return=%2Fbenchmark-1', 200],
@@ -207,7 +219,23 @@ PHP;
         'oauth_yandex_get_405' => ['/auth/oauth/yandex?return=%2Fbenchmark-1', 405],
         'oauth_mail_get_405' => ['/auth/oauth/mail_ru?return=%2Fbenchmark-1', 405],
         'oauth_ok_get_405' => ['/auth/oauth/ok_ru?return=%2Fbenchmark-1', 405],
-    ] as $name => [$path, $status]) {
+    ];
+    if (isset($options['public-pages'])) {
+        $paths = [
+            'month_archive' => ['/archive/' . date('Y/m', time() - 3600) . '/', 200],
+            'day_archive' => ['/archive/' . date('Y/m/d', time() - 3600) . '/', 200],
+            'year_archive' => ['/archive/' . date('Y', time() - 3600) . '/', 200],
+            'favorites' => ['/favorite/', 200],
+            'tag_page' => ['/tags/benchmark-topic/', 200],
+            'tag_page_2' => ['/tags/benchmark-topic/?p=2', 200],
+            'rss' => ['/rss/', 200],
+            'tag_rss' => ['/tags/benchmark-topic/rss', 200],
+            'json_feed' => ['/feed.json', 200],
+            'tag_json_feed' => ['/tags/benchmark-topic/feed.json', 200],
+        ];
+    }
+
+    foreach ($paths as $name => [$path, $status]) {
         file_put_contents($fixture . '/metrics.jsonl', '');
         for ($i = 0; $i < 5; ++$i) {
             $send($path, $status);
@@ -238,6 +266,47 @@ PHP;
     }
 
     $checks = [];
+    if (isset($options['public-pages'])) {
+        foreach (['/favorite/', '/tags/benchmark-topic/'] as $path) {
+            $first = $send($path);
+            $next = $send($path, extraHeaders: ['If-None-Match: *']);
+            $nonceMatch = [];
+            preg_match('/<style nonce="([A-Za-z0-9+\/]{24})">/', $next['body'], $nonceMatch);
+            $renderedNonce = $nonceMatch[1] ?? '';
+            $checks['fresh_csp_nonce_' . $path] = ($next['headers']['x-register-early-cache'] ?? '') === 'hit'
+                && !isset($next['headers']['etag']) && $first['body'] !== $next['body']
+                && $renderedNonce !== ''
+                && str_contains($next['headers']['content-security-policy'] ?? '', "'nonce-" . $renderedNonce . "'")
+                && str_contains($next['body'], '<script nonce="' . $renderedNonce . '">window.registerBenchmark = 1;</script>');
+        }
+
+        file_put_contents($fixture . '/metrics.jsonl', '');
+        $send('/rss/', extraHeaders: ['User-Agent: New feed subscriber']);
+        $send('/rss/', extraHeaders: ['User-Agent: New feed subscriber']);
+        $feedSamples = $readMetrics(2);
+        $checks['new_feed_readers_visit_analytics_once_then_use_early_cache'] = $feedSamples[0]['engine_loaded'] && !$feedSamples[1]['engine_loaded'];
+        foreach (['/rss/', '/tags/benchmark-topic/rss', '/feed.json', '/tags/benchmark-topic/feed.json'] as $path) {
+            $cold = $send($path);
+            $etag = $cold['headers']['etag'] ?? '';
+            $conditional = $send($path, 304, ['If-None-Match: ' . $etag]);
+            $checks['conditional_' . $path] = $etag !== '' && $conditional['body'] === ''
+                && ($conditional['headers']['x-register-early-cache'] ?? '') === 'hit';
+            $head = $send($path, method: 'HEAD');
+            $checks['head_' . $path] = $head['body'] === '' && ($head['headers']['x-register-early-cache'] ?? '') === 'hit';
+        }
+
+        foreach (['Cookie: session=private', 'Authorization: Bearer private', 'Cache-Control: no-cache'] as $header) {
+            $reply = $send('/favorite/', extraHeaders: [$header]);
+            $checks['public_' . $header] = ($reply['headers']['x-register-early-cache'] ?? '') !== 'hit';
+        }
+
+        $one = $send('/tags/benchmark-topic/');
+        $two = $send('/tags/benchmark-topic/?p=2');
+        $checks['pagination_is_separate'] = $one['body'] !== $two['body'];
+        $unknown = $send('/tags/benchmark-topic/?p=2&private=1');
+        $checks['unknown_queries_bypass_early_cache'] = ($unknown['headers']['x-register-early-cache'] ?? '') !== 'hit';
+    }
+
     $return = '/article?value="<test>&other=1#comment';
     $path = '/auth?mode=password&return=' . rawurlencode($return);
     $reply = $send($path);
@@ -276,7 +345,8 @@ PHP;
     }
 
     $snapshots = glob($fixture . '/_cache/early-pages-v1/[a-f0-9][a-f0-9]/*.json');
-    $checks['different_returns_keep_a_bounded_number_of_snapshots'] = is_array($snapshots) && count($snapshots) <= 9;
+    $checks['different_returns_keep_a_bounded_number_of_snapshots'] = is_array($snapshots)
+        && count($snapshots) <= (isset($options['public-pages']) ? 19 : 9);
     $host = $address;
     $key = hash('sha256', implode("\0", [$host, 'http', $basePath . '/auth', 'reader:auth:password']));
     $snapshot = $fixture . '/_cache/early-pages-v1/' . substr($key, 0, 2) . '/' . $key . '.json';

@@ -55,6 +55,10 @@ final class BlogPageCache implements StatefulServiceInterface
 
     private const string CONTENT_RESPONSE_PREFIX = 'register_content_response_v14_';
 
+    private const string PUBLIC_RESPONSE_PREFIX = 'register_blog_public_response_v1_';
+
+    private const string PUBLIC_RESPONSE_GENERATION = 'register_blog_public_response_generation_v1';
+
     /** Only crawler/prefetch HTML changed; keep ordinary reader responses warm. */
     private const string NON_INTERACTIVE_RESPONSE_SUFFIX = '_noninteractive_v2';
 
@@ -276,6 +280,24 @@ final class BlogPageCache implements StatefulServiceInterface
             $factory,
             contentScoped: true,
         );
+    }
+
+    /** @param callable(): Response $factory */
+    public function publicResponse(string $variant, string $uri, callable $factory): Response
+    {
+        $identity = hash('sha256', $uri);
+        // Query pagination can have arbitrarily many requested values. Keep a
+        // bounded number of slots and validate the full URI inside each slot.
+        $response = $this->response(
+            $this->cache,
+            self::PUBLIC_RESPONSE_PREFIX . substr($identity, 0, 3) . '_' . $this->validatedVariant($variant),
+            $factory,
+            $this->generation(self::PUBLIC_RESPONSE_GENERATION) . ':' . $identity,
+            publicCollection: true,
+        );
+        $response->headers->set(PageCacheHeaders::IDENTITY, hash('sha256', $identity . ':' . $variant));
+
+        return $response;
     }
 
     public function rememberContentPath(ContentId $contentId, string $path): void
@@ -511,6 +533,7 @@ final class BlogPageCache implements StatefulServiceInterface
         callable $factory,
         ?string $dependencyVersion = null,
         bool $contentScoped = false,
+        bool $publicCollection = false,
     ): Response
     {
         if ($this->disabled) {
@@ -518,17 +541,33 @@ final class BlogPageCache implements StatefulServiceInterface
         }
 
         $miss = false;
-        $factory = function (ItemInterface $_item, bool &$save) use (
+        $factory = function (ItemInterface $item, bool &$save) use (
             $factory,
             $dependencyVersion,
             $contentScoped,
             &$miss,
+            $publicCollection,
         ): CachedBlogResponse|Response {
             $miss = true;
             $this->buildingResponse = true;
             $this->currentResponseInvalidationAt = null;
             try {
+                if ($publicCollection) {
+                    $item->expiresAfter(600);
+                    $deadline = ($this->clock)() + 600;
+                    if (!is_int($deadline)) {
+                        throw new \OverflowException('The public response cache deadline exceeds the supported timestamp range.');
+                    }
+
+                    $this->invalidateCurrentResponseAt($deadline);
+                }
+
                 $response = $factory();
+                if ($publicCollection && $response->headers->hasCacheControlDirective('no-store')) {
+                    $save = false;
+                    return $response;
+                }
+
                 $validUntil = $this->currentResponseInvalidationAt;
             } finally {
                 $this->buildingResponse = false;
@@ -739,6 +778,11 @@ final class BlogPageCache implements StatefulServiceInterface
     /** @param \Closure(): mixed $operation */
     private function invalidateOnce(string $key, \Closure $operation, bool $deferUntilCommit): void
     {
+        $original = $operation;
+        $operation = function () use ($original): void {
+            $this->hotCache->delete(self::PUBLIC_RESPONSE_GENERATION);
+            $original();
+        };
         $earlyPageCache = $this->earlyPageCache;
         if ($earlyPageCache !== null) {
             $original = $operation;

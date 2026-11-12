@@ -12,6 +12,7 @@ namespace unit\Register\Module\Blog\Model;
 use PHPUnit\Framework\TestCase;
 use Register\Content\ContentId;
 use Register\Core\Http\Cache\EarlyPageCache;
+use Register\Core\Http\Cache\PageCacheHeaders;
 use Register\Core\Pdo\PDO;
 use Register\Module\Blog\Model\AllPostsPage;
 use Register\Module\Blog\Model\BlogPageCache;
@@ -28,6 +29,61 @@ use Symfony\Component\HttpFoundation\Response;
 
 final class BlogPageCacheTest extends TestCase
 {
+    public function testPublicCollectionsRespectTimeContentAndCommentInvalidation(): void
+    {
+        $clock = new BlogPageCacheTestClock(1_000);
+        $cache = new BlogPageCache(new ArrayAdapter(), clock: $clock(...));
+        $builds = 0;
+        $factory = static function () use (&$builds): Response {
+            return new Response('collection-' . ++$builds);
+        };
+        self::assertSame('collection-1', $cache->publicResponse('full_bot', '/archive/2023/11/', $factory)->getContent());
+        $clock->now = 1_599;
+        self::assertSame('collection-1', $cache->publicResponse('full_bot', '/archive/2023/11/', $factory)->getContent());
+        $clock->now = 1_600;
+        self::assertSame('collection-2', $cache->publicResponse('full_bot', '/archive/2023/11/', $factory)->getContent());
+        $cache->invalidateContentChange(ContentId::post(1));
+        self::assertSame('collection-3', $cache->publicResponse('full_bot', '/archive/2023/11/', $factory)->getContent());
+        $cache->invalidateCommentChange(ContentId::post(1));
+        self::assertSame('collection-4', $cache->publicResponse('full_bot', '/archive/2023/11/', $factory)->getContent());
+        $factory = static fn(): Response => new Response('not shared', headers: ['Cache-Control' => 'no-store']);
+        $cache->publicResponse('full_bot', '/private-feed', $factory);
+        $response = $cache->publicResponse('full_bot', '/private-feed', $factory);
+        self::assertSame('miss', $response->headers->get('X-Register-Page-Cache'));
+    }
+
+    public function testBoundedPublicResponseSlotsNeverMixDifferentPaginationUris(): void
+    {
+        $seen = [];
+        $first = null;
+        $second = null;
+        for ($page = 1; $page <= 4097; ++$page) {
+            $uri = '/tags/example/?p=' . $page;
+            $slot = substr(hash('sha256', $uri), 0, 3);
+            if (isset($seen[$slot])) {
+                $first = $seen[$slot];
+                $second = $uri;
+                break;
+            }
+
+            $seen[$slot] = $uri;
+        }
+
+        self::assertIsString($first);
+        self::assertIsString($second);
+        $cache = new BlogPageCache(new ArrayAdapter());
+        $identities = [];
+        foreach ([$first, $second, $first] as $uri) {
+            $response = $cache->publicResponse('full_bot', $uri, static fn(): Response => new Response($uri));
+            self::assertSame($uri, $response->getContent());
+            self::assertSame('miss', $response->headers->get('X-Register-Page-Cache'));
+            $identities[] = $response->headers->get(PageCacheHeaders::IDENTITY);
+        }
+
+        self::assertSame($identities[0], $identities[2]);
+        self::assertNotSame($identities[0], $identities[1]);
+    }
+
     public function testInstallingAReleaseRefreshesHtmlAssetUrlsButKeepsContentWarm(): void
     {
         $root = sys_get_temp_dir() . '/register-response-build-' . bin2hex(random_bytes(8));

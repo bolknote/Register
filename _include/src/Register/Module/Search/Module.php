@@ -264,7 +264,8 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get('recommendations_cache'),
                 $container->get(QueuePublisher::class),
                 $provider->getIntProxy('REGISTER_SEARCH_RECOMMENDATIONS_LIMIT'),
-                static fn() => $container->get(\Register\Core\Http\Cache\EarlyPageCache::class)->invalidate(),
+                static fn(\Register\Rose\Entity\ExternalId $id) => $container->get(\Register\Core\Http\Cache\EarlyPageCache::class)
+                    ->invalidateDependency(RecommendationProvider::dependencyKey($id)),
             );
         }, [QueueHandlerInterface::class]);
         $container->set(RecommendationResponseProcessor::class, static fn(Container $container): RecommendationResponseProcessor => new RecommendationResponseProcessor(
@@ -272,6 +273,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $container->get(VisitorIdentityManager::class),
             $container->get(Viewer::class),
             $container->get(BotDetector::class),
+            $container->get(\Register\Core\Http\Cache\EarlyPageCache::class),
         ), [ResponseProcessorInterface::class]);
     }
 

@@ -102,7 +102,7 @@ final class ContentRssCest
         $I->sendRequestWithHeaders('/rss', ['If-None-Match' => $etag]);
         $I->seeResponseCodeIs(Response::HTTP_NOT_MODIFIED);
 
-        $this->insertContent(
+        $newPostId = $this->insertContent(
             $dbLayer,
             ContentType::POST,
             'RSS post 5',
@@ -110,6 +110,10 @@ final class ContentRssCest
             true,
             1_700_000_005,
         );
+        /** @var \Register\Content\ContentChangeDispatcher $changes */
+        $changes = $I->grabService(\Register\Content\ContentChangeDispatcher::class);
+        $changes->dispatch(ContentId::post($newPostId));
+
         $I->sendRequestWithHeaders('/rss', ['If-None-Match' => $etag]);
         $I->seeResponseCodeIs(Response::HTTP_OK);
 
