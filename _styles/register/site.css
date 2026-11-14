@@ -488,7 +488,7 @@ hr {
 }
 
 #content figure {
-    margin: 1.8rem 0 2.1rem;
+    margin: 1.8rem 0 1.25rem;
 }
 
 /* Keep authored width attributes, including half-size Retina display widths.
@@ -499,9 +499,8 @@ hr {
     max-width: 100%;
 }
 
-/* Picture blocks keep one text line after an image or its caption. */
 #content .post-picture {
-    margin-bottom: 1.35em;
+    margin-bottom: 1.25rem;
 }
 
 #content :where(.post-media-float-left, .post-media-float-right) {
@@ -548,7 +547,7 @@ hr {
     display: block;
     width: fit-content;
     max-width: 100%;
-    margin: 1.8rem 0 2.1rem;
+    margin: 1.8rem 0 1.25rem;
 }
 
 /* The outer picture owns the block gap, including when its image is linked or
@@ -2136,7 +2135,7 @@ h2.preview,
     display: block;
     max-width: 100%;
     height: auto;
-    margin: 1.8rem 0 2.1rem;
+    margin: 1.8rem 0 1.25rem;
 }
 
 #content .post-media-overlay {
@@ -2148,7 +2147,7 @@ h2.preview,
 }
 
 #content [data-post-media-overlay] {
-    margin: 1.8rem 0 2.1rem;
+    margin: 1.8rem 0 1.25rem;
     vertical-align: top;
 }
 
