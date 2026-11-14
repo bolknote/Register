@@ -357,9 +357,12 @@ try {
                 const worker = page.waitForResponse(response =>
                     /\/editor\/readability\/worker\.js\.asset\?v=[a-f0-9]{64}$/u.test(response.url()));
                 await card.locator('[data-post-inplace-body]').fill('Это слово. Я вижу снег.');
+                const badge = card.locator('.post-editor-readability-badge');
+                await badge.click();
                 await card.locator('.post-editor-readability [data-readability-value="rare"]')
                     .filter({hasText: /^0$/u}).waitFor();
                 assert.ok((await worker).ok(), 'The release serves the versioned worker, which loads the dictionary');
+                await badge.press('Escape');
                 await page.setViewportSize(viewport);
             }
             await card.locator('[data-post-inplace-body]').fill('Created once through the real server.');

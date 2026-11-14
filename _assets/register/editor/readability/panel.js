@@ -1,8 +1,12 @@
 const pause = 700;
 const preferredWidth = 226;
-const minimumWidth = 180;
-const columnGap = 16;
+const minimumPopoverWidth = 180;
+const preferredGap = 16;
+const minimumGap = 10;
 const viewportGutter = 16;
+const popoverGap = 6;
+const scoreBands = [[30, 'veryDifficult'], [50, 'difficult'], [60, 'fairlyDifficult'], [70, 'moderate'], [Infinity, 'easy']];
+let nextPopoverId = 0;
 const skipped = 'pre, code, script, style, template, textarea, iframe, svg, math, audio, video, [hidden], '
     + '[data-post-html-source], .post-media-upload, .post-media-processing-progress, .post-media-caption-toolbar';
 const blocks = 'p, div, section, article, aside, blockquote, li, dt, dd, td, th, figcaption, h1, h2, h3, h4, h5, h6, hr';
@@ -42,6 +46,16 @@ function prose(body) {
 
 export function createReadability(state, template, signal, isComposing) {
     const panel = template.content.firstElementChild.cloneNode(true);
+    const anchor = panel.querySelector('.post-editor-readability-anchor');
+    const badge = panel.querySelector('.post-editor-readability-badge');
+    const popover = panel.querySelector('.post-editor-readability-popover');
+    const content = panel.querySelector('.post-editor-readability-content');
+    const details = content.querySelector('details');
+    const level = panel.querySelector('.post-editor-readability-level');
+    const scale = panel.querySelector('.post-editor-readability-scale');
+    const scoreLabel = badge.getAttribute('aria-label');
+    popover.id = `register-readability-popover-${++nextPopoverId}`;
+    badge.setAttribute('aria-controls', popover.id);
     const {card, body} = state;
     const fields = new Map(Array.from(panel.querySelectorAll('[data-readability-value]'),
         field => [field.dataset.readabilityValue, field]));
@@ -57,6 +71,19 @@ export function createReadability(state, template, signal, isComposing) {
     let failed = false;
     let timer = 0;
     let frame = 0;
+    let hovered = false;
+    let pinned = false;
+    let openListeners;
+
+    function renderScore(score) {
+        const band = score === null ? 'unavailable' : scoreBands.find(([limit]) => score < limit)[1];
+        const label = level.dataset[band];
+        if (level.textContent !== label) level.textContent = label;
+        const name = score === null ? `${scoreLabel}. ${label}` : `${scoreLabel} ${number.format(score)}. ${label}`;
+        if (badge.getAttribute('aria-label') !== name) badge.setAttribute('aria-label', name);
+        scale.hidden = score === null;
+        if (score !== null) scale.style.setProperty('--readability-score', Math.max(0, Math.min(100, score)) + '%');
+    }
 
     function render(metrics) {
         for (const [key, value] of Object.entries(metrics)) {
@@ -71,6 +98,10 @@ export function createReadability(state, template, signal, isComposing) {
             }
             if (field.textContent !== formatted) field.textContent = formatted;
         }
+        if (Object.hasOwn(metrics, 'flesch')) {
+            renderScore(metrics.flesch);
+            fitPopover();
+        }
     }
 
     function workerFailed() {
@@ -79,6 +110,7 @@ export function createReadability(state, template, signal, isComposing) {
         worker = undefined;
         schedule();
         for (const field of fields.values()) field.textContent = '—';
+        renderScore(null);
     }
 
     function receive({data}) {
@@ -129,26 +161,79 @@ export function createReadability(state, template, signal, isComposing) {
         frame = 0;
         if (!body.isConnected) return;
         const bounds = body.getBoundingClientRect();
-        const available = Math.floor(document.documentElement.clientWidth - bounds.right - columnGap - viewportGutter);
-        if (!bounds.width || available < minimumWidth) {
+        const viewportRight = document.documentElement.clientWidth - viewportGutter;
+        const room = viewportRight - bounds.right;
+        if (!bounds.width || room < badgeWidth + minimumGap) {
             if (!panel.hidden) {
+                if (panel.contains(document.activeElement)) body.focus({preventScroll: true});
+                closePopover();
                 panel.hidden = true;
                 schedule();
             }
             return;
         }
-        if (panel.hidden && getComputedStyle(panel).position !== 'absolute') return;
+        const gap = Math.min(preferredGap, room - badgeWidth);
+        const badgeLeft = bounds.right + gap;
+        const available = Math.floor(viewportRight - badgeLeft);
+        const maxWidth = Math.min(preferredWidth, viewportRight - viewportGutter);
+        const popoverWidth = available >= minimumPopoverWidth ? Math.min(maxWidth, available) : maxWidth;
         const origin = card.getBoundingClientRect();
-        const left = (bounds.right - origin.left - card.clientLeft + columnGap) + 'px';
+        const left = (badgeLeft - origin.left - card.clientLeft) + 'px';
         const top = (bounds.top - origin.top - card.clientTop) + 'px';
-        const width = Math.min(preferredWidth, available) + 'px';
+        // The sticky anchor travels only within the height of the editable text.
+        const height = bounds.height + 'px';
         if (panel.style.left !== left) panel.style.left = left;
         if (panel.style.top !== top) panel.style.top = top;
-        if (panel.style.width !== width) panel.style.width = width;
+        if (panel.style.height !== height) panel.style.height = height;
+        setStyle('--readability-popover-left', Math.min(0, available - popoverWidth) + 'px');
+        setStyle('--readability-popover-width', popoverWidth + 'px');
         if (panel.hidden) {
             panel.hidden = false;
             schedule();
         }
+        fitPopover();
+    }
+
+    function setStyle(property, value) {
+        if (panel.style.getPropertyValue(property) !== value) panel.style.setProperty(property, value);
+    }
+
+    function fitPopover() {
+        if (popover.hidden) return;
+        const viewport = window.visualViewport;
+        const top = viewport?.offsetTop ?? 0;
+        const bottom = top + (viewport?.height ?? document.documentElement.clientHeight);
+        const bounds = badge.getBoundingClientRect();
+        const below = bottom - bounds.bottom;
+        const above = bounds.top - top;
+        const height = content.scrollHeight + viewportGutter + popoverGap;
+        const opensAbove = below < height && above > below;
+        popover.toggleAttribute('data-above', opensAbove);
+        const room = Math.floor((opensAbove ? above : below) - viewportGutter - popoverGap);
+        setStyle('--readability-popover-height', Math.max(48, room) + 'px');
+    }
+
+    function renderPopover() {
+        const open = hovered || pinned || popover.contains(document.activeElement);
+        if (open === !popover.hidden) return;
+        popover.hidden = !open;
+        badge.setAttribute('aria-expanded', String(open));
+        if (open) {
+            openListeners = new AbortController();
+            window.addEventListener('scroll', fitPopover, {passive: true, signal: openListeners.signal});
+            window.visualViewport?.addEventListener('resize', fitPopover, {signal: openListeners.signal});
+            fitPopover();
+        } else {
+            openListeners.abort();
+            openListeners = undefined;
+        }
+    }
+
+    function closePopover() {
+        if (popover.contains(document.activeElement)) badge.focus({preventScroll: true});
+        hovered = false;
+        pinned = false;
+        renderPopover();
     }
 
     function schedulePlacement() {
@@ -156,6 +241,44 @@ export function createReadability(state, template, signal, isComposing) {
     }
 
     card.append(panel);
+    const style = getComputedStyle(panel);
+    const badgeWidth = Number.parseFloat(style.getPropertyValue('--readability-badge-width'));
+    if (style.position !== 'absolute' || !Number.isFinite(badgeWidth)) {
+        panel.remove();
+        return;
+    }
+    setStyle('--readability-popover-gap', popoverGap + 'px');
+    renderScore(null);
+    badge.addEventListener('pointerenter', event => {
+        if (event.pointerType === 'touch') return;
+        hovered = true;
+        renderPopover();
+    }, {signal});
+    anchor.addEventListener('pointerleave', () => {
+        hovered = false;
+        renderPopover();
+    }, {signal});
+    badge.addEventListener('click', () => {
+        if (pinned) {
+            closePopover();
+            return;
+        }
+        pinned = true;
+        renderPopover();
+    }, {signal});
+    anchor.addEventListener('focusout', () => queueMicrotask(() => {
+        if (!signal.aborted) renderPopover();
+    }), {signal});
+    details.addEventListener('toggle', fitPopover, {signal});
+    document.addEventListener('click', event => {
+        if (!popover.hidden && !anchor.contains(event.target)) closePopover();
+    }, {signal});
+    card.addEventListener('keydown', event => {
+        if (event.key !== 'Escape' || event.isComposing || event.defaultPrevented || popover.hidden) return;
+        event.preventDefault();
+        event.stopPropagation();
+        closePopover();
+    }, {signal});
     const resizeObserver = new ResizeObserver(schedulePlacement);
     [card, body, state.title, state.time.parentElement]
         .forEach(element => resizeObserver.observe(element));
@@ -175,6 +298,7 @@ export function createReadability(state, template, signal, isComposing) {
         resizeObserver.disconnect();
         clearTimeout(timer);
         cancelAnimationFrame(frame);
+        openListeners?.abort();
         worker?.terminate();
         panel.remove();
     }, {once: true});

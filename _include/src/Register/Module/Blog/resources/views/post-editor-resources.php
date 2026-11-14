@@ -77,44 +77,60 @@ $config = [
 <div id="post-editor-resources" hidden data-config="<?php echo register_htmlencode(json_encode($config, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)); ?>">
 <template class="post-editor-readability-template">
     <aside class="post-editor-readability" aria-label="<?php echo register_htmlencode($trans('Readability')); ?>" hidden>
-        <div class="post-editor-readability-header">
-            <strong><?php echo $trans('Readability'); ?></strong>
-            <span class="post-editor-readability-pending" aria-hidden="true">···</span>
+        <div class="post-editor-readability-anchor">
+            <button class="post-editor-readability-badge" type="button" aria-expanded="false"
+                aria-label="<?php echo register_htmlencode($trans('Flesch reading ease')); ?>"
+                data-readability-value="flesch">—</button>
+            <div class="post-editor-readability-popover" hidden>
+                <div class="post-editor-readability-content">
+                    <div class="post-editor-readability-heading">
+                        <span><?php echo $trans('Flesch reading ease'); ?></span>
+                        <strong class="post-editor-readability-level"
+                            data-unavailable="<?php echo register_htmlencode($trans('Readability score unavailable')); ?>"
+                            data-very-difficult="<?php echo register_htmlencode($trans('Very difficult to read')); ?>"
+                            data-difficult="<?php echo register_htmlencode($trans('Difficult to read')); ?>"
+                            data-fairly-difficult="<?php echo register_htmlencode($trans('Fairly difficult to read')); ?>"
+                            data-moderate="<?php echo register_htmlencode($trans('Moderate difficulty')); ?>"
+                            data-easy="<?php echo register_htmlencode($trans('Easy to read')); ?>"><?php echo $trans('Readability score unavailable'); ?></strong>
+                    </div>
+                    <div class="post-editor-readability-scale" role="img" hidden
+                        aria-label="<?php echo register_htmlencode($trans('Flesch scale guide from 0 to 100. Higher means easier to read.')); ?>">
+                        <div class="post-editor-readability-track" aria-hidden="true"></div>
+                        <div class="post-editor-readability-ticks" aria-hidden="true">
+                            <span>0</span><span>30</span><span>50</span><span>60</span><span>70</span><span>100</span>
+                        </div>
+                        <div class="post-editor-readability-scale-ends" aria-hidden="true">
+                            <span><?php echo $trans('Harder to read'); ?></span><span><?php echo $trans('Easier to read'); ?></span>
+                        </div>
+                    </div>
+                    <dl>
+                        <dt><?php echo $trans('Reading time'); ?></dt>
+                        <dd data-readability-value="seconds">—</dd>
+                        <dt><?php echo $trans('Average words per sentence'); ?></dt>
+                        <dd data-readability-value="sentence">—</dd>
+                        <dt><?php echo $trans('Sentences with 25 or more words'); ?></dt>
+                        <dd data-readability-value="long">—</dd>
+                        <dt><?php echo $trans('Rare word forms'); ?></dt>
+                        <dd data-readability-value="rare">—</dd>
+                    </dl>
+                    <details>
+                        <summary><?php echo $trans('Readability details'); ?></summary>
+                        <dl>
+                            <dt><?php echo $trans('Total words'); ?></dt>
+                            <dd data-readability-value="words">—</dd>
+                            <dt><?php echo $trans('Syllables per Russian word'); ?></dt>
+                            <dd data-readability-value="syllables">—</dd>
+                            <dt><?php echo $trans('Flesch–Kincaid'); ?></dt>
+                            <dd data-readability-value="grade">—</dd>
+                            <dt><?php echo $trans('Matskovsky index'); ?></dt>
+                            <dd data-readability-value="matskovsky">—</dd>
+                            <dt><?php echo $trans('Distinct word forms'); ?></dt>
+                            <dd data-readability-value="variety">—</dd>
+                        </dl>
+                    </details>
+                </div>
+            </div>
         </div>
-        <div class="post-editor-readability-score">
-            <span data-readability-value="flesch">—</span>
-            <div><?php echo $trans('Flesch reading ease'); ?><small><?php echo $trans('Higher means easier to read'); ?></small></div>
-        </div>
-        <dl>
-            <dt><?php echo $trans('Reading time'); ?></dt>
-            <dd data-readability-value="seconds">—</dd>
-            <dt><?php echo $trans('Average words per sentence'); ?></dt>
-            <dd data-readability-value="sentence">—</dd>
-            <dt><?php echo $trans('Sentences with 25 or more words'); ?></dt>
-            <dd data-readability-value="long">—</dd>
-            <dt><?php echo $trans('Rare word forms'); ?></dt>
-            <dd data-readability-value="rare">—</dd>
-        </dl>
-        <details>
-            <summary><?php echo $trans('Readability details'); ?></summary>
-            <dl>
-                <dt><?php echo $trans('Total words'); ?></dt>
-                <dd data-readability-value="words">—</dd>
-                <dt><?php echo $trans('Syllables per Russian word'); ?></dt>
-                <dd data-readability-value="syllables">—</dd>
-                <dt><?php echo $trans('Flesch–Kincaid'); ?></dt>
-                <dd data-readability-value="grade">—</dd>
-                <dt><?php echo $trans('Matskovsky index'); ?></dt>
-                <dd data-readability-value="matskovsky">—</dd>
-                <dt><?php echo $trans('Distinct word forms'); ?></dt>
-                <dd data-readability-value="variety">—</dd>
-            </dl>
-            <p class="post-editor-readability-source">
-                <?php echo $trans('Rare forms use the 5,000 most frequent Russian forms in'); ?>
-                <a href="https://github.com/rspeer/wordfreq" target="_blank" rel="noopener noreferrer">wordfreq</a>.
-                <?php echo $trans('In compounds, each hyphenated part is checked separately.'); ?>
-            </p>
-        </details>
     </aside>
 </template>
 <template class="post-publish-template">

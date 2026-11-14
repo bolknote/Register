@@ -3,79 +3,159 @@
 }
 
 .post-editor-readability {
+    --readability-badge-width: 46px;
+    --readability-badge-height: 32px;
+    --readability-sticky-top: max(12px, env(safe-area-inset-top, 0px));
     position: absolute;
+    z-index: 2;
     box-sizing: border-box;
-    width: 226px;
-    padding: 12px 14px 10px;
-    border: 1px solid var(--register-border, #888);
-    border-radius: 8px;
+    width: var(--readability-badge-width);
+    min-height: var(--readability-badge-height);
     color: var(--register-text, CanvasText);
-    background: var(--register-surface, Canvas);
-    font: 12px/1.45 var(--register-ui-font, system-ui, sans-serif);
+    font: 13px/1.4 var(--register-ui-font, system-ui, sans-serif);
     font-variant-numeric: tabular-nums;
-    overflow-wrap: anywhere;
+    pointer-events: none;
 }
 
+.post-editor-readability [hidden],
 .post-editor-readability[hidden] {
     display: none;
 }
 
-.post-editor-readability-header {
+.post-editor-readability-anchor {
+    position: sticky;
+    top: var(--readability-sticky-top);
+    width: 100%;
+}
+
+.post-editor-readability-badge {
+    display: grid;
+    width: 100%;
+    min-height: var(--readability-badge-height);
+    margin: 0;
+    padding: 4px;
+    place-items: center;
+    border: 1px solid var(--register-border, GrayText);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--link-color, LinkText) 10%, var(--register-surface, Canvas));
+    box-shadow: none;
+    color: var(--link-color, LinkText);
+    cursor: pointer;
+    font: 650 15px/1 var(--register-ui-font, system-ui, sans-serif);
+    font-variant-numeric: tabular-nums;
+    pointer-events: auto;
+}
+
+.post-editor-readability-badge:is(:hover, [aria-expanded='true']) {
+    border-color: currentColor;
+}
+
+.post-editor-readability[data-pending] .post-editor-readability-badge {
+    border-style: dashed;
+}
+
+.post-editor-readability-popover {
+    position: absolute;
+    top: 100%;
+    left: var(--readability-popover-left);
+    box-sizing: border-box;
+    width: var(--readability-popover-width);
+    padding-top: var(--readability-popover-gap);
+    pointer-events: auto;
+}
+
+.post-editor-readability-popover[data-above] {
+    top: auto;
+    bottom: 100%;
+    padding: 0 0 var(--readability-popover-gap);
+}
+
+.post-editor-readability-content {
+    box-sizing: border-box;
+    max-height: var(--readability-popover-height, none);
+    overflow: auto;
+    padding: 12px 14px 10px;
+    border: 1px solid var(--register-border, GrayText);
+    border-radius: 10px;
+    background: var(--register-surface, Canvas);
+    box-shadow: 0 8px 22px color-mix(in srgb, #000 17%, transparent);
+    overflow-wrap: anywhere;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+}
+
+.post-editor-readability-heading > span,
+.post-editor-readability-scale,
+.post-editor-readability dt,
+.post-editor-readability summary {
+    color: var(--register-minor, GrayText);
+}
+
+.post-editor-readability-level {
+    display: block;
+    margin-top: 2px;
+    font-size: 1.08em;
+    font-weight: 650;
+}
+
+.post-editor-readability-scale {
+    margin-top: 14px;
+    font-size: 11px;
+}
+
+.post-editor-readability-track {
+    position: relative;
+    height: 6px;
+    border-radius: 4px;
+    background: linear-gradient(to right,
+        light-dark(#d19279, #ae765f) 0 30%, light-dark(#d9b683, #ab8c60) 30% 50%,
+        light-dark(#ccc090, #a39a6c) 50% 60%, light-dark(#b9bd8f, #91996b) 60% 70%,
+        light-dark(#95bca3, #75a28c) 70% 100%);
+}
+
+.post-editor-readability-track::after {
+    position: absolute;
+    top: -4px;
+    left: var(--readability-score);
+    width: 3px;
+    height: 14px;
+    border-radius: 2px;
+    background: var(--register-text, CanvasText);
+    box-shadow: 0 0 0 2px var(--register-surface, Canvas);
+    content: '';
+    transform: translateX(-50%);
+}
+
+.post-editor-readability-ticks {
+    position: relative;
+    height: 1.4em;
+    margin-top: 5px;
+}
+
+.post-editor-readability-ticks span {
+    position: absolute;
+}
+
+.post-editor-readability-ticks span:first-child { left: 0; }
+.post-editor-readability-ticks span:nth-child(2) { left: 30%; transform: translateX(-50%); }
+.post-editor-readability-ticks span:nth-child(3) { left: 50%; transform: translateX(-50%); }
+.post-editor-readability-ticks span:nth-child(4) { left: 60%; transform: translateX(-50%); }
+.post-editor-readability-ticks span:nth-child(5) { left: 70%; transform: translateX(-50%); }
+.post-editor-readability-ticks span:last-child { right: 0; }
+
+.post-editor-readability-scale-ends {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    gap: .5em;
-    font-size: 13px;
-}
-
-.post-editor-readability-pending {
-    visibility: hidden;
-    color: var(--register-minor, GrayText);
-    letter-spacing: .12em;
-}
-
-.post-editor-readability[data-pending] > .post-editor-readability-header > .post-editor-readability-pending {
-    visibility: visible;
-}
-
-.post-editor-readability-score {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 4px 11px;
-    min-height: 56px;
-    padding: 5px 0 8px;
-    border-bottom: 1px solid var(--register-border, #888);
-}
-
-.post-editor-readability-score [data-readability-value] {
-    min-width: 2ch;
-    color: var(--link-color, var(--register-text, CanvasText));
-    font-size: 32px;
-    line-height: 1;
-    font-weight: 650;
-    letter-spacing: -.04em;
-}
-
-.post-editor-readability-score small {
-    display: block;
-    color: var(--register-minor, GrayText);
-    font-size: 11px;
 }
 
 .post-editor-readability dl {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: baseline;
-    gap: 6px 8px;
-    margin: 0;
-    padding: 10px 0;
-}
-
-.post-editor-readability dt,
-.post-editor-readability summary,
-.post-editor-readability-source {
-    color: var(--register-minor, GrayText);
+    gap: 5px 8px;
+    margin: 10px 0 0;
+    padding: 9px 0 0;
+    border-top: 1px solid var(--register-border, GrayText);
 }
 
 .post-editor-readability dd {
@@ -85,15 +165,39 @@
 }
 
 .post-editor-readability details {
-    border-top: 1px solid var(--register-border, #888);
+    margin-top: 10px;
+    border-top: 1px solid var(--register-border, GrayText);
+}
+
+.post-editor-readability details dl {
+    margin-top: 0;
+    padding-top: 6px;
+    border: 0;
 }
 
 .post-editor-readability summary {
-    padding: 7px 0 0;
+    padding: 7px 0 1px;
     cursor: pointer;
 }
 
-.post-editor-readability-source {
-    margin: 0 0 2px;
-    font-size: 11px;
+@media (pointer: coarse) {
+    .post-editor-readability {
+        --readability-badge-height: 44px;
+    }
+
+    .post-editor-readability summary {
+        min-height: 44px;
+        padding-block: 12px;
+    }
+}
+
+@media (forced-colors: active) {
+    .post-editor-readability-track {
+        border: 1px solid CanvasText;
+    }
+
+    .post-editor-readability-track::after {
+        background: CanvasText;
+        forced-color-adjust: none;
+    }
 }
