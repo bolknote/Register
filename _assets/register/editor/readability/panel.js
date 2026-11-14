@@ -1,8 +1,5 @@
 const pause = 700;
-const preferredWidth = 226;
-const minimumPopoverWidth = 180;
-const preferredGap = 16;
-const minimumGap = 10;
+const preferredPopoverWidth = 234;
 const viewportGutter = 16;
 const popoverGap = 6;
 const scoreBands = [[30, 'veryDifficult'], [50, 'difficult'], [60, 'fairlyDifficult'], [70, 'moderate'], [Infinity, 'easy']];
@@ -57,8 +54,10 @@ export function createReadability(state, template, signal, isComposing) {
     popover.id = `register-readability-popover-${++nextPopoverId}`;
     badge.setAttribute('aria-controls', popover.id);
     const {card, body} = state;
-    const fields = new Map(Array.from(panel.querySelectorAll('[data-readability-value]'),
-        field => [field.dataset.readabilityValue, field]));
+    const heading = state.title.closest('.post.head') ?? state.title;
+    const tools = card.querySelector(':scope > .post-inplace-tools');
+    if (!tools) return;
+    const fields = panel.querySelectorAll('[data-readability-value]');
     const locale = document.documentElement.lang || 'en';
     const number = new Intl.NumberFormat(locale, {maximumFractionDigits: 1});
     const percent = new Intl.NumberFormat(locale, {style: 'percent', maximumFractionDigits: 0});
@@ -82,14 +81,20 @@ export function createReadability(state, template, signal, isComposing) {
         if (level.textContent !== label) level.textContent = label;
         const name = score === null ? `${scoreLabel}. ${label}` : `${scoreLabel} ${number.format(score)}. ${label}`;
         if (badge.getAttribute('aria-label') !== name) badge.setAttribute('aria-label', name);
+        panel.toggleAttribute('data-score-available', score !== null);
         scale.hidden = score === null;
-        if (score !== null) scale.style.setProperty('--readability-score', Math.max(0, Math.min(100, score)) + '%');
+        if (score !== null) {
+            const position = Math.max(0, Math.min(100, score));
+            setStyle('--readability-score', position + '%');
+            setStyle('--readability-angle', (position * 1.8 - 90) + 'deg');
+        }
     }
 
     function render(metrics) {
-        for (const [key, value] of Object.entries(metrics)) {
-            const field = fields.get(key);
-            if (!field) continue;
+        for (const field of fields) {
+            const key = field.dataset.readabilityValue;
+            if (!Object.hasOwn(metrics, key)) continue;
+            const value = metrics[key];
             let formatted = '—';
             if (value !== null) {
                 if (key === 'variety') formatted = percent.format(value);
@@ -110,8 +115,9 @@ export function createReadability(state, template, signal, isComposing) {
         worker?.terminate();
         worker = undefined;
         schedule();
-        for (const field of fields.values()) field.textContent = '—';
+        for (const field of fields) field.textContent = '—';
         renderScore(null);
+        schedulePopoverFit();
     }
 
     function receive({data}) {
@@ -161,10 +167,11 @@ export function createReadability(state, template, signal, isComposing) {
     function place() {
         frame = 0;
         if (!body.isConnected) return;
-        const bounds = body.getBoundingClientRect();
-        const viewportRight = document.documentElement.clientWidth - viewportGutter;
-        const room = viewportRight - bounds.right;
-        if (!bounds.width || room < badgeWidth + minimumGap) {
+        const toolbar = tools.getBoundingClientRect();
+        const origin = card.getBoundingClientRect();
+        const title = heading.getBoundingClientRect();
+        const badgeLeft = toolbar.left + (toolbar.width - badgeWidth) / 2;
+        if (!title.width || toolbar.right > origin.left + 1 || badgeLeft < 0) {
             if (!panel.hidden) {
                 if (panel.contains(document.activeElement)) body.focus({preventScroll: true});
                 closePopover();
@@ -173,21 +180,13 @@ export function createReadability(state, template, signal, isComposing) {
             }
             return;
         }
-        const gap = Math.min(preferredGap, room - badgeWidth);
-        const badgeLeft = bounds.right + gap;
-        const available = Math.floor(viewportRight - badgeLeft);
-        const maxWidth = Math.min(preferredWidth, viewportRight - viewportGutter);
-        const popoverWidth = available >= minimumPopoverWidth ? Math.min(maxWidth, available) : maxWidth;
-        const origin = card.getBoundingClientRect();
         const left = (badgeLeft - origin.left - card.clientLeft) + 'px';
-        const top = (bounds.top - origin.top - card.clientTop) + 'px';
-        // The sticky anchor travels only within the height of the editable text.
-        const height = bounds.height + 'px';
+        const top = (title.top - origin.top - card.clientTop) + 'px';
         if (panel.style.left !== left) panel.style.left = left;
         if (panel.style.top !== top) panel.style.top = top;
-        if (panel.style.height !== height) panel.style.height = height;
-        setStyle('--readability-popover-left', Math.min(0, available - popoverWidth) + 'px');
-        setStyle('--readability-popover-width', popoverWidth + 'px');
+        // Both rails end at the card. Reserve the toolbar's height so the
+        // badge stays above its buttons while they scroll off together.
+        setStyle('--readability-toolbar-height', toolbar.height + 'px');
         if (panel.hidden) {
             panel.hidden = false;
             schedule();
@@ -202,16 +201,22 @@ export function createReadability(state, template, signal, isComposing) {
     function fitPopover() {
         if (popover.hidden) return;
         const viewport = window.visualViewport;
-        const top = viewport?.offsetTop ?? 0;
-        const bottom = top + (viewport?.height ?? document.documentElement.clientHeight);
+        const viewportTop = viewport?.offsetTop ?? 0;
+        const viewportBottom = viewportTop + (viewport?.height ?? document.documentElement.clientHeight);
+        const right = (viewport?.offsetLeft ?? 0) + (viewport?.width ?? document.documentElement.clientWidth);
         const bounds = badge.getBoundingClientRect();
-        const below = bottom - bounds.bottom;
-        const above = bounds.top - top;
-        const height = content.scrollHeight + viewportGutter + popoverGap;
-        const opensAbove = below < height && above > below;
-        popover.toggleAttribute('data-above', opensAbove);
-        const room = Math.floor((opensAbove ? above : below) - viewportGutter - popoverGap);
-        setStyle('--readability-popover-height', Math.max(48, room) + 'px');
+        if (bounds.bottom <= viewportTop || bounds.top >= viewportBottom) {
+            closePopover();
+            return;
+        }
+        const top = viewportTop + viewportGutter;
+        const bottom = viewportBottom - viewportGutter;
+        const width = Math.floor(right - viewportGutter - popoverGap - bounds.right);
+        setStyle('--readability-popover-width', Math.max(0, Math.min(preferredPopoverWidth, width)) + 'px');
+        setStyle('--readability-popover-height', Math.max(0, Math.floor(bottom - top)) + 'px');
+        const height = content.getBoundingClientRect().height;
+        const offset = Math.max(top, Math.min(bounds.top + popoverGap, bottom - height));
+        setStyle('--readability-popover-top', (offset - bounds.top) + 'px');
     }
 
     function schedulePopoverFit() {
@@ -292,7 +297,7 @@ export function createReadability(state, template, signal, isComposing) {
     }, {signal});
     const resizeObserver = new ResizeObserver(schedulePlacement);
     // Changes above the article can move an open panel without resizing the post.
-    [card, body, state.title, state.time.parentElement, document.body]
+    [card, body, heading, tools, state.time.parentElement, document.body]
         .forEach(element => resizeObserver.observe(element));
     const observer = new MutationObserver(changes => {
         if (changes.some(change => {

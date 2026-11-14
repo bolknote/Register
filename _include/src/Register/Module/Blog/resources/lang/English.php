@@ -35,7 +35,7 @@ return [
     'Average words per sentence' => 'Words per sentence',
     'Sentences with 25 or more words' => 'Sentences of 25+ words',
     'Rare word forms' => 'Rare word forms',
-    'Readability details' => 'Other metrics',
+    'Readability details' => 'Metrics',
     'Total words' => 'Total words',
     'Syllables per Russian word' => 'Syllables per Russian word',
     'Flesch–Kincaid' => 'Flesch–Kincaid',

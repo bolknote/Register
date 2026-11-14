@@ -35,7 +35,7 @@ return [
     'Average words per sentence' => 'Слов в предложении',
     'Sentences with 25 or more words' => 'Предложения от 25 слов',
     'Rare word forms' => 'Редкие словоформы',
-    'Readability details' => 'Другие метрики',
+    'Readability details' => 'Метрики',
     'Total words' => 'Всего слов',
     'Syllables per Russian word' => 'Слогов в русском слове',
     'Flesch–Kincaid' => 'Флеш — Кинкейд',

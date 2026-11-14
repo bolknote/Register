@@ -1,16 +1,25 @@
 .post-card.is-editing:has(> .post-editor-readability) {
+    --readability-badge-width: 46px;
+    --readability-badge-height: 41px;
+    --readability-sticky-top: max(0.75rem, env(safe-area-inset-top, 0px));
+    --readability-tools-gap: 7px;
     position: relative;
 }
 
+.post-card.is-editing:has(> .post-editor-readability:not([hidden])) > .post-inplace-tools {
+    top: calc(var(--readability-sticky-top) + var(--readability-badge-height) + var(--readability-tools-gap));
+}
+
 .post-editor-readability {
-    --readability-badge-width: 46px;
-    --readability-badge-height: 32px;
-    --readability-sticky-top: max(12px, env(safe-area-inset-top, 0px));
+    --readability-red: light-dark(#b45547, #c57466);
+    --readability-yellow: light-dark(#a37d36, #c5a26e);
+    --readability-green: light-dark(#3f8257, #83b495);
     position: absolute;
     z-index: 2;
     box-sizing: border-box;
     width: var(--readability-badge-width);
     min-height: var(--readability-badge-height);
+    bottom: calc(var(--readability-toolbar-height, 0px) + var(--readability-tools-gap));
     color: var(--register-text, CanvasText);
     font: 13px/1.4 var(--register-ui-font, system-ui, sans-serif);
     font-variant-numeric: tabular-nums;
@@ -31,43 +40,87 @@
 .post-editor-readability-badge {
     display: grid;
     width: 100%;
-    min-height: var(--readability-badge-height);
+    height: var(--readability-badge-height);
+    min-height: 0;
     margin: 0;
     padding: 4px;
     place-items: center;
-    border: 1px solid var(--register-border, GrayText);
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--link-color, LinkText) 10%, var(--register-surface, Canvas));
+    border: 1px solid transparent;
+    border-radius: 7px;
+    background: transparent;
     box-shadow: none;
-    color: var(--link-color, LinkText);
+    color: var(--register-text, CanvasText);
     cursor: pointer;
-    font: 650 15px/1 var(--register-ui-font, system-ui, sans-serif);
+    font: 620 11px/1.1 var(--register-ui-font, system-ui, sans-serif);
     font-variant-numeric: tabular-nums;
     pointer-events: auto;
 }
 
 .post-editor-readability-badge:is(:hover, [aria-expanded='true']) {
-    border-color: currentColor;
+    border-color: var(--register-border, GrayText);
+    background: var(--register-surface, Canvas);
 }
 
 .post-editor-readability[data-pending] .post-editor-readability-badge {
+    border-color: var(--register-border, GrayText);
     border-style: dashed;
+}
+
+.post-editor-readability-dial {
+    position: relative;
+    display: block;
+    width: 34px;
+    height: 22px;
+    direction: ltr;
+}
+
+.post-editor-readability-dial::before {
+    position: absolute;
+    inset: 0 0 auto;
+    height: 17px;
+    border-radius: 17px 17px 0 0;
+    background: conic-gradient(from 270deg at 50% 100%,
+        var(--readability-red), var(--readability-yellow) 90deg, var(--readability-green) 180deg, transparent 180deg);
+    mask-image: radial-gradient(circle at 50% 100%, transparent 13px, #000 13.5px);
+    content: '';
+}
+
+.post-editor-readability-dial::after {
+    position: absolute;
+    top: 0;
+    left: calc(50% - 2px);
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 0 1px var(--page-background, Canvas);
+    content: '';
+    transform: rotate(var(--readability-angle));
+    transform-origin: 50% 17px;
+}
+
+.post-editor-readability:not([data-score-available]) .post-editor-readability-dial::before {
+    background: var(--register-border, GrayText);
+}
+
+.post-editor-readability:not([data-score-available]) .post-editor-readability-dial::after {
+    content: none;
+}
+
+.post-editor-readability-dial > span {
+    position: absolute;
+    inset: 10px 0 auto;
+    text-align: center;
 }
 
 .post-editor-readability-popover {
     position: absolute;
-    top: 100%;
-    left: var(--readability-popover-left);
-    box-sizing: border-box;
+    top: var(--readability-popover-top, 0px);
+    left: 100%;
+    box-sizing: content-box;
     width: var(--readability-popover-width);
-    padding-top: var(--readability-popover-gap);
+    padding-left: var(--readability-popover-gap);
     pointer-events: auto;
-}
-
-.post-editor-readability-popover[data-above] {
-    top: auto;
-    bottom: 100%;
-    padding: 0 0 var(--readability-popover-gap);
 }
 
 .post-editor-readability-content {
@@ -91,10 +144,16 @@
     color: var(--register-minor, GrayText);
 }
 
-.post-editor-readability-level {
-    display: block;
+.post-editor-readability-result {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
     margin-top: 2px;
-    font-size: 1.08em;
+    font-size: 12px;
+}
+
+.post-editor-readability-score {
+    font-size: 19px;
     font-weight: 650;
 }
 
@@ -153,9 +212,7 @@
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: baseline;
     gap: 5px 8px;
-    margin: 10px 0 0;
-    padding: 9px 0 0;
-    border-top: 1px solid var(--register-border, GrayText);
+    margin: 6px 0 0;
 }
 
 .post-editor-readability dd {
@@ -169,19 +226,13 @@
     border-top: 1px solid var(--register-border, GrayText);
 }
 
-.post-editor-readability details dl {
-    margin-top: 0;
-    padding-top: 6px;
-    border: 0;
-}
-
 .post-editor-readability summary {
     padding: 7px 0 1px;
     cursor: pointer;
 }
 
 @media (pointer: coarse) {
-    .post-editor-readability {
+    .post-card.is-editing:has(> .post-editor-readability) {
         --readability-badge-height: 44px;
     }
 
@@ -192,6 +243,16 @@
 }
 
 @media (forced-colors: active) {
+    .post-editor-readability-dial::before {
+        background: CanvasText;
+        forced-color-adjust: none;
+    }
+
+    .post-editor-readability-dial::after {
+        background: Highlight;
+        forced-color-adjust: none;
+    }
+
     .post-editor-readability-track {
         border: 1px solid CanvasText;
     }

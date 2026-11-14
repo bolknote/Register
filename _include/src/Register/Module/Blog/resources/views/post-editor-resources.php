@@ -79,19 +79,25 @@ $config = [
     <aside class="post-editor-readability" aria-label="<?php echo register_htmlencode($trans('Readability')); ?>" hidden>
         <div class="post-editor-readability-anchor">
             <button class="post-editor-readability-badge" type="button" aria-expanded="false"
-                aria-label="<?php echo register_htmlencode($trans('Flesch reading ease')); ?>"
-                data-readability-value="flesch">—</button>
+                aria-label="<?php echo register_htmlencode($trans('Flesch reading ease')); ?>">
+                <span class="post-editor-readability-dial" aria-hidden="true">
+                    <span data-readability-value="flesch">—</span>
+                </span>
+            </button>
             <div class="post-editor-readability-popover" hidden>
                 <div class="post-editor-readability-content">
                     <div class="post-editor-readability-heading">
                         <span><?php echo $trans('Flesch reading ease'); ?></span>
-                        <strong class="post-editor-readability-level"
-                            data-unavailable="<?php echo register_htmlencode($trans('Readability score unavailable')); ?>"
-                            data-very-difficult="<?php echo register_htmlencode($trans('Very difficult to read')); ?>"
-                            data-difficult="<?php echo register_htmlencode($trans('Difficult to read')); ?>"
-                            data-fairly-difficult="<?php echo register_htmlencode($trans('Fairly difficult to read')); ?>"
-                            data-moderate="<?php echo register_htmlencode($trans('Moderate difficulty')); ?>"
-                            data-easy="<?php echo register_htmlencode($trans('Easy to read')); ?>"><?php echo $trans('Readability score unavailable'); ?></strong>
+                        <div class="post-editor-readability-result">
+                            <strong class="post-editor-readability-score" data-readability-value="flesch">—</strong>
+                            <span class="post-editor-readability-level"
+                                data-unavailable="<?php echo register_htmlencode($trans('Readability score unavailable')); ?>"
+                                data-very-difficult="<?php echo register_htmlencode($trans('Very difficult to read')); ?>"
+                                data-difficult="<?php echo register_htmlencode($trans('Difficult to read')); ?>"
+                                data-fairly-difficult="<?php echo register_htmlencode($trans('Fairly difficult to read')); ?>"
+                                data-moderate="<?php echo register_htmlencode($trans('Moderate difficulty')); ?>"
+                                data-easy="<?php echo register_htmlencode($trans('Easy to read')); ?>"><?php echo $trans('Readability score unavailable'); ?></span>
+                        </div>
                     </div>
                     <div class="post-editor-readability-scale" role="img" hidden
                         aria-label="<?php echo register_htmlencode($trans('Flesch scale guide from 0 to 100. Higher means easier to read.')); ?>">
@@ -103,19 +109,17 @@ $config = [
                             <span><?php echo $trans('Harder to read'); ?></span><span><?php echo $trans('Easier to read'); ?></span>
                         </div>
                     </div>
-                    <dl>
-                        <dt><?php echo $trans('Reading time'); ?></dt>
-                        <dd data-readability-value="seconds">—</dd>
-                        <dt><?php echo $trans('Average words per sentence'); ?></dt>
-                        <dd data-readability-value="sentence">—</dd>
-                        <dt><?php echo $trans('Sentences with 25 or more words'); ?></dt>
-                        <dd data-readability-value="long">—</dd>
-                        <dt><?php echo $trans('Rare word forms'); ?></dt>
-                        <dd data-readability-value="rare">—</dd>
-                    </dl>
                     <details>
                         <summary><?php echo $trans('Readability details'); ?></summary>
                         <dl>
+                            <dt><?php echo $trans('Reading time'); ?></dt>
+                            <dd data-readability-value="seconds">—</dd>
+                            <dt><?php echo $trans('Average words per sentence'); ?></dt>
+                            <dd data-readability-value="sentence">—</dd>
+                            <dt><?php echo $trans('Sentences with 25 or more words'); ?></dt>
+                            <dd data-readability-value="long">—</dd>
+                            <dt><?php echo $trans('Rare word forms'); ?></dt>
+                            <dd data-readability-value="rare">—</dd>
                             <dt><?php echo $trans('Total words'); ?></dt>
                             <dd data-readability-value="words">—</dd>
                             <dt><?php echo $trans('Syllables per Russian word'); ?></dt>

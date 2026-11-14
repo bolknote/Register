@@ -359,6 +359,8 @@ try {
                 await card.locator('[data-post-inplace-body]').fill('Это слово. Я вижу снег.');
                 const badge = card.locator('.post-editor-readability-badge');
                 await badge.click();
+                await badge.locator('.post-editor-readability-dial').waitFor();
+                await card.locator('.post-editor-readability-popover summary').click();
                 await card.locator('.post-editor-readability [data-readability-value="rare"]')
                     .filter({hasText: /^0$/u}).waitFor();
                 assert.ok((await worker).ok(), 'The release serves the versioned worker, which loads the dictionary');

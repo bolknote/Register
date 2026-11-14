@@ -7,6 +7,17 @@ const panelPath = '**/editor/readability/panel.js';
 const wordlistPath = '**/editor/readability/ru-common.js';
 const workerPath = '**/editor/readability/worker.js';
 
+async function assertGaugeAlignment(card, badge) {
+    const heading = await card.locator('.post.head').boundingBox();
+    const save = await card.locator('.post-edit-save').boundingBox();
+    const gauge = await badge.boundingBox();
+    assert.ok(gauge.width >= 44 && gauge.width <= 50);
+    assert.ok(gauge.x >= 0 && gauge.x + gauge.width <= heading.x);
+    assert.ok(Math.abs(gauge.y - heading.y) <= 1, 'The gauge starts at the title');
+    assert.ok(Math.abs(gauge.x + gauge.width / 2 - save.x - save.width / 2) <= 1,
+        'The gauge shares the toolbar centerline');
+}
+
 export async function runReadabilityRegressions(browser, origin) {
     const page = await browser.newPage({viewport: {width: 1440, height: 900}, reducedMotion: 'reduce'});
     const errors = [];
@@ -23,6 +34,7 @@ export async function runReadabilityRegressions(browser, origin) {
         await page.goto(origin + '/readability.html');
         const panel = page.locator('.post-editor-readability');
         const badge = panel.locator('.post-editor-readability-badge');
+        const score = badge.locator('[data-readability-value="flesch"]');
         const popover = panel.locator('.post-editor-readability-popover');
         const level = popover.locator('.post-editor-readability-level');
         const scale = popover.locator('.post-editor-readability-scale');
@@ -40,17 +52,20 @@ export async function runReadabilityRegressions(browser, origin) {
         await heldPanel.continue();
         await page.unroute(panelPath);
         await panel.waitFor({state: 'visible'});
-        await value('flesch').filter({hasText: /^71$/u}).waitFor();
+        await score.filter({hasText: /^71$/u}).waitFor();
+        assert.equal(await badge.getAttribute('aria-label'), 'Индекс Флеша 71. Легко читать');
         assert.equal(await popover.isVisible(), false, 'Only the score is visible when writing');
-        const bounds = await badge.boundingBox();
-        assert.ok(bounds.x >= bodyBeforePanel.x + bodyBeforePanel.width + 15);
-        assert.ok(bounds.x + bounds.width <= 1440 - 16);
+        await assertGaugeAlignment(card, badge);
         assert.equal(await editor.evaluate(body => body.getBoundingClientRect().width), bodyBeforePanel.width);
         await badge.hover();
         await popover.waitFor();
         assert.equal(await badge.getAttribute('aria-expanded'), 'true');
         assert.equal(await level.textContent(), 'Легко читать');
-        assert.equal(await value('sentence').textContent(), '2,5');
+        assert.equal(await popover.locator('[data-readability-value="flesch"]').textContent(), '71');
+        assert.equal(await value('sentence').isVisible(), false);
+        const badgeBounds = await badge.boundingBox();
+        await page.mouse.move(badgeBounds.x + badgeBounds.width + 12, badgeBounds.y + badgeBounds.height / 2, {steps: 5});
+        assert.equal(await popover.isVisible(), true, 'The pointer can cross from the gauge to its panel');
         await popover.locator('summary').hover();
         assert.equal(await editor.evaluate(body => document.activeElement === body), true, 'Hover keeps the writing focus');
         await editor.hover();
@@ -64,9 +79,10 @@ export async function runReadabilityRegressions(browser, origin) {
             await heldDictionary.continue();
             await page.unroute(wordlistPath);
         }
-        await value('rare').filter({hasText: /^\d+$/u}).waitFor();
+        await value('rare').filter({hasText: /^\d+$/u}).waitFor({state: 'attached'});
 
         await popover.locator('summary').press('Enter');
+        await value('sentence').filter({hasText: /^2,5$/u}).waitFor();
         assert.equal(await value('words').textContent(), '5');
         assert.equal(await popover.locator('a[href*="wordfreq"]').count(), 0);
         await popover.locator('summary').press('Escape');
@@ -101,13 +117,11 @@ export async function runReadabilityRegressions(browser, origin) {
         const workerRequested = page.waitForRequest(workerPath);
         await page.locator('.post-edit-start').press('Enter');
         await panel.waitFor({state: 'visible'});
-        const edited = page.locator('.post-card.is-editing [data-post-inplace-body]');
+        const editedCard = page.locator('.post-card.is-editing');
+        const edited = editedCard.locator('[data-post-inplace-body]');
         const editedBounds = await edited.boundingBox();
-        const sideBounds = await badge.boundingBox();
         assert.equal(editedBounds.width, 1000);
-        assert.ok(sideBounds.width >= 44 && sideBounds.width <= 50);
-        assert.ok(sideBounds.x >= editedBounds.x + editedBounds.width + 15);
-        assert.ok(sideBounds.x + sideBounds.width <= await page.evaluate(() => document.documentElement.clientWidth - 16));
+        await assertGaugeAlignment(editedCard, badge);
         await workerRequested;
         await value('words').evaluate(field => {
             window.readabilityWordCounts = [];
@@ -123,19 +137,24 @@ export async function runReadabilityRegressions(browser, origin) {
         assert.deepEqual(await page.evaluate(() => window.readabilityWordCounts), ['4']);
 
         await badge.click();
-        const popupBounds = await popover.boundingBox();
-        assert.ok(popupBounds.width >= 180 && popupBounds.width < 226 && popupBounds.x >= editedBounds.x + editedBounds.width,
-            'The panel fits entirely in the right gutter when there is room');
-        assert.equal(await badge.textContent(), '-24');
+        const sideBounds = await badge.boundingBox();
+        const content = popover.locator('.post-editor-readability-content');
+        const popupBounds = await content.boundingBox();
+        assert.ok(popupBounds.width >= 180 && popupBounds.width <= 240 && popupBounds.x >= sideBounds.x + sideBounds.width + 5,
+            'The popover opens to the right of the gauge');
+        assert.equal(await score.textContent(), '-24');
         assert.equal(await level.textContent(), 'Очень трудно читать');
-        assert.equal(await scale.evaluate(node => node.style.getPropertyValue('--readability-score')), '0%');
+        const scorePosition = () => panel.evaluate(node => [node.style.getPropertyValue('--readability-score'),
+            node.style.getPropertyValue('--readability-angle')]);
+        assert.deepEqual(await scorePosition(), ['0%', '-90deg']);
         await edited.fill('В лесу и в поле.');
-        await badge.filter({hasText: /^140$/u}).waitFor();
-        assert.equal(await scale.evaluate(node => node.style.getPropertyValue('--readability-score')), '100%');
+        await score.filter({hasText: /^140$/u}).waitFor();
+        assert.deepEqual(await scorePosition(), ['100%', '90deg']);
         assert.equal(await level.textContent(), 'Легко читать');
         await edited.fill('An ordinary English sentence.');
-        await badge.filter({hasText: /^—$/u}).waitFor();
+        await score.filter({hasText: /^—$/u}).waitFor();
         assert.equal(await scale.isVisible(), false);
+        assert.equal(await panel.getAttribute('data-score-available'), null);
         assert.equal(await level.textContent(), 'Оценка недоступна');
 
         // Make a generic long note and a following page section to exercise
@@ -147,25 +166,34 @@ export async function runReadabilityRegressions(browser, origin) {
             document.querySelector('#footer').style.minHeight = '1000px';
         });
         await value('words').filter({hasText: /^1\s*536$/u}).waitFor({state: 'attached'});
-        const scrollTogether = await badge.evaluate(async button => {
-            const body = document.querySelector('[data-post-inplace-body][contenteditable="true"]');
-            const before = body.getBoundingClientRect();
-            scrollBy(0, before.top + 250);
+        await popover.waitFor();
+        const scrollTogether = await editedCard.evaluate(async article => {
+            const button = article.querySelector('.post-editor-readability-badge');
+            const toolbar = article.querySelector('.post-inplace-tools');
+            const gap = () => toolbar.getBoundingClientRect().top - button.getBoundingClientRect().bottom;
+            scrollBy(0, article.getBoundingClientRect().top + 250);
             await new Promise(requestAnimationFrame);
             const inside = button.getBoundingClientRect();
-            scrollBy(0, body.getBoundingClientRect().bottom + 40);
+            const insideGap = gap();
+            scrollBy(0, article.getBoundingClientRect().bottom - 100);
             await new Promise(requestAnimationFrame);
-            return {inside: inside.top, after: button.getBoundingClientRect().bottom};
+            const bottomGap = gap();
+            scrollBy(0, article.getBoundingClientRect().bottom + 40);
+            await new Promise(requestAnimationFrame);
+            return {inside: inside.top, insideGap, bottomGap, after: button.getBoundingClientRect().bottom};
         });
-        assert.ok(scrollTogether.inside >= 10 && scrollTogether.inside <= 16 && scrollTogether.after < 0, JSON.stringify(scrollTogether));
+        assert.ok(scrollTogether.inside >= 10 && scrollTogether.inside <= 16 && scrollTogether.insideGap >= 6
+            && scrollTogether.bottomGap >= 6 && scrollTogether.after < 0, JSON.stringify(scrollTogether));
+        await popover.waitFor({state: 'hidden'});
         await page.evaluate(() => scrollTo(0, 0));
-        await page.setViewportSize({width: 1200, height: 480});
-        await badge.waitFor({state: 'visible'});
-        const contentHandle = await popover.locator('.post-editor-readability-content').elementHandle();
+        await page.setViewportSize({width: 881, height: 360});
+        await badge.press('Enter');
+        await popover.locator('summary').press('Enter');
+        const contentHandle = await content.elementHandle();
         const popupFits = (beforeShift = Infinity) => page.waitForFunction(({panel, beforeShift}) => {
             const bounds = panel.getBoundingClientRect();
             const badge = panel.parentElement.previousElementSibling.getBoundingClientRect();
-            return bounds.width >= 180 && bounds.left < badge.left && bounds.right <= document.documentElement.clientWidth - 15
+            return bounds.width >= 180 && bounds.left >= badge.right + 5 && bounds.right <= document.documentElement.clientWidth - 15
                 && bounds.top >= 12 && bounds.bottom <= innerHeight - 12 && badge.top < beforeShift - 20;
         }, {panel: contentHandle, beforeShift}, {timeout: 3500});
         await popupFits();
@@ -174,7 +202,7 @@ export async function runReadabilityRegressions(browser, origin) {
         const beforeShift = (await badge.boundingBox()).y;
         await page.locator('#header').evaluate(header => { header.style.marginTop = '-28px'; });
         await popupFits(beforeShift);
-        await edited.locator('p').first().click({position: {x: 10, y: 10}});
+        await edited.locator('p').first().click({position: {x: 320, y: 10}});
         await popover.waitFor({state: 'hidden'});
 
         await badge.press('Enter');
@@ -186,7 +214,7 @@ export async function runReadabilityRegressions(browser, origin) {
         await value('words').filter({hasText: /^5$/u}).waitFor({state: 'attached'});
         assert.equal(await popover.isVisible(), false, 'Resizing out of the gutter dismisses the panel');
         assert.deepEqual(errors, []);
-        console.log(browser.browserType().name() + ': readability follows scrolling, handles hover and keyboard, fits both gutters, and loads in the background');
+        console.log(browser.browserType().name() + ': readability aligns with the title and tools, follows scrolling, fits the viewport, and loads in the background');
     } finally {
         await page.close();
     }
