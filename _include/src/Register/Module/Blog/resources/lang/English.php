@@ -34,6 +34,7 @@ return [
     'Matskovsky index' => 'Matskovsky index',
     'Distinct word forms' => 'Distinct word forms',
     'Rare forms use the 5,000 most frequent Russian forms in' => 'Rare forms are outside the 5,000 most frequent Russian forms in',
+    'In compounds, each hyphenated part is checked separately.' => 'In compounds, each hyphenated part is checked separately.',
 
     'Invalid post URL' => 'Enter an unused post address without spaces, special characters or query parameters.',
     'The complete URL exceeds the 255-byte URL history limit. Shorten the address or its parent addresses.' => 'The complete URL exceeds the 255-byte URL history limit. Shorten the address or its parent addresses.',

@@ -112,6 +112,7 @@ $config = [
             <p class="post-editor-readability-source">
                 <?php echo $trans('Rare forms use the 5,000 most frequent Russian forms in'); ?>
                 <a href="https://github.com/rspeer/wordfreq" target="_blank" rel="noopener noreferrer">wordfreq</a>.
+                <?php echo $trans('In compounds, each hyphenated part is checked separately.'); ?>
             </p>
         </details>
     </aside>

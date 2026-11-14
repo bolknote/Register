@@ -34,6 +34,7 @@ return [
     'Matskovsky index' => 'Мацковский',
     'Distinct word forms' => 'Разные словоформы',
     'Rare forms use the 5,000 most frequent Russian forms in' => 'Редкие словоформы определяются по 5 000 самых частотных форм из',
+    'In compounds, each hyphenated part is checked separately.' => 'В словах через дефис каждая часть проверяется отдельно.',
 
     'Invalid post URL' => 'Введите свободный адрес поста без пробелов, служебных символов и параметров.',
     'The complete URL exceeds the 255-byte URL history limit. Shorten the address or its parent addresses.' => 'Полный адрес превышает лимит истории URL в 255 байт. Сократите адрес страницы или её родителей.',

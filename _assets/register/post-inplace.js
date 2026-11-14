@@ -136,14 +136,15 @@
 
     function startReadability(state) {
         const template = editorTemplate('.post-editor-readability-template');
-        if (!template || !window.Intl?.Segmenter) return;
+        if (!template || !window.Worker || !window.Intl?.Segmenter) return;
         const controller = new AbortController();
         const {signal} = controller;
         state.readability = controller;
         let composing = false;
         state.body.addEventListener('compositionstart', () => { composing = true; }, {signal});
         state.body.addEventListener('compositionend', () => { composing = false; }, {signal});
-        // The author can start typing before either the panel or its dictionary arrives.
+        document.addEventListener('register:navigation-will-update', () => controller.abort(), {signal});
+        // The author can start typing before the readability assets arrive.
         const url = new URL('editor/readability/panel.js', editorScriptUrl);
         import(url.href).then(({createReadability}) => {
             if (!signal.aborted && state.body.isConnected) {
@@ -6704,7 +6705,6 @@
     });
     document.addEventListener('register:navigation-will-update', () => {
         recoverySessions.forEach(state => {
-            state.readability?.abort();
             closePublicationConfirmation(state, false, false);
             if (state.recovery?.stop()) state.uploadedMediaIds.clear();
         });

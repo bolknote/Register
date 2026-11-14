@@ -127,8 +127,11 @@ export function createFixtureServer() {
                 })();`));
                 return;
             }
-            if (request.url === '/readability.html') {
-                const html = await readFile(new URL('./recovery.html', import.meta.url), 'utf8');
+            if (['/readability.html', '/readability-layout.html'].includes(request.url)) {
+                const html = request.url === '/readability-layout.html'
+                    ? execFileSync(process.env.PHP_BIN || 'php',
+                        [new URL('./responsive-layout-fixture.php', import.meta.url).pathname, 'responsive-layout'], {encoding: 'utf8'})
+                    : await readFile(new URL('./recovery.html', import.meta.url), 'utf8');
                 const resources = execFileSync(process.env.PHP_BIN || 'php',
                     [new URL('./context-menu-fixture.php', import.meta.url).pathname], {encoding: 'utf8'});
                 response.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -209,13 +212,14 @@ export function createFixtureServer() {
                 ['/reactions-fixture.css', ['reactions-fixture.css', 'text/css']],
                 ['/_assets/register/editor/html-preview.css', ['../../../_assets/register/editor/html-preview.css', 'text/css']],
                 ['/_assets/register/editor/readability.css', ['../../../_assets/register/editor/readability.css', 'text/css']],
-                ['/editor/readability/panel.js', ['../../../_assets/register/editor/readability/panel.js', 'text/javascript; charset=utf-8']],
-                ['/editor/readability/ru-common.js', ['../../../_assets/register/editor/readability/ru-common.js', 'text/javascript; charset=utf-8']],
                 ['/_assets/register/partial-navigation.css', ['../../../_assets/register/partial-navigation.css', 'text/css']],
                 ['/comment-editor.css', ['../../../_assets/register/comment-editor.css', 'text/css']],
                 ['/comment-undo.css', ['../../../_assets/register/comment-undo.css', 'text/css']],
                 ['/comment-undo.js', ['../../../_assets/register/comment-undo.js', 'text/javascript']],
             ]);
+            for (const module of ['panel', 'worker', 'metrics', 'ru-common']) {
+                files.set(`/editor/readability/${module}.js`, [`../../../_assets/register/editor/readability/${module}.js`, 'text/javascript; charset=utf-8']);
+            }
             for (const module of ['form', 'form-recovery', 'ai', 'image-alt', 'tags', 'shortcuts', 'dialogs', 'deps', 'hash', 'preview', 'social-preview', 'activitypub', 'codemirror', 'text/paragraphs', 'text/corrections', 'text/html', 'text/plain', 'utils/escape', 'utils/form-errors']) {
                 files.set(`/admin/editor/${module}.js`, [`../../../_admin/js/editor/${module}.js`, 'text/javascript']);
             }
