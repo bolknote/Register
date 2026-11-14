@@ -31,6 +31,11 @@
     display: none;
 }
 
+.post-editor-readability:has(.post-editor-readability-popover:not([hidden])) {
+    /* The open popover overlays the note, including the tag editor. */
+    z-index: 5;
+}
+
 .post-editor-readability-anchor {
     position: sticky;
     top: var(--readability-sticky-top);

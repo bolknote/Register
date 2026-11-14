@@ -157,6 +157,16 @@ export async function runReadabilityRegressions(browser, origin) {
         assert.equal(await panel.getAttribute('data-score-available'), null);
         assert.equal(await level.textContent(), 'Оценка недоступна');
 
+        await page.setViewportSize({width: 1024, height: 640});
+        await edited.fill('Идёт снег. Дети лепят снеговика.');
+        await score.filter({hasText: /^71$/u}).waitFor();
+        // The short post's tag editor can sit under the popover.
+        const metrics = popover.locator('summary');
+        await metrics.click();
+        await value('sentence').waitFor();
+        await metrics.click();
+        await page.setViewportSize({width: 1440, height: 900});
+
         // Make a generic long note and a following page section to exercise
         // the upper and lower bounds of the sticky badge on the real layout.
         await edited.evaluate(body => {
@@ -185,10 +195,11 @@ export async function runReadabilityRegressions(browser, origin) {
         assert.ok(scrollTogether.inside >= 10 && scrollTogether.inside <= 16 && scrollTogether.insideGap >= 6
             && scrollTogether.bottomGap >= 6 && scrollTogether.after < 0, JSON.stringify(scrollTogether));
         await popover.waitFor({state: 'hidden'});
-        await page.evaluate(() => scrollTo(0, 0));
         await page.setViewportSize({width: 881, height: 360});
+        await page.evaluate(() => scrollTo(0, 0));
         await badge.press('Enter');
         await popover.locator('summary').press('Enter');
+        await page.evaluate(() => scrollTo(0, 0));
         const contentHandle = await content.elementHandle();
         const popupFits = (beforeShift = Infinity) => page.waitForFunction(({panel, beforeShift}) => {
             const bounds = panel.getBoundingClientRect();
