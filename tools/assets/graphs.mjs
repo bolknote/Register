@@ -5,7 +5,7 @@ import {parse} from 'acorn';
 
 // A lazy module and its workers/codecs are one cache unit, not independent
 // files. In particular, a query on an entry module is not inherited by imports.
-export const assetGraphs = ['_assets/register/image-optimizer'];
+export const assetGraphs = ['_assets/register/image-optimizer', '_assets/register/editor/readability'];
 
 async function graphFiles(directory) {
     const files = [];

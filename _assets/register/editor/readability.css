@@ -1,0 +1,99 @@
+.post-card.is-editing:has(> .post-editor-readability) {
+    position: relative;
+}
+
+.post-editor-readability {
+    position: absolute;
+    box-sizing: border-box;
+    width: 226px;
+    padding: 12px 14px 10px;
+    border: 1px solid var(--register-border, #888);
+    border-radius: 8px;
+    color: var(--register-text, CanvasText);
+    background: var(--register-surface, Canvas);
+    font: 12px/1.45 var(--register-ui-font, system-ui, sans-serif);
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+}
+
+.post-editor-readability[hidden] {
+    display: none;
+}
+
+.post-editor-readability-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: .5em;
+    font-size: 13px;
+}
+
+.post-editor-readability-pending {
+    visibility: hidden;
+    color: var(--register-minor, GrayText);
+    letter-spacing: .12em;
+}
+
+.post-editor-readability[data-pending] > .post-editor-readability-header > .post-editor-readability-pending {
+    visibility: visible;
+}
+
+.post-editor-readability-score {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 11px;
+    min-height: 56px;
+    padding: 5px 0 8px;
+    border-bottom: 1px solid var(--register-border, #888);
+}
+
+.post-editor-readability-score [data-readability-value] {
+    min-width: 2ch;
+    color: var(--link-color, var(--register-text, CanvasText));
+    font-size: 32px;
+    line-height: 1;
+    font-weight: 650;
+    letter-spacing: -.04em;
+}
+
+.post-editor-readability-score small {
+    display: block;
+    color: var(--register-minor, GrayText);
+    font-size: 11px;
+}
+
+.post-editor-readability dl {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 6px 8px;
+    margin: 0;
+    padding: 10px 0;
+}
+
+.post-editor-readability dt,
+.post-editor-readability summary,
+.post-editor-readability-source {
+    color: var(--register-minor, GrayText);
+}
+
+.post-editor-readability dd {
+    margin: 0;
+    text-align: end;
+    font-weight: 600;
+}
+
+.post-editor-readability details {
+    border-top: 1px solid var(--register-border, #888);
+}
+
+.post-editor-readability summary {
+    padding: 7px 0 0;
+    cursor: pointer;
+}
+
+.post-editor-readability-source {
+    margin: 0 0 2px;
+    font-size: 11px;
+}

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {createFixtureServer} from './server.mjs';
 import {runDurabilityRegressions} from './durability-tests.mjs';
 import {runRecoveryRegressions} from './recovery-tests.mjs';
+import {runReadabilityRegressions} from './readability-tests.mjs';
 import {runToolLayoutRegressions} from './tool-layout-tests.mjs';
 import {runSavingFeedbackRegressions} from './saving-feedback-tests.mjs';
 import {runDraftTimeRegressions} from './draft-time-tests.mjs';
@@ -464,6 +465,7 @@ try {
     for (const engine of engines.filter(engine => !selectedEngine || engine.name() === selectedEngine)) {
         const browser = await engine.launch();
         try {
+            await runReadabilityRegressions(browser, 'http://127.0.0.1:' + server.address().port);
             await runDurabilityRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runHtmlBlockRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runContextMenuRegressions(browser, `http://127.0.0.1:${server.address().port}`);

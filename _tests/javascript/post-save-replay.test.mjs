@@ -74,7 +74,7 @@ function editor() {
         editableBodyHtml: state => state.body.innerHTML, localDateTimeValue: () => '2026-09-06T12:00:00',
         createTagEditor: () => ({sync: () => [], snapshot: () => ''}),
         createEditorFieldSurfaces: noop, applyShortcutHints: noop, toggleEditingTools: noop,
-        createBodyHistory: history, createFieldHistory: history, startPostRecovery: noop,
+        createBodyHistory: history, createFieldHistory: history, startPostRecovery: noop, startReadability: noop,
         focusEdge: noop, queueMicrotask: noop, normalizeMediaBodyStructure: () => false,
         finishImageCaptionEditing: noop, finishInlineMediaCaptions: noop, closeContextMenu: noop,
         editorPublishedAt: state => state.originalPublishedAt, releasableMediaIds: () => [],

@@ -351,6 +351,17 @@ try {
             const originalDocument = await page.evaluate(() => window.e2eDocumentId = crypto.randomUUID());
             const title = `Lost response ${engine.name()}`;
             await card.locator('[data-post-inplace-title]').fill(title);
+            if (process.env.REGISTER_E2E_ROOT) {
+                const viewport = page.viewportSize();
+                await page.setViewportSize({width: 1600, height: 900});
+                const dictionary = page.waitForResponse(response =>
+                    /\/editor\/readability\/ru-common\.js\.asset\?v=[a-f0-9]{64}$/u.test(response.url()));
+                await card.locator('[data-post-inplace-body]').fill('Это слово. Я вижу снег.');
+                await card.locator('.post-editor-readability [data-readability-value="rare"]')
+                    .filter({hasText: /^0$/u}).waitFor();
+                assert.ok((await dictionary).ok(), 'The release serves the lazy, versioned readability dictionary');
+                await page.setViewportSize(viewport);
+            }
             await card.locator('[data-post-inplace-body]').fill('Created once through the real server.');
             const before = database("SELECT COUNT(*) AS count FROM content WHERE content_type='post'")[0].count;
             let attempts = 0;

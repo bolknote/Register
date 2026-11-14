@@ -13,10 +13,10 @@
     let pendingMediaClipboard = null;
     let activeMediaDrag = null;
     const mediaDragType = 'application/x-register-media';
+    const editorScriptUrl = new URL(document.currentScript?.src || window.location.href, window.location.href);
     const imageOptimizerUrl = (() => {
-        const source = new URL(document.currentScript?.src || window.location.href, window.location.href);
-        const target = new URL('image-optimizer/js/optimizer.js', source);
-        const version = source.searchParams.get('v');
+        const target = new URL('image-optimizer/js/optimizer.js', editorScriptUrl);
+        const version = editorScriptUrl.searchParams.get('v');
         // Release builds put the entire optimizer graph's hash in this URL.
         // Do not replace it with the unrelated editor entry's version.
         if (version !== null && !target.searchParams.has('v')) {
@@ -132,6 +132,26 @@
 
     function editorTemplate(selector) {
         return document.getElementById('post-editor-resources')?.querySelector(selector) || null;
+    }
+
+    function startReadability(state) {
+        const template = editorTemplate('.post-editor-readability-template');
+        if (!template || !window.Intl?.Segmenter) return;
+        const controller = new AbortController();
+        const {signal} = controller;
+        state.readability = controller;
+        let composing = false;
+        state.body.addEventListener('compositionstart', () => { composing = true; }, {signal});
+        state.body.addEventListener('compositionend', () => { composing = false; }, {signal});
+        // The author can start typing before either the panel or its dictionary arrives.
+        const url = new URL('editor/readability/panel.js', editorScriptUrl);
+        import(url.href).then(({createReadability}) => {
+            if (!signal.aborted && state.body.isConnected) {
+                createReadability(state, template, signal, () => composing);
+            }
+        }).catch(() => {
+            controller.abort();
+        });
     }
 
     function applyShortcutHints(root) {
@@ -1353,6 +1373,7 @@
         if (pendingMediaClipboard?.state === state) pendingMediaClipboard = null;
         if (activeMediaDrag?.state === state) activeMediaDrag = null;
         state.recovery?.stop();
+        state.readability?.abort();
         state.htmlBlocks?.destroy();
         state.history?.destroy();
         state.titleHistory?.destroy();
@@ -1659,6 +1680,7 @@
         });
         startPostRecovery(state);
         focusEdge(elements.title, true);
+        startReadability(state);
         queueMicrotask(() => {
             if (editorStates.get(card) === state) {
                 generateMissingImageAlts(state);
@@ -6682,6 +6704,7 @@
     });
     document.addEventListener('register:navigation-will-update', () => {
         recoverySessions.forEach(state => {
+            state.readability?.abort();
             closePublicationConfirmation(state, false, false);
             if (state.recovery?.stop()) state.uploadedMediaIds.clear();
         });

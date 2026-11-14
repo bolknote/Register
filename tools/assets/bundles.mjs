@@ -47,6 +47,7 @@ export const assetBundles = [
     {path: '_assets/register/blog-editor-search.bundle.css', files: [
         '_assets/register/blog/site.css',
         '_assets/register/post-recovery.css',
+        '_assets/register/editor/readability.css',
         '_assets/register/search/search.css',
     ]},
 ];

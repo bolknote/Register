@@ -127,6 +127,18 @@ export function createFixtureServer() {
                 })();`));
                 return;
             }
+            if (request.url === '/readability.html') {
+                const html = await readFile(new URL('./recovery.html', import.meta.url), 'utf8');
+                const resources = execFileSync(process.env.PHP_BIN || 'php',
+                    [new URL('./context-menu-fixture.php', import.meta.url).pathname], {encoding: 'utf8'});
+                response.setHeader('Content-Type', 'text/html; charset=utf-8');
+                response.end(html.replace('<html lang="en">', '<html lang="ru">')
+                    .replace('<link rel="stylesheet" href="/post-recovery.css">',
+                        '<link rel="stylesheet" href="/post-recovery.css"><link rel="stylesheet" href="/_assets/register/editor/readability.css">')
+                    .replace('<div id="post-editor-resources" hidden>', '<div id="post-editor-resources" hidden>'
+                        + resources.match(/<template class="post-editor-readability-template">[\s\S]*?<\/template>/u)[0]));
+                return;
+            }
             if (request.url === '/site.css' && process.env.EDITOR_TEST_REVISION) {
                 response.setHeader('Content-Type', 'text/css');
                 response.end(execFileSync(
@@ -196,6 +208,9 @@ export function createFixtureServer() {
                 ['/reactions-fixture.js', ['reactions-fixture.js', 'text/javascript']],
                 ['/reactions-fixture.css', ['reactions-fixture.css', 'text/css']],
                 ['/_assets/register/editor/html-preview.css', ['../../../_assets/register/editor/html-preview.css', 'text/css']],
+                ['/_assets/register/editor/readability.css', ['../../../_assets/register/editor/readability.css', 'text/css']],
+                ['/editor/readability/panel.js', ['../../../_assets/register/editor/readability/panel.js', 'text/javascript; charset=utf-8']],
+                ['/editor/readability/ru-common.js', ['../../../_assets/register/editor/readability/ru-common.js', 'text/javascript; charset=utf-8']],
                 ['/_assets/register/partial-navigation.css', ['../../../_assets/register/partial-navigation.css', 'text/css']],
                 ['/comment-editor.css', ['../../../_assets/register/comment-editor.css', 'text/css']],
                 ['/comment-undo.css', ['../../../_assets/register/comment-undo.css', 'text/css']],
