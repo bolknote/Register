@@ -71,6 +71,7 @@ export function createReadability(state, template, signal, isComposing) {
     let failed = false;
     let timer = 0;
     let frame = 0;
+    let popoverFrame = 0;
     let hovered = false;
     let pinned = false;
     let openListeners;
@@ -100,7 +101,7 @@ export function createReadability(state, template, signal, isComposing) {
         }
         if (Object.hasOwn(metrics, 'flesch')) {
             renderScore(metrics.flesch);
-            fitPopover();
+            schedulePopoverFit();
         }
     }
 
@@ -213,6 +214,14 @@ export function createReadability(state, template, signal, isComposing) {
         setStyle('--readability-popover-height', Math.max(48, room) + 'px');
     }
 
+    function schedulePopoverFit() {
+        if (popover.hidden || popoverFrame) return;
+        popoverFrame = requestAnimationFrame(() => {
+            popoverFrame = 0;
+            fitPopover();
+        });
+    }
+
     function renderPopover() {
         const open = hovered || pinned || popover.contains(document.activeElement);
         if (open === !popover.hidden) return;
@@ -220,8 +229,10 @@ export function createReadability(state, template, signal, isComposing) {
         badge.setAttribute('aria-expanded', String(open));
         if (open) {
             openListeners = new AbortController();
-            window.addEventListener('scroll', fitPopover, {passive: true, signal: openListeners.signal});
-            window.visualViewport?.addEventListener('resize', fitPopover, {signal: openListeners.signal});
+            const scrollOptions = {capture: true, passive: true, signal: openListeners.signal};
+            window.addEventListener('scroll', schedulePopoverFit, scrollOptions);
+            window.visualViewport?.addEventListener('resize', schedulePopoverFit, {signal: openListeners.signal});
+            window.visualViewport?.addEventListener('scroll', schedulePopoverFit, {signal: openListeners.signal});
             fitPopover();
         } else {
             openListeners.abort();
@@ -269,7 +280,7 @@ export function createReadability(state, template, signal, isComposing) {
     anchor.addEventListener('focusout', () => queueMicrotask(() => {
         if (!signal.aborted) renderPopover();
     }), {signal});
-    details.addEventListener('toggle', fitPopover, {signal});
+    details.addEventListener('toggle', schedulePopoverFit, {signal});
     document.addEventListener('click', event => {
         if (!popover.hidden && !anchor.contains(event.target)) closePopover();
     }, {signal});
@@ -280,7 +291,8 @@ export function createReadability(state, template, signal, isComposing) {
         closePopover();
     }, {signal});
     const resizeObserver = new ResizeObserver(schedulePlacement);
-    [card, body, state.title, state.time.parentElement]
+    // Changes above the article can move an open panel without resizing the post.
+    [card, body, state.title, state.time.parentElement, document.body]
         .forEach(element => resizeObserver.observe(element));
     const observer = new MutationObserver(changes => {
         if (changes.some(change => {
@@ -293,11 +305,13 @@ export function createReadability(state, template, signal, isComposing) {
     body.addEventListener('compositionstart', schedule, {signal});
     body.addEventListener('compositionend', schedule, {signal});
     window.addEventListener('resize', schedulePlacement, {signal});
+    document.fonts?.addEventListener('loadingdone', schedulePlacement, {signal});
     signal.addEventListener('abort', () => {
         observer.disconnect();
         resizeObserver.disconnect();
         clearTimeout(timer);
         cancelAnimationFrame(frame);
+        cancelAnimationFrame(popoverFrame);
         openListeners?.abort();
         worker?.terminate();
         panel.remove();

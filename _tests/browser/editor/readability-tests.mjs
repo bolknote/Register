@@ -161,17 +161,19 @@ export async function runReadabilityRegressions(browser, origin) {
         await page.evaluate(() => scrollTo(0, 0));
         await page.setViewportSize({width: 1200, height: 480});
         await badge.waitFor({state: 'visible'});
-        const narrow = await popover.locator('.post-editor-readability-content').evaluate(async content => {
-            await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-            const bounds = content.getBoundingClientRect();
-            const badge = content.parentElement.previousElementSibling.getBoundingClientRect();
-            return {width: bounds.width, left: bounds.left, right: bounds.right, bottom: bounds.bottom,
-                top: bounds.top, badgeLeft: badge.left, viewportWidth: document.documentElement.clientWidth,
-                viewportHeight: document.documentElement.clientHeight};
-        });
-        assert.ok(narrow.width >= 180 && narrow.left < narrow.badgeLeft && narrow.right <= narrow.viewportWidth - 15,
-            `The panel opens toward the text in a narrower gutter: ${JSON.stringify(narrow)}`);
-        assert.ok(narrow.top >= 12 && narrow.bottom <= narrow.viewportHeight - 12, JSON.stringify(narrow));
+        const contentHandle = await popover.locator('.post-editor-readability-content').elementHandle();
+        const popupFits = (beforeShift = Infinity) => page.waitForFunction(({panel, beforeShift}) => {
+            const bounds = panel.getBoundingClientRect();
+            const badge = panel.parentElement.previousElementSibling.getBoundingClientRect();
+            return bounds.width >= 180 && bounds.left < badge.left && bounds.right <= document.documentElement.clientWidth - 15
+                && bounds.top >= 12 && bounds.bottom <= innerHeight - 12 && badge.top < beforeShift - 20;
+        }, {panel: contentHandle, beforeShift}, {timeout: 3500});
+        await popupFits();
+
+        // A late layout change can move the entire post without changing its size.
+        const beforeShift = (await badge.boundingBox()).y;
+        await page.locator('#header').evaluate(header => { header.style.marginTop = '-28px'; });
+        await popupFits(beforeShift);
         await edited.locator('p').first().click({position: {x: 10, y: 10}});
         await popover.waitFor({state: 'hidden'});
 
