@@ -22,6 +22,11 @@ return [
 
     // Error messages
     'Error encountered'      => 'An error was encountered',
+    'Emergency title'        => 'The site is temporarily unavailable',
+    'Emergency message'      => 'The server could not complete your request. Please try again in a little while.',
+    'Emergency reload'       => 'Try again',
+    'Emergency home'         => 'Home page',
+    'Emergency reference'    => 'Error reference',
     'DB repeat items'        => 'Database error: there are several items supposed to be unique.',
     'Error no template'      => 'No template found for any of the parent sections.<br /><br />You have to set a template at least for one item from listed below:<br />%s',
     'Error no template flat' => 'Page has no template.<br /><br />You have to set a template for this page.',

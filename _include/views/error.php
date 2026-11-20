@@ -2,42 +2,57 @@
 
 declare(strict_types = 1);
 
-use Register\Core\Config\DynamicConfigProvider;
-use Register\Core\Framework\Application;
+use Register\Core\Asset\PublicAssetUrl;
+use Register\Core\Http\EmergencyPage;
+use Register\Core\Monitoring\FailureDiagnostics;
 
-if (isset($GLOBALS['app']) && $GLOBALS['app'] instanceof Application) {
-    $container      = $GLOBALS['app']->container;
-    $siteName       = $container->get(DynamicConfigProvider::class)->getStringProxy('REGISTER_SITE_NAME')->get();
-    $stylesheetPath = $container->getStringParameter('base_path') . '/_assets/register/standalone.css';
-} else {
-    return;
+$parameters = $GLOBALS['registerBaseStaticParameters'] ?? [];
+$basePath = (string)($parameters['base_path'] ?? '');
+$text = (new EmergencyPage(dirname(__DIR__, 2), (string)($parameters['cache_dir'] ?? '')))->text();
+$stylesheetPath = $basePath . '/_assets/register/standalone.css';
+try {
+    $stylesheetPath = (new PublicAssetUrl(dirname(__DIR__, 2), $basePath))->versioned('/_assets/register/standalone.css');
+} catch (\Throwable) {
+    // An unavailable asset manifest must not prevent the error response.
 }
-
+$homePath = $basePath . '/';
+$diagnostics = $GLOBALS['registerFailureDiagnostics'] ?? null;
+$incidentId = $diagnostics instanceof FailureDiagnostics ? $diagnostics->incidentId() : null;
+// Retry only navigates to a URL. It cannot repeat a failed POST such as a comment.
+$retryPath = ($_SERVER['REQUEST_METHOD'] ?? '') === 'GET'
+    ? (string)($_SERVER['REQUEST_URI'] ?? $homePath) : $homePath;
+if (!str_starts_with($retryPath, '/') || str_starts_with($retryPath, '//')
+    || preg_match('/[\x00-\x20\x7f\\\\]/', $retryPath) === 1
+) {
+    $retryPath = $homePath;
+}
+if (!headers_sent()) {
+    header('Cache-Control: no-store, private');
+    if ($incidentId !== null) {
+        header('X-Register-Incident: ' . $incidentId);
+    }
+}
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="<?php echo register_htmlencode($text['locale']); ?>">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="Generator" content="Register">
-    <title>Error - <?php echo register_htmlencode($siteName); ?></title>
+    <title><?php echo register_htmlencode($text['Emergency title']); ?></title>
     <link rel="stylesheet" href="<?php echo register_htmlencode($stylesheetPath); ?>">
 </head>
 <body class="register-standalone">
 <main class="standalone-card error-container">
-    <h1>An error was encountered</h1>
-
-    <p>
-        Please refer to logs to find out the cause.
+    <h1><?php echo register_htmlencode($text['Emergency title']); ?></h1>
+    <p><?php echo register_htmlencode($text['Emergency message']); ?></p>
+    <p class="install-action emergency-actions">
+        <a class="link-button" href="<?php echo register_htmlencode($retryPath); ?>"><?php echo register_htmlencode($text['Emergency reload']); ?></a>
+        <a href="<?php echo register_htmlencode($homePath); ?>"><?php echo register_htmlencode($text['Emergency home']); ?></a>
     </p>
-
-    <p>
-        <strong>Note:</strong> For detailed error information (necessary for troubleshooting), enable "DEBUG mode".
-        To enable "DEBUG mode", open up the file config.php in a text editor, add a line that looks like
-        <code>define('REGISTER_DEBUG', 1);</code> before "return" statement and re-upload the file.
-        Once you've solved the problem, it is recommended that "DEBUG mode" be turned off again
-        (just remove the line from the file and re-upload it).
-    </p>
+    <?php if ($incidentId !== null): ?>
+    <p class="help"><?php echo register_htmlencode($text['Emergency reference']); ?> <code><?php echo register_htmlencode($incidentId); ?></code></p>
+    <?php endif; ?>
 </main>
 </body>
 </html>

@@ -11,8 +11,13 @@ declare(strict_types = 1);
  */
 
 use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 use Register\Backup\BackupDirectoryResolver;
 use Register\Core\Http\ContentSecurityPolicy;
+use Register\Core\Logger\Logger;
+use Register\Core\Monitoring\FailureDiagnostics;
+use Register\Core\Monitoring\IncidentLogger;
+use Register\Core\Monitoring\QueryProfilerLog;
 use Register\Module\BaseModuleRegistry;
 use Register\RegisterKernel;
 use Register\Schema\SchemaManager;
@@ -66,6 +71,25 @@ if ($debugEnabled) {
 HtmlErrorRenderer::setTemplate(__DIR__ . '/views/error.php');
 
 $registerBaseStaticParameters = register_build_base_static_parameters($registerStaticConfig);
+$registerFailureLogDirectory = (string)$registerBaseStaticParameters['log_dir'];
+$registerDatabaseDriver = (string)($registerStaticConfig['database']['type'] ?? '');
+$registerDatabaseHost = (string)($registerStaticConfig['database']['host'] ?? '');
+$registerFailureDiagnostics = new FailureDiagnostics(
+    new QueryProfilerLog($registerFailureLogDirectory . 'incidents.jsonl'),
+    $registerBootTimestamp,
+    $_SERVER,
+    [
+        'driver' => $registerDatabaseDriver,
+        'transport' => $registerDatabaseDriver === 'sqlite' ? 'file'
+            : ($registerDatabaseHost === 'localhost' || str_starts_with($registerDatabaseHost, '/') ? 'unix' : 'tcp'),
+    ],
+    $registerApplicationRoot,
+);
+$registerIncidentLogger = new IncidentLogger(
+    new Logger($registerFailureLogDirectory . 'app.log', 'app', LogLevel::INFO),
+    $registerFailureDiagnostics,
+);
+$errorHandler->setDefaultLogger($registerIncidentLogger);
 
 /**
  * @param array<string, mixed> $config
@@ -252,7 +276,7 @@ try {
     exit;
 }
 
-$errorHandler->setDefaultLogger($app->container->get(LoggerInterface::class));
+$registerIncidentLogger->setLogger($app->container->get(LoggerInterface::class));
 
 $dynamicConfigProvider = $app->container->get(DynamicConfigProvider::class);
 
