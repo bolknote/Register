@@ -36,6 +36,8 @@ final class EarlyPageCache
 
     private const int MAX_BUCKET_SCAN = 128;
 
+    private const int SNAPSHOT_METADATA_BYTES = 512;
+
     private const array FORWARDED_HEADERS = ['HTTP_FORWARDED', 'HTTP_X_FORWARDED_HOST', 'HTTP_X_FORWARDED_PROTO',
         'HTTP_X_FORWARDED_PORT', 'HTTP_X_FORWARDED_PREFIX', 'HTTP_X_FORWARDED_FOR'];
 
@@ -756,6 +758,10 @@ final class EarlyPageCache
     /** @param array<string, mixed> $entry */
     private function storeSnapshot(string $path, array $entry, int $now): bool
     {
+        // Keep the small maintenance header first so trimming never has to read HTML.
+        $entry = ['metadata' => array_intersect_key($entry, array_flip([
+            'format', 'generation', 'fingerprint', 'expires',
+        ]))] + $entry;
         $bytes = strlen(json_encode($entry, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
         if ($bytes > self::MAX_BUCKET_BYTES) {
             return false;
@@ -863,7 +869,7 @@ final class EarlyPageCache
                 return false;
             }
 
-            $entry = $count >= self::MAX_BUCKET_ENTRIES || $bytes + $size > self::MAX_BUCKET_BYTES ? null : $this->read($path);
+            $entry = $count >= self::MAX_BUCKET_ENTRIES || $bytes + $size > self::MAX_BUCKET_BYTES ? null : $this->snapshotMetadata($path);
             if ($entry === null || ($entry['format'] ?? null) !== self::FORMAT
                 || ($entry['generation'] ?? null) !== $epoch || ($entry['fingerprint'] ?? null) !== $fingerprint
                 || !is_int($entry['expires'] ?? null) || $entry['expires'] <= $now) {
@@ -935,6 +941,28 @@ final class EarlyPageCache
     private function viewPath(string $id): string
     {
         return $this->directory . '/views/' . hash('sha256', $id) . '.json';
+    }
+
+    /** @return array<string, mixed>|null */
+    private function snapshotMetadata(string $path): ?array
+    {
+        if (is_link($path) || !is_file($path)) {
+            return null;
+        }
+
+        $prefix = self::withoutWarnings(static fn(): string|false => file_get_contents($path, length: self::SNAPSHOT_METADATA_BYTES));
+        if (!is_string($prefix)) {
+            return null;
+        }
+
+        if (!str_starts_with($prefix, '{"metadata":{')) {
+            // Old snapshots remain readable until their normal expiry or invalidation.
+            return $this->read($path);
+        }
+
+        $end = strpos($prefix, '}');
+        $data = $end === false ? null : json_decode(substr($prefix, 0, $end + 1) . '}', true, 4);
+        return is_array($data) && is_array($data['metadata'] ?? null) ? $data['metadata'] : null;
     }
 
     /** @return array<string, mixed>|null */

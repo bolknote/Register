@@ -2,6 +2,9 @@
     'use strict';
 
     const pollInterval = 15000;
+    // The quiet heartbeat must remain below the server's 45-second presence window.
+    const quietPollInterval = 30000;
+    const quietPollThreshold = 4;
     const maximumRetryInterval = 60000;
     const pendingPatches = new Map();
     const locallyAppliedCursors = new Set();
@@ -12,6 +15,7 @@
     let generation = 0;
     let inFlight = false;
     let retryCount = 0;
+    let quietPolls = 0;
     let refreshRequested = false;
     let requestController = null;
     let enabled = false;
@@ -169,6 +173,7 @@
         requestController = null;
         inFlight = false;
         retryCount = 0;
+        quietPolls = 0;
         refreshRequested = false;
         pendingPatches.clear();
         locallyAppliedCursors.clear();
@@ -275,8 +280,10 @@
             }
 
             cursor = payload.cursor;
+            let receivedPatch = false;
             for (const [name, html] of Object.entries(payload.patches)) {
                 if (regions.includes(name) && typeof html === 'string') {
+                    receivedPatch = true;
                     const causes = normalizeCauses(payload.causes?.[name]);
                     const previous = pendingPatches.get(name);
                     pendingPatches.set(name, {
@@ -289,11 +296,14 @@
             document.dispatchEvent(new CustomEvent('register:live-synchronized'));
 
             retryCount = 0;
-            nextDelay = payload.more === true ? 0 : pollInterval + Math.floor(Math.random() * 1500);
+            quietPolls = receivedPatch || payload.more === true ? 0 : Math.min(quietPollThreshold, quietPolls + 1);
+            const interval = quietPolls >= quietPollThreshold ? quietPollInterval : pollInterval;
+            nextDelay = payload.more === true ? 0 : interval + Math.floor(Math.random() * 1500);
         } catch (error) {
             if (error?.name !== 'AbortError' && currentGeneration === generation) {
                 document.dispatchEvent(new CustomEvent('register:live-unavailable'));
                 retryCount += 1;
+                quietPolls = 0;
                 nextDelay = Math.min(maximumRetryInterval, pollInterval * (2 ** Math.min(retryCount, 2)))
                     + Math.floor(Math.random() * 2000);
             }
@@ -312,6 +322,7 @@
         }
 
         locallyAppliedCursors.add(appliedCursor);
+        quietPolls = 0;
         refreshRequested = true;
         applyPendingPatches();
         if (!inFlight) {
@@ -325,6 +336,7 @@
         if (document.hidden) {
             window.clearTimeout(timer);
         } else {
+            quietPolls = 0;
             schedule(0);
         }
     });
@@ -333,6 +345,7 @@
         if (!enabled && !configure(0)) {
             return;
         }
+        quietPolls = 0;
         refreshRequested = true;
         if (!inFlight) {
             schedule(0);
@@ -354,6 +367,7 @@
         if (!enabled && !configure(0)) {
             return;
         }
+        quietPolls = 0;
         refreshRequested = true;
         if (!inFlight) {
             schedule(0);

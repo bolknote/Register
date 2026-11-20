@@ -24,6 +24,28 @@ use Symfony\Component\HttpFoundation\Response;
 
 final class LiveUpdatesCest
 {
+    public function unchangedPollDoesNotInitializeHtmlRenderers(\IntegrationTester $I): void
+    {
+        $cursor = $I->grabService(LiveUpdateRepository::class)->currentCursor();
+        $application = $I->createApplication(['disable_cache' => true]);
+        $pdo = $I->grabService(\PDO::class);
+        $application->container->decorate(\PDO::class, static fn(): \PDO => $pdo);
+        $query = http_build_query(['cursor' => $cursor, 'region' => ['posts:0', 'site-account']]);
+        $response = $application->handle(Request::create('https://localhost/_live?' . $query));
+
+        $I->assertSame(Response::HTTP_OK, $response->getStatusCode());
+        $payload = json_decode((string)$response->getContent(), true, flags: JSON_THROW_ON_ERROR);
+        $I->assertSame($cursor, $payload['cursor']);
+        $I->assertEmpty($payload['patches']);
+        $I->assertFalse($payload['more']);
+        foreach ([\Register\Module\Blog\Model\PostFeedRenderer::class,
+            \Register\Comment\ContentCommentRenderer::class,
+            \Register\Live\LiveFragmentRenderer::class] as $renderer) {
+            $I->assertFalse($application->container->getIfInstantiated($renderer) !== null,
+                'An unchanged poll must not initialize HTML rendering: ' . $renderer);
+        }
+    }
+
     public function exposesLiveConfigurationOnlyWithSubscribedRegions(\IntegrationTester $I): void
     {
         $I->amOnPage('https://localhost/');

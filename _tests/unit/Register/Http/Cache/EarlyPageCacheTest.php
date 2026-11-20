@@ -362,6 +362,27 @@ final class EarlyPageCacheTest extends TestCase
         self::assertSame('updated', $this->hit()['body']);
     }
 
+    public function testMaintenancePreservesLegacySnapshotsUntilTheyExpire(): void
+    {
+        self::assertTrue($this->cache()->store($this->request(), $this->headers(), 'legacy', validUntil: 101, now: 100));
+        $path = $this->snapshots()[0];
+        $entry = json_decode((string)file_get_contents($path), true, 16, JSON_THROW_ON_ERROR);
+        unset($entry['metadata']);
+        file_put_contents($path, json_encode($entry, JSON_THROW_ON_ERROR));
+
+        for ($i = 0; $i < 256; ++$i) {
+            $this->cache()->collect(100);
+        }
+
+        self::assertSame('legacy', $this->cache()->lookup($this->request(), 100)['body'] ?? null);
+        for ($i = 0; $i < 256; ++$i) {
+            $this->cache()->collect(102);
+        }
+
+        self::assertFileDoesNotExist($path);
+        self::assertNull($this->cache()->lookup($this->request(), 102));
+    }
+
     public function testPublicationCapsTheBytesInABucket(): void
     {
         $this->seedLegacyBucket(20, 90_000);
@@ -528,6 +549,7 @@ final class EarlyPageCacheTest extends TestCase
         self::assertTrue($this->cache()->store($this->request(), $this->headers(), 'original'));
         $path = $this->snapshots()[0];
         $entry = json_decode((string)file_get_contents($path), true, 16, JSON_THROW_ON_ERROR);
+        unset($entry['metadata']);
         $entry['legacy_padding'] = str_repeat('x', $padding);
         for ($i = 0; $i < $count; ++$i) {
             file_put_contents(dirname($path) . '/' . hash('sha256', 'legacy-snapshot-' . $i) . '.json', json_encode($entry, JSON_THROW_ON_ERROR));

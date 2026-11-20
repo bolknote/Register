@@ -9,13 +9,9 @@ declare(strict_types = 1);
 
 namespace Register\Live;
 
-use Register\Comment\ContentCommentRenderer;
 use Register\Content\ContentId;
-use Register\Content\ContentRepository;
 use Register\Content\ContentType;
-use Register\Module\Blog\Model\PostFeedRenderer;
 use Register\Module\Analytics\BotDetector;
-use Register\Auth\PublicAuthRenderer;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Register\Core\Framework\ControllerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -29,13 +25,10 @@ final readonly class LiveUpdateController implements ControllerInterface
 
     private const int MAX_REGIONS = 8;
 
+    /** @param \Closure(): LiveRegionRenderer $regionRenderer */
     public function __construct(
         private LiveUpdateRepository   $repository,
-        private PostFeedRenderer       $postFeedRenderer,
-        private ContentCommentRenderer $commentRenderer,
-        private ContentRepository      $contentRepository,
-        private LiveFragmentRenderer   $fragmentRenderer,
-        private PublicAuthRenderer     $publicAuthRenderer,
+        private \Closure               $regionRenderer,
         private EventDispatcherInterface $eventDispatcher,
         private BotDetector            $botDetector,
     ) {
@@ -77,9 +70,7 @@ final readonly class LiveUpdateController implements ControllerInterface
                 continue;
             }
 
-            $patches[$region] = $this->fragmentRenderer->render(
-                $this->renderRegion($region, $request),
-            );
+            $patches[$region] = ($this->regionRenderer)()->render($region, $request);
             $causes[$region] = $regionCauses;
         }
 
@@ -175,36 +166,6 @@ final readonly class LiveUpdateController implements ControllerInterface
         }
 
         return $cursors;
-    }
-
-    private function renderRegion(string $region, Request $request): string
-    {
-        if ($region === 'site-account') {
-            return $this->publicAuthRenderer->renderAccount($request, true);
-        }
-
-        if (preg_match('/^posts:([0-9]+)$/D', $region, $matches) === 1) {
-            return $this->postFeedRenderer->render((int)$matches[1], $request)->html;
-        }
-
-        $contentId = ContentId::fromString(substr($region, \strlen('comments:')));
-        $content   = $this->contentRepository->find($contentId);
-        if (!$content instanceof \Register\Content\ContentItem) {
-            return '<div class="live-comments-region" data-live-region="'
-                . register_htmlencode($region)
-                . '"></div>';
-        }
-
-        if (!$content->commentsEnabled) {
-            return '<div class="live-comments-region" data-live-region="'
-                . register_htmlencode($region)
-                . '"></div>';
-        }
-
-        // Refreshing a background region is not an explicit visit to its discussion.
-        $request->attributes->set('register_comment_background_update', true);
-
-        return $this->commentRenderer->renderRegion($contentId, $request, $content->path);
     }
 
     private function error(string $message): JsonResponse
