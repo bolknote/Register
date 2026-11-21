@@ -16,6 +16,9 @@ use Symfony\Component\HttpFoundation\Response;
 
 final class ContentSecurityPolicyTest extends Unit
 {
+    // Authored media styles can be read or removed without creating inline CSS.
+    private const string INLINE_STYLE_ACCESS = '~\.style\b(?!\.(?:getPropertyValue|removeProperty)\s*\()|\.css\s*\(~';
+
     public function testAuthorHtmlPreviewHasAnOpaqueOriginWithoutRestrictingItsMarkup(): void
     {
         $response = new SandboxedHtmlResponse('<script>example()</script>');
@@ -230,7 +233,30 @@ final class ContentSecurityPolicyTest extends Unit
         }
     }
 
-    public function testMigratedInteractionsDoNotMutateInlineStyles(): void
+    public function testStyleGuardAllowsReadsAndRemovalButRejectsInlineStyleCreation(): void
+    {
+        foreach ([
+            'image.style.getPropertyValue("width")',
+            'image.style.removeProperty("width")',
+        ] as $source) {
+            self::assertDoesNotMatchRegularExpression(self::INLINE_STYLE_ACCESS, $source);
+        }
+
+        foreach ([
+            'image.style.width = "100px"',
+            'image.style.cssText = "width:100px"',
+            'image.style.setProperty("width", "100px")',
+            'image.style["width"] = "100px"',
+            'image.style = "width:100px"',
+            'Object.assign(image.style, {width: "100px"})',
+            'image.style.getPropertyValue = function () {}',
+            'image.css("width", "100px")',
+        ] as $source) {
+            self::assertMatchesRegularExpression(self::INLINE_STYLE_ACCESS, $source);
+        }
+    }
+
+    public function testMigratedInteractionsDoNotCreateInlineStyles(): void
     {
         $root = dirname(__DIR__, 4);
         foreach ([
@@ -252,7 +278,7 @@ final class ContentSecurityPolicyTest extends Unit
         ] as $filename) {
             $source = file_get_contents($filename);
             self::assertIsString($source);
-            self::assertDoesNotMatchRegularExpression('~\.style\b|\.css\s*\(~', $source, $filename);
+            self::assertDoesNotMatchRegularExpression(self::INLINE_STYLE_ACCESS, $source, $filename);
             self::assertDoesNotMatchRegularExpression('~setAttribute\s*\(\s*[\'\"]style[\'\"]~', $source, $filename);
             self::assertDoesNotMatchRegularExpression(
                 '~createElement\s*\(\s*[\'\"]style[\'\"]~',
