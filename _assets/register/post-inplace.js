@@ -4385,6 +4385,8 @@
         }
 
         const range = context.range.cloneRange();
+        context.imageEvents?.abort();
+        context.imageResizeObserver?.disconnect();
         context.anchor.remove();
         state.contextMenu = null;
         state.card.querySelector('.post-edit-menu')?.setAttribute('aria-expanded', 'false');
@@ -5795,6 +5797,59 @@
         }
     }
 
+    function imageFileSize(image, retina = false) {
+        if (image.naturalWidth <= 0 || image.naturalHeight <= 0) return null;
+        const scale = retina ? 2 : 1;
+        return {
+            width: Math.max(1, Math.floor(image.naturalWidth / scale)),
+            height: Math.max(1, Math.floor(image.naturalHeight / scale)),
+        };
+    }
+
+    function imageAuthoredDimension(image, name) {
+        const inline = image.style.getPropertyValue(name).trim();
+        const value = inline.endsWith('px') ? Number(inline.slice(0, -2)) : Number(image.getAttribute(name));
+        return Number.isFinite(value) && value > 0 ? value : 0;
+    }
+
+    function updateImageSizeControls(context) {
+        const {targetImage: image, imageRetina, imageDimensions} = context;
+        const full = imageFileSize(image);
+        imageRetina.disabled = full === null;
+        if (!full) {
+            imageRetina.checked = false;
+            imageDimensions.textContent = imageDimensions.dataset.unavailable || '';
+            return;
+        }
+        const attributeWidth = imageAuthoredDimension(image, 'width');
+        const attributeHeight = imageAuthoredDimension(image, 'height');
+        const width = attributeWidth > 0 ? attributeWidth
+            : attributeHeight > 0 ? Math.max(1, Math.round(full.width * attributeHeight / full.height)) : full.width;
+        const height = attributeHeight > 0 ? attributeHeight : Math.max(1, Math.round(full.height * width / full.width));
+        // Older HTML can use fractional halves or round odd pixel dimensions either way.
+        imageRetina.checked = (full.width > 1 || full.height > 1)
+            && Math.abs(width * 2 - full.width) <= 1
+            && Math.abs(height * 2 - full.height) <= 1;
+        imageDimensions.textContent = `${width} × ${height}`;
+    }
+
+    function applyImageRetina(state, context) {
+        const image = context.targetImage;
+        if (state.contextMenu !== context || !state.body.contains(image)) return;
+        // Always use the file's dimensions, never halve already scaled attributes.
+        const size = imageFileSize(image, context.imageRetina.checked);
+        if (!size) return;
+        state.history?.before();
+        image.setAttribute('width', String(size.width));
+        image.setAttribute('height', String(size.height));
+        image.style.removeProperty('width');
+        image.style.removeProperty('height');
+        if (image.getAttribute('style') === '') image.removeAttribute('style');
+        markBodyChanged(state);
+        state.history?.record();
+        updateImageSizeControls(context);
+    }
+
     function openContextMenu(state, event = null, targetOverride = null, rangeOverride = null) {
         const template = editorTemplate('.post-editor-context-menu-template');
         if (!(template instanceof HTMLTemplateElement)) {
@@ -5867,6 +5922,8 @@
         const removeLink = menu.querySelector('[data-context-action="remove-link"]');
         const imagePanel = menu.querySelector('.post-editor-image-panel');
         const imageAltInput = menu.querySelector('[data-context-image-alt-input]');
+        const imageRetina = menu.querySelector('[data-context-image-retina]');
+        const imageDimensions = menu.querySelector('[data-context-image-dimensions]');
         const imageLinkButton = imagePanel?.querySelector('[data-context-action="open-link"]');
         const imageCaptionButton = imagePanel?.querySelector('[data-context-action="edit-image-caption"]');
         const imageAiAltButton = imagePanel?.querySelector('[data-context-action="generate-image-alt"]');
@@ -5877,7 +5934,9 @@
             || !(linkError instanceof HTMLElement)
             || !(removeLink instanceof HTMLButtonElement)
             || !(imagePanel instanceof HTMLElement)
-            || !(imageAltInput instanceof HTMLInputElement)
+            || !(imageAltInput instanceof HTMLTextAreaElement)
+            || !(imageRetina instanceof HTMLInputElement)
+            || !(imageDimensions instanceof HTMLOutputElement)
             || !(imageLinkButton instanceof HTMLButtonElement)
             || !(imageCaptionButton instanceof HTMLButtonElement)
         ) {
@@ -5914,6 +5973,8 @@
             removeLink,
             imagePanel,
             imageAltInput,
+            imageRetina,
+            imageDimensions,
             imageLinkButton,
             imageCaptionButton,
             imageAiAltButton,
@@ -5928,6 +5989,16 @@
         state.card.querySelector('.post-edit-menu')?.setAttribute('aria-expanded', 'true');
 
         if (targetImage) {
+            const context = state.contextMenu;
+            updateImageSizeControls(context);
+            context.imageEvents = new AbortController();
+            targetImage.addEventListener('load', () => updateImageSizeControls(context), {signal: context.imageEvents.signal});
+            targetImage.addEventListener('error', () => updateImageSizeControls(context), {signal: context.imageEvents.signal});
+            imageRetina.addEventListener('change', () => applyImageRetina(state, context));
+            if (window.ResizeObserver) {
+                context.imageResizeObserver = new ResizeObserver(() => positionContextMenu(context));
+                context.imageResizeObserver.observe(menu);
+            }
             imageAltInput.addEventListener('input', () => {
                 cancelImageAlt(state, targetImage);
                 targetImage.setAttribute('alt', imageAltInput.value);
@@ -5986,7 +6057,7 @@
                 applyContextLink(state);
                 return;
             }
-            if (keyEvent.target === imageAltInput && keyEvent.key === 'Enter') {
+            if (keyEvent.target === imageAltInput && keyEvent.key === 'Enter' && !keyEvent.shiftKey && !keyEvent.isComposing) {
                 keyEvent.preventDefault();
                 keyEvent.stopPropagation();
                 closeContextMenu(state, false);

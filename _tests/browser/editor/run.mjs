@@ -11,6 +11,7 @@ import {runOperationFeedbackRegressions} from './operation-feedback-tests.mjs';
 import {runPublicationConfirmationRegressions} from './publication-confirmation-tests.mjs';
 import {runHtmlBlockRegressions} from './html-block-tests.mjs';
 import {runContextMenuRegressions} from './context-menu-tests.mjs';
+import {runImagePropertiesRegressions, runImageRetinaDetectionRegressions} from './image-properties-tests.mjs';
 import {runPublicAuthRegressions} from './public-auth-tests.mjs';
 import {runCommentSubmissionRegressions} from './comment-submit-tests.mjs';
 import {runCommentUndoRegressions} from './comment-undo-tests.mjs';
@@ -469,6 +470,8 @@ try {
             await runDurabilityRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runHtmlBlockRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runContextMenuRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runImagePropertiesRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runImageRetinaDetectionRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runPublicAuthRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runCommentSubmissionRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runCommentUndoRegressions(browser, `http://127.0.0.1:${server.address().port}`);

@@ -34,7 +34,9 @@
             <div class="post-editor-image-panel" hidden>
                 <button type="button" data-context-action="open-link">Link</button>
                 <button type="button" data-context-action="edit-image-caption">Caption</button>
-                <input data-context-image-alt-input>
+                <textarea rows="3" data-context-image-alt-input></textarea>
+                <label><input type="checkbox" role="switch" data-context-image-retina>For Retina</label>
+                <output data-context-image-dimensions></output>
             </div>
         </div>
     </template>

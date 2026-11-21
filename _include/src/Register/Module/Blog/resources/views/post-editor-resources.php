@@ -283,26 +283,37 @@ $config = [
         </div>
 
         <div class="post-editor-image-panel" hidden>
-            <div class="post-editor-image-tools" role="group" aria-label="<?php echo register_htmlencode($trans('Image')); ?>">
-                <button type="button" data-context-action="open-link" title="<?php echo register_htmlencode($trans('Link')); ?>" aria-label="<?php echo register_htmlencode($trans('Link')); ?>">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 14.5 14.5 9.5M7.4 16.6l-1.2 1.2a3.1 3.1 0 0 1-4.4-4.4l3.4-3.4a3.1 3.1 0 0 1 4.4 0M16.6 7.4l1.2-1.2a3.1 3.1 0 0 1 4.4 4.4L18.8 14a3.1 3.1 0 0 1-4.4 0" /></svg>
-                    <span class="visually-hidden"><?php echo $trans('Link'); ?></span>
-                </button>
-                <button type="button" data-context-action="edit-image-caption" data-caption-placeholder="<?php echo register_htmlencode($trans('Type image caption')); ?>" title="<?php echo register_htmlencode($trans('Image caption')); ?>" aria-label="<?php echo register_htmlencode($trans('Image caption')); ?>">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M7 15h10M7 11h7" /></svg>
-                    <span class="visually-hidden"><?php echo $trans('Image caption'); ?></span>
-                </button>
+            <div class="post-editor-image-options">
+                <div class="post-editor-image-tools" role="group" aria-label="<?php echo register_htmlencode($trans('Image')); ?>">
+                    <button type="button" data-context-action="open-link" title="<?php echo register_htmlencode($trans('Link')); ?>" aria-label="<?php echo register_htmlencode($trans('Link')); ?>">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 14.5 14.5 9.5M7.4 16.6l-1.2 1.2a3.1 3.1 0 0 1-4.4-4.4l3.4-3.4a3.1 3.1 0 0 1 4.4 0M16.6 7.4l1.2-1.2a3.1 3.1 0 0 1 4.4 4.4L18.8 14a3.1 3.1 0 0 1-4.4 0" /></svg>
+                        <span class="visually-hidden"><?php echo $trans('Link'); ?></span>
+                    </button>
+                    <button type="button" data-context-action="edit-image-caption" data-caption-placeholder="<?php echo register_htmlencode($trans('Type image caption')); ?>" title="<?php echo register_htmlencode($trans('Image caption')); ?>" aria-label="<?php echo register_htmlencode($trans('Image caption')); ?>">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M7 15h10M7 11h7" /></svg>
+                        <span class="visually-hidden"><?php echo $trans('Image caption'); ?></span>
+                    </button>
 <?php if ($editor_config['ai_alt_enabled']): ?>
-                <button type="button" data-context-action="generate-image-alt" title="<?php echo register_htmlencode($trans('Generate image alt with AI')); ?>" aria-label="<?php echo register_htmlencode($trans('Generate image alt with AI')); ?>">
-                    <span aria-hidden="true">✦</span>
-                    <span class="visually-hidden"><?php echo $trans('Generate image alt with AI'); ?></span>
-                </button>
+                    <button type="button" data-context-action="generate-image-alt" title="<?php echo register_htmlencode($trans('Generate image alt with AI')); ?>" aria-label="<?php echo register_htmlencode($trans('Generate image alt with AI')); ?>">
+                        <span aria-hidden="true">✦</span>
+                        <span class="visually-hidden"><?php echo $trans('Generate image alt with AI'); ?></span>
+                    </button>
 <?php endif; ?>
+                </div>
+                <label class="post-editor-image-retina" title="<?php echo register_htmlencode($trans('Show image at half size')); ?>">
+                    <input type="checkbox" role="switch" data-context-image-retina aria-label="<?php echo register_htmlencode($trans('For Retina')); ?>">
+                    <span class="post-editor-image-switch" aria-hidden="true"></span>
+                    <span><?php echo $trans('For Retina'); ?></span>
+                </label>
             </div>
             <label class="post-editor-image-alt">
                 <span><?php echo $trans('Alternative text'); ?></span>
-                <input type="text" autocomplete="off" data-context-image-alt-input>
+                <textarea rows="3" autocomplete="off" data-context-image-alt-input></textarea>
             </label>
+            <div class="post-editor-image-size">
+                <span><?php echo $trans('Display size'); ?></span>
+                <output data-context-image-dimensions data-unavailable="<?php echo register_htmlencode($trans('Image size unavailable')); ?>"></output>
+            </div>
         </div>
     </div>
 </template>

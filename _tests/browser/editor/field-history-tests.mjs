@@ -218,6 +218,7 @@ export async function runFieldHistoryRegressions(browser, origin) {
         await body.locator(':scope > p').last().click();
         await body.locator('img').click({button: 'right'});
         await page.locator('[data-context-image-alt-input]').fill('Manual description');
+        await page.locator('[data-context-image-alt-input]').press('Enter');
         await waitForAlt(page);
         await replyAlt(ai, 'Stale description');
         assert.equal(await body.locator('img').getAttribute('alt'), 'Manual description');

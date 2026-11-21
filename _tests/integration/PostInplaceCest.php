@@ -76,6 +76,31 @@ final class PostInplaceCest
         $this->assertCreatedPostMetadata($I, 'HTML block preserves author source', $body, 'Before After');
     }
 
+    public function imageDisplaySizeAndAltSurviveSavingAndReopening(\IntegrationTester $I): void
+    {
+        $db = $I->grabService(DbLayer::class);
+        $id = $this->insertPost($db, 'image-display-size', $this->userId($db, 'author'));
+        $I->login('author', 'author');
+        $I->amOnPage('https://localhost/image-display-size');
+
+        $token = $I->grabAttributeFrom('.post-card[data-post-id="' . $id . '"] input[name="inplace_token"]', 'value');
+        $revision = 1;
+        foreach ([[400, 250], [801, 501]] as [$width, $height]) {
+            $body = '<p>Before image.</p><img src="/example.svg" width="' . $width . '" height="' . $height
+                . '" alt="A description that remains editable"><p>After image.</p>';
+            $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $id, [
+                'inplace_action' => 'edit', 'inplace_token' => $token, 'revision' => (string)$revision,
+                'title' => 'Image display size', 'body' => $body, 'tags' => '',
+            ]);
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+            $I->assertSame($body, $this->contentRow($db, $id)['body']);
+            $I->amOnPage('https://localhost/image-display-size');
+            $I->seeElement('.post-card[data-post-id="' . $id . '"] img[width="' . $width . '"][height="' . $height . '"]');
+            $I->seeElement('img[alt="A description that remains editable"]');
+            ++$revision;
+        }
+    }
+
     public function imageDimensionCompletionPreservesAuthorHtmlAndJavascript(\IntegrationTester $I): void
     {
         $I->login('author', 'author');
