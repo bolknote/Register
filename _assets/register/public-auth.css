@@ -250,10 +250,19 @@
 }
 
 .public-auth-dialog {
-    --auth-dialog-top: clamp(0.625rem, 8dvh, 3.75rem);
-    width: min(27rem, calc(100% - 1rem));
+    --auth-viewport-width: 100vw;
+    --auth-viewport-height: 100dvh;
+    --auth-viewport-left: 0px;
+    --auth-dialog-gutter: max(0.5rem, env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
+    --auth-dialog-top: max(env(safe-area-inset-top, 0px), clamp(0.625rem, calc(var(--auth-viewport-height) * 0.08), 3.75rem));
+    /* Center the native dialog between the visible edges, even on a wider document. */
+    top: var(--auth-viewport-top, 0px);
+    right: calc(100% - var(--auth-viewport-left) - var(--auth-viewport-width));
+    bottom: auto;
+    left: var(--auth-viewport-left);
+    width: min(27rem, calc(var(--auth-viewport-width) - 2 * var(--auth-dialog-gutter)));
     max-width: none;
-    max-height: calc(100dvh - var(--auth-dialog-top) - 0.9375rem);
+    max-height: calc(var(--auth-viewport-height) - var(--auth-dialog-top) - max(0.9375rem, env(safe-area-inset-bottom, 0px)));
     box-sizing: border-box;
     margin: var(--auth-dialog-top) auto auto;
     padding: 0;

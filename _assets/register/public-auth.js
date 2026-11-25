@@ -4,8 +4,22 @@
     const dialog = () => document.getElementById('public-auth-dialog');
     const canOpenDialog = () => typeof HTMLDialogElement === 'function'
         && dialog() instanceof HTMLDialogElement && typeof dialog().showModal === 'function';
+    const viewport = window.visualViewport;
     let dialogOpener = null;
     let commentForm = null;
+
+    const fitDialogToViewport = (authDialog) => {
+        if (!viewport) return;
+        const {width, height, offsetLeft, offsetTop} = viewport;
+        authDialog.style.setProperty('--auth-viewport-width', width + 'px');
+        authDialog.style.setProperty('--auth-viewport-height', height + 'px');
+        authDialog.style.setProperty('--auth-viewport-left', offsetLeft + 'px');
+        authDialog.style.setProperty('--auth-viewport-top', offsetTop + 'px');
+    };
+    const fitOpenDialog = () => {
+        const authDialog = dialog();
+        if (authDialog?.open) fitDialogToViewport(authDialog);
+    };
 
     const statusFor = (element) => {
         const root = element?.closest('.public-auth-dialog, .public-auth-panel');
@@ -130,8 +144,11 @@
         setMode(body, body?.dataset.publicAuthDefaultMode || 'methods');
         if (!authDialog.open) {
             dialogOpener = forComment?.querySelector('.comment-submit') || trigger;
+            fitDialogToViewport(authDialog);
             try { authDialog.showModal(); }
             catch (_) { dialogOpener = null; commentForm = null; return false; }
+            viewport?.addEventListener('resize', fitOpenDialog);
+            viewport?.addEventListener('scroll', fitOpenDialog);
         }
         const selected = body?.querySelector('[data-public-auth-mode-panel]:not([hidden])');
         if (selected) focusMode(body, selected);
@@ -247,6 +264,8 @@
 
     document.addEventListener('close', (event) => {
         if (event.target !== dialog()) return;
+        viewport?.removeEventListener('resize', fitOpenDialog);
+        viewport?.removeEventListener('scroll', fitOpenDialog);
         event.target.querySelectorAll('.public-auth-password-input input').forEach((input) => {
             input.value = '';
             input.type = 'password';

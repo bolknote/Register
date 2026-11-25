@@ -10,19 +10,28 @@ const draft = 'A comment drafted before signing in.';
 const active = locator => locator.evaluate(element => element === document.activeElement);
 
 async function assertLayout(dialog) {
-    await dialog.evaluate(element => Promise.all(element.getAnimations({subtree: true}).map(animation => animation.finished.catch(() => {}))));
+    await dialog.evaluate(async element => {
+        await new Promise(requestAnimationFrame);
+        await Promise.all(element.getAnimations({subtree: true}).map(animation => animation.finished.catch(() => {})));
+    });
     const layout = await dialog.evaluate(element => {
         const rect = node => node.getBoundingClientRect().toJSON();
         const methods = Array.from(element.querySelectorAll('.public-auth-method')).filter(node => node.getClientRects().length);
+        const {offsetLeft, offsetTop, width, height} = window.visualViewport;
         return {
-            dialog: rect(element), viewport: innerWidth,
+            dialog: rect(element), viewport: {left: offsetLeft, top: offsetTop, width, height},
             methods: methods.map(node => ({rect: rect(node), label: node.textContent.trim()})),
             close: rect(element.querySelector('[data-public-auth-close]')),
             rootFont: parseFloat(getComputedStyle(document.documentElement).fontSize),
             overflow: element.scrollWidth > element.clientWidth + 1,
         };
     });
-    assert.ok(layout.dialog.left >= 0 && layout.dialog.right <= layout.viewport, 'The account window fits the viewport');
+    const leftGap = layout.dialog.left - layout.viewport.left;
+    const rightGap = layout.viewport.left + layout.viewport.width - layout.dialog.right;
+    assert.ok(leftGap >= 0 && rightGap >= 0 && Math.abs(leftGap - rightGap) <= 1,
+        `The account window fits and is centered in the visible viewport (gaps ${leftGap}, ${rightGap})`);
+    assert.ok(layout.dialog.top >= layout.viewport.top - 1 && layout.dialog.bottom <= layout.viewport.top + layout.viewport.height + 1,
+        'The account window fits the visible height');
     assert.ok(layout.dialog.width <= 27 * layout.rootFont + 1, `The account window keeps the compact design width: ${JSON.stringify(layout)}`);
     assert.equal(layout.overflow, false, 'No horizontal scrolling inside the window');
     assert.ok(layout.close.width >= 44 && layout.close.height >= 44, 'Closing is reachable by touch');
@@ -35,6 +44,48 @@ async function assertLayout(dialog) {
                 'All methods use the same left edge and width');
         }
     }
+}
+
+async function mobileViewportRegression(browser, origin) {
+    const engine = browser.browserType().name();
+    const page = await browser.newPage({viewport: {width: 393, height: 680}, hasTouch: true, isMobile: engine !== 'firefox'});
+    try {
+        await page.goto(`${origin}/public-auth.html?providers=all`);
+        // An ordinary article with an unbreakable table cell can be wider than the phone.
+        await page.locator('#content').evaluate(content => content.insertAdjacentHTML('afterbegin',
+            '<article><table><caption>Results</caption><tr><td><nobr>' + '1234 '.repeat(14) + '</nobr></td></tr></table></article>'));
+        assert.ok(await page.evaluate(() => document.documentElement.scrollWidth > visualViewport.width));
+        await page.locator('#auth-open').tap();
+        const dialog = page.getByRole('dialog');
+        await assertLayout(dialog);
+        if (engine === 'chromium') {
+            const session = await page.context().newCDPSession(page);
+            await session.send('Emulation.setPageScaleFactor', {pageScaleFactor: 1.25});
+            await session.send('Input.synthesizeScrollGesture', {x: 190, y: 250, xDistance: -80, gestureSourceType: 'touch'});
+            await page.waitForFunction(() => visualViewport.scale > 1 && visualViewport.offsetLeft > 0);
+            await assertLayout(dialog);
+        }
+        await dialog.getByRole('link', {name: 'Ссылка на почту', exact: true}).tap();
+        await assertLayout(dialog);
+        await dialog.getByRole('link', {name: 'Войти с паролем', exact: true}).tap();
+        await dialog.locator('[name="login"]').fill('reader');
+        await page.setViewportSize({width: 320, height: 360});
+        await assertLayout(dialog);
+        await dialog.locator('[name="pass"]').fill('example');
+        assert.equal(await dialog.locator('[name="login"]').inputValue(), 'reader');
+        const close = dialog.locator('[data-public-auth-close]');
+        await close.scrollIntoViewIfNeeded();
+        // Tap the on-screen center after panning the visual viewport within the page.
+        const {x, y} = await close.evaluate(button => {
+            const rect = button.getBoundingClientRect();
+            return {
+                x: rect.left + rect.width / 2 - visualViewport.offsetLeft,
+                y: rect.top + rect.height / 2 - visualViewport.offsetTop,
+            };
+        });
+        await page.touchscreen.tap(x, y);
+        await dialog.waitFor({state: 'hidden'});
+    } finally { await page.close(); }
 }
 
 async function deferredFocusRegression(browser, origin) {
@@ -64,6 +115,7 @@ async function deferredFocusRegression(browser, origin) {
 }
 
 export async function runPublicAuthRegressions(browser, origin) {
+    await mobileViewportRegression(browser, origin);
     await deferredFocusRegression(browser, origin);
     const commentContext = await browser.newContext({colorScheme: 'dark'});
     try {
