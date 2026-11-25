@@ -46,6 +46,18 @@ async function assertLayout(dialog) {
     }
 }
 
+async function tapVisibleControl(page, control) {
+    await control.scrollIntoViewIfNeeded();
+    const {x, y} = await control.evaluate(element => {
+        const rect = element.getBoundingClientRect();
+        return {
+            x: rect.left + rect.width / 2 - visualViewport.offsetLeft,
+            y: rect.top + rect.height / 2 - visualViewport.offsetTop,
+        };
+    });
+    await page.touchscreen.tap(x, y);
+}
+
 async function mobileViewportRegression(browser, origin) {
     const engine = browser.browserType().name();
     const page = await browser.newPage({viewport: {width: 393, height: 680}, hasTouch: true, isMobile: engine !== 'firefox'});
@@ -61,29 +73,20 @@ async function mobileViewportRegression(browser, origin) {
         if (engine === 'chromium') {
             const session = await page.context().newCDPSession(page);
             await session.send('Emulation.setPageScaleFactor', {pageScaleFactor: 1.25});
-            await session.send('Input.synthesizeScrollGesture', {x: 190, y: 250, xDistance: -80, gestureSourceType: 'touch'});
-            await page.waitForFunction(() => visualViewport.scale > 1 && visualViewport.offsetLeft > 0);
+            await page.waitForFunction(() => visualViewport.scale > 1);
+            await page.locator('article td').evaluate(cell => cell.scrollIntoView({block: 'nearest', inline: 'end', behavior: 'instant'}));
+            await page.waitForFunction(() => visualViewport.offsetLeft > 0);
             await assertLayout(dialog);
         }
-        await dialog.getByRole('link', {name: 'Ссылка на почту', exact: true}).tap();
+        await tapVisibleControl(page, dialog.getByRole('link', {name: 'Ссылка на почту', exact: true}));
         await assertLayout(dialog);
-        await dialog.getByRole('link', {name: 'Войти с паролем', exact: true}).tap();
+        await tapVisibleControl(page, dialog.getByRole('link', {name: 'Войти с паролем', exact: true}));
         await dialog.locator('[name="login"]').fill('reader');
         await page.setViewportSize({width: 320, height: 360});
         await assertLayout(dialog);
         await dialog.locator('[name="pass"]').fill('example');
         assert.equal(await dialog.locator('[name="login"]').inputValue(), 'reader');
-        const close = dialog.locator('[data-public-auth-close]');
-        await close.scrollIntoViewIfNeeded();
-        // Tap the on-screen center after panning the visual viewport within the page.
-        const {x, y} = await close.evaluate(button => {
-            const rect = button.getBoundingClientRect();
-            return {
-                x: rect.left + rect.width / 2 - visualViewport.offsetLeft,
-                y: rect.top + rect.height / 2 - visualViewport.offsetTop,
-            };
-        });
-        await page.touchscreen.tap(x, y);
+        await tapVisibleControl(page, dialog.locator('[data-public-auth-close]'));
         await dialog.waitFor({state: 'hidden'});
     } finally { await page.close(); }
 }
