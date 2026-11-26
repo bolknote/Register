@@ -99,7 +99,7 @@ test('dropped images render immediately and the complete processing flow is queu
     const insertEnd = editorSource.indexOf('\n    function transferHasFiles', insertStart);
     const insertSource = editorSource.slice(insertStart, insertEnd);
 
-    assert.match(pendingSource, /const previewUrl = URL\.createObjectURL\(file\)/u);
+    assert.match(pendingSource, /const previewUrl = URL\.createObjectURL\(preview\)/u);
     assert.match(pendingSource, /image\.setAttribute\('src', previewUrl\)/u);
     assert.match(pendingSource, /className = 'post-picture post-media-picture is-processing'/u);
     assert.match(pendingSource, /className = 'post-media-processing-progress'/u);

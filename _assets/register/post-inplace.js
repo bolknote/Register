@@ -1860,9 +1860,15 @@
             };
         }
 
-        const previewUrl = URL.createObjectURL(file);
+        const vector = /\.svg$/iu.test(file.name);
+        // A dropped SVG can have an empty or generic XML MIME type. The blob URL
+        // needs the image MIME type before the optimizer or upload has started.
+        const preview = vector && file.type !== 'image/svg+xml'
+            ? file.slice(0, file.size, 'image/svg+xml') : file;
+        const previewUrl = URL.createObjectURL(preview);
         const image = document.createElement('img');
         image.className = 'post-media-image';
+        if (vector) image.classList.add('post-media-vector');
         image.setAttribute('src', previewUrl);
         image.setAttribute('alt', '');
         image.setAttribute('decoding', 'async');
@@ -5817,6 +5823,12 @@
 
     function updateImageSizeControls(context) {
         const {targetImage: image, imageRetina, imageDimensions} = context;
+        if (image.matches('.post-media-picture .post-media-image:is(.post-media-vector, [src$=".svg" i])')) {
+            imageRetina.disabled = true;
+            imageRetina.checked = false;
+            imageDimensions.textContent = `${image.width} × ${image.height}`;
+            return;
+        }
         const full = imageFileSize(image);
         imageRetina.disabled = full === null;
         if (!full) {

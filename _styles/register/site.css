@@ -550,6 +550,20 @@ hr {
     margin: 1.8rem 0 1.25rem;
 }
 
+/* A percentage-sized SVG has no intrinsic width to size a fit-content block.
+ * Use the article column for the local preview and for saved editor images. */
+#content .post-media-picture:has(.post-media-image:is(.post-media-vector, [src$=".svg" i])) {
+    width: 100%;
+
+    &.is-processing {
+        min-height: 3rem;
+    }
+
+    & :is(.post-media-image, .post-media-overlay) {
+        width: 100%;
+    }
+}
+
 /* The outer picture owns the block gap, including when its image is linked or
  * has a responsive <picture> wrapper. An inner image must not add another gap. */
 #content .post-media-picture .post-media-image {

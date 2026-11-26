@@ -214,7 +214,7 @@ function candidateSummary(candidates) {
     return summary;
 }
 
-async function originalSvgImage(file, signal) {
+async function optimizeSvgImage(file, signal) {
     const bytes = new Uint8Array(await file.arrayBuffer());
     let encoding;
     if ((bytes[0] === 0xff && bytes[1] === 0xfe) || (bytes[0] === 0x3c && bytes[1] === 0)) encoding = 'utf-16le';
@@ -251,12 +251,15 @@ async function originalSvgImage(file, signal) {
     if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width > 32767 || height > 32767) {
         throw new Error('The SVG image dimensions are too large.');
     }
+    const {compactSvg} = await import('./svg-compact.js');
     throwIfAborted(signal);
+    const original = file.type === 'image/svg+xml' ? file : file.slice(0, file.size, 'image/svg+xml');
+    const blob = compactSvg(original, source, document);
     return {
-        blob: file.type === 'image/svg+xml' ? file : new Blob([file], {type: 'image/svg+xml'}),
+        blob,
         extension: 'svg', mimeType: 'image/svg+xml', width, height,
         displayWidth: width, displayHeight: height,
-        retina: false, resized: false, selectedType: 'original',
+        retina: false, resized: false, selectedType: blob === original ? 'original' : 'svg',
     };
 }
 
@@ -267,7 +270,7 @@ export async function optimizeImage(file, {signal = null, onProgress = null} = {
     throwIfAborted(signal);
     report(onProgress, 'decoding');
     if (String(file.type || '').toLowerCase() === 'image/svg+xml' || /\.svg$/iu.test(file.name || '')) {
-        const result = await originalSvgImage(file, signal);
+        const result = await optimizeSvgImage(file, signal);
         report(onProgress, 'ready');
         throwIfAborted(signal);
         return result;

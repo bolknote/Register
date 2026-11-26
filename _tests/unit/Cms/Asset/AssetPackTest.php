@@ -464,7 +464,7 @@ final class AssetPackTest extends Unit
         self::assertStringContainsString('.post-media-processing-progress.is-finishing', $site);
 
         self::assertIsString($script);
-        self::assertStringContainsString('URL.createObjectURL(file)', $script);
+        self::assertStringContainsString('URL.createObjectURL(preview)', $script);
         self::assertStringContainsString("state.imageUploadTail.catch(() => {}).then(run)", $script);
         self::assertStringContainsString("updateMediaUploadPending(pending, optimizingMessage, 'optimizing')", $script);
         self::assertStringContainsString("updateMediaUploadPending(pending, uploadingMessage, 'uploading')", $script);
