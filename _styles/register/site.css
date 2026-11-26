@@ -550,9 +550,8 @@ hr {
     margin: 1.8rem 0 1.25rem;
 }
 
-/* A percentage-sized SVG has no intrinsic width to size a fit-content block.
- * Use the article column for the local preview and for saved editor images. */
-#content .post-media-picture:has(.post-media-image:is(.post-media-vector, [src$=".svg" i])) {
+/* A percentage-sized SVG needs a column width even while its preview loads. */
+#content .post-media-picture:has(.post-media-image.post-media-vector) {
     width: 100%;
 
     &.is-processing {

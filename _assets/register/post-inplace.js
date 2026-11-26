@@ -5823,7 +5823,7 @@
 
     function updateImageSizeControls(context) {
         const {targetImage: image, imageRetina, imageDimensions} = context;
-        if (image.matches('.post-media-picture .post-media-image:is(.post-media-vector, [src$=".svg" i])')) {
+        if (image.matches('.post-media-picture .post-media-image.post-media-vector')) {
             imageRetina.disabled = true;
             imageRetina.checked = false;
             imageDimensions.textContent = `${image.width} × ${image.height}`;

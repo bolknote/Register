@@ -64,8 +64,7 @@ export async function runSvgUploadRegressions(browser, origin) {
             await page.route('**/recovery-fixture.js', async route => {
                 const source = await readFile(new URL('./recovery-fixture.js', import.meta.url), 'utf8');
                 await route.fulfill({contentType: 'text/javascript', body: savedBody === null ? source : source.replace(
-                    'if (!feed.childElementCount) feed.append(post(false));',
-                    `if (!feed.childElementCount) { const card = post(false); card.querySelector('[data-post-inplace-body]').innerHTML = ${JSON.stringify(savedBody)}; feed.append(card); }`,
+                    '`<p>Server body ${revision}</p>`', () => JSON.stringify(savedBody),
                 )});
             });
             await page.goto(origin + '/recovery.html');
@@ -126,11 +125,6 @@ export async function runSvgUploadRegressions(browser, origin) {
             await page.waitForFunction(() => document.querySelector('img[src="/vector-upload.svg"]')?.naturalWidth > 0);
             const published = page.locator('img[src="/vector-upload.svg"]');
             await assertColumnWidth(published);
-            if (mode === 'drop') {
-                // Saved by an earlier editor, before local previews carried a vector class.
-                await published.evaluate(image => image.classList.remove('post-media-vector'));
-                await assertColumnWidth(published);
-            }
             await page.setViewportSize({width: 430, height: 800});
             await assertColumnWidth(published);
             assert.equal(uploads, 1);
@@ -138,6 +132,24 @@ export async function runSvgUploadRegressions(browser, origin) {
             console.log(`${browser.browserType().name()}: SVG ${mode} → local preview → vector upload → responsive save and reload`);
 
             if (mode === 'drop') {
+                // An existing upload can have an intentional width, even with a managed media ID.
+                await page.setViewportSize({width: 1280, height: 800});
+                savedBody = await published.evaluate(image => {
+                    image.classList.remove('post-media-vector');
+                    image.setAttribute('width', '320');
+                    image.setAttribute('height', '160');
+                    return image.closest('[data-post-inplace-body]').innerHTML;
+                });
+                await page.reload();
+                await published.evaluate(image => image.decode());
+                assert.deepEqual(await published.evaluate(image => [image.width, image.height]), [320, 160]);
+                await page.getByRole('button', {name: 'Edit', exact: true}).click();
+                await published.click({button: 'right'});
+                const menu = page.locator('.post-editor-context-menu');
+                assert.equal(await menu.locator('[data-context-image-retina]').isEnabled(), true);
+                assert.equal(await menu.locator('[data-context-image-dimensions]').textContent(), '320 × 160');
+                await page.keyboard.press('Escape');
+
                 await checkSvgCompaction(page, manifest);
                 for (const [attributes, width, height] of [
                     ['width="320" height="160"', 320, 160], ['viewBox="0 0 2400 1200"', 2400, 1200],
