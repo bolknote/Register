@@ -60,7 +60,9 @@ final class SvgImageInfoTest extends TestCase
     public function testReadsUtf16WithoutConvertingTheStoredFile(): void
     {
         $xml = '<?xml version="1.0" encoding="UTF-16"?><svg xmlns="http://www.w3.org/2000/svg" width="320" height="160"/>';
-        $bytes = "\xff\xfe" . mb_convert_encoding($xml, 'UTF-16LE', 'UTF-8');
+        $encoded = mb_convert_encoding($xml, 'UTF-16LE', 'UTF-8');
+        self::assertIsString($encoded);
+        $bytes = "\xff\xfe" . $encoded;
         $this->withFile($bytes, static function (string $path) use ($bytes): void {
             self::assertSame([0 => 320, 1 => 160, 'mime' => 'image/svg+xml'], SvgImageInfo::read($path));
             self::assertSame($bytes, file_get_contents($path));
