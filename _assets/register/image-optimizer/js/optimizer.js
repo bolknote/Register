@@ -1,5 +1,5 @@
 /**
- * Automatic optimization for post images, retaining GIF files without flattening them.
+ * Automatic optimization for post images, preserving authored SVG and GIF animation.
  *
  * @copyright 2026 Register contributors
  * @license   https://opensource.org/license/mit MIT
@@ -214,12 +214,64 @@ function candidateSummary(candidates) {
     return summary;
 }
 
+async function originalSvgImage(file, signal) {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    let encoding;
+    if ((bytes[0] === 0xff && bytes[1] === 0xfe) || (bytes[0] === 0x3c && bytes[1] === 0)) encoding = 'utf-16le';
+    else if ((bytes[0] === 0xfe && bytes[1] === 0xff) || (bytes[0] === 0 && bytes[1] === 0x3c)) encoding = 'utf-16be';
+    else encoding = new TextDecoder().decode(bytes.subarray(0, 256)).match(/<\?xml\s[^?]*encoding\s*=\s*["']([^"']+)["']/iu)?.[1] || 'utf-8';
+    const source = new TextDecoder(encoding, {fatal: true}).decode(bytes);
+    const document = new DOMParser().parseFromString(source, 'image/svg+xml');
+    const root = document.documentElement;
+    if (root?.localName !== 'svg' || root.namespaceURI !== 'http://www.w3.org/2000/svg'
+        || document.getElementsByTagNameNS('http://www.mozilla.org/newlayout/xml/parsererror.xml', 'parsererror').length) {
+        throw new Error('The SVG document is invalid.');
+    }
+    const length = value => {
+        const match = value.trim().match(/^([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?)(px|in|cm|mm|q|pt|pc)?$/iu);
+        const factors = {in: 96, cm: 96 / 2.54, mm: 96 / 25.4, q: 96 / 101.6, pt: 96 / 72, pc: 16};
+        return match ? Number(match[1]) * (factors[match[2]?.toLowerCase()] ?? 1) : null;
+    };
+    let width = length(root.getAttribute('width') || '');
+    let height = length(root.getAttribute('height') || '');
+    if ((width !== null && width <= 0) || (height !== null && height <= 0)) {
+        throw new Error('The SVG image dimensions are invalid.');
+    }
+    if (root.hasAttribute('viewBox')) {
+        const parts = root.getAttribute('viewBox').trim().split(/[\s,]+/u);
+        const values = parts.map(Number);
+        if (parts.length !== 4 || parts.some(value => !/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/iu.test(value)) || values.some(value => !Number.isFinite(value))
+            || values[2] <= 0 || values[3] <= 0) throw new Error('The SVG viewBox is invalid.');
+        if (width === null && height === null) [width, height] = [values[2], values[3]];
+        else if (width === null) width = height * values[2] / values[3];
+        else if (height === null) height = width * values[3] / values[2];
+    }
+    width = Math.max(1, Math.round(width ?? 300));
+    height = Math.max(1, Math.round(height ?? 150));
+    if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width > 32767 || height > 32767) {
+        throw new Error('The SVG image dimensions are too large.');
+    }
+    throwIfAborted(signal);
+    return {
+        blob: file.type === 'image/svg+xml' ? file : new Blob([file], {type: 'image/svg+xml'}),
+        extension: 'svg', mimeType: 'image/svg+xml', width, height,
+        displayWidth: width, displayHeight: height,
+        retina: false, resized: false, selectedType: 'original',
+    };
+}
+
 export async function optimizeImage(file, {signal = null, onProgress = null} = {}) {
     if (!(file instanceof Blob) || file.size <= 0) {
         throw new Error('No image file was provided.');
     }
     throwIfAborted(signal);
     report(onProgress, 'decoding');
+    if (String(file.type || '').toLowerCase() === 'image/svg+xml' || /\.svg$/iu.test(file.name || '')) {
+        const result = await originalSvgImage(file, signal);
+        report(onProgress, 'ready');
+        throwIfAborted(signal);
+        return result;
+    }
     const signature = String.fromCharCode(...new Uint8Array(await file.slice(0, 6).arrayBuffer()));
     const isGif = signature === 'GIF87a' || signature === 'GIF89a';
     if (isGif || String(file.type || '').toLowerCase() === 'image/gif') {

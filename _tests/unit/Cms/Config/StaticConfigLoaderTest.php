@@ -14,7 +14,7 @@ use Register\Core\Config\StaticConfigLoader;
 
 final class StaticConfigLoaderTest extends Unit
 {
-    public function testDefaultMediaAllowlistSupportsModernFormatsWithoutActiveContent(): void
+    public function testDefaultMediaAllowlistSupportsImagesAndAttachmentsWithoutServerScripts(): void
     {
         $extensions = explode(' ', StaticConfigLoader::DEFAULT_ALLOWED_EXTENSIONS);
 
@@ -23,7 +23,7 @@ final class StaticConfigLoaderTest extends Unit
         self::assertContains('mov', $extensions);
         self::assertContains('webm', $extensions);
         self::assertNotContains('php', $extensions);
-        self::assertNotContains('svg', $extensions);
+        self::assertContains('svg', $extensions);
     }
 
     public function testNormalizesTrustedProxyString(): void

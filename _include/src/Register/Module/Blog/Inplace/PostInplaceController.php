@@ -64,7 +64,7 @@ final readonly class PostInplaceController implements ControllerInterface
     private const string SAVEPOINT = 'register_post_inplace';
 
     /** @var list<string> */
-    private const array IMAGE_EXTENSIONS = ['gif', 'jpeg', 'jpg', 'png', 'webp'];
+    private const array IMAGE_EXTENSIONS = ['gif', 'jpeg', 'jpg', 'png', 'svg', 'webp'];
 
     /** @var list<string> */
     private const array AUDIO_EXTENSIONS = ['flac', 'mkv', 'mp3', 'mp4', 'ogg', 'wav', 'webm'];
@@ -534,7 +534,7 @@ final readonly class PostInplaceController implements ControllerInterface
         $actualHeight  = isset($imageInfo[1]) ? (int)$imageInfo[1] : 0;
         $actualMime    = isset($imageInfo['mime']) ? mb_strtolower((string)$imageInfo['mime']) : '';
         if (
-            !\in_array($mimeType, ['image/jpeg', 'image/png', 'image/webp', 'image/gif'], true)
+            !\in_array($mimeType, ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'], true)
             || $actualMime !== $mimeType
             || $width !== $actualWidth
             || $height !== $actualHeight
@@ -542,14 +542,14 @@ final readonly class PostInplaceController implements ControllerInterface
             || $height <= 0
             || $width > 32767
             || $height > 32767
-            || $width * $height > 20_000_000
+            || ($mimeType !== 'image/svg+xml' && $width * $height > 20_000_000)
         ) {
             return false;
         }
 
-        // GIF uploads preserve the original animation and its natural dimensions.
-        // The editor's static-image resize/@2x policy cannot be applied to them.
-        if ($mimeType === 'image/gif') {
+        // GIF animation and authored SVG retain their original bytes and dimensions.
+        // The editor's raster resize/@2x policy cannot be applied to them.
+        if ($mimeType === 'image/gif' || $mimeType === 'image/svg+xml') {
             return !$retina && $displayWidth === $width && $displayHeight === $height;
         }
 

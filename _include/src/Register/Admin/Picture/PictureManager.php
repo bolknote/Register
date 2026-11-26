@@ -17,13 +17,15 @@ use Register\AdminYard\Translator;
 use Register\Core\AdminYard\CustomTemplateRenderer;
 use Register\Core\Framework\Exception\AccessDeniedException;
 use Register\Core\Image\ThumbnailGenerator;
+use Register\Core\Image\SvgImageInfo;
 use Register\Core\Security\Http\AdminMutationGuard;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Response;
 
 class PictureManager
 {
-    private const array EXTENSIONS_FOR_PREVIEW = ['avif', 'bmp', 'gif', 'jpeg', 'jpg', 'png', 'webp'];
+    private const array EXTENSIONS_FOR_PREVIEW = ['avif', 'bmp', 'gif', 'jpeg', 'jpg', 'png', 'svg', 'webp'];
 
     public function __construct(
         private readonly Translator              $translator,
@@ -45,6 +47,14 @@ class PictureManager
         }
 
         $filename = $this->imageDir . $file;
+
+        if (strtolower(pathinfo($file, PATHINFO_EXTENSION)) === 'svg') {
+            if (SvgImageInfo::read($filename) === null) {
+                throw new \RuntimeException('Unable to read SVG image metadata.');
+            }
+
+            return new BinaryFileResponse($filename, headers: ['Content-Type' => 'image/svg+xml']);
+        }
 
         $image = ThumbnailGenerator::createImageFromFile($filename);
         $sx    = imagesx($image);
@@ -373,10 +383,10 @@ class PictureManager
             $bits = '';
             $dimensions = '';
             if (str_contains($item, '.') && \in_array(pathinfo($item, PATHINFO_EXTENSION), self::EXTENSIONS_FOR_PREVIEW, true)) {
-                $imageInfo = getimagesize($this->imageDir . $dir . '/' . $item);
-                if ($imageInfo !== false) {
+                $imageInfo = $this->getImageInfo($dir . '/' . $item);
+                if ($imageInfo !== []) {
                     $dimensions = $imageInfo[0] . '*' . $imageInfo[1];
-                    $bits       = ($imageInfo['bits'] ?? 0) * ($imageInfo['channels'] ?? 1);
+                    $bits       = isset($imageInfo['bits']) ? $imageInfo['bits'] * ($imageInfo['channels'] ?? 1) : '';
                 }
             }
 
@@ -489,6 +499,10 @@ class PictureManager
      */
     public function getImageInfo(string $fileName): array
     {
+        if (strtolower(pathinfo($fileName, PATHINFO_EXTENSION)) === 'svg') {
+            return SvgImageInfo::read($this->imageDir . $fileName) ?? [];
+        }
+
         if (!\function_exists('getimagesize')) {
             return [];
         }

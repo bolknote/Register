@@ -30,7 +30,7 @@
     const aiImagePreviewPreferPngBytes = 1.5 * 1024 * 1024;
     const aiImagePreviewMaxPngBytes = 9 * 1024 * 1024;
     const aiImagePreviewJpegQuality = 0.9;
-    const imageExtensions = new Set(['avif', 'bmp', 'gif', 'ico', 'jpeg', 'jpg', 'png', 'webp']);
+    const imageExtensions = new Set(['avif', 'bmp', 'gif', 'ico', 'jpeg', 'jpg', 'png', 'svg', 'webp']);
     const audioExtensions = new Set(['flac', 'mkv', 'mp3', 'mp4', 'ogg', 'wav', 'webm']);
     const aiCorrectionTokenPattern = /<[^>]*>|[\p{L}\p{N}_]+|\s+|[^\p{L}\p{N}_\s<>]+|[<>]/gu;
     const aiCorrectionMaxLookAhead = 24;
@@ -1820,7 +1820,9 @@
         const dot = file.name.lastIndexOf('.');
         const extension = dot >= 0 ? file.name.slice(dot + 1).toLowerCase() : '';
         const type = file.type.toLowerCase();
-        if (imageExtensions.has(extension) && (type === '' || type.startsWith('image/'))) {
+        const imageType = type === '' || type.startsWith('image/')
+            || (extension === 'svg' && ['application/xml', 'text/xml'].includes(type));
+        if (imageExtensions.has(extension) && imageType) {
             return 'image';
         }
         if (
@@ -2969,6 +2971,7 @@
             'image/gif': 'gif',
             'image/jpeg': 'jpg',
             'image/png': 'png',
+            'image/svg+xml': 'svg',
             'image/webp': 'webp',
             'image/x-icon': 'ico',
             'image/vnd.microsoft.icon': 'ico',

@@ -39,11 +39,11 @@ final class PictureFileNameHelperTest extends Unit
 
     public function testActiveAndCompoundExtensionsAreAlwaysForbidden(): void
     {
-        $helper = $this->helper('config htaccess html ini jpg php svg');
+        $helper = $this->helper('config htaccess html ini jpg php svg svgz');
 
         self::assertFalse($helper->isAllowedExtension('payload.php'));
         self::assertFalse($helper->isAllowedExtension('payload.php.jpg'));
-        self::assertFalse($helper->isAllowedExtension('vector.svg'));
+        self::assertFalse($helper->isAllowedExtension('vector.svgz'));
         self::assertFalse($helper->isAllowedExtension('web.config'));
         self::assertFalse($helper->isAllowedExtension('payload.user.ini'));
         self::assertFalse($helper->isAllowedExtension('.htaccess'));
@@ -58,6 +58,33 @@ final class PictureFileNameHelperTest extends Unit
         $file = new UploadedFile($path, 'photo.png', 'image/png', null, true);
 
         $this->helper('png')->assertSafeUploadedFile($file, 'photo.png');
+    }
+
+    public function testAcceptsAuthoredSvgWithoutRewritingItsContents(): void
+    {
+        $svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 320" onload="authorCode()">'
+            . '<style>text { font-family: monospace; }</style><script>function authorCode() {}</script>'
+            . '<foreignObject width="200" height="100"><div xmlns="http://www.w3.org/1999/xhtml">Caption</div></foreignObject></svg>';
+        $path = $this->temporaryFile($svg);
+        $file = new UploadedFile($path, 'drawing.svg', 'image/svg+xml', null, true);
+        $helper = $this->helper('svg');
+        $helper->assertSafeUploadedFile($file, 'drawing.svg');
+        self::assertSame('image/svg+xml', $helper->detectMimeType($path));
+        self::assertSame($svg, file_get_contents($path));
+    }
+
+    public function testRejectsInvalidSvgEvenWhenTheBrowserDecodeCheckIsSkipped(): void
+    {
+        foreach (['<svg xmlns="http://www.w3.org/2000/svg"><g></svg>', '<html><body>Not SVG</body></html>'] as $bytes) {
+            $path = $this->temporaryFile($bytes);
+            $file = new UploadedFile($path, 'drawing.svg', 'image/svg+xml', null, true);
+            try {
+                $this->helper('svg')->assertSafeBrowserDecodedImage($file, 'drawing.svg');
+                self::fail('A .svg name is insufficient without a well-formed SVG document.');
+            } catch (\RuntimeException $exception) {
+                self::assertSame(Response::HTTP_UNSUPPORTED_MEDIA_TYPE, $exception->getCode());
+            }
+        }
     }
 
     public function testRejectsContentThatDoesNotMatchTheExtension(): void

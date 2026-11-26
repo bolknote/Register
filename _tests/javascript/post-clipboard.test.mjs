@@ -17,7 +17,7 @@ function harness() {
     let blockStyle = 'paragraph';
     const context = vm.createContext({
         File,
-        imageExtensions: new Set(['avif', 'bmp', 'gif', 'ico', 'jpeg', 'jpg', 'png', 'webp']),
+        imageExtensions: vm.runInNewContext(source.match(/const imageExtensions = (new Set\(\[[^\n]+\]\));/u)[1]),
         audioExtensions: new Set(['flac', 'mkv', 'mp3', 'mp4', 'ogg', 'wav', 'webm']),
         bodyDropState: target => target === state.body ? state : null,
         contextBlockStyle: () => blockStyle,
@@ -223,9 +223,25 @@ test('pastes into other fields or already handled by a caption are not intercept
 test('unsupported image formats use the upload error path without deleting selected text', () => {
     const {context, paste, select, inserted} = harness();
     select();
-    const svg = new File(['<svg/>'], 'image.svg', {type: 'image/svg+xml'});
-    assert.equal(paste({files: [svg]}).defaultPrevented, true);
+    const file = new File(['unsupported image'], 'image.heic', {type: 'image/heic'});
+    assert.equal(paste({files: [file]}).defaultPrevented, true);
     assert.equal(inserted[0].range.deleted, false);
-    assert.equal(inserted[0].files[0], svg);
-    assert.equal(context.mediaKindForFile(svg), null);
+    assert.equal(inserted[0].files[0], file);
+    assert.equal(context.mediaKindForFile(file), null);
+});
+
+test('SVG files and nameless SVG clipboard images enter the image upload pipeline', () => {
+    const {context, paste, select, inserted} = harness();
+    const selection = select();
+    const svg = new File(['<svg xmlns="http://www.w3.org/2000/svg"/>'], 'drawing.SVG', {type: 'image/svg+xml'});
+    assert.equal(context.mediaKindForFile(svg), 'image');
+    for (const type of ['', 'application/xml', 'text/xml']) {
+        assert.equal(context.mediaKindForFile(new File([svg], 'drawing.svg', {type})), 'image');
+    }
+    assert.equal(paste({files: [svg]}).defaultPrevented, true);
+    assert.equal(inserted[0].range.deleted, true);
+    assert.equal(selection.deleted, false);
+    const [clipboard] = context.clipboardMediaFiles({files: [new File([svg], '', {type: svg.type})]});
+    assert.equal(clipboard.name, 'clipboard-image-1.svg');
+    assert.equal(context.mediaKindForFile(clipboard), 'image');
 });

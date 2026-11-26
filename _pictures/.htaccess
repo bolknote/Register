@@ -1,6 +1,6 @@
 # User-controlled files are data only. Keep this deny-list independent from
 # the configurable upload allow-list so a configuration mistake cannot enable
-# script execution.
+# server-side script execution. Authenticated authors may upload SVG images.
 Options -Indexes -ExecCGI
 
 RemoveHandler .php .php2 .php3 .php4 .php5 .php6 .php7 .php8 .pht .phtml .phar .cgi .pl .py .sh .shtml .asp .aspx .jsp .inc
@@ -10,6 +10,7 @@ RemoveType .php .php2 .php3 .php4 .php5 .php6 .php7 .php8 .pht .phtml .phar .cgi
     AddType image/bpg .bpg
     AddType image/emf .emf
     AddType image/jp2 .jpeg2000
+    AddType image/svg+xml .svg
     AddType image/vnd.ms-photo .jpegxr
     AddType video/x-mng .mng
     AddType image/tiff .tiff
@@ -18,7 +19,7 @@ RemoveType .php .php2 .php3 .php4 .php5 .php6 .php7 .php8 .pht .phtml .phar .cgi
     AddType image/x-xbitmap .xbm
 </IfModule>
 
-<FilesMatch "(?i)\.(?:asp|aspx|cgi|config|css|htm|html|inc|ini|js|jsp|mjs|phar|php[0-9]?|pht|phtml|pl|py|sh|shtml|svg|svgz|wasm|xht|xhtml|xml|xsl|xslt)$">
+<FilesMatch "(?i)\.(?:asp|aspx|cgi|config|css|htm|html|inc|ini|js|jsp|mjs|phar|php[0-9]?|pht|phtml|pl|py|sh|shtml|svgz|wasm|xht|xhtml|xml|xsl|xslt)$">
     <IfModule mod_authz_core.c>
         Require all denied
     </IfModule>

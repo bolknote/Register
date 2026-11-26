@@ -11,6 +11,7 @@ namespace Register\Module\Blog\Inplace;
 
 use Register\Admin\Picture\PictureFileNameHelper;
 use Register\Admin\Picture\PictureStorageQuota;
+use Register\Core\Image\SvgImageInfo;
 use Register\Media\MediaMutationTracker;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Response;
@@ -145,6 +146,10 @@ final class PostInplaceMediaStorage
     /** @return array<mixed> */
     public function getImageInfo(string $storedFile): array
     {
+        if (strtolower(pathinfo($storedFile, PATHINFO_EXTENSION)) === 'svg') {
+            return SvgImageInfo::read($this->fullPath($storedFile)) ?? [];
+        }
+
         if (!\function_exists('getimagesize')) {
             return [];
         }

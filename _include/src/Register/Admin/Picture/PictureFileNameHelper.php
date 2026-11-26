@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Admin\Picture;
 
+use Register\Core\Image\SvgImageInfo;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -24,7 +25,7 @@ readonly class PictureFileNameHelper
         'asp', 'aspx', 'bash', 'bat', 'cgi', 'cmd', 'com', 'config', 'css', 'exe', 'htaccess', 'htm',
         'html', 'htpasswd', 'inc', 'ini', 'jar', 'js', 'jsp', 'mjs', 'phar', 'php', 'php2', 'php3',
         'php4', 'php5', 'php6', 'php7', 'php8',
-        'pht', 'phtm', 'phtml', 'pl', 'py', 'rb', 'sh', 'shtml', 'svg', 'svgz', 'user.ini', 'xht',
+        'pht', 'phtm', 'phtml', 'pl', 'py', 'rb', 'sh', 'shtml', 'svgz', 'user.ini', 'xht',
         'xhtml', 'xml', 'xsl', 'xslt', 'wasm',
     ];
 
@@ -59,6 +60,7 @@ readonly class PictureFileNameHelper
         'pptx' => ['application/vnd.openxmlformats-officedocument.presentationml.presentation', 'application/zip', 'application/x-zip-compressed'],
         'rar'  => ['application/vnd.rar', 'application/x-rar', 'application/x-rar-compressed'],
         'rtf'  => ['application/rtf', 'text/plain', 'text/rtf'],
+        'svg'  => ['image/svg+xml'],
         'txt'  => ['text/plain'],
         'wav'  => ['audio/vnd.wave', 'audio/wav', 'audio/x-wav'],
         'webm' => ['audio/webm', 'video/webm'],
@@ -127,7 +129,8 @@ readonly class PictureFileNameHelper
      * Applies every upload check except server-side image decoding.
      *
      * This is reserved for an authenticated editor upload accompanied by a separately validated,
-     * browser-rendered preview. Active and mismatched file types are still rejected.
+     * browser-rendered preview. Server-executable and mismatched file types are still rejected;
+     * authored SVG always undergoes XML/geometry validation.
      */
     public function assertSafeBrowserDecodedImage(UploadedFile $uploadedFile, string $filename): void
     {
@@ -197,7 +200,11 @@ readonly class PictureFileNameHelper
             throw new \RuntimeException('The uploaded file content does not match its extension.', Response::HTTP_UNSUPPORTED_MEDIA_TYPE);
         }
 
-        if ($requireImageDecode && str_starts_with($mimeType, 'image/')) {
+        if ($extension === 'svg') {
+            if (SvgImageInfo::read($path) === null) {
+                throw new UploadedImageDecodeException('The uploaded SVG document is invalid.', Response::HTTP_UNSUPPORTED_MEDIA_TYPE);
+            }
+        } elseif ($requireImageDecode && str_starts_with($mimeType, 'image/')) {
             $imageInfo = register_call_without_warnings(static fn(): array|false => getimagesize($path));
             $imageMime = \is_array($imageInfo) ? mb_strtolower($imageInfo['mime']) : '';
             if ($imageMime === '' || !\in_array($imageMime, $allowedMimeTypes, true)) {
@@ -254,7 +261,12 @@ readonly class PictureFileNameHelper
             return $avifMimeType;
         }
 
-        return mb_strtolower(trim(explode(';', $mimeType, 2)[0]));
+        $mimeType = mb_strtolower(trim(explode(';', $mimeType, 2)[0]));
+        if (\in_array($mimeType, ['application/xml', 'text/xml'], true) && SvgImageInfo::read($path) !== null) {
+            return 'image/svg+xml';
+        }
+
+        return $mimeType;
     }
 
     private function detectAvifMimeType(string $path): ?string

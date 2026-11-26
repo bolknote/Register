@@ -45,7 +45,7 @@ try {
         '/_cache/phpstan/deadbeef.css'                  => 403,
         '/_pictures/photo.png'                          => 200,
         '/_pictures/shell.php'                          => 403,
-        '/_pictures/active.svg'                         => 403,
+        '/_pictures/active.svg'                         => 200,
         '/_assets/register/admin-yard/style.css'          => 200,
         '/_assets/register/admin-yard/script.js'          => 200,
         '/_vendor/example/package/composer.json'        => 403,
@@ -86,6 +86,11 @@ try {
                 $expectedStatus,
             ));
         }
+    }
+
+    $svgResponse = requestResponse($port, '/_pictures/active.svg');
+    if (($svgResponse['headers']['content-type'] ?? []) !== ['image/svg+xml']) {
+        throw new RuntimeException('Apache must serve authored SVG with the image/svg+xml media type.');
     }
 
     $securityHeaders = [

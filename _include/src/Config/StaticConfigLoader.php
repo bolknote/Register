@@ -16,7 +16,7 @@ final class StaticConfigLoader
 {
     public const string DEFAULT_IMAGE_DIR          = '_pictures';
 
-    public const string DEFAULT_ALLOWED_EXTENSIONS = 'gif bmp jpg jpeg png webp avif ico mp3 wav ogg flac mp4 avi mov webm flv mpg mpeg mkv zip 7z rar doc docx ppt pptx odt odp ods xlsx xls pdf txt rtf csv';
+    public const string DEFAULT_ALLOWED_EXTENSIONS = 'gif bmp jpg jpeg png webp avif ico svg mp3 wav ogg flac mp4 avi mov webm flv mpg mpeg mkv zip 7z rar doc docx ppt pptx odt odp ods xlsx xls pdf txt rtf csv';
 
     public const string DEFAULT_COOKIE_NAME        = 'register_cookie_6094033457';
 
